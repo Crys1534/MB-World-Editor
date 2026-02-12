@@ -1,0 +1,438 @@
+:root {
+ /* --- TEMA DEFAULT (DARK) --- */
+ --bg-dark: #1e1e1e;
+ --bg-panel: #252526;
+ --bg-header: #333333;
+ --accent: #007acc;
+ --text: #cccccc;
+ --border: #3e3e42;
+ --input-bg: #3c3c3c;
+ --input-hover: #505050;
+}
+
+/* --- TEMA WHITE --- */
+body.theme-white {
+ --bg-dark: #f0f2f5;
+ --bg-panel: #ffffff;
+ --bg-header: #e4e6eb;
+ --accent: #1877f2;
+ --text: #050505;
+ --border: #ccc;
+ --input-bg: #ffffff;
+ --input-hover: #f2f2f2;
+}
+
+/* --- TEMA PASTEL --- */
+body.theme-pastel {
+ --bg-dark: #fdf6e3;
+ --bg-panel: #eee8d5;
+ --bg-header: #e6dfc8;
+ --accent: #d33682;
+ --text: #586e75;
+ --border: #d6d1bc;
+ --input-bg: #fdf6e3;
+ --input-hover: #ece6d3;
+}
+
+/* --- TEMA DARK BLUE --- */
+body.theme-darkblue {
+ --bg-dark: #0f172a;
+ --bg-panel: #1e293b;
+ --bg-header: #0f172a;
+ --accent: #38bdf8;
+ --text: #e2e8f0;
+ --border: #334155;
+ --input-bg: #1e293b;
+ --input-hover: #334155;
+}
+
+body {
+ margin: 0;
+ background-color: var(--bg-dark);
+ color: var(--text);
+ height: 100vh;
+ display: flex;
+ flex-direction: column;
+ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+ overflow: hidden;
+ transition: background-color 0.3s, color 0.3s;
+}
+
+/* --- TOP BAR --- */
+#top-bar {
+ background-color: var(--bg-header);
+ height: 35px;
+ display: flex;
+ align-items: center;
+ justify-content: space-between;
+ padding: 0 10px;
+ border-bottom: 1px solid var(--border);
+ z-index: 30; /* Encima de todo */
+ position: relative;
+}
+
+.left-group, .right-group {
+ display: flex;
+ align-items: center;
+ gap: 8px;
+}
+
+.icon-btn {
+ background: transparent;
+ border: 1px solid transparent;
+ color: var(--text);
+ cursor: pointer;
+ padding: 2px 8px;
+ font-size: 14px;
+ border-radius: 3px;
+ display: flex;
+ align-items: center;
+ gap: 5px;
+}
+
+.icon-btn:hover {
+ background-color: rgba(128, 128, 128, 0.2);
+}
+
+.separator {
+ width: 1px;
+ height: 18px;
+ background-color: var(--border);
+ margin: 0 5px;
+}
+
+.filename-wrapper {
+ display: flex;
+ align-items: center;
+ background-color: var(--input-bg);
+ border: 1px solid var(--border);
+ border-radius: 3px;
+ padding: 2px 5px;
+ width: 300px;
+}
+
+#filename-display {
+ background: transparent;
+ border: none;
+ color: var(--text);
+ font-family: inherit;
+ width: 100%;
+ outline: none;
+ text-align: left;
+ padding-left: 5px;
+}
+
+.extension {
+ opacity: 0.6;
+ font-weight: bold;
+ pointer-events: none;
+}
+
+/* --- RIBBON (PESTAÑAS) --- */
+#ribbon {
+ background-color: var(--bg-panel);
+ border-bottom: 1px solid var(--border);
+ display: flex;
+ flex-direction: column;
+ z-index: 20; /* Encima de sidebar */
+ position: relative;
+}
+
+.tabs {
+ display: flex;
+ background-color: var(--bg-header);
+ padding-top: 5px;
+ padding-left: 10px;
+}
+
+/* Ancho dinámico para pestañas */
+.tab-btn {
+ background: transparent;
+ border: none;
+ color: var(--text);
+ padding: 6px 15px;
+ width: auto; 
+ text-align: center;
+ cursor: pointer;
+ font-size: 12px;
+ border-top-left-radius: 3px;
+ border-top-right-radius: 3px;
+ transition: background-color 0.2s;
+}
+
+.tab-btn.active {
+ background-color: var(--bg-panel);
+ font-weight: bold;
+ border-bottom: 2px solid var(--accent);
+}
+
+.tab-btn.disabled {
+ opacity: 0.5;
+ cursor: default;
+}
+.tab-btn.disabled:hover {
+ background-color: transparent;
+}
+
+.tab-content {
+ height: 40px;
+ padding: 5px 15px;
+ display: flex;
+ align-items: center;
+ background-color: var(--bg-panel);
+}
+
+.tab-pane {
+ display: none;
+ width: 100%;
+}
+
+.tab-pane.active {
+ display: flex;
+ align-items: center;
+ gap: 20px;
+}
+
+/* --- SIDEBAR (HERRAMIENTAS) --- */
+#toolbar-sidebar {
+ position: absolute;
+ top: 112px; /* TopBar(35) + RibbonTabs(aprox 31) + RibbonContent(40) + Bordes = ~112px */
+ left: 0;
+ bottom: 0;
+ width: 60px;
+ background-color: var(--bg-panel);
+ border-right: 1px solid var(--border);
+ display: flex;
+ flex-direction: column;
+ align-items: center;
+ padding-top: 10px;
+ gap: 0; 
+ z-index: 15;
+}
+
+.tool-btn {
+ width: 45px;
+ height: 45px;
+ background: transparent;
+ border: 1px solid transparent;
+ color: var(--text);
+ cursor: pointer;
+ border-radius: 6px;
+ font-size: 24px;
+ display: flex;
+ justify-content: center;
+ align-items: center;
+ transition: all 0.2s;
+ margin-bottom: 5px;
+}
+
+.tool-btn:hover {
+ background-color: rgba(128,128,128,0.2);
+ transform: scale(1.05);
+}
+
+.tool-btn.active {
+ background-color: var(--accent);
+ color: white;
+ box-shadow: 0 0 8px var(--accent);
+ border: 1px solid rgba(255,255,255,0.3);
+}
+
+/* --- WORKSPACE --- */
+#workspace {
+ position: absolute;
+ top: 112px;
+ left: 60px; 
+ width: calc(100% - 60px); /* Restamos el ancho exacto de la sidebar */
+ bottom: 0;
+ background-color: #1a1a1a;
+ overflow: hidden;
+}
+
+canvas {
+ display: block;
+ image-rendering: pixelated;
+ outline: none;
+ width: 100%;
+ height: 100%;
+}
+
+/* --- OVERLAYS --- */
+#coords-overlay {
+ position: absolute;
+ top: 10px;
+ left: 10px;
+ font-family: 'Consolas', 'Courier New', monospace;
+ font-size: 24px;
+ color: white;
+ text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+ pointer-events: none;
+ z-index: 10;
+}
+
+/* ZOOM TRANSPARENTE CON SOMBRA */
+#zoom-floating {
+ position: absolute;
+ bottom: 20px;
+ right: 20px;
+ background: transparent; /* Transparente */
+ padding: 10px 15px;
+ display: flex;
+ align-items: center;
+ gap: 10px;
+ color: white;
+ font-size: 12px;
+ z-index: 10;
+ /* Sombra fuerte para legibilidad */
+ text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+}
+
+#zoom-floating input[type=range] {
+ cursor: pointer;
+ width: 120px;
+ box-shadow: 0 0 5px rgba(0,0,0,0.8);
+ border-radius: 5px;
+}
+
+/* --- CONSOLA --- */
+#console-overlay {
+ display: none;
+ position: absolute;
+ bottom: 20px;
+ left: 20px;
+ pointer-events: none;
+ z-index: 20;
+ display: flex;
+ flex-direction: column;
+}
+
+#console-suggestion {
+ color: #aaa;
+ background: rgba(0,0,0,0.6);
+ padding: 2px 5px;
+ border-radius: 3px;
+ font-family: 'Consolas', monospace;
+ font-size: 12px;
+ margin-bottom: 2px;
+ pointer-events: auto;
+}
+
+#console-input {
+ pointer-events: auto;
+ background-color: rgba(0, 0, 0, 0.8);
+ color: #ffffff;
+ font-family: 'Consolas', monospace;
+ border: 1px solid #555;
+ padding: 8px;
+ width: 300px;
+ font-size: 14px;
+ border-radius: 4px;
+ box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+}
+
+/* --- MODALES --- */
+.modal {
+ display: none;
+ position: fixed;
+ z-index: 100;
+ left: 0;
+ top: 0;
+ width: 100%;
+ height: 100%;
+ background-color: rgba(0,0,0,0.5);
+ backdrop-filter: blur(2px);
+}
+
+.modal-content {
+ background-color: var(--bg-panel);
+ color: var(--text);
+ margin: 5% auto;
+ padding: 20px;
+ border: 1px solid var(--border);
+ width: 600px;
+ max-width: 90vw;
+ max-height: 80vh;
+ overflow-y: auto;
+ border-radius: 5px;
+ box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+
+.close-modal {
+ color: var(--text);
+ float: right;
+ font-size: 28px;
+ font-weight: bold;
+ cursor: pointer;
+ opacity: 0.7;
+}
+
+.close-modal:hover {
+ opacity: 1;
+}
+
+/* Logros en 2 Columnas */
+#achievements-list {
+    display: grid;              /* Activa el modo de rejilla */
+    grid-template-columns: 1fr 1fr; /* Crea dos columnas de igual ancho */
+    gap: 10px;                  /* Añade espacio entre las columnas y filas */
+    padding: 10px;
+    max-height: 400px;          /* Ajusta según prefieras para el scroll */
+    overflow-y: auto;           /* Mantiene el scroll vertical si hay muchos logros */
+}
+
+#achievements-list label {
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+    cursor: pointer;
+    white-space: nowrap;        /* Evita que el texto se parta en varias líneas */
+    overflow: hidden;
+    text-overflow: ellipsis;    /* Añade puntos suspensivos si el texto es muy largo */
+}
+
+#achievements-list label:hover {
+ background-color: rgba(128, 128, 128, 0.1);
+ border-radius: 4px;
+}
+
+.modal-actions {
+ margin-bottom: 10px;
+ padding-bottom: 10px;
+ border-bottom: 1px solid var(--border);
+ display: flex;
+ gap: 10px;
+}
+
+.settings-row {
+ margin-bottom: 15px;
+}
+.settings-row label {
+ display: block;
+ margin-bottom: 5px;
+ font-weight: bold;
+}
+.settings-row select {
+ width: 100%;
+ padding: 8px;
+}
+
+/* UI GENERAL */
+select, button, .input-group input {
+ background: var(--input-bg);
+ color: var(--text);
+ border: 1px solid var(--border);
+ padding: 5px 10px;
+ border-radius: 3px;
+ font-family: inherit;
+ outline: none;
+}
+
+button:hover { 
+ background: var(--input-hover); 
+ cursor: pointer;
+}
+
+.input-group {
+ display: flex;
+ align-items: center;
+}

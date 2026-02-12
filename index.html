@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <link rel="icon" href="favicon.ico" type="image/x-icon">
+ <link rel="stylesheet" href="style.css">
+ <title>MB World Edit</title>
+</head>
+<body>
+ 
+ <div id="top-bar">
+  <div class="left-group">
+   <button class="icon-btn" onclick="document.getElementById('file-input').click()">📂 Load World</button>
+   <button class="icon-btn" onclick="fileManager.export()">💾 Save World</button>
+   <button class="icon-btn" onclick="openModal('settings-modal')">⚙️ Configuration</button>
+   <div class="separator"></div>
+   <button class="icon-btn" onclick="historyManager.undo()" title="Undo (Ctrl+Z)">↶</button>
+   <button class="icon-btn" onclick="historyManager.redo()" title="Redo (Ctrl+Y)">↷</button>
+   <div class="separator"></div>
+   <div class="filename-wrapper">
+    <input type="text" id="filename-display" value="world" oninput="updateFilename(this.value)">
+    <span class="extension">.mbw</span>
+   </div>
+  </div>
+ </div>
+
+ <div id="ribbon">
+  <div class="tabs">
+   <button class="tab-btn disabled">Insert (Soon)</button>
+   <button class="tab-btn active" onclick="openTab('settings')">World Settings</button>
+   <button class="tab-btn" onclick="openTab('view')">View</button>
+  </div>
+  <div class="tab-content">
+   <div id="tab-settings" class="tab-pane active">
+    <div class="input-group">
+     <label style="margin-right: 5px;">Gamemode:</label>
+     <select id="gamemode">
+      <option value="0">Survival</option>
+      <option value="1">Creative</option>
+      <option value="2">Adventure</option>
+      <option value="3">Spectator</option>
+     </select>
+    </div>
+    <label style="cursor: pointer;"><input type="checkbox" id="cheats"> Cheats</label>
+    <div class="separator"></div>
+    <button onclick="openModal('achievements-modal')">🏆 Manage Achievements</button>
+   </div>
+   <div id="tab-view" class="tab-pane">
+    <label><input type="checkbox" id="show-grid" onchange="toggleGrid(this.checked)"> Show Grid</label>
+    <div class="separator"></div>
+    <div class="input-group">
+        <label style="margin-right: 5px;">Dimension:</label>
+        <select id="dimension">
+         <option value="1">Overworld</option>
+         <option value="2">Nether</option>
+         <option value="3">End</option>
+        </select>
+    </div>
+   </div>
+  </div>
+ </div>
+
+ <div id="toolbar-sidebar">
+    <button class="tool-btn active" id="tool-pencil" onclick="selectTool('pencil')" title="Lápiz">✏️</button>
+    <button class="tool-btn" id="tool-eraser" onclick="selectTool('eraser')" title="Borrador">🧼</button>
+    <button class="tool-btn" id="tool-bucket" onclick="selectTool('bucket')" title="Bote de Pintura">🪣</button>
+	<button class="tool-btn" id="tool-select" onclick="selectTool('select')" title="Seleccionar">🔳</button>
+    <button class="tool-btn" id="tool-eyedropper" onclick="selectTool('eyedropper')" title="Gotero">💧</button>
+    
+    <div class="separator" style="width: 80%; height: 1px; background: #444; margin: 5px 0;"></div>
+    
+    <button class="tool-btn" onclick="takeScreenshot()" title="Screenshot visible">📷</button>
+    <button class="tool-btn" onclick="toggleConsole()" title="Teletransportar">📍</button>
+ </div>
+
+ <div id="workspace">
+  <div id="coords-overlay">X: 0 Y: 0</div>
+
+  <div id="zoom-floating">
+    <label for="zoom-slider">Zoom</label>
+    <input type="range" id="zoom-slider" min="0" max="4" step="1" value="2" oninput="updateZoomSlider(this.value)">
+    <span id="zoom-value">100%</span>
+  </div>
+  
+  <div id="console-overlay" style="display: none;">
+      <div class="console-container">
+          <div id="console-suggestion">/tp [x] [y]</div>
+          <input type="text" id="console-input" placeholder="Escribe comando...">
+      </div>
+  </div>
+
+  <canvas id="canvas"></canvas>
+ </div>
+
+ <div id="settings-modal" class="modal">
+    <div class="modal-content" style="width: 400px;">
+        <span class="close-modal" onclick="closeModal('settings-modal')">&times;</span>
+        <h2>Settings</h2>
+        <div class="settings-row">
+            <label>Theme</label>
+            <select id="theme-select" onchange="setTheme(this.value)">
+                <option value="dark">⚫ Dark (Default)</option>
+                <option value="white">⚪ White</option>
+                <option value="pastel">🌸 Pastel</option>
+                <option value="darkblue">🔵 Dark Blue</option>
+            </select>
+        </div>
+    </div>
+ </div>
+
+ <div id="achievements-modal" class="modal">
+  <div class="modal-content">
+   <span class="close-modal" onclick="closeModal('achievements-modal')">&times;</span>
+   <h2>Achievements Manager</h2>
+   <div class="modal-actions">
+    <button onclick="toggleAchievements(true)">Unlock All</button>
+    <button onclick="toggleAchievements(false)">Reset All</button>
+   </div>
+<div id="achievements-list">
+    <label><input type="checkbox" data-index="44"> Breed two animals</label>
+    <label><input type="checkbox" data-index="43"> Brew a potion</label>
+    <label><input type="checkbox" data-index="3"> Craft a crafting table</label>
+    <label><input type="checkbox" data-index="5"> Craft a stone pickaxe</label>
+    <label><input type="checkbox" data-index="4"> Craft a wooden pickaxe</label>
+    <label><input type="checkbox" data-index="6"> Craft an iron pickaxe</label>
+    <label><input type="checkbox" data-index="22"> Defeat a flaming chicken</label>
+    <label><input type="checkbox" data-index="25"> Eat some food</label>
+    <label><input type="checkbox" data-index="45"> Enchant an item</label>
+    <label><input type="checkbox" data-index="33"> Fire a bow</label>
+    <label><input type="checkbox" data-index="39"> Fish a fish</label>
+    <label><input type="checkbox" data-index="23"> Grow a farm</label>
+    <label><input type="checkbox" data-index="10"> Grow a tree</label>
+    <label><input type="checkbox" data-index="24"> Make a cake</label>
+    <label><input type="checkbox" data-index="7"> Make a furnace</label>
+    <label><input type="checkbox" data-index="8"> Make an iron ingot</label>
+    <label><input type="checkbox" data-index="30"> Make portal stone</label>
+    <label><input type="checkbox" data-index="9"> Make some torches</label>
+    <label><input type="checkbox" data-index="0"> Mine a block of wood</label>
+    <label><input type="checkbox" data-index="29"> Mine diamonds</label>
+    <label><input type="checkbox" data-index="28"> Mine gold</label>
+    <label><input type="checkbox" data-index="27"> Mine obsidian</label>
+    <label><input type="checkbox" data-index="32"> Open a door with wiring</label>
+    <label><input type="checkbox" data-index="2"> Open the inventory</label>
+    <label><input type="checkbox" data-index="1"> Place a block</label>
+    <label><input type="checkbox" data-index="19"> Slay a blaze</label>
+    <label><input type="checkbox" data-index="13"> Slay a cow</label>
+    <label><input type="checkbox" data-index="21"> Slay a creeper</label>
+    <label><input type="checkbox" data-index="42"> Slay a ghast by its fireball</label>
+    <label><input type="checkbox" data-index="38"> Slay a magma cube</label>
+    <label><input type="checkbox" data-index="18"> Slay a nethereye</label>
+    <label><input type="checkbox" data-index="12"> Slay a pig</label>
+    <label><input type="checkbox" data-index="14"> Slay a sheep</label>
+    <label><input type="checkbox" data-index="16"> Slay a skeleton</label>
+    <label><input type="checkbox" data-index="37"> Slay a slime</label>
+    <label><input type="checkbox" data-index="17"> Slay a spider</label>
+    <label><input type="checkbox" data-index="15"> Slay a zombie</label>
+    <label><input type="checkbox" data-index="41"> Slay a zombie pigman</label>
+    <label><input type="checkbox" data-index="20"> Slay an enderman</label>
+    <label><input type="checkbox" data-index="36"> Slay the ender dragon</label>
+    <label><input type="checkbox" data-index="11"> Tame a dog</label>
+    <label><input type="checkbox" data-index="34"> Teleport with enderpearl</label>
+    <label><input type="checkbox" data-index="31"> Travel to the nether</label>
+    <label><input type="checkbox" data-index="35"> Unlock the ender portal</label>
+    <label><input type="checkbox" data-index="26"> Use a bed</label>
+    <label><input type="checkbox" data-index="40"> Use an anvil</label>
+</div>
+  </div>
+ </div>
+
+ <input type="file" id="file-input" accept=".mbw" style="display: none;">
+
+ <script src="scripts/ui-handler.js"></script>
+ <script src="scripts/mbwom.js"></script>
+ <script src="scripts/mbw-algorithm.js"></script>
+ <script src="scripts/history.js"></script>
+ <script src="scripts/input.js"></script>
+ <script src="scripts/file-manager.js"></script>
+ <script src="scripts/textures.js"></script>
+ <script src="scripts/rendering.js"></script>
+ <script src="scripts/clipboard.js"></script>
+ <script src="main.js"></script>
+ <script src="scripts/tools.js"></script>
+</body>
+</html>
