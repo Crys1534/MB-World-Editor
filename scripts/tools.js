@@ -2,8 +2,14 @@ let shapeIndex = 0;
 let slotIndex = 0;
 let currentTool = 'pencil'; 
 
-// Variables globales de selección para Copy/Paste
-window.selection = { p1: null, p2: null, dragging: false };
+// Variables globales de selección
+window.selection = { 
+    p1: null, 
+    p2: null, 
+    path: [], 
+    type: 'rect', 
+    dragging: false 
+};
 window.clipboard = null; 
 
 function selectTool(toolName) {
@@ -12,9 +18,11 @@ function selectTool(toolName) {
     const btn = document.getElementById('tool-' + toolName);
     if (btn) btn.classList.add('active');
     
-    // Resetear dragging si cambiamos de herramienta
-    if (toolName !== 'select') {
+    if (toolName !== 'select' && toolName !== 'lasso') {
         window.selection.dragging = false;
+        window.selection.path = [];
+        window.selection.p1 = null;
+        window.selection.p2 = null;
     }
 }
 
@@ -67,9 +75,46 @@ document.getElementById('console-input').addEventListener('keydown', function(e)
     }
 });
 
-// --- LÓGICA DE SELECCIÓN (ARRASTRE) ---
+// --- ALGORITMO: PUNTO EN POLÍGONO ---
+function isPointInPolygon(x, y, polygon) {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i].x, yi = polygon[i].y;
+        const xj = polygon[j].x, yj = polygon[j].y;
+        
+        const intersect = ((yi > y) !== (yj > y))
+            && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
+
+// --- LÓGICA DE SELECCIÓN ---
 function handleSelectionInput(action, x, y) {
+    if (currentTool === 'lasso') {
+        if (action === 'start') {
+            window.selection.type = 'poly';
+            window.selection.path = [{x, y}];
+            window.selection.dragging = true;
+            window.selection.p1 = null; 
+            window.selection.p2 = null;
+        } 
+        else if (action === 'move' && window.selection.dragging) {
+            const last = window.selection.path[window.selection.path.length - 1];
+            if (last.x !== x || last.y !== y) {
+                window.selection.path.push({x, y});
+            }
+        } 
+        else if (action === 'end') {
+            window.selection.dragging = false;
+            console.log("Selección libre definida:", window.selection.path.length, "puntos");
+        }
+        return;
+    }
+
+    window.selection.type = 'rect';
     if (action === 'start') {
+        window.selection.path = [];
         window.selection.p1 = { x, y };
         window.selection.p2 = { x, y }; 
         window.selection.dragging = true;
@@ -82,39 +127,64 @@ function handleSelectionInput(action, x, y) {
         if (!window.selection.p2 && window.selection.p1) {
             window.selection.p2 = { x, y };
         }
-        console.log("Selección definida:", window.selection);
+        console.log("Selección rectangular definida:", window.selection);
     }
 }
 
-// Mantener compatibilidad con teclas Z/X antiguas si se desea
 function setSelectionPoint(point, x, y) {
+    window.selection.type = 'rect'; 
     if (point === 1) window.selection.p1 = { x, y };
     if (point === 2) window.selection.p2 = { x, y };
 }
 
 // --- COPIAR ---
 function copySelection() {
-    if (!window.selection.p1 || !window.selection.p2) {
-        alert("Usa la herramienta de Selección (⛶) para marcar un área primero.");
-        return;
-    }
+    let minX, maxX, minY, maxY;
 
-    const minX = Math.min(window.selection.p1.x, window.selection.p2.x);
-    const maxX = Math.max(window.selection.p1.x, window.selection.p2.x);
-    const minY = Math.min(window.selection.p1.y, window.selection.p2.y);
-    const maxY = Math.max(window.selection.p1.y, window.selection.p2.y);
+    if (window.selection.type === 'poly') {
+        if (window.selection.path.length < 3) {
+            alert("Dibuja un área cerrada válida (mínimo 3 puntos).");
+            return;
+        }
+        const xs = window.selection.path.map(p => p.x);
+        const ys = window.selection.path.map(p => p.y);
+        minX = Math.min(...xs);
+        maxX = Math.max(...xs);
+        minY = Math.min(...ys);
+        maxY = Math.max(...ys);
+    } else {
+        if (!window.selection.p1 || !window.selection.p2) {
+            alert("Usa la herramienta de Selección o Lazo para marcar un área primero.");
+            return;
+        }
+        minX = Math.min(window.selection.p1.x, window.selection.p2.x);
+        maxX = Math.max(window.selection.p1.x, window.selection.p2.x);
+        minY = Math.min(window.selection.p1.y, window.selection.p2.y);
+        maxY = Math.max(window.selection.p1.y, window.selection.p2.y);
+    }
 
     const data = [];
     for (let x = minX; x <= maxX; x++) {
         for (let y = minY; y <= maxY; y++) {
-            const state = mbwom.getBlockState(x, y);
-            if (state && state.type != null) {
-                data.push({
-                    dx: x - minX,
-                    dy: y - minY,
-                    state: structuredClone(state)
-                });
+            
+            if (window.selection.type === 'poly') {
+                if (!isPointInPolygon(x, y, window.selection.path)) {
+                    continue; 
+                }
             }
+
+            const state = mbwom.getBlockState(x, y);
+            
+            let stateToSave = null;
+            if (state && state.type != null) {
+                stateToSave = structuredClone(state);
+            }
+
+            data.push({
+                dx: x - minX,
+                dy: y - minY,
+                state: stateToSave 
+            });
         }
     }
 
@@ -124,11 +194,11 @@ function copySelection() {
         data: data
     };
 
-    // --- NUEVO: Deseleccionar área tras copiar ---
     window.selection.p1 = null;
     window.selection.p2 = null;
+    window.selection.path = [];
     
-    console.log("Copiado al portapapeles y selección limpiada.");
+    console.log(`Copiado al portapapeles: ${data.length} bloques (incluyendo aire).`);
 }
 
 // --- PEGAR ---
@@ -137,7 +207,7 @@ function activatePasteMode() {
         alert("Portapapeles vacío. Copia algo con Ctrl+C.");
         return;
     }
-    selectTool('paste'); // Activamos modo pegar
+    selectTool('paste');
 }
 
 function performPaste(targetX, targetY) {
@@ -149,15 +219,23 @@ function performPaste(targetX, targetY) {
         const absY = targetY + blockData.dy;
         
         const oldState = mbwom.getBlockState(absX, absY);
+        
+        if (!oldState && !blockData.state) return;
+
         historyManager.recordChange(absX, absY, oldState, blockData.state);
         
-        mbwom.setBlockState(absX, absY, blockData.state);
+        if (blockData.state) {
+            mbwom.setBlockState(absX, absY, blockData.state);
+        } else {
+            if (mbwom.scene[absX]) delete mbwom.scene[absX][absY];
+        }
+        
         renderBlock(absX, absY);
     });
     historyManager.commitAction();
 }
 
-// --- DIBUJO ---
+// --- HOTBAR DATA ---
 const hotbar = {
  offset: { x: 0, y: 0 },
  slots: [
@@ -166,24 +244,26 @@ const hotbar = {
  ]
 }
 
+// Mantener función vacía por si es llamada externamente
 function drawHotbar() {
  if (!images.hotbar.complete) return;
- let x = hotbar.offset.x + 3;
- ctx.drawImage(images.hotbar, hotbar.offset.x, hotbar.offset.y);
- ctx.drawImage(images.slot, hotbar.offset.x + 20 * slotIndex, hotbar.offset.y);
- hotbar.slots.forEach((states, index) => {
-  drawBlock(
-   getBlockObject(states),
-   { x: (x + index * 20), y: hotbar.offset.y + 3, width: 16, height: 16 }
-  );
- });
 }
 
+// --- GOTERO ---
 function eyedropper(x, y) {
  const states = mbwom.getBlockState(x, y);
  if (states && states.type != null) {
      hotbar.slots[slotIndex] = structuredClone(states);
+     
+     // Actualizar UI
+     if (typeof renderHotbarUI === 'function') {
+         renderHotbarUI();
+     }
+     
      selectTool('pencil');
+     
+     // FIX: Consumir el clic para evitar borrado inmediato
+     mouse.left = false; 
  }
 }
 
@@ -250,5 +330,4 @@ function mineAndPlace() {
     else if (currentTool === 'eyedropper') {
         if (mouse.left) eyedropper(mouse.worldX, mouse.worldY);
     }
-    // 'select' y 'paste' se manejan por eventos en input.js
 }
