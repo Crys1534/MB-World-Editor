@@ -59,11 +59,7 @@ function updateGridDimensions() {
     grid.width = Math.ceil(canvas.width / tileSize);
     grid.height = Math.ceil(canvas.height / tileSize);
     
-    // --- CAMBIO: Velocidad Fija y Estable ---
     camera.speed = 1; 
-
-    // --- CAMBIO: Corregir posiciones decimales residuales ---
-    // Si la cámara quedó en 10.5, la redondeamos a 11 para evitar errores
     camera.x = Math.round(camera.x);
     camera.y = Math.round(camera.y);
 
@@ -139,7 +135,6 @@ function renderWorldToBuffer() {
 
     for (let x = 0; x < grid.width; x++) {
         for (let y = 0; y < grid.height; y++) {
-            // Aseguramos enteros (aunque con speed=1 ya debería serlo)
             const currentX = Math.floor(x + camera.x);
             const currentY = Math.floor(y + camera.y);
             
@@ -202,12 +197,87 @@ function getBlockObject(states) {
 function drawUI() {
     const coordsDiv = document.getElementById('coords-overlay');
     if (coordsDiv) {
-        // Redondeo explícito para la visualización
         coordsDiv.innerText = `X: ${Math.floor(mouse.worldX)} Y: ${Math.floor(mouse.worldY)}`;
     }
     
+    // --- CURSOR INTELIGENTE (Contorno Limpio) ---
     if (currentTool !== 'paste' && currentTool !== 'select' && currentTool !== 'lasso') {
-        drawBlock({ x: 0, y: 3232 }, { x: mouse.alignedX, y: mouse.alignedY, width: tileSize, height: -tileSize });
+        const size = (typeof toolSize !== 'undefined') ? toolSize : 1;
+        const range = size - 1;
+        
+        ctx.strokeStyle = "#4DA6FF"; // Celeste
+        ctx.lineWidth = 2;
+        ctx.fillStyle = "rgba(77, 166, 255, 0.2)"; // Relleno suave
+
+        // Función helper para saber si un punto está dentro del pincel
+        const isInside = (dx, dy) => {
+             // Si es redondeado, usamos fórmula de círculo
+             if (typeof toolRounded !== 'undefined' && toolRounded && size > 1) {
+                 return (dx*dx + dy*dy) <= (range * range + 0.1);
+             }
+             // Si es cuadrado, verificamos límites del rectángulo
+             return dx >= -range && dx <= range && dy >= -range && dy <= range;
+        };
+
+        // 1. DIBUJAR RELLENO (FILL)
+        // Dibujamos todos los bloques activos primero
+        ctx.beginPath();
+        for (let dx = -range; dx <= range; dx++) {
+            for (let dy = -range; dy <= range; dy++) {
+                if (isInside(dx, dy)) {
+                    const absX = mouse.worldX + dx;
+                    const absY = mouse.worldY + dy;
+                    const drawX = (absX - camera.x) * tileSize;
+                    const drawY = canvas.height - (absY - camera.y) * tileSize;
+                    
+                    // Relleno individual para cada bloque activo
+                    ctx.fillRect(drawX, drawY, tileSize, -tileSize);
+                }
+            }
+        }
+
+        // 2. DIBUJAR CONTORNO (STROKE)
+        // Verificamos vecindad para dibujar solo los bordes externos
+        ctx.beginPath();
+        for (let dx = -range; dx <= range; dx++) {
+            for (let dy = -range; dy <= range; dy++) {
+                if (isInside(dx, dy)) {
+                    const absX = mouse.worldX + dx;
+                    const absY = mouse.worldY + dy;
+                    const drawX = (absX - camera.x) * tileSize;
+                    const drawY = canvas.height - (absY - camera.y) * tileSize; // Y en pantalla (esquina inferior izq visualmente)
+
+                    // Coordenadas del bloque en pantalla
+                    // drawY es la parte de abajo del bloque porque height es -tileSize
+                    const left = drawX;
+                    const right = drawX + tileSize;
+                    const bottom = drawY; 
+                    const top = drawY - tileSize;
+
+                    // Si el vecino de la DERECHA está vacío, dibujamos borde derecho
+                    if (!isInside(dx + 1, dy)) {
+                        ctx.moveTo(right, bottom);
+                        ctx.lineTo(right, top);
+                    }
+                    // Si el vecino de la IZQUIERDA está vacío, dibujamos borde izquierdo
+                    if (!isInside(dx - 1, dy)) {
+                        ctx.moveTo(left, bottom);
+                        ctx.lineTo(left, top);
+                    }
+                    // Si el vecino de ARRIBA está vacío, dibujamos borde superior
+                    if (!isInside(dx, dy + 1)) {
+                        ctx.moveTo(left, top);
+                        ctx.lineTo(right, top);
+                    }
+                    // Si el vecino de ABAJO está vacío, dibujamos borde inferior
+                    if (!isInside(dx, dy - 1)) {
+                        ctx.moveTo(left, bottom);
+                        ctx.lineTo(right, bottom);
+                    }
+                }
+            }
+        }
+        ctx.stroke(); // Ejecutamos el trazo del contorno
     }
 
     if (currentTool === 'paste' && window.clipboard) {

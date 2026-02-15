@@ -7,142 +7,167 @@
  <link rel="stylesheet" href="style.css">
  <title>MB World Edit</title>
  <style>
-    /* --- ESTILOS INVENTARIO MEJORADO (MODIFICADO) --- */
+    /* --- VARIABLES DE TEMA (POR DEFECTO DARK) --- */
+    :root {
+        --struct-bg: #C6C6C6;
+        --struct-bg-dark: #8B8B8B;
+        --struct-text: #000;
+        --struct-border: #555;
+        --struct-item-bg: #555;
+        --struct-accent: #FFF;
+    }
+
+    /* --- NOTIFICACIÓN NATIVA (TOAST) --- */
+    #native-notification {
+        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px);
+        background-color: #4CAF50; color: white; padding: 12px 24px; border-radius: 4px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3); font-family: sans-serif; font-weight: bold;
+        z-index: 3000; opacity: 0; transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+    }
+    #native-notification.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+    /* --- ESTILOS GENERALES --- */
     #inventory-modal .modal-content {
-        background: #C6C6C6; 
-        border: 2px solid #555;
-        width: 700px;
-        padding: 0;   
-        color: #000;
-        display: flex; 
-        flex-direction: column;
-        height: 550px; /* Aumentada altura para acomodar tabs */
+        background: #C6C6C6; border: 2px solid #555; width: 700px; padding: 0;   
+        color: #000; display: flex; flex-direction: column; height: 550px; 
     }
-    
-    /* Contenedor principal: Ahora en columna */
-    .inventory-layout {
-        display: flex;
-        flex-direction: column; /* Cambiado a columna para apilar elementos */
-        flex: 1;
-        overflow: hidden;
-        padding: 10px;
-    }
-
-    /* Barra de pestañas (Horizontal) */
-    #inventory-tabs-sidebar {
-        width: 100%;
-        display: flex;
-        flex-direction: row; /* Alineación horizontal */
-        gap: 5px;
-        margin-right: 0;
-        margin-top: 5px;
-        padding-left: 5px;
-        z-index: 10;
-    }
-
+    .inventory-layout { display: flex; flex-direction: column; flex: 1; overflow: hidden; padding: 10px; }
+    #inventory-tabs-sidebar { width: 100%; display: flex; flex-direction: row; gap: 5px; margin-top: 5px; padding-left: 5px; z-index: 10; }
     .inv-tab-btn {
-        width: 40px;
-        height: 40px;
-        background: #8B8B8B;
-        border: 2px solid #373737;
-        border-bottom-color: #FFF; /* Borde inferior claro por defecto */
-        cursor: pointer;
-        display: flex;
-        justify-content: center;
-        align-items: center;
+        width: 40px; height: 40px; background: #8B8B8B; border: 2px solid #373737;
+        border-bottom-color: #FFF; cursor: pointer; display: flex; justify-content: center; align-items: center;
     }
-    
     .inv-tab-btn.active {
-        background: #C6C6C6; 
-        border-color: #FFF;
-        border-bottom: none; /* Sin borde inferior para conectar con el área principal */
-        height: 45px; /* Crece para tapar el borde del grid */
-        position: relative;
-        margin-bottom: -2px; /* Superpone el borde del grid */
-        border-right: 2px solid #373737;
+        background: #C6C6C6; border-color: #FFF; border-bottom: none; 
+        height: 45px; position: relative; margin-bottom: -2px; border-right: 2px solid #373737;
     }
-
-    /* Área principal */
-.inventory-main-area {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        background: #C6C6C6;
-        min-height: 0; /* IMPORTANTE: Permite que el contenedor se encoja y no se desborde */
-    }
-
-    .inv-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 5px;
-        padding-right: 10px;
-    }
-
+    .inventory-main-area { flex: 1; display: flex; flex-direction: column; background: #C6C6C6; min-height: 0; }
+    .inv-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; padding-right: 10px; }
     #inventory-search {
-        width: 100%;
-        padding: 8px;
-        background: #333;
-        color: white;
-        border: 2px solid #A0A0A0;
-        font-family: monospace;
-        margin-bottom: 0; /* Quitamos margen inferior para pegar las tabs */
+        width: 100%; padding: 8px; background: #333; color: white;
+        border: 2px solid #A0A0A0; font-family: monospace; margin-bottom: 0; 
     }
-
-#inventory-grid {
-        display: grid;
-        grid-template-columns: repeat(9, 1fr);
-        gap: 2px;
-        overflow-y: auto; /* Esto habilita el scroll */
-        background: #8B8B8B;
-        padding: 5px;
-        border: 2px solid #373737;
-        border-top: 2px solid #373737;
-        border-bottom-color: #FFF;
-        border-right-color: #FFF;
-        flex: 1; 
-        min-height: 0; /* IMPORTANTE: Fuerza al grid a respetar el espacio disponible */
+    #inventory-grid {
+        display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px; overflow-y: auto;
+        background: #8B8B8B; padding: 5px; border: 2px solid #373737; border-top: 2px solid #373737; 
+        border-bottom-color: #FFF; border-right-color: #FFF; flex: 1; min-height: 0;
     }
-
     .inv-item {
-        width: 100%;
-        aspect-ratio: 1;
-        background: #8B8B8B;
-        border: 1px solid transparent;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        cursor: pointer;
+        width: 100%; aspect-ratio: 1; background: #8B8B8B; border: 1px solid transparent;
+        display: flex; justify-content: center; align-items: center; cursor: pointer;
     }
-    .inv-item:hover {
-        background: rgba(255, 255, 255, 0.2);
-        border: 1px solid #FFF;
+    .inv-item:hover { background: rgba(255, 255, 255, 0.2); border: 1px solid #FFF; }
+    #hotbar-container { display: flex; gap: 2px; background: #C6C6C6; padding: 4px; border: 2px solid #555; margin: 0 auto; }
+    .hotbar-slot {
+        width: 32px; height: 32px; border: 2px solid #8B8B8B; background: #8B8B8B;
+        display: flex; justify-content: center; align-items: center; cursor: pointer;
+    }
+    .hotbar-slot.active { border-color: #FFF; background: #A0A0A0; box-shadow: inset 0 0 4px rgba(0,0,0,0.5); }
+    #tab-insert.active { justify-content: center; }
+
+    /* --- OVERLAYS --- */
+    #coords-overlay {
+        position: absolute; top: 10px; left: 10px; font-family: 'Consolas', monospace; font-size: 24px; font-weight: bold; color: white;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.8), 0 0 5px rgba(0,0,0,0.8); pointer-events: none; z-index: 10;
+    }
+    #selection-overlay {
+        position: absolute; top: 40px; left: 10px; font-family: 'Consolas', monospace; font-size: 18px; font-weight: bold; color: #FFD700;  
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.8), 0 0 5px rgba(0,0,0,0.8); pointer-events: none; z-index: 10; display: none; 
+    }
+    #console-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); display: none;
+        justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(2px);
+    }
+    .console-container {
+        background: #2b2b2b; border: 2px solid #555; border-radius: 5px; padding: 20px; width: 300px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 10px;
+    }
+    #console-suggestion { color: #888; font-family: monospace; font-size: 12px; margin-bottom: 5px; }
+    #console-input { width: 100%; padding: 10px; background: #1a1a1a; border: 1px solid #444; color: #0f0; font-family: 'Consolas', monospace; outline: none; }
+
+    /* --- ESTILOS MODAL ESTRUCTURAS (THEMED) --- */
+    .icon-btn:disabled, .icon-btn[disabled] { opacity: 0.4; cursor: not-allowed; filter: grayscale(100%); }
+
+    #structures-modal .modal-content {
+        width: 850px; height: 600px; 
+        background: var(--struct-bg); 
+        border: 2px solid var(--struct-border); 
+        color: var(--struct-text);
+        padding: 0; display: flex; flex-direction: row; overflow: hidden;
+    }
+
+    .struct-main { 
+        flex: 1; display: flex; flex-direction: column; padding: 10px; 
+        border-right: 2px solid var(--struct-border); 
     }
     
-    /* Hotbar en Ribbon */
-    #hotbar-container {
-        display: flex;
-        gap: 2px;
-        background: #C6C6C6;
-        padding: 4px;
-        border: 2px solid #555;
-        margin: 0 auto; 
+    .struct-tabs { display: flex; gap: 5px; margin-bottom: 10px; }
+    .struct-tab {
+        padding: 8px 15px; 
+        background: var(--struct-bg-dark); 
+        border: 2px solid #373737; border-bottom: 2px solid var(--struct-bg);
+        cursor: pointer; font-weight: bold; color: var(--struct-text);
     }
-    .hotbar-slot {
-        width: 32px;
-        height: 32px;
-        border: 2px solid #8B8B8B;
-        background: #8B8B8B;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        cursor: pointer;
+    .struct-tab.active {
+        background: var(--struct-bg); border-bottom: none; margin-bottom: -2px; z-index: 10;
+        border-top: 2px solid var(--struct-accent); border-left: 2px solid var(--struct-accent);
     }
-    .hotbar-slot.active {
-        border-color: #FFF;
-        background: #A0A0A0;
-        box-shadow: inset 0 0 4px rgba(0,0,0,0.5);
+    
+    #struct-subtabs {
+        display: none; gap: 5px; margin-bottom: 10px; padding-left: 10px; 
+        background: var(--struct-bg-dark); padding: 5px; border: 1px solid var(--struct-border);
     }
+    .struct-subtab { font-size: 12px; cursor: pointer; padding: 2px 8px; background: #777; color: #DDD; }
+    .struct-subtab.active { background: #FFF; color: #000; }
+
+    #structures-grid {
+        display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; overflow-y: auto;
+        background: var(--struct-bg-dark); padding: 10px; 
+        border: 2px solid #373737; border-right-color: #FFF; border-bottom-color: #FFF; flex: 1;
+    }
+    
+    .struct-item {
+        background: var(--struct-item-bg); border: 2px solid #333; aspect-ratio: 1; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s;
+        padding: 5px;
+    }
+    .struct-item:hover { background: #666; border-color: var(--struct-accent); }
+    .struct-name { font-size: 12px; text-align: center; color: var(--struct-text); margin-top: 5px; }
+
+    .struct-sidebar { 
+        width: 250px; background: var(--struct-bg-dark); 
+        display: flex; flex-direction: column; padding: 15px; align-items: center; 
+        border-left: 2px solid var(--struct-accent);
+    }
+    #struct-preview-canvas { 
+        width: 200px; height: 200px; background: #333; 
+        border: 2px solid #373737; margin-bottom: 15px; image-rendering: pixelated; 
+    }
+    .struct-info h3 { color: var(--struct-text); }
+    .struct-info p { color: var(--struct-text); opacity: 0.8; }
+    .btn-load-struct { padding: 10px 20px; background: #4CAF50; color: white; border: 2px solid #2E7D32; cursor: pointer; font-weight: bold; }
+    .btn-load-struct:hover { background: #66BB6A; }
+
+    /* --- ESTILOS MODAL SAVE (THEMED) --- */
+    #save-structure-modal .modal-content {
+        width: 500px; 
+        background: var(--struct-bg); 
+        border: 2px solid var(--struct-border); 
+        color: var(--struct-text);
+        padding: 15px; display: flex; flex-direction: column; gap: 10px;
+    }
+    #struct-save-preview {
+        width: 460px; height: 295px; background: #333; border: 2px solid #373737; margin: 0 auto; display: block; image-rendering: pixelated;
+    }
+    .save-form-row { display: flex; flex-direction: column; gap: 2px; }
+    .save-form-row label { font-size: 12px; font-weight: bold; color: var(--struct-text); }
+    .save-form-row input, .save-form-row select { 
+        padding: 5px; border: 2px solid #555; background: #FFF; font-family: inherit; color: #000;
+    }
+    .save-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
+    .btn-confirm-save { background: #4CAF50; color: white; padding: 8px 20px; border: 2px solid #2E7D32; cursor: pointer; }
+    .btn-cancel { background: #d32f2f; color: white; padding: 8px 20px; border: 2px solid #b71c1c; cursor: pointer; }
+
  </style>
 </head>
 <body>
@@ -171,9 +196,31 @@
   </div>
   <div class="tab-content">
    
-   <div id="tab-insert" class="tab-pane active" style="display: flex; justify-content: center; width: 100%;">
+   <div id="tab-insert" class="tab-pane active">
         <div id="hotbar-container"></div>
-        <div style="margin-left: 20px; align-self: center; font-size: 12px; color: #888;">Press 'E' for Inventory</div>
+        <div class="separator" style="margin: 0 15px;"></div>
+        
+        <div style="display: flex; flex-direction: row; align-items: center; gap: 15px; margin-right: 15px;">
+            <div style="display: flex; flex-direction: column; align-items: center;">
+                <label style="font-size: 10px; color: var(--text); margin-bottom: 2px;">Size: <span id="tool-size-display" style="font-weight: bold;">1</span></label>
+                <input type="range" id="tool-size-slider" min="1" max="7" value="1" oninput="updateToolSize(this.value)" style="width: 80px; cursor: pointer;">
+            </div>
+            <label style="font-size: 10px; cursor: pointer; display: flex; align-items: center;">
+                <input type="checkbox" id="tool-rounded-checkbox" onchange="updateToolRounded(this.checked)" style="margin-right: 4px;"> Rounded
+            </label>
+        </div>
+
+        <div class="separator"></div>
+        
+        <button class="icon-btn" onclick="openStructuresModal()" title="Open Library">
+            🏛️ Library
+        </button>
+        <button id="btn-save-struct" class="icon-btn" onclick="openSaveStructureModal()" disabled title="Select an area first">
+            💾 Save Selection
+        </button>
+
+        <div class="separator"></div>
+        <div style="margin-left: 10px; font-size: 12px; color: #888;">Press 'E' for Inventory</div>
    </div>
 
    <div id="tab-settings" class="tab-pane">
@@ -219,15 +266,20 @@
 
  <div id="workspace">
   <div id="coords-overlay">X: 0 Y: 0</div>
+  <div id="selection-overlay">W: 0 H: 0</div>
+
   <div id="zoom-floating">
     <label for="zoom-slider">Zoom</label>
     <input type="range" id="zoom-slider" min="0" max="4" step="1" value="2" oninput="updateZoomSlider(this.value)">
     <span id="zoom-value">100%</span>
   </div>
-  <div id="console-overlay" style="display: none;">
+  
+  <div id="console-overlay">
       <div class="console-container">
-          <div id="console-suggestion">/tp [x] [y]</div>
-          <input type="text" id="console-input" placeholder="Escribe comando...">
+          <h3 style="margin: 0 0 10px 0; color: white;">Teleport</h3>
+          <div id="console-suggestion">Format: /tp [x] [y]</div>
+          <input type="text" id="console-input" placeholder="/tp 100 50">
+          <div style="font-size: 10px; color: #666; margin-top: 5px;">Press Enter to go</div>
       </div>
   </div>
   <canvas id="canvas"></canvas>
@@ -239,7 +291,7 @@
         <h2>Settings</h2>
         <div class="settings-row">
             <label>Theme</label>
-            <select id="theme-select" onchange="setTheme(this.value)">
+            <select id="theme-select" onchange="setTheme(this.value); updateStructureTheme(this.value)">
                 <option value="dark">⚫ Dark (Default)</option>
                 <option value="white">⚪ White</option>
                 <option value="pastel">🌸 Pastel</option>
@@ -252,20 +304,14 @@
  <div id="inventory-modal" class="modal">
     <div class="modal-content">
         <div class="inventory-layout">
-            
             <div class="inventory-main-area">
                 <div class="inv-header">
                     <h3>Inventory</h3>
                     <span class="close-modal" onclick="closeModal('inventory-modal')" style="cursor:pointer; font-weight:bold;">&times;</span>
                 </div>
-                
                 <input type="text" id="inventory-search" placeholder="Search..." oninput="filterInventory(this.value)">
-                
-                <div id="inventory-tabs-sidebar">
-                </div>
-
-                <div id="inventory-grid">
-                </div>
+                <div id="inventory-tabs-sidebar"></div>
+                <div id="inventory-grid"></div>
             </div>
         </div>
     </div>
@@ -279,7 +325,7 @@
     <button onclick="toggleAchievements(true)">Unlock All</button>
     <button onclick="toggleAchievements(false)">Reset All</button>
    </div>
-<div id="achievements-list">
+   <div id="achievements-list">
     <label><input type="checkbox" data-index="44"> Breed two animals</label>
     <label><input type="checkbox" data-index="43"> Brew a potion</label>
     <label><input type="checkbox" data-index="3"> Craft a crafting table</label>
@@ -326,8 +372,80 @@
     <label><input type="checkbox" data-index="35"> Unlock the ender portal</label>
     <label><input type="checkbox" data-index="26"> Use a bed</label>
     <label><input type="checkbox" data-index="40"> Use an anvil</label>
-</div>
+   </div>
   </div>
+ </div>
+
+ <div id="structures-modal" class="modal">
+    <div class="modal-content">
+        <div class="struct-main">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3>Structures Browser</h3>
+                <span class="close-modal" onclick="closeModal('structures-modal')">&times;</span>
+            </div>
+            <div class="struct-tabs">
+                <div id="tab-struct-vanilla" class="struct-tab active" onclick="filterStructures('vanilla')">Vanilla</div>
+                <div id="tab-struct-community" class="struct-tab" onclick="filterStructures('community')">Community</div>
+            </div>
+            <div id="struct-subtabs">
+                <div id="subtab-house" class="struct-subtab active" onclick="filterSubCategory('house')">House</div>
+                <div id="subtab-park" class="struct-subtab" onclick="filterSubCategory('park')">Park</div>
+                <div id="subtab-tree" class="struct-subtab" onclick="filterSubCategory('tree')">Tree</div>
+                <div id="subtab-statue" class="struct-subtab" onclick="filterSubCategory('statue')">Statue</div>
+                <div id="subtab-pixelart" class="struct-subtab" onclick="filterSubCategory('pixelart')">PixelArt</div>
+                <div id="subtab-other" class="struct-subtab" onclick="filterSubCategory('other')">Other</div>
+            </div>
+            <div id="structures-grid"></div>
+        </div>
+        <div class="struct-sidebar">
+            <h4 style="margin-top:0;">Preview</h4>
+            <canvas id="struct-preview-canvas" width="200" height="200"></canvas>
+            <div class="struct-info">
+                <h3 id="struct-info-title">Select an item</h3>
+                <p id="struct-info-author">Author: ...</p>
+            </div>
+            <button class="btn-load-struct" onclick="loadStructureToClipboard()">Load Structure</button>
+        </div>
+    </div>
+ </div>
+
+ <div id="save-structure-modal" class="modal">
+    <div class="modal-content">
+        <h3 style="margin: 0; text-align: center;">Save New Structure</h3>
+        <canvas id="struct-save-preview" width="460" height="295"></canvas>
+        <div class="save-form-row">
+            <label>Title</label>
+            <input type="text" id="input-struct-title" placeholder="e.g. Modern House">
+        </div>
+        <div class="save-form-row">
+            <label>Author</label>
+            <input type="text" id="input-struct-author" placeholder="Your Name">
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <div class="save-form-row" style="flex: 1;">
+                <label>Category</label>
+                <select id="input-struct-category">
+                    <option value="vanilla">Vanilla</option>
+                    <option value="community" selected>Community</option>
+                </select>
+            </div>
+            <div class="save-form-row" style="flex: 1;">
+                <label>Subcategory</label>
+                <select id="input-struct-subcategory">
+                    <option value="House">House</option>
+                    <option value="Park">Park</option>
+                    <option value="Tree">Tree</option>
+                    <option value="Statue">Statue</option>
+                    <option value="PixelArt">PixelArt</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+        </div>
+        <div class="save-actions">
+            <button class="btn-cancel" onclick="closeModal('save-structure-modal')">Cancel</button>
+            <button class="btn-confirm-save" onclick="saveNewStructure()">Save</button>
+        </div>
+    </div>
  </div>
 
  <input type="file" id="file-input" accept=".mbw" style="display: none;">
@@ -343,5 +461,6 @@
  <script src="scripts/clipboard.js"></script>
  <script src="main.js"></script>
  <script src="scripts/tools.js"></script>
+ <script src="scripts/structures.js"></script>
 </body>
 </html>
