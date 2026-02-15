@@ -2,7 +2,16 @@ const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
 
-// UI Variables
+// --- OPTIMIZACIÓN: Buffer Fuera de Pantalla ---
+const offscreenCanvas = document.createElement('canvas');
+const offscreenCtx = offscreenCanvas.getContext('2d', { alpha: false });
+offscreenCtx.imageSmoothingEnabled = false;
+
+let worldDirty = true;
+let lastCameraX = null;
+let lastCameraY = null;
+let lastGridWidth = null;
+
 const uiElements = {
     topBar: document.getElementById('top-bar'),
     ribbon: document.getElementById('ribbon'),
@@ -22,6 +31,7 @@ images.names.forEach((name) => {
     images[name].src = `assets/${name}.png`;
 });
 
+// Velocidad fija en 1 para evitar decimales
 const camera = { x: 0, y: 148, speed: 1 }
 
 function resizeCanvas() {
@@ -34,19 +44,30 @@ function resizeCanvas() {
         canvas.height = window.innerHeight - 112;
     }
     
+    offscreenCanvas.width = canvas.width;
+    offscreenCanvas.height = canvas.height;
+    offscreenCtx.imageSmoothingEnabled = false;
+    
     ctx.imageSmoothingEnabled = false; 
     updateGridDimensions();
     
-    if (typeof hotbar !== 'undefined') {
-        hotbar.offset.x = canvas.width / 2 - 94;
-        hotbar.offset.y = canvas.height - 44;
-    }
+    worldDirty = true;
 }
 
 function updateGridDimensions() {
     tileSize = BASE_TILE_SIZE * (currentZoom / 100);
     grid.width = Math.ceil(canvas.width / tileSize);
     grid.height = Math.ceil(canvas.height / tileSize);
+    
+    // --- CAMBIO: Velocidad Fija y Estable ---
+    camera.speed = 1; 
+
+    // --- CAMBIO: Corregir posiciones decimales residuales ---
+    // Si la cámara quedó en 10.5, la redondeamos a 11 para evitar errores
+    camera.x = Math.round(camera.x);
+    camera.y = Math.round(camera.y);
+
+    worldDirty = true; 
 }
 
 window.addEventListener('resize', resizeCanvas);
@@ -84,24 +105,7 @@ if (zoomContainer) {
 
 function toggleGrid(enabled) {
     showGrid = enabled;
-}
-
-function drawGridOverlay() {
-    if (!showGrid) return;
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let x = 0; x <= grid.width; x++) {
-        const xPos = x * tileSize;
-        ctx.moveTo(xPos, 0);
-        ctx.lineTo(xPos, canvas.height);
-    }
-    for (let y = 0; y <= grid.height; y++) {
-        const yPos = canvas.height - (y * tileSize);
-        ctx.moveTo(0, yPos);
-        ctx.lineTo(canvas.width, yPos);
-    }
-    ctx.stroke();
+    worldDirty = true;
 }
 
 function initializeWorldCache() {
@@ -111,6 +115,7 @@ function initializeWorldCache() {
             renderBlock(x, y);
         }
     }
+    worldDirty = true;
 }
 
 function renderBlock(x, y) {
@@ -121,17 +126,23 @@ function renderBlock(x, y) {
     } else {
         delete worldCache[x][y]
     }
+    worldDirty = true;
 }
 
-function drawBlock(texture, values) {
-    ctx.drawImage(images.blocks, texture.x, texture.y, 16, 16, values.x, values.y, values.width, values.height);
+function drawBlock(texture, values, targetCtx = ctx) {
+    targetCtx.drawImage(images.blocks, texture.x, texture.y, 16, 16, values.x, values.y, values.width, values.height);
 }
 
-function drawWorld() {
+function renderWorldToBuffer() {
+    offscreenCtx.fillStyle = "#778fa5";
+    offscreenCtx.fillRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+
     for (let x = 0; x < grid.width; x++) {
         for (let y = 0; y < grid.height; y++) {
-            const currentX = x + camera.x;
-            const currentY = y + camera.y;
+            // Aseguramos enteros (aunque con speed=1 ya debería serlo)
+            const currentX = Math.floor(x + camera.x);
+            const currentY = Math.floor(y + camera.y);
+            
             const blockObject = getBlockCache(currentX, currentY);
             if (blockObject != null) {
                 const values = {
@@ -140,11 +151,43 @@ function drawWorld() {
                     width: tileSize,
                     height: -tileSize,
                 }
-                drawBlock(blockObject, values);
+                drawBlock(blockObject, values, offscreenCtx);
             }
         }
     }
-    drawGridOverlay();
+    
+    if (showGrid) {
+        offscreenCtx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+        offscreenCtx.lineWidth = 1;
+        offscreenCtx.beginPath();
+        for (let x = 0; x <= grid.width; x++) {
+            const xPos = x * tileSize;
+            offscreenCtx.moveTo(xPos, 0);
+            offscreenCtx.lineTo(xPos, offscreenCanvas.height);
+        }
+        for (let y = 0; y <= grid.height; y++) {
+            const yPos = offscreenCanvas.height - (y * tileSize);
+            offscreenCtx.moveTo(0, yPos);
+            offscreenCtx.lineTo(offscreenCanvas.width, yPos);
+        }
+        offscreenCtx.stroke();
+    }
+}
+
+function drawWorld() {
+    if (camera.x !== lastCameraX || camera.y !== lastCameraY || grid.width !== lastGridWidth) {
+        worldDirty = true;
+        lastCameraX = camera.x;
+        lastCameraY = camera.y;
+        lastGridWidth = grid.width;
+    }
+
+    if (worldDirty) {
+        renderWorldToBuffer();
+        worldDirty = false;
+    }
+    
+    ctx.drawImage(offscreenCanvas, 0, 0);
 }
 
 function getBlockCache(x, y) {
@@ -156,38 +199,26 @@ function getBlockObject(states) {
     return renderer(states);
 }
 
-function fillRect(x, y, width, height, color) {
-    ctx.fillStyle = color;
-    ctx.fillRect(x, y, canvas.width, canvas.height);
-}
-
-function drawBackgrond() {
-    fillRect(0, 0, canvas.width, canvas.height, "#778fa5");
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-}
-
-// --- FUNCIÓN drawUI MODIFICADA ---
 function drawUI() {
     const coordsDiv = document.getElementById('coords-overlay');
     if (coordsDiv) {
-        coordsDiv.innerText = `X: ${mouse.worldX} Y: ${mouse.worldY}`;
+        // Redondeo explícito para la visualización
+        coordsDiv.innerText = `X: ${Math.floor(mouse.worldX)} Y: ${Math.floor(mouse.worldY)}`;
     }
     
-    // Dibujar bloque cursor (excepto si estamos en modo paste o select)
-    if (currentTool !== 'paste' && currentTool !== 'select') {
+    if (currentTool !== 'paste' && currentTool !== 'select' && currentTool !== 'lasso') {
         drawBlock({ x: 0, y: 3232 }, { x: mouse.alignedX, y: mouse.alignedY, width: tileSize, height: -tileSize });
     }
 
-    // --- MODO PEGAR: PREVISUALIZACIÓN ---
     if (currentTool === 'paste' && window.clipboard) {
         ctx.save();
-        ctx.globalAlpha = 0.5; // Transparencia 50%
+        ctx.globalAlpha = 0.5;
 
         window.clipboard.data.forEach(blockData => {
+            if (!blockData.state) return;
             const absX = mouse.worldX + blockData.dx;
             const absY = mouse.worldY + blockData.dy;
             
-            // Renderizado relativo a la cámara
             const screenX = (absX - camera.x) * tileSize;
             const screenY = canvas.height - (absY - camera.y) * tileSize;
 
@@ -198,16 +229,14 @@ function drawUI() {
         
         ctx.restore();
 
-        // Borde Celeste para el área de pegado
         const startScreenX = (mouse.worldX - camera.x) * tileSize;
         const startScreenY = canvas.height - (mouse.worldY - camera.y) * tileSize;
-        ctx.strokeStyle = "#00FFFF"; // Celeste
+        ctx.strokeStyle = "#00FFFF";
         ctx.lineWidth = 2;
         ctx.strokeRect(startScreenX, startScreenY, window.clipboard.width * tileSize, -(window.clipboard.height * tileSize));
     }
 
-    // --- DIBUJAR SELECCIÓN (Visual Celeste) ---
-    if (window.selection.p1 && window.selection.p2) {
+    if (window.selection.type === 'rect' && window.selection.p1 && window.selection.p2) {
         const minX = Math.min(window.selection.p1.x, window.selection.p2.x);
         const maxX = Math.max(window.selection.p1.x, window.selection.p2.x);
         const minY = Math.min(window.selection.p1.y, window.selection.p2.y);
@@ -218,14 +247,37 @@ function drawUI() {
         const screenW = (maxX - minX + 1) * tileSize;
         const screenH = -(maxY - minY + 1) * tileSize;
 
-        // Relleno Celeste Ligeramente Transparente
         ctx.fillStyle = "rgba(0, 255, 255, 0.2)"; 
         ctx.fillRect(screenX, screenY, screenW, screenH);
 
-        // Borde Azul Claro 2px
-        ctx.strokeStyle = "#87CEFA"; // LightSkyBlue
+        ctx.strokeStyle = "#87CEFA";
         ctx.lineWidth = 2;
         ctx.strokeRect(screenX, screenY, screenW, screenH);
+    }
+    
+    if (window.selection.type === 'poly' && window.selection.path.length > 0) {
+        ctx.strokeStyle = "#FFD700";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        
+        window.selection.path.forEach((point, index) => {
+            const screenX = (point.x - camera.x) * tileSize + (tileSize / 2); 
+            const screenY = canvas.height - (point.y - camera.y) * tileSize - (tileSize / 2);
+            
+            if (index === 0) {
+                ctx.moveTo(screenX, screenY);
+            } else {
+                ctx.lineTo(screenX, screenY);
+            }
+        });
+        
+        if (!window.selection.dragging && window.selection.path.length > 2) {
+            ctx.closePath();
+            ctx.fillStyle = "rgba(255, 215, 0, 0.1)"; 
+            ctx.fill();
+        }
+        
+        ctx.stroke();
     }
 }
 
@@ -233,10 +285,8 @@ function mainLoop() {
     mouse.calculateCoordinates();
     cameraMovement();
     if (typeof mineAndPlace === 'function') mineAndPlace();
-    drawBackgrond();
     drawWorld();
     drawUI();
-    if (typeof drawHotbar === 'function') drawHotbar();
     requestAnimationFrame(mainLoop);
 }
 

@@ -6,6 +6,144 @@
  <link rel="icon" href="favicon.ico" type="image/x-icon">
  <link rel="stylesheet" href="style.css">
  <title>MB World Edit</title>
+ <style>
+    /* --- ESTILOS INVENTARIO MEJORADO (MODIFICADO) --- */
+    #inventory-modal .modal-content {
+        background: #C6C6C6; 
+        border: 2px solid #555;
+        width: 700px;
+        padding: 0;   
+        color: #000;
+        display: flex; 
+        flex-direction: column;
+        height: 550px; /* Aumentada altura para acomodar tabs */
+    }
+    
+    /* Contenedor principal: Ahora en columna */
+    .inventory-layout {
+        display: flex;
+        flex-direction: column; /* Cambiado a columna para apilar elementos */
+        flex: 1;
+        overflow: hidden;
+        padding: 10px;
+    }
+
+    /* Barra de pestañas (Horizontal) */
+    #inventory-tabs-sidebar {
+        width: 100%;
+        display: flex;
+        flex-direction: row; /* Alineación horizontal */
+        gap: 5px;
+        margin-right: 0;
+        margin-top: 5px;
+        padding-left: 5px;
+        z-index: 10;
+    }
+
+    .inv-tab-btn {
+        width: 40px;
+        height: 40px;
+        background: #8B8B8B;
+        border: 2px solid #373737;
+        border-bottom-color: #FFF; /* Borde inferior claro por defecto */
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .inv-tab-btn.active {
+        background: #C6C6C6; 
+        border-color: #FFF;
+        border-bottom: none; /* Sin borde inferior para conectar con el área principal */
+        height: 45px; /* Crece para tapar el borde del grid */
+        position: relative;
+        margin-bottom: -2px; /* Superpone el borde del grid */
+        border-right: 2px solid #373737;
+    }
+
+    /* Área principal */
+.inventory-main-area {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: #C6C6C6;
+        min-height: 0; /* IMPORTANTE: Permite que el contenedor se encoja y no se desborde */
+    }
+
+    .inv-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 5px;
+        padding-right: 10px;
+    }
+
+    #inventory-search {
+        width: 100%;
+        padding: 8px;
+        background: #333;
+        color: white;
+        border: 2px solid #A0A0A0;
+        font-family: monospace;
+        margin-bottom: 0; /* Quitamos margen inferior para pegar las tabs */
+    }
+
+#inventory-grid {
+        display: grid;
+        grid-template-columns: repeat(9, 1fr);
+        gap: 2px;
+        overflow-y: auto; /* Esto habilita el scroll */
+        background: #8B8B8B;
+        padding: 5px;
+        border: 2px solid #373737;
+        border-top: 2px solid #373737;
+        border-bottom-color: #FFF;
+        border-right-color: #FFF;
+        flex: 1; 
+        min-height: 0; /* IMPORTANTE: Fuerza al grid a respetar el espacio disponible */
+    }
+
+    .inv-item {
+        width: 100%;
+        aspect-ratio: 1;
+        background: #8B8B8B;
+        border: 1px solid transparent;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer;
+    }
+    .inv-item:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border: 1px solid #FFF;
+    }
+    
+    /* Hotbar en Ribbon */
+    #hotbar-container {
+        display: flex;
+        gap: 2px;
+        background: #C6C6C6;
+        padding: 4px;
+        border: 2px solid #555;
+        margin: 0 auto; 
+    }
+    .hotbar-slot {
+        width: 32px;
+        height: 32px;
+        border: 2px solid #8B8B8B;
+        background: #8B8B8B;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        cursor: pointer;
+    }
+    .hotbar-slot.active {
+        border-color: #FFF;
+        background: #A0A0A0;
+        box-shadow: inset 0 0 4px rgba(0,0,0,0.5);
+    }
+ </style>
 </head>
 <body>
  
@@ -27,12 +165,18 @@
 
  <div id="ribbon">
   <div class="tabs">
-   <button class="tab-btn disabled">Insert (Soon)</button>
-   <button class="tab-btn active" onclick="openTab('settings')">World Settings</button>
+   <button class="tab-btn active" onclick="openTab('insert')">Insert</button>
+   <button class="tab-btn" onclick="openTab('settings')">World Settings</button>
    <button class="tab-btn" onclick="openTab('view')">View</button>
   </div>
   <div class="tab-content">
-   <div id="tab-settings" class="tab-pane active">
+   
+   <div id="tab-insert" class="tab-pane active" style="display: flex; justify-content: center; width: 100%;">
+        <div id="hotbar-container"></div>
+        <div style="margin-left: 20px; align-self: center; font-size: 12px; color: #888;">Press 'E' for Inventory</div>
+   </div>
+
+   <div id="tab-settings" class="tab-pane">
     <div class="input-group">
      <label style="margin-right: 5px;">Gamemode:</label>
      <select id="gamemode">
@@ -62,34 +206,30 @@
  </div>
 
  <div id="toolbar-sidebar">
-    <button class="tool-btn active" id="tool-pencil" onclick="selectTool('pencil')" title="Lápiz">✏️</button>
-    <button class="tool-btn" id="tool-eraser" onclick="selectTool('eraser')" title="Borrador">🧼</button>
-    <button class="tool-btn" id="tool-bucket" onclick="selectTool('bucket')" title="Bote de Pintura">🪣</button>
-	<button class="tool-btn" id="tool-select" onclick="selectTool('select')" title="Seleccionar">🔳</button>
+    <button class="tool-btn active" id="tool-pencil" onclick="selectTool('pencil')" title="Pencil">✏️</button>
+    <button class="tool-btn" id="tool-eraser" onclick="selectTool('eraser')" title="Eraser">🧼</button>
+    <button class="tool-btn" id="tool-bucket" onclick="selectTool('bucket')" title="Bucket">🪣</button>
+	<button class="tool-btn" id="tool-select" onclick="selectTool('select')" title="Select">🔳</button>
+    <button class="tool-btn" id="tool-lasso" onclick="selectTool('lasso')" title="Free form">➰</button>
     <button class="tool-btn" id="tool-eyedropper" onclick="selectTool('eyedropper')" title="Gotero">💧</button>
-    
     <div class="separator" style="width: 80%; height: 1px; background: #444; margin: 5px 0;"></div>
-    
-    <button class="tool-btn" onclick="takeScreenshot()" title="Screenshot visible">📷</button>
-    <button class="tool-btn" onclick="toggleConsole()" title="Teletransportar">📍</button>
+    <button class="tool-btn" onclick="takeScreenshot()" title="Screenshot">📷</button>
+    <button class="tool-btn" onclick="toggleConsole()" title="Teletransportation">📍</button>
  </div>
 
  <div id="workspace">
   <div id="coords-overlay">X: 0 Y: 0</div>
-
   <div id="zoom-floating">
     <label for="zoom-slider">Zoom</label>
     <input type="range" id="zoom-slider" min="0" max="4" step="1" value="2" oninput="updateZoomSlider(this.value)">
     <span id="zoom-value">100%</span>
   </div>
-  
   <div id="console-overlay" style="display: none;">
       <div class="console-container">
           <div id="console-suggestion">/tp [x] [y]</div>
           <input type="text" id="console-input" placeholder="Escribe comando...">
       </div>
   </div>
-
   <canvas id="canvas"></canvas>
  </div>
 
@@ -105,6 +245,28 @@
                 <option value="pastel">🌸 Pastel</option>
                 <option value="darkblue">🔵 Dark Blue</option>
             </select>
+        </div>
+    </div>
+ </div>
+
+ <div id="inventory-modal" class="modal">
+    <div class="modal-content">
+        <div class="inventory-layout">
+            
+            <div class="inventory-main-area">
+                <div class="inv-header">
+                    <h3>Inventory</h3>
+                    <span class="close-modal" onclick="closeModal('inventory-modal')" style="cursor:pointer; font-weight:bold;">&times;</span>
+                </div>
+                
+                <input type="text" id="inventory-search" placeholder="Search..." oninput="filterInventory(this.value)">
+                
+                <div id="inventory-tabs-sidebar">
+                </div>
+
+                <div id="inventory-grid">
+                </div>
+            </div>
         </div>
     </div>
  </div>
