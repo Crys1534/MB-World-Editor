@@ -48,7 +48,15 @@ let lastPosition = [{}, {}];
 
 // --- TECLADO ---
 window.addEventListener("keydown", function (event) {
-    if (document.activeElement === document.getElementById('console-input')) {
+    // Si estamos escribiendo en el chat/consola, ignorar controles de juego
+    if (document.activeElement === document.getElementById('console-input') || 
+        document.activeElement === document.getElementById('inventory-search')) {
+        // Permitir cerrar inventario con E incluso si estamos escribiendo
+        if (event.code === 'KeyE' && document.activeElement === document.getElementById('inventory-search')) {
+             event.preventDefault();
+             if (typeof toggleInventory === 'function') toggleInventory();
+             return;
+        }
         return; 
     }
 
@@ -59,7 +67,6 @@ window.addEventListener("keydown", function (event) {
         event.preventDefault();
     }
 
-    // --- HISTORIAL ---
     if ((event.ctrlKey || event.metaKey) && event.code === 'KeyZ') {
         event.preventDefault();
         historyManager.undo();
@@ -69,7 +76,6 @@ window.addEventListener("keydown", function (event) {
         historyManager.redo();
     }
 
-    // --- COPIAR (Ctrl+C) ---
     if ((event.ctrlKey || event.metaKey) && event.code === 'KeyC') {
         event.preventDefault();
         if (typeof copySelection === 'function') {
@@ -77,7 +83,6 @@ window.addEventListener("keydown", function (event) {
         }
     }
 
-    // --- PEGAR (Ctrl+V) ---
     if ((event.ctrlKey || event.metaKey) && event.code === 'KeyV') {
         event.preventDefault();
         if (typeof activatePasteMode === 'function') {
@@ -85,7 +90,6 @@ window.addEventListener("keydown", function (event) {
         }
     }
 
-    // Selección manual antigua (Z/X) - Mantenida por si acaso
     if (event.code === 'KeyZ' && !event.ctrlKey) {
         if (typeof setSelectionPoint === 'function') setSelectionPoint(1, mouse.worldX, mouse.worldY);
     }
@@ -93,17 +97,24 @@ window.addEventListener("keydown", function (event) {
         if (typeof setSelectionPoint === 'function') setSelectionPoint(2, mouse.worldX, mouse.worldY);
     }
     
-    // Cuentagotas (C sin Ctrl)
     if (event.code === 'KeyC' && !event.ctrlKey) {
          eyedropper(mouse.worldX, mouse.worldY);
     }
 
-    // Hotbar
-    if (event.code === 'KeyQ') shapeIndex = (shapeIndex - 1 + 7) % 7;
-    if (event.code === 'KeyE') shapeIndex = (shapeIndex + 1) % 7;
+    // --- NUEVO INVENTARIO ---
+    if (event.code === 'KeyE') {
+        // PREVENIMOS que la 'e' se escriba en el input
+        event.preventDefault(); 
+        if (typeof toggleInventory === 'function') toggleInventory();
+    }
+
+    // --- HOTBAR (Números) ---
     if (event.code.startsWith('Digit')) {
         let num = parseInt(event.code.charAt(5));
-        if (!isNaN(num) && num > 0) slotIndex = num - 1;
+        if (!isNaN(num) && num > 0) {
+            slotIndex = num - 1;
+            if (typeof updateHotbarSelection === 'function') updateHotbarSelection();
+        }
     }
 });
 
@@ -111,7 +122,6 @@ window.addEventListener("keyup", function (event) {
 	if (keys.hasOwnProperty(event.code)) keys[event.code] = false;
 });
 
-// --- MOUSE ---
 canvas.addEventListener("mousemove", (event) => {
 	mouse.canvasX = event.offsetX;
 	mouse.canvasY = canvas.height - event.offsetY;
@@ -119,8 +129,7 @@ canvas.addEventListener("mousemove", (event) => {
 	mouse.gridY = Math.floor(mouse.canvasY / tileSize);
     mouse.calculateCoordinates(); 
 
-    // Mover selección
-    if (currentTool === 'select' && mouse.left) {
+    if ((currentTool === 'select' || currentTool === 'lasso') && mouse.left) {
         handleSelectionInput('move', mouse.worldX, mouse.worldY);
     }
 })
@@ -129,15 +138,13 @@ canvas.addEventListener("mousedown", function (event) {
 	if (event.button == 0) mouse.left = true;
 	if (event.button == 2) mouse.right = true;
 
-    // Lógica por herramienta en Click
-    if (currentTool === 'select' && mouse.left) {
+    if ((currentTool === 'select' || currentTool === 'lasso') && mouse.left) {
         handleSelectionInput('start', mouse.worldX, mouse.worldY);
     } 
     else if (currentTool === 'paste' && mouse.left) {
         performPaste(mouse.worldX, mouse.worldY);
     }
     else if (mouse.left || mouse.right) {
-        // Herramientas continuas (bucket, pencil, eraser)
         if (currentTool === 'bucket' && mouse.left) {
             bucketFill(mouse.worldX, mouse.worldY);
         } else if (currentTool !== 'eyedropper') {
@@ -147,23 +154,21 @@ canvas.addEventListener("mousedown", function (event) {
 });
 
 window.addEventListener("mouseup", function (event) {
-    // Fin selección
-    if (currentTool === 'select' && mouse.left) {
+    if ((currentTool === 'select' || currentTool === 'lasso') && mouse.left) {
         handleSelectionInput('end', mouse.worldX, mouse.worldY);
     }
 
 	if (event.button == 0) mouse.left = false;
 	if (event.button == 2) mouse.right = false;
 
-    // Terminar acción historial (excepto para herramientas de un solo click o especiales)
-    if (currentTool !== 'eyedropper' && currentTool !== 'bucket' && currentTool !== 'select' && currentTool !== 'paste') {
+    if (currentTool !== 'eyedropper' && currentTool !== 'bucket' && currentTool !== 'select' && currentTool !== 'lasso' && currentTool !== 'paste') {
         historyManager.commitAction();
     }
 });
 
 canvas.addEventListener("mouseleave", function() {
     if (mouse.left || mouse.right) {
-        if (currentTool !== 'select') historyManager.commitAction();
+        if (currentTool !== 'select' && currentTool !== 'lasso') historyManager.commitAction();
         mouse.left = false;
         mouse.right = false;
     }
