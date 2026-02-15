@@ -1,75 +1,189 @@
-/* SISTEMA DE ESTRUCTURAS MEJORADO */
+/* SISTEMA DE ESTRUCTURAS - DATABASE Y LÓGICA */
 
-// --- BASE DE DATOS DE ESTRUCTURAS ---
-const structureDB = [
+// 1. Estructuras por defecto (Vanilla/System)
+const defaultStructures = [
     {
-        "title": "Oak Tree",
-        "author": "System",
-        "category": "vanilla",
-        "subcategory": "nature",
-        "data": [
-            { "dx": 0, "dy": 0, "state": { "type": "tob" } },
-            { "dx": 0, "dy": 1, "state": { "type": "tob" } },
-            { "dx": 0, "dy": 2, "state": { "type": "tob" } },
-            { "dx": -1, "dy": 3, "state": { "type": "l" } },
-            { "dx": 0, "dy": 3, "state": { "type": "l" } },
-            { "dx": 1, "dy": 3, "state": { "type": "l" } },
-            { "dx": -1, "dy": 4, "state": { "type": "l" } },
-            { "dx": 0, "dy": 4, "state": { "type": "l" } },
-            { "dx": 1, "dy": 4, "state": { "type": "l" } },
-            { "dx": 0, "dy": 5, "state": { "type": "l" } }
+        title: "Oak Tree",
+        author: "System",
+        category: "vanilla",
+        subcategory: "nature",
+        data: [
+            {dx:0, dy:0, state:{type:"tob"}}, {dx:0, dy:1, state:{type:"tob"}}, {dx:0, dy:2, state:{type:"tob"}},
+            {dx:-1, dy:3, state:{type:"l"}}, {dx:0, dy:3, state:{type:"l"}}, {dx:1, dy:3, state:{type:"l"}},
+            {dx:-1, dy:4, state:{type:"l"}}, {dx:0, dy:4, state:{type:"l"}}, {dx:1, dy:4, state:{type:"l"}},
+            {dx:0, dy:5, state:{type:"l"}}
         ]
     }
-
-
-    // PEGA AQUÍ TUS ESTRUCTURAS DE LA CONSOLA...
 ];
 
-let currentStructCategory = 'community';
+// Array en memoria que combina defecto + guardadas
+let structureDB = [...defaultStructures];
+
+let currentStructCategory = 'saved'; 
 let currentStructSubCategory = 'all'; 
 let selectedStructure = null;
 let tempSaveData = null; 
+let isStructuresModalOpen = false; // Flag para control de teclado
 
-// --- GESTIÓN DE TEMAS ---
-function updateStructureTheme(theme) {
-    const root = document.documentElement;
-    if (theme === 'dark') {
-        root.style.setProperty('--struct-bg', '#333'); root.style.setProperty('--struct-bg-dark', '#222');
-        root.style.setProperty('--struct-text', '#fff'); root.style.setProperty('--struct-border', '#555');
-        root.style.setProperty('--struct-item-bg', '#444'); root.style.setProperty('--struct-accent', '#fff');
-    } else if (theme === 'white') {
-        root.style.setProperty('--struct-bg', '#f0f0f0'); root.style.setProperty('--struct-bg-dark', '#e0e0e0');
-        root.style.setProperty('--struct-text', '#000'); root.style.setProperty('--struct-border', '#ccc');
-        root.style.setProperty('--struct-item-bg', '#fff'); root.style.setProperty('--struct-accent', '#000');
-    } else if (theme === 'pastel') {
-        root.style.setProperty('--struct-bg', '#fdf6e3'); root.style.setProperty('--struct-bg-dark', '#eee8d5');
-        root.style.setProperty('--struct-text', '#586e75'); root.style.setProperty('--struct-border', '#93a1a1');
-        root.style.setProperty('--struct-item-bg', '#fff'); root.style.setProperty('--struct-accent', '#2aa198');
-    } else if (theme === 'darkblue') {
-        root.style.setProperty('--struct-bg', '#002b36'); root.style.setProperty('--struct-bg-dark', '#073642');
-        root.style.setProperty('--struct-text', '#839496'); root.style.setProperty('--struct-border', '#586e75');
-        root.style.setProperty('--struct-item-bg', '#002b36'); root.style.setProperty('--struct-accent', '#268bd2');
+// --- CARGAR DATOS PERSISTENTES ---
+function loadSavedStructures() {
+    try {
+        const savedJson = localStorage.getItem('mbw_saved_structures');
+        if (savedJson) {
+            const savedItems = JSON.parse(savedJson);
+            // Reconstruimos la DB combinando defecto + localStorage
+            structureDB = [...defaultStructures, ...savedItems];
+            console.log(`Loaded ${savedItems.length} custom structures from storage.`);
+        }
+    } catch (e) {
+        console.error("Error loading structures:", e);
     }
+}
+loadSavedStructures();
+
+// --- SISTEMA DE BLOQUEO DE ATAJOS (KEYBOARD TRAP) ---
+window.addEventListener('keydown', function(e) {
+    if (isStructuresModalOpen) {
+        // Permitir F12 (DevTools) y Escape (Cerrar modal)
+        if (e.key === 'F12' || e.key === 'Escape') return;
+
+        // Detener cualquier otro atajo (WASD, Herramientas, etc.)
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+    }
+}, true); // Use Capture Phase para interceptar antes que otros scripts
+
+// --- IMPORTAR / EXPORTAR / RESET ---
+
+function exportSavedStructures() {
+    const savedStructs = structureDB.filter(s => s.category === 'saved');
+    if (savedStructs.length === 0) {
+        alert("No saved structures found to export.");
+        return;
+    }
+    const dataStr = JSON.stringify(savedStructs, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mbw_structures_backup_${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function importStructures() {
+    document.getElementById('import-struct-input').click();
+}
+
+function handleImportFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const importedData = JSON.parse(e.target.result);
+            if (!Array.isArray(importedData)) {
+                alert("Invalid file format. Expected a JSON array.");
+                return;
+            }
+
+            let addedCount = 0;
+            importedData.forEach(struct => {
+                // Validación básica: debe tener titulo y datos
+                if (struct.title && struct.data) {
+                    // Forzar categoría 'saved' para que aparezcan en la pestaña correcta
+                    // aunque vengan de otro usuario
+                    struct.category = 'saved';
+                    structureDB.push(struct);
+                    addedCount++;
+                }
+            });
+
+            updateLocalStorage();
+            filterStructures('saved'); // Refrescar vista
+            alert(`Successfully imported ${addedCount} structures.`);
+        } catch (err) {
+            console.error(err);
+            alert("Error parsing JSON file.");
+        }
+    };
+    reader.readAsText(file);
+    input.value = ''; // Limpiar para permitir re-importar el mismo archivo
+}
+
+function resetSavedStructures() {
+    if (!confirm("WARNING: This will delete ALL your saved structures.\nThis action cannot be undone.\nAre you sure?")) {
+        return;
+    }
+    
+    // Filtramos para dejar SOLO las que NO son 'saved' (es decir, las vanilla)
+    structureDB = structureDB.filter(s => s.category !== 'saved');
+    
+    updateLocalStorage();
+    filterStructures('saved');
 }
 
 // --- BROWSER MODAL ---
 function openStructuresModal() {
-    const themeSelect = document.getElementById('theme-select');
-    if(themeSelect) updateStructureTheme(themeSelect.value);
-    document.getElementById('structures-modal').style.display = 'flex';
-    filterStructures('community'); 
+    const modal = document.getElementById('structures-modal');
+    modal.style.display = 'flex';
+    isStructuresModalOpen = true; // Activar bloqueo de teclas
+    
+    // Abrir directamente en la pestaña "Saved"
+    filterStructures('saved'); 
+}
+
+// Interceptamos el cierre del modal para liberar el teclado
+const originalCloseModal = window.closeModal;
+window.closeModal = function(modalId) {
+    if (modalId === 'structures-modal' || modalId === 'save-structure-modal') {
+        isStructuresModalOpen = false; // Desactivar bloqueo
+    }
+    if (originalCloseModal) originalCloseModal(modalId);
+    else {
+        const modal = document.getElementById(modalId);
+        if(modal) modal.style.display = 'none';
+    }
 }
 
 function filterStructures(category, subcategory = null) {
     currentStructCategory = category;
     if (subcategory) currentStructSubCategory = subcategory;
-    
-    document.querySelectorAll('.struct-tab').forEach(t => t.classList.remove('active'));
-    document.getElementById(`tab-struct-${category}`).classList.add('active');
 
+    document.querySelectorAll('.struct-tab').forEach(t => t.classList.remove('active'));
+    const activeTab = document.getElementById(`tab-struct-${category}`);
+    if(activeTab) activeTab.classList.add('active');
+
+    // Manejo de subpestañas
     const subtabs = document.getElementById('struct-subtabs');
-    if (category === 'community') { subtabs.style.display = 'flex'; } 
-    else { subtabs.style.display = 'none'; currentStructSubCategory = null; }
+    if (category === 'community') { 
+        subtabs.style.display = 'flex'; 
+    } else { 
+        subtabs.style.display = 'none'; 
+        currentStructSubCategory = null; 
+    }
+
+    // --- MANEJO DE BOTONES DE ACCIÓN ---
+    const actionsDiv = document.getElementById('struct-saved-actions');
+    if (actionsDiv) {
+        // Solo mostrar botones Export/Import/Reset en la pestaña SAVED
+        actionsDiv.style.display = (category === 'saved') ? 'flex' : 'none';
+    }
+
+    // Resetear selección
+    selectedStructure = null;
+    document.getElementById('struct-info-title').innerText = "Select an item";
+    document.getElementById('struct-info-author').innerText = "";
+    document.getElementById('struct-info-sub').innerText = "";
+    document.getElementById('btn-delete-struct').style.display = 'none';
+    
+    const canvas = document.getElementById('struct-preview-canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
     renderStructureGrid();
 }
 
@@ -84,27 +198,39 @@ function filterSubCategory(sub) {
 function renderStructureGrid() {
     const grid = document.getElementById('structures-grid');
     grid.innerHTML = ''; 
-
+    
     const filtered = structureDB.filter(item => {
         if (item.category !== currentStructCategory) return false;
         if (currentStructSubCategory && currentStructSubCategory !== 'all') {
-            return item.subcategory.toLowerCase() === currentStructSubCategory.toLowerCase();
+            return item.subcategory && item.subcategory.toLowerCase() === currentStructSubCategory.toLowerCase();
         }
         return true;
     });
 
-    filtered.forEach((struct) => {
+    if (filtered.length === 0) {
+        grid.innerHTML = '<div style="color:#888; grid-column: 1/-1; text-align:center; padding-top:20px;">No structures found.</div>';
+        return;
+    }
+
+    filtered.forEach(struct => {
         const item = document.createElement('div');
         item.className = 'struct-item';
         
-        const thumbCanvas = document.createElement('canvas');
-        thumbCanvas.width = 64; thumbCanvas.height = 64; thumbCanvas.style.marginBottom = "5px";
-        setTimeout(() => renderPreviewOnCanvas(thumbCanvas, struct.data, true), 10);
+        const previewCanvas = document.createElement('canvas');
+        previewCanvas.width = 64; 
+        previewCanvas.height = 64;
+        previewCanvas.style.marginBottom = '5px';
+        previewCanvas.style.imageRendering = 'pixelated'; 
+        
+        renderPreviewOnCanvas(previewCanvas, struct.data, true);
 
-        const name = document.createElement('div');
-        name.className = 'struct-name'; name.innerText = struct.title;
+        const nameDiv = document.createElement('div');
+        nameDiv.className = 'struct-name';
+        nameDiv.innerText = struct.title;
 
-        item.appendChild(thumbCanvas); item.appendChild(name);
+        item.appendChild(previewCanvas);
+        item.appendChild(nameDiv);
+
         item.onclick = () => selectStructure(struct);
         grid.appendChild(item);
     });
@@ -114,8 +240,18 @@ function selectStructure(struct) {
     selectedStructure = struct;
     document.getElementById('struct-info-title').innerText = struct.title;
     document.getElementById('struct-info-author').innerText = "Author: " + struct.author;
+    if(document.getElementById('struct-info-sub')) {
+        document.getElementById('struct-info-sub').innerText = `Type: ${struct.subcategory}`;
+    }
+    
     const canvas = document.getElementById('struct-preview-canvas');
-    renderPreviewOnCanvas(canvas, struct.data, true); 
+    canvas.style.imageRendering = 'pixelated';
+    renderPreviewOnCanvas(canvas, struct.data, true);
+
+    const btnDel = document.getElementById('btn-delete-struct');
+    if (btnDel) {
+        btnDel.style.display = (struct.category === 'saved') ? 'block' : 'none';
+    }
 }
 
 function loadStructureToClipboard() {
@@ -124,19 +260,32 @@ function loadStructureToClipboard() {
     const width = Math.max(...xs) - Math.min(...xs) + 1;
     const height = Math.max(...ys) - Math.min(...ys) + 1;
     window.clipboard = { width: width, height: height, data: JSON.parse(JSON.stringify(selectedStructure.data)) };
+    
     closeModal('structures-modal');
     activatePasteMode(); 
-    showNotification("Structure loaded to cursor!");
+}
+
+function deleteSavedStructure() {
+    if (!selectedStructure || selectedStructure.category !== 'saved') return;
+    if (!confirm(`Permanently delete "${selectedStructure.title}"?`)) return;
+
+    structureDB = structureDB.filter(s => s !== selectedStructure);
+    updateLocalStorage();
+    filterStructures('saved');
+}
+
+function updateLocalStorage() {
+    const toSave = structureDB.filter(s => s.category === 'saved');
+    localStorage.setItem('mbw_saved_structures', JSON.stringify(toSave));
 }
 
 // --- SAVE MODAL ---
 function openSaveStructureModal() {
-    const themeSelect = document.getElementById('theme-select');
-    if(themeSelect) updateStructureTheme(themeSelect.value);
-
     if (!window.selection.p1 || (!window.selection.p2 && window.selection.path.length === 0)) {
-        showNotification("Select an area first!", true); return;
+        alert("Select an area first!"); return;
     }
+    
+    isStructuresModalOpen = true; // Bloquear teclado
 
     let minX, maxX, minY, maxY;
     if (window.selection.type === 'poly') {
@@ -153,75 +302,56 @@ function openSaveStructureModal() {
             if (window.selection.type === 'poly') { if (!isPointInPolygon(x, y, window.selection.path)) continue; }
             const state = mbwom.getBlockState(x, y);
             if (state && state.type != null) {
-                data.push({ dx: x - minX, dy: y - minY, state: structuredClone(state) });
+                const clonedState = JSON.parse(JSON.stringify(state));
+                data.push({ dx: x - minX, dy: y - minY, state: clonedState });
             }
         }
     }
-
-    if (data.length === 0) { showNotification("Area empty!", true); return; }
+    if (data.length === 0) { 
+        alert("Area empty!"); 
+        isStructuresModalOpen = false; // Desbloquear si cancelamos por error
+        return; 
+    }
 
     tempSaveData = data;
     document.getElementById('save-structure-modal').style.display = 'flex';
     document.getElementById('input-struct-title').value = '';
     document.getElementById('input-struct-author').value = 'User';
-    document.getElementById('input-struct-category').value = 'community';
-    document.getElementById('input-struct-subcategory').value = 'House';
-
+    
     const canvas = document.getElementById('struct-save-preview');
+    canvas.style.imageRendering = 'pixelated';
     renderPreviewOnCanvas(canvas, tempSaveData, false, true); 
 }
 
 function saveNewStructure() {
     const title = document.getElementById('input-struct-title').value.trim();
     const author = document.getElementById('input-struct-author').value.trim();
-    const category = document.getElementById('input-struct-category').value;
+    const category = 'saved';
     const subcategory = document.getElementById('input-struct-subcategory').value;
 
-    if (!title) { showNotification("Please enter a title.", true); return; }
+    if (!title) { alert("Please enter a title."); return; }
 
     const newStruct = {
-        title: title, author: author || "Anonymous", category: category, subcategory: subcategory, data: tempSaveData
+        title: title, author: author || "Anonymous", category: category, subcategory: subcategory,
+        data: tempSaveData, timestamp: Date.now()
     };
 
     structureDB.push(newStruct);
-    
-    // --- FORMATO PERSONALIZADO PARA LA CONSOLA ---
-    // Construimos el string manualmente para obtener el formato compacto
-    let output = `    {\n`;
-    output += `        "title": "${newStruct.title}",\n`;
-    output += `        "author": "${newStruct.author}",\n`;
-    output += `        "category": "${newStruct.category}",\n`;
-    output += `        "subcategory": "${newStruct.subcategory}",\n`;
-    output += `        "data": [\n`;
-    
-    // Mapeamos cada bloque a una línea con espacios bonitos
-    const dataLines = newStruct.data.map(block => {
-        // Convertimos a JSON y agregamos espacios después de : y ,
-        let line = JSON.stringify(block);
-        line = line.replace(/:/g, ': ').replace(/,/g, ', ');
-        return `            ${line}`;
-    });
-    
-    output += dataLines.join(",\n");
-    output += `\n        ]\n    },`;
-
-    console.clear();
-    console.log("%c STRUCTURE SAVED! COPY BELOW:", "color: lime; font-size: 14px; font-weight: bold;");
-    console.log(output); 
-    console.log("%c Paste this into structureDB inside scripts/structures.js", "color: #aaa;");
-    // ---------------------------------------------
-
+    updateLocalStorage();
     closeModal('save-structure-modal');
-    showNotification("Structure saved! Check Console (F12)");
+    alert("Structure saved successfully!");
     
     window.selection.p1 = null; window.selection.p2 = null; window.selection.path = [];
     if(typeof checkSelectionState === 'function') checkSelectionState();
 }
 
-// --- RENDERIZADO PREVIEW ---
+// --- ENGINE RENDERIZADO PREVIEW ---
 function renderPreviewOnCanvas(canvas, blockData, fit = true, forceCover = false) {
     const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false; 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#333"; 
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     if (!blockData || blockData.length === 0) return;
 
@@ -231,43 +361,40 @@ function renderPreviewOnCanvas(canvas, blockData, fit = true, forceCover = false
 
     let tileSize = 16;
     if (forceCover) {
-        let multiplier = 2;
-        while ((width * multiplier * 16 < canvas.width) && (height * multiplier * 16 < canvas.height)) { multiplier += 2; }
+        let multiplier = 2; 
+        while ((width * multiplier * 16 < canvas.width) && (height * multiplier * 16 < canvas.height)) {
+            multiplier += 2;
+        }
         tileSize = 16 * multiplier;
     } else if (fit) {
         const maxSize = Math.max(width, height);
-        tileSize = Math.floor((Math.min(canvas.width, canvas.height) - 4) / maxSize);
+        tileSize = Math.floor(Math.min(canvas.width, canvas.height) / maxSize);
         if (tileSize < 1) tileSize = 1;
     }
 
     const totalW = width * tileSize; const totalH = height * tileSize;
     const offsetX = (canvas.width - totalW) / 2;
     const offsetY = (canvas.height - totalH) / 2;
-    ctx.imageSmoothingEnabled = false;
+    const imgs = window.images;
 
     blockData.forEach(block => {
         const drawX = offsetX + block.dx * tileSize;
         const drawY = canvas.height - (offsetY + block.dy * tileSize) - tileSize;
 
-        if (window.images && window.images.blocks && window.blockData) {
+        if (imgs && imgs.blocks && imgs.blocks.complete && imgs.blocks.naturalWidth !== 0) {
             try {
-                const renderer = window.blockData[block.state.type];
+                const renderer = window.blockData ? window.blockData[block.state.type] : null;
                 if (renderer) {
                     const tex = renderer(block.state);
-                    ctx.drawImage(window.images.blocks, tex.x, tex.y, 16, 16, drawX, drawY, tileSize, tileSize);
-                } else { ctx.fillStyle = '#FF00FF'; ctx.fillRect(drawX, drawY, tileSize, tileSize); }
-            } catch(e) { }
-        } else { ctx.fillStyle = '#888'; ctx.fillRect(drawX, drawY, tileSize, tileSize); }
+                    ctx.drawImage(imgs.blocks, tex.x, tex.y, 16, 16, drawX, drawY, tileSize, tileSize);
+                } else {
+                    ctx.fillStyle = '#888'; ctx.fillRect(drawX, drawY, tileSize, tileSize);
+                }
+            } catch(e) {
+                ctx.fillStyle = '#F0F'; ctx.fillRect(drawX, drawY, tileSize, tileSize);
+            }
+        } else {
+            ctx.fillStyle = '#555'; ctx.fillRect(drawX, drawY, tileSize, tileSize);
+        }
     });
-}
-
-// --- NOTIFICACIÓN NATIVA ---
-function showNotification(message, isError = false) {
-    let notif = document.getElementById('native-notification');
-    if (!notif) {
-        notif = document.createElement('div'); notif.id = 'native-notification'; document.body.appendChild(notif);
-    }
-    notif.innerText = message; notif.style.backgroundColor = isError ? '#d32f2f' : '#4CAF50';
-    notif.classList.add('show');
-    setTimeout(() => { notif.classList.remove('show'); }, 3000);
 }

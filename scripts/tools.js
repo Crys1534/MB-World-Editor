@@ -7,22 +7,30 @@ let toolRounded = false;
 window.selection = { p1: null, p2: null, path: [], type: 'rect', dragging: false };
 window.clipboard = null; 
 
-// --- VERIFICAR SELECCIÓN ---
+// --- NUEVA FUNCIÓN: Verificar selección para botón Guardar ---
 function checkSelectionState() {
     const btn = document.getElementById('btn-save-struct');
     if (!btn) return;
+
     let hasSelection = false;
     if (window.selection.type === 'rect' && window.selection.p1 && window.selection.p2) {
         hasSelection = true;
     } else if (window.selection.type === 'poly' && window.selection.path.length > 2) {
         hasSelection = true;
     }
+
     if (hasSelection) {
-        btn.disabled = false; btn.title = "Save selected area";
-        btn.style.filter = "none"; btn.style.opacity = "1"; btn.style.cursor = "pointer";
+        btn.disabled = false;
+        btn.title = "Save selected area";
+        btn.style.filter = "none";
+        btn.style.opacity = "1";
+        btn.style.cursor = "pointer";
     } else {
-        btn.disabled = true; btn.title = "Select an area first to save";
-        btn.style.filter = "grayscale(100%)"; btn.style.opacity = "0.4"; btn.style.cursor = "not-allowed";
+        btn.disabled = true;
+        btn.title = "Select an area first to save";
+        btn.style.filter = "grayscale(100%)";
+        btn.style.opacity = "0.4";
+        btn.style.cursor = "not-allowed";
     }
 }
 
@@ -38,6 +46,8 @@ function selectTool(toolName) {
     if (toolName !== 'select' && toolName !== 'lasso') {
         window.selection.dragging = false; window.selection.path = []; window.selection.p1 = null; window.selection.p2 = null;
     }
+    
+    // Chequear estado al cambiar herramienta
     setTimeout(checkSelectionState, 10);
 }
 
@@ -69,7 +79,7 @@ function updateToolSize(val) {
 function updateToolRounded(isRounded) { toolRounded = isRounded; }
 
 window.addEventListener('keydown', function(e) {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     if (e.key === '+' || e.code === 'NumpadAdd') updateToolSize(toolSize + 1);
     if (e.key === '-' || e.code === 'NumpadSubtract') updateToolSize(toolSize - 1);
     if (e.key === 'Delete' || e.code === 'Delete') deleteSelection();
@@ -125,25 +135,25 @@ function handleSelectionInput(action, x, y) {
         if (action === 'start') {
             window.selection.type = 'poly'; window.selection.path = [{x, y}];
             window.selection.dragging = true; window.selection.p1 = null; window.selection.p2 = null;
-            updateSelectionInfo(); checkSelectionState();
+            updateSelectionInfo(); checkSelectionState(); // Update
         } else if (action === 'move' && window.selection.dragging) {
             const last = window.selection.path[window.selection.path.length - 1];
             if (last.x !== x || last.y !== y) { window.selection.path.push({x, y}); updateSelectionInfo(); }
         } else if (action === 'end') {
-            window.selection.dragging = false; updateSelectionInfo(); checkSelectionState();
+            window.selection.dragging = false; updateSelectionInfo(); checkSelectionState(); // Update
         }
         return;
     }
     window.selection.type = 'rect';
     if (action === 'start') {
         window.selection.path = []; window.selection.p1 = { x, y }; window.selection.p2 = { x, y }; 
-        window.selection.dragging = true; updateSelectionInfo(); checkSelectionState();
+        window.selection.dragging = true; updateSelectionInfo(); checkSelectionState(); // Update
     } else if (action === 'move' && window.selection.dragging) {
         window.selection.p2 = { x, y }; updateSelectionInfo();
     } else if (action === 'end') {
         window.selection.dragging = false;
         if (!window.selection.p2 && window.selection.p1) window.selection.p2 = { x, y };
-        updateSelectionInfo(); checkSelectionState();
+        updateSelectionInfo(); checkSelectionState(); // Update
     }
 }
 
@@ -151,7 +161,7 @@ function setSelectionPoint(point, x, y) {
     window.selection.type = 'rect'; 
     if (point === 1) window.selection.p1 = { x, y };
     if (point === 2) window.selection.p2 = { x, y };
-    updateSelectionInfo(); checkSelectionState();
+    updateSelectionInfo(); checkSelectionState(); // Update
 }
 
 function copySelection() {
@@ -180,8 +190,8 @@ function copySelection() {
     
     const overlay = document.getElementById('selection-overlay');
     if (overlay) overlay.style.display = 'none';
-    checkSelectionState();
-    showNotification("Selection copied!"); // Usamos la notificacion
+    checkSelectionState(); // Update
+    console.log("Copiado.");
 }
 
 function deleteSelection() {
@@ -212,11 +222,11 @@ function deleteSelection() {
     const overlay = document.getElementById('selection-overlay');
     if (overlay) overlay.style.display = 'none';
     window.selection.p1 = null; window.selection.p2 = null; window.selection.path = [];
-    checkSelectionState();
+    checkSelectionState(); // Update
 }
 
 function activatePasteMode() {
-    if (!window.clipboard) { showNotification("Clipboard empty!", true); return; }
+    if (!window.clipboard) { alert("Portapapeles vacío."); return; }
     selectTool('paste');
 }
 function performPaste(targetX, targetY) {
