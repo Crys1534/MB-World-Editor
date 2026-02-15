@@ -7,25 +7,6 @@
  <link rel="stylesheet" href="style.css">
  <title>MB World Edit</title>
  <style>
-    /* --- VARIABLES DE TEMA (POR DEFECTO DARK) --- */
-    :root {
-        --struct-bg: #C6C6C6;
-        --struct-bg-dark: #8B8B8B;
-        --struct-text: #000;
-        --struct-border: #555;
-        --struct-item-bg: #555;
-        --struct-accent: #FFF;
-    }
-
-    /* --- NOTIFICACIÓN NATIVA (TOAST) --- */
-    #native-notification {
-        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px);
-        background-color: #4CAF50; color: white; padding: 12px 24px; border-radius: 4px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3); font-family: sans-serif; font-weight: bold;
-        z-index: 3000; opacity: 0; transition: transform 0.3s ease-out, opacity 0.3s ease-out;
-    }
-    #native-notification.show { transform: translateX(-50%) translateY(0); opacity: 1; }
-
     /* --- ESTILOS GENERALES --- */
     #inventory-modal .modal-content {
         background: #C6C6C6; border: 2px solid #555; width: 700px; padding: 0;   
@@ -85,89 +66,83 @@
     #console-suggestion { color: #888; font-family: monospace; font-size: 12px; margin-bottom: 5px; }
     #console-input { width: 100%; padding: 10px; background: #1a1a1a; border: 1px solid #444; color: #0f0; font-family: 'Consolas', monospace; outline: none; }
 
-    /* --- ESTILOS MODAL ESTRUCTURAS (THEMED) --- */
+    /* --- ESTILOS DE ESTRUCTURAS --- */
     .icon-btn:disabled, .icon-btn[disabled] { opacity: 0.4; cursor: not-allowed; filter: grayscale(100%); }
 
     #structures-modal .modal-content {
-        width: 850px; height: 600px; 
-        background: var(--struct-bg); 
-        border: 2px solid var(--struct-border); 
-        color: var(--struct-text);
-        padding: 0; display: flex; flex-direction: row; overflow: hidden;
+        width: 850px; height: 600px; background: #C6C6C6; border: 2px solid #555; padding: 0;
+        display: flex; flex-direction: row; overflow: hidden;
     }
-
-    .struct-main { 
-        flex: 1; display: flex; flex-direction: column; padding: 10px; 
-        border-right: 2px solid var(--struct-border); 
-    }
+    .struct-main { flex: 1; display: flex; flex-direction: column; padding: 10px; border-right: 2px solid #555; }
     
-    .struct-tabs { display: flex; gap: 5px; margin-bottom: 10px; }
+    /* Contenedor de pestañas y acciones */
+    .struct-tabs-container {
+        display: flex; justify-content: space-between; align-items: center; 
+        border-bottom: 2px solid #FFF; margin-bottom: 10px; background: #8B8B8B; padding-right: 5px;
+    }
+    .struct-tabs { display: flex; gap: 5px; margin-bottom: -2px; }
     .struct-tab {
-        padding: 8px 15px; 
-        background: var(--struct-bg-dark); 
-        border: 2px solid #373737; border-bottom: 2px solid var(--struct-bg);
-        cursor: pointer; font-weight: bold; color: var(--struct-text);
+        padding: 8px 15px; background: #8B8B8B; border: 2px solid #373737; border-bottom: 2px solid #FFF;
+        cursor: pointer; font-weight: bold;
     }
     .struct-tab.active {
-        background: var(--struct-bg); border-bottom: none; margin-bottom: -2px; z-index: 10;
-        border-top: 2px solid var(--struct-accent); border-left: 2px solid var(--struct-accent);
+        background: #C6C6C6; border-bottom: none; margin-bottom: 0; z-index: 10;
+        border-top: 2px solid #FFF; border-left: 2px solid #FFF;
     }
     
+    /* Botones mini de acción */
+    .mini-btn {
+        padding: 4px 8px; font-size: 11px; font-weight: bold; cursor: pointer;
+        border: 1px solid #333; color: white; display: flex; align-items: center; gap: 3px;
+        text-transform: uppercase;
+    }
+    .btn-import { background: #E67E22; border-color: #D35400; }
+    .btn-import:hover { background: #F39C12; }
+    .btn-export { background: #3498DB; border-color: #2980B9; }
+    .btn-export:hover { background: #5DADE2; }
+    .btn-reset { background: #C0392B; border-color: #922B21; }
+    .btn-reset:hover { background: #E74C3C; }
+
     #struct-subtabs {
-        display: none; gap: 5px; margin-bottom: 10px; padding-left: 10px; 
-        background: var(--struct-bg-dark); padding: 5px; border: 1px solid var(--struct-border);
+        display: none; gap: 5px; margin-bottom: 10px; padding-left: 10px; background: #A0A0A0; padding: 5px; border: 1px solid #555;
     }
     .struct-subtab { font-size: 12px; cursor: pointer; padding: 2px 8px; background: #777; color: #DDD; }
     .struct-subtab.active { background: #FFF; color: #000; }
 
     #structures-grid {
         display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; overflow-y: auto;
-        background: var(--struct-bg-dark); padding: 10px; 
-        border: 2px solid #373737; border-right-color: #FFF; border-bottom-color: #FFF; flex: 1;
+        background: #8B8B8B; padding: 10px; border: 2px solid #373737; border-right-color: #FFF; border-bottom-color: #FFF; flex: 1;
     }
-    
     .struct-item {
-        background: var(--struct-item-bg); border: 2px solid #333; aspect-ratio: 1; display: flex; flex-direction: column;
+        background: #555; border: 2px solid #333; aspect-ratio: 1; display: flex; flex-direction: column;
         align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s;
-        padding: 5px;
     }
-    .struct-item:hover { background: #666; border-color: var(--struct-accent); }
-    .struct-name { font-size: 12px; text-align: center; color: var(--struct-text); margin-top: 5px; }
+    .struct-item:hover { background: #666; border-color: #FFF; }
+    .struct-name { font-size: 12px; text-align: center; color: white; padding: 0 5px; }
 
-    .struct-sidebar { 
-        width: 250px; background: var(--struct-bg-dark); 
-        display: flex; flex-direction: column; padding: 15px; align-items: center; 
-        border-left: 2px solid var(--struct-accent);
-    }
-    #struct-preview-canvas { 
-        width: 200px; height: 200px; background: #333; 
-        border: 2px solid #373737; margin-bottom: 15px; image-rendering: pixelated; 
-    }
-    .struct-info h3 { color: var(--struct-text); }
-    .struct-info p { color: var(--struct-text); opacity: 0.8; }
-    .btn-load-struct { padding: 10px 20px; background: #4CAF50; color: white; border: 2px solid #2E7D32; cursor: pointer; font-weight: bold; }
+    .struct-sidebar { width: 250px; background: #B0B0B0; display: flex; flex-direction: column; padding: 15px; align-items: center; }
+    #struct-preview-canvas { width: 200px; height: 200px; background: #8B8B8B; border: 2px solid #373737; margin-bottom: 15px; image-rendering: pixelated; }
+    .struct-info { width: 100%; text-align: left; margin-bottom: 20px; }
+    .struct-info h3 { margin: 0 0 5px 0; font-size: 18px; }
+    .struct-info p { margin: 0; color: #444; font-size: 14px; font-style: italic; }
+    .btn-load-struct { padding: 10px 20px; background: #4CAF50; color: white; border: 2px solid #2E7D32; cursor: pointer; font-weight: bold; width: 100%; }
     .btn-load-struct:hover { background: #66BB6A; }
+    .btn-delete-struct { background: #d32f2f; color: white; border: 2px solid #b71c1c; cursor: pointer; margin-top: 5px; width: 100%; padding: 10px 20px; font-weight: bold; display: none; }
+    .btn-delete-struct:hover { background: #f44336; }
 
-    /* --- ESTILOS MODAL SAVE (THEMED) --- */
+    /* Modal Save */
     #save-structure-modal .modal-content {
-        width: 500px; 
-        background: var(--struct-bg); 
-        border: 2px solid var(--struct-border); 
-        color: var(--struct-text);
-        padding: 15px; display: flex; flex-direction: column; gap: 10px;
+        width: 500px; background: #C6C6C6; border: 2px solid #555; padding: 15px; display: flex; flex-direction: column; gap: 10px;
     }
     #struct-save-preview {
-        width: 460px; height: 295px; background: #333; border: 2px solid #373737; margin: 0 auto; display: block; image-rendering: pixelated;
+        width: 460px; height: 295px; background: #8B8B8B; border: 2px solid #373737; margin: 0 auto; display: block; image-rendering: pixelated;
     }
     .save-form-row { display: flex; flex-direction: column; gap: 2px; }
-    .save-form-row label { font-size: 12px; font-weight: bold; color: var(--struct-text); }
-    .save-form-row input, .save-form-row select { 
-        padding: 5px; border: 2px solid #555; background: #FFF; font-family: inherit; color: #000;
-    }
+    .save-form-row label { font-size: 12px; font-weight: bold; color: #333; }
+    .save-form-row input, .save-form-row select { padding: 5px; border: 2px solid #555; background: #FFF; font-family: inherit; }
     .save-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
     .btn-confirm-save { background: #4CAF50; color: white; padding: 8px 20px; border: 2px solid #2E7D32; cursor: pointer; }
     .btn-cancel { background: #d32f2f; color: white; padding: 8px 20px; border: 2px solid #b71c1c; cursor: pointer; }
-
  </style>
 </head>
 <body>
@@ -291,7 +266,7 @@
         <h2>Settings</h2>
         <div class="settings-row">
             <label>Theme</label>
-            <select id="theme-select" onchange="setTheme(this.value); updateStructureTheme(this.value)">
+            <select id="theme-select" onchange="setTheme(this.value)">
                 <option value="dark">⚫ Dark (Default)</option>
                 <option value="white">⚪ White</option>
                 <option value="pastel">🌸 Pastel</option>
@@ -379,21 +354,28 @@
  <div id="structures-modal" class="modal">
     <div class="modal-content">
         <div class="struct-main">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h3>Structures Browser</h3>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 5px;">
+                <h3 style="margin:0;">Structures Browser</h3>
                 <span class="close-modal" onclick="closeModal('structures-modal')">&times;</span>
             </div>
-            <div class="struct-tabs">
-                <div id="tab-struct-vanilla" class="struct-tab active" onclick="filterStructures('vanilla')">Vanilla</div>
-                <div id="tab-struct-community" class="struct-tab" onclick="filterStructures('community')">Community</div>
+            
+            <div class="struct-tabs-container">
+                <div class="struct-tabs">
+                    <div id="tab-struct-saved" class="struct-tab" onclick="filterStructures('saved')">Saved</div>
+                    <div id="tab-struct-vanilla" class="struct-tab active" onclick="filterStructures('vanilla')">Vanilla</div>
+                    <div id="tab-struct-community" class="struct-tab" onclick="filterStructures('community')">Community</div>
+                </div>
+                
+                <div id="struct-saved-actions" style="display: none; gap: 5px;">
+                    <button class="mini-btn btn-import" onclick="importStructures()" title="Import JSON">📥 Import</button>
+                    <button class="mini-btn btn-export" onclick="exportSavedStructures()" title="Export JSON">📤 Export</button>
+                    <button class="mini-btn btn-reset" onclick="resetSavedStructures()" title="Delete All Saved">🗑️ Reset</button>
+                </div>
             </div>
+
             <div id="struct-subtabs">
                 <div id="subtab-house" class="struct-subtab active" onclick="filterSubCategory('house')">House</div>
                 <div id="subtab-park" class="struct-subtab" onclick="filterSubCategory('park')">Park</div>
-                <div id="subtab-tree" class="struct-subtab" onclick="filterSubCategory('tree')">Tree</div>
-                <div id="subtab-statue" class="struct-subtab" onclick="filterSubCategory('statue')">Statue</div>
-                <div id="subtab-pixelart" class="struct-subtab" onclick="filterSubCategory('pixelart')">PixelArt</div>
-                <div id="subtab-other" class="struct-subtab" onclick="filterSubCategory('other')">Other</div>
             </div>
             <div id="structures-grid"></div>
         </div>
@@ -403,8 +385,10 @@
             <div class="struct-info">
                 <h3 id="struct-info-title">Select an item</h3>
                 <p id="struct-info-author">Author: ...</p>
+                <p id="struct-info-sub" style="font-size: 10px; color: #666;">Category: ...</p>
             </div>
             <button class="btn-load-struct" onclick="loadStructureToClipboard()">Load Structure</button>
+            <button id="btn-delete-struct" class="btn-delete-struct" onclick="deleteSavedStructure()">Delete Selection</button>
         </div>
     </div>
  </div>
@@ -415,31 +399,26 @@
         <canvas id="struct-save-preview" width="460" height="295"></canvas>
         <div class="save-form-row">
             <label>Title</label>
-            <input type="text" id="input-struct-title" placeholder="e.g. Modern House">
+            <input type="text" id="input-struct-title" placeholder="e.g. My Castle">
         </div>
         <div class="save-form-row">
             <label>Author</label>
             <input type="text" id="input-struct-author" placeholder="Your Name">
         </div>
-        <div style="display: flex; gap: 10px;">
-            <div class="save-form-row" style="flex: 1;">
-                <label>Category</label>
-                <select id="input-struct-category">
-                    <option value="vanilla">Vanilla</option>
-                    <option value="community" selected>Community</option>
-                </select>
-            </div>
-            <div class="save-form-row" style="flex: 1;">
-                <label>Subcategory</label>
-                <select id="input-struct-subcategory">
-                    <option value="House">House</option>
-                    <option value="Park">Park</option>
-                    <option value="Tree">Tree</option>
-                    <option value="Statue">Statue</option>
-                    <option value="PixelArt">PixelArt</option>
-                    <option value="Other">Other</option>
-                </select>
-            </div>
+        
+        <input type="hidden" id="input-struct-category" value="saved">
+
+        <div class="save-form-row">
+            <label>Subcategory</label>
+            <select id="input-struct-subcategory">
+                <option value="House">House</option>
+                <option value="Nature">Nature</option>
+                <option value="Statue">Statue</option>
+                <option value="PixelArt">Pixel Art</option>
+                <option value="Redstone">Redstone</option>
+                <option value="Vehicle">Vehicle</option>
+                <option value="Misc" selected>Misc</option>
+            </select>
         </div>
         <div class="save-actions">
             <button class="btn-cancel" onclick="closeModal('save-structure-modal')">Cancel</button>
@@ -449,6 +428,7 @@
  </div>
 
  <input type="file" id="file-input" accept=".mbw" style="display: none;">
+ <input type="file" id="import-struct-input" accept=".json" style="display: none;" onchange="handleImportFile(this)">
 
  <script src="scripts/ui-handler.js"></script>
  <script src="scripts/mbwom.js"></script>
@@ -461,6 +441,5 @@
  <script src="scripts/clipboard.js"></script>
  <script src="main.js"></script>
  <script src="scripts/tools.js"></script>
- <script src="scripts/structures.js"></script>
-</body>
+ <script src="scripts/structures.js"></script> </body>
 </html>

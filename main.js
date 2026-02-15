@@ -25,10 +25,22 @@ let showGrid = false;
 const grid = { width: 60, height: 30 };
 let tileSize = BASE_TILE_SIZE;
 
-const images = { names: ["blocks", "hotbar", "slot"] }
-images.names.forEach((name) => {
-    images[name] = new Image;
-    images[name].src = `assets/${name}.png`;
+// --- CAMBIO IMPORTANTE: Hacer las imágenes globales ---
+window.images = { names: ["blocks", "hotbar", "slot"] };
+
+window.images.names.forEach((name) => {
+    window.images[name] = new Image();
+    window.images[name].src = `assets/${name}.png`;
+    
+    // Cuando la imagen carga, forzamos un redibujado del mundo
+    window.images[name].onload = () => {
+        worldDirty = true;
+        // Si hay algún modal abierto con canvas, esto ayuda a que se vean
+        const structCanvas = document.getElementById('struct-preview-canvas');
+        if (structCanvas && structCanvas.offsetParent !== null) {
+            // Intentar redibujar la preview si está visible (opcional, depende de la lógica)
+        }
+    };
 });
 
 // Velocidad fija en 1 para evitar decimales
@@ -126,7 +138,10 @@ function renderBlock(x, y) {
 }
 
 function drawBlock(texture, values, targetCtx = ctx) {
-    targetCtx.drawImage(images.blocks, texture.x, texture.y, 16, 16, values.x, values.y, values.width, values.height);
+    // Usamos window.images
+    if (window.images.blocks && window.images.blocks.complete && window.images.blocks.naturalWidth !== 0) {
+        targetCtx.drawImage(window.images.blocks, texture.x, texture.y, 16, 16, values.x, values.y, values.width, values.height);
+    }
 }
 
 function renderWorldToBuffer() {
@@ -209,18 +224,13 @@ function drawUI() {
         ctx.lineWidth = 2;
         ctx.fillStyle = "rgba(77, 166, 255, 0.2)"; // Relleno suave
 
-        // Función helper para saber si un punto está dentro del pincel
         const isInside = (dx, dy) => {
-             // Si es redondeado, usamos fórmula de círculo
              if (typeof toolRounded !== 'undefined' && toolRounded && size > 1) {
                  return (dx*dx + dy*dy) <= (range * range + 0.1);
              }
-             // Si es cuadrado, verificamos límites del rectángulo
              return dx >= -range && dx <= range && dy >= -range && dy <= range;
         };
 
-        // 1. DIBUJAR RELLENO (FILL)
-        // Dibujamos todos los bloques activos primero
         ctx.beginPath();
         for (let dx = -range; dx <= range; dx++) {
             for (let dy = -range; dy <= range; dy++) {
@@ -230,14 +240,11 @@ function drawUI() {
                     const drawX = (absX - camera.x) * tileSize;
                     const drawY = canvas.height - (absY - camera.y) * tileSize;
                     
-                    // Relleno individual para cada bloque activo
                     ctx.fillRect(drawX, drawY, tileSize, -tileSize);
                 }
             }
         }
 
-        // 2. DIBUJAR CONTORNO (STROKE)
-        // Verificamos vecindad para dibujar solo los bordes externos
         ctx.beginPath();
         for (let dx = -range; dx <= range; dx++) {
             for (let dy = -range; dy <= range; dy++) {
@@ -245,39 +252,21 @@ function drawUI() {
                     const absX = mouse.worldX + dx;
                     const absY = mouse.worldY + dy;
                     const drawX = (absX - camera.x) * tileSize;
-                    const drawY = canvas.height - (absY - camera.y) * tileSize; // Y en pantalla (esquina inferior izq visualmente)
+                    const drawY = canvas.height - (absY - camera.y) * tileSize; 
 
-                    // Coordenadas del bloque en pantalla
-                    // drawY es la parte de abajo del bloque porque height es -tileSize
                     const left = drawX;
                     const right = drawX + tileSize;
                     const bottom = drawY; 
                     const top = drawY - tileSize;
 
-                    // Si el vecino de la DERECHA está vacío, dibujamos borde derecho
-                    if (!isInside(dx + 1, dy)) {
-                        ctx.moveTo(right, bottom);
-                        ctx.lineTo(right, top);
-                    }
-                    // Si el vecino de la IZQUIERDA está vacío, dibujamos borde izquierdo
-                    if (!isInside(dx - 1, dy)) {
-                        ctx.moveTo(left, bottom);
-                        ctx.lineTo(left, top);
-                    }
-                    // Si el vecino de ARRIBA está vacío, dibujamos borde superior
-                    if (!isInside(dx, dy + 1)) {
-                        ctx.moveTo(left, top);
-                        ctx.lineTo(right, top);
-                    }
-                    // Si el vecino de ABAJO está vacío, dibujamos borde inferior
-                    if (!isInside(dx, dy - 1)) {
-                        ctx.moveTo(left, bottom);
-                        ctx.lineTo(right, bottom);
-                    }
+                    if (!isInside(dx + 1, dy)) { ctx.moveTo(right, bottom); ctx.lineTo(right, top); }
+                    if (!isInside(dx - 1, dy)) { ctx.moveTo(left, bottom); ctx.lineTo(left, top); }
+                    if (!isInside(dx, dy + 1)) { ctx.moveTo(left, top); ctx.lineTo(right, top); }
+                    if (!isInside(dx, dy - 1)) { ctx.moveTo(left, bottom); ctx.lineTo(right, bottom); }
                 }
             }
         }
-        ctx.stroke(); // Ejecutamos el trazo del contorno
+        ctx.stroke(); 
     }
 
     if (currentTool === 'paste' && window.clipboard) {
