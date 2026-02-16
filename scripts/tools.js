@@ -98,11 +98,37 @@ function updateToolSize(val) {
 
 function updateToolRounded(isRounded) { toolRounded = isRounded; }
 
+// --- GESTIÓN DE ATAJOS DE TECLADO ---
 window.addEventListener('keydown', function(e) {
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    // Ignorar si el usuario está escribiendo en un input
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+
+    // Tamaño de herramienta
     if (e.key === '+' || e.code === 'NumpadAdd') updateToolSize(toolSize + 1);
     if (e.key === '-' || e.code === 'NumpadSubtract') updateToolSize(toolSize - 1);
+    
+    // Borrar
     if (e.key === 'Delete' || e.code === 'Delete') deleteSelection();
+
+    const isCtrl = e.ctrlKey || e.metaKey; // Soporte para Ctrl (Windows) o Cmd (Mac)
+
+    // CORTAR (Ctrl + X)
+    if (isCtrl && (e.key === 'x' || e.key === 'X')) {
+        e.preventDefault();
+        cutSelection();
+    }
+
+    // COPIAR (Ctrl + C)
+    if (isCtrl && (e.key === 'c' || e.key === 'C')) {
+        e.preventDefault();
+        copySelection(); 
+    }
+
+    // PEGAR (Ctrl + V)
+    if (isCtrl && (e.key === 'v' || e.key === 'V')) {
+        e.preventDefault();
+        activatePasteMode();
+    }
 });
 
 function takeScreenshot() {
@@ -209,7 +235,7 @@ function getSelectionBounds() {
 }
 
 function handleSelectionInput(action, x, y) {
-    // --- LÓGICA LASSO MEJORADA ---
+    // --- LÓGICA LASSO MEJORADA (Ortogonal) ---
     if (currentTool === 'lasso') {
         if (action === 'start') {
             window.selection.type = 'poly'; 
@@ -279,7 +305,7 @@ function setSelectionPoint(point, x, y) {
     updateSelectionInfo(); checkSelectionState(); 
 }
 
-function copySelection() {
+function copySelection(keepSelection = false) {
     const bounds = getSelectionBounds();
     if (!bounds) { alert("Select an area."); return; }
     
@@ -301,13 +327,26 @@ function copySelection() {
     
     window.clipboard = { width: bounds.maxX - bounds.minX + 1, height: bounds.maxY - bounds.minY + 1, data: data };
     
-    // Limpieza tras copiar
-    window.selection.p1 = null; window.selection.p2 = null; window.selection.path = []; window.selection.subRects = [];
+    // Limpieza tras copiar (Solo si keepSelection es false)
+    if (!keepSelection) {
+        window.selection.p1 = null; 
+        window.selection.p2 = null; 
+        window.selection.path = []; 
+        window.selection.subRects = [];
+        
+        const overlay = document.getElementById('selection-overlay');
+        if (overlay) overlay.style.display = 'none';
+        checkSelectionState(); 
+    }
     
-    const overlay = document.getElementById('selection-overlay');
-    if (overlay) overlay.style.display = 'none';
-    checkSelectionState(); 
     console.log("Copied.");
+}
+
+function cutSelection() {
+    // 1. Copiamos preservando la selección visual
+    copySelection(true);
+    // 2. Borramos el contenido (la función delete usa la selección visual para saber qué borrar)
+    deleteSelection();
 }
 
 function deleteSelection() {
