@@ -89,7 +89,7 @@ body {
  border: 1px solid transparent;
  color: var(--text);
  cursor: pointer;
- padding: 8px 8px;
+ padding: 2px 8px;
  font-size: 14px;
  border-radius: 3px;
  display: flex;
@@ -103,7 +103,7 @@ body {
 
 .separator {
  width: 1px;
- height: 24px;
+ height: 18px;
  background-color: var(--border);
  margin: 0 5px;
 }
@@ -181,29 +181,110 @@ body {
  background-color: transparent;
 }
 
+/* MODIFICADO: Altura aumentada para estilo Word */
 .tab-content {
- height: 40px;
- padding: 5px 15px;
+ height: 85px; 
+ padding: 5px 10px;
  display: flex;
- align-items: center;
+ align-items: stretch; /* Estirar para que los grupos ocupen todo el alto */
  background-color: var(--bg-panel);
+ gap: 5px;
 }
 
 .tab-pane {
  display: none;
  width: 100%;
+ height: 100%;
+}
+
+/* --- Ajuste específico para separadores en la Ribbon --- */
+.tab-pane .separator {
+    height: 75px;       /* Altura mayor (el contenedor mide 85px) */
+    align-self: center; /* Centrado verticalmente (ignora el estiramiento del padre) */
+    background-color: rgba(128, 128, 128, 0.4); /* Opcional: un poco más visible */
 }
 
 .tab-pane.active {
  display: flex;
- align-items: center;
- gap: 20px;
+ align-items: stretch;
+ gap: 5px;
 }
 
-/* --- SIDEBAR (HERRAMIENTAS) --- */
+/* --- ESTILOS DE GRUPOS RIBBON (TIPO WORD) --- */
+.ribbon-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 5px;
+    height: 100%;
+    background: transparent;
+}
+
+.ribbon-group-content {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    flex-grow: 1; /* Ocupa el espacio superior */
+    justify-content: center;
+}
+
+.ribbon-group-label {
+    font-size: 11px;
+    color: #888;
+    text-align: center;
+    margin-top: 2px;
+    padding-top: 2px;
+    width: 100%;
+}
+
+/* Botón Grande (Pegar) */
+.ribbon-btn-large {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 60px;
+    min-width: 50px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text);
+    cursor: pointer;
+    border-radius: 3px;
+    gap: 2px;
+}
+.ribbon-btn-large:hover { background-color: rgba(128,128,128,0.2); border-color: var(--border); }
+.ribbon-btn-large .icon { font-size: 28px; }
+.ribbon-btn-large .text { font-size: 12px; font-weight: 500; }
+
+/* Columna de botones pequeños (Cortar/Copiar) */
+.ribbon-btn-col {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ribbon-btn-small {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 5px;
+    height: 28px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text);
+    cursor: pointer;
+    border-radius: 3px;
+    font-size: 12px;
+    text-align: left;
+}
+.ribbon-btn-small:hover { background-color: rgba(128,128,128,0.2); border-color: var(--border); }
+
+
+/* --- SIDEBAR (HERRAMIENTAS FLOTANTE) --- */
 #toolbar-sidebar {
  position: absolute;
- top: 185px; /* Ajustado para estar debajo de la cinta de opciones con un poco de aire */
+ top: 225px; /* Ajustado para estar debajo de la cinta (TopBar + Ribbon ~153px) */
  left: 15px; /* Separación del borde izquierdo */
  bottom: auto; /* IMPORTANTE: Ya no se estira hasta abajo */
  height: auto; /* La altura se ajusta al contenido de los botones */
@@ -219,24 +300,23 @@ body {
  flex-direction: column; /* Asegura 1 sola columna vertical */
  align-items: center;
  padding: 10px 0; /* Relleno superior e inferior */
- gap: 0px; 
  z-index: 100; /* Asegura que flote sobre el canvas */
 }
 
+/* Ajuste de los botones para que encajen mejor en la barra flotante */
 .tool-btn {
- width: 40px;
+ width: 40px; /* Ligeramente más pequeños para estética compacta */
  height: 40px;
  background: transparent;
  border: 1px solid transparent;
  color: var(--text);
  cursor: pointer;
- border-radius: 6px;
- font-size: 18px; /* <--- CAMBIA ESTE VALOR */
+ border-radius: 8px; /* Coincidir con el estilo redondeado */
+ font-size: 26px; /* AUMENTADO SEGÚN PETICIÓN */
  display: flex;
  justify-content: center;
  align-items: center;
- transition: all 0.2s;
- margin-bottom: 0px;
+ margin-bottom: 2px;
 }
 
 .tool-btn:hover {
@@ -250,12 +330,13 @@ body {
  border: 1px solid rgba(255,255,255,0.3);
 }
 
-/* --- WORKSPACE --- */
+/* --- WORKSPACE (LIENZO COMPLETO) --- */
 #workspace {
  position: absolute;
- top: 112px;
- left: 0; /* ELIMINADO el margen de 60px */
- width: 100%; /* ELIMINADO el cálculo, ahora usa todo el ancho */
+ top: 153px; /* Ajustado para la nueva altura de la Ribbon */
+ top: 153px; /* Ajustado para la nueva altura de la Ribbon */
+ left: 0; /* Ocupa todo el ancho */
+ width: 100%; 
  bottom: 0;
  background-color: #1a1a1a;
  overflow: hidden;
@@ -287,7 +368,7 @@ canvas {
  position: absolute;
  bottom: 20px;
  right: 20px;
- background: transparent; /* Transparente */
+ background: transparent; 
  padding: 0px 0px;
  display: flex;
  align-items: center;
@@ -295,13 +376,12 @@ canvas {
  color: white;
  font-size: 12px;
  z-index: 10;
- /* Sombra fuerte para legibilidad */
  text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
 }
 
 #zoom-floating input[type=range] {
  cursor: pointer;
- width: 100px;
+ width: 120px;
  box-shadow: 0 0 5px rgba(0,0,0,0.8);
  border-radius: 5px;
 }
@@ -384,12 +464,12 @@ canvas {
 
 /* Logros en 2 Columnas */
 #achievements-list {
-    display: grid;              /* Activa el modo de rejilla */
-    grid-template-columns: 1fr 1fr; /* Crea dos columnas de igual ancho */
-    gap: 10px;                  /* Añade espacio entre las columnas y filas */
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
     padding: 10px;
-    max-height: 400px;          /* Ajusta según prefieras para el scroll */
-    overflow-y: auto;           /* Mantiene el scroll vertical si hay muchos logros */
+    max-height: 400px;
+    overflow-y: auto;
 }
 
 #achievements-list label {
@@ -397,9 +477,9 @@ canvas {
     align-items: center;
     font-size: 14px;
     cursor: pointer;
-    white-space: nowrap;        /* Evita que el texto se parta en varias líneas */
+    white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;    /* Añade puntos suspensivos si el texto es muy largo */
+    text-overflow: ellipsis;
 }
 
 #achievements-list label:hover {
@@ -428,12 +508,42 @@ canvas {
  padding: 8px;
 }
 
+/* MODAL SAVE - DISEÑO HORIZONTAL Y TEXTOS NEGROS */
+#save-structure-modal .modal-content { width: 500px; background: #C6C6C6; border: 2px solid #555; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
+#struct-save-preview { width: 460px; height: 295px; background: #8B8B8B; border: 2px solid #373737; margin: 0 auto; display: block; image-rendering: pixelated; }
+
+.save-form-row { 
+    display: flex; 
+    flex-direction: row; /* Horizontal */
+    align-items: center; /* Centrado vertical */
+    margin-bottom: 5px;
+}
+.save-form-row label { 
+    width: 100px; /* Ancho fijo para la etiqueta a la izquierda */
+    text-align: right; 
+    font-size: 14px; 
+    font-weight: bold; 
+    color: #000; /* Texto Negro */
+    margin-right: 15px; 
+}
+.save-form-row input, .save-form-row select { 
+    flex: 1; /* Ocupa el resto del espacio a la derecha */
+    padding: 5px; 
+    border: 2px solid #555; 
+    background: #FFF; 
+    font-family: inherit; 
+}
+
+.save-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
+.btn-confirm-save { background: #4CAF50; color: white; padding: 8px 20px; border: 2px solid #2E7D32; cursor: pointer; }
+.btn-cancel { background: #d32f2f; color: white; padding: 8px 20px; border: 2px solid #b71c1c; cursor: pointer; }
+
 /* UI GENERAL */
 select, button, .input-group input {
  background: var(--input-bg);
- color: black;
+ color: var(--text);
  border: 1px solid var(--border);
- padding: 5px 10px;
+ padding: 5px 0px;
  border-radius: 3px;
  font-family: inherit;
  outline: none;
