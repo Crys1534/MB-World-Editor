@@ -1,145 +1,31 @@
 /* SISTEMA DE ESTRUCTURAS - DATABASE Y LÓGICA */
 
 const defaultStructures = [
-	  {
+  {
     title: "Tree 1",
     author: "Mine Blocks",
     category: "vanilla",
     subcategory: "Structure",
     data: [
-      {
-        "dx": 0,
-        "dy": 4,
-        "state": {
-          "type": "lv"
-        }
-      },
-      {
-        "dx": 0,
-        "dy": 5,
-        "state": {
-          "type": "lv"
-        }
-      },
-      {
-        "dx": 1,
-        "dy": 3,
-        "state": {
-          "type": "lv"
-        }
-      },
-      {
-        "dx": 1,
-        "dy": 4,
-        "state": {
-          "type": "lv"
-        }
-      },
-      {
-        "dx": 1,
-        "dy": 5,
-        "state": {
-          "type": "lv"
-        }
-      },
-      {
-        "dx": 1,
-        "dy": 6,
-        "state": {
-          "type": "lv"
-        }
-      },
-      {
-        "dx": 2,
-        "dy": 0,
-        "state": {
-          "type": "wd1"
-        }
-      },
-      {
-        "dx": 2,
-        "dy": 1,
-        "state": {
-          "type": "wd1"
-        }
-      },
-      {
-        "dx": 2,
-        "dy": 2,
-        "state": {
-          "type": "wd1"
-        }
-      },
-      {
-        "dx": 2,
-        "dy": 3,
-        "state": {
-          "type": "wd1"
-        }
-      },
-      {
-        "dx": 2,
-        "dy": 4,
-        "state": {
-          "type": "wd1"
-        }
-      },
-      {
-        "dx": 2,
-        "dy": 5,
-        "state": {
-          "type": "lv"
-        }
-      },
-      {
-        "dx": 2,
-        "dy": 6,
-        "state": {
-          "type": "lv"
-        }
-      },
-      {
-        "dx": 3,
-        "dy": 3,
-        "state": {
-          "type": "lv"
-        }
-      },
-      {
-        "dx": 3,
-        "dy": 4,
-        "state": {
-          "type": "lv"
-        }
-      },
-      {
-        "dx": 3,
-        "dy": 5,
-        "state": {
-          "type": "lv"
-        }
-      },
-      {
-        "dx": 3,
-        "dy": 6,
-        "state": {
-          "type": "lv"
-        }
-      },
-      {
-        "dx": 4,
-        "dy": 4,
-        "state": {
-          "type": "lv"
-        }
-      },
-      {
-        "dx": 4,
-        "dy": 5,
-        "state": {
-          "type": "lv"
-        }
-      }
+      { "dx": 0, "dy": 4, "state": { "type": "lv" } },
+      { "dx": 0, "dy": 5, "state": { "type": "lv" } },
+      { "dx": 1, "dy": 3, "state": { "type": "lv" } },
+      { "dx": 1, "dy": 4, "state": { "type": "lv" } },
+      { "dx": 1, "dy": 5, "state": { "type": "lv" } },
+      { "dx": 1, "dy": 6, "state": { "type": "lv" } },
+      { "dx": 2, "dy": 0, "state": { "type": "wd1" } },
+      { "dx": 2, "dy": 1, "state": { "type": "wd1" } },
+      { "dx": 2, "dy": 2, "state": { "type": "wd1" } },
+      { "dx": 2, "dy": 3, "state": { "type": "wd1" } },
+      { "dx": 2, "dy": 4, "state": { "type": "wd1" } },
+      { "dx": 2, "dy": 5, "state": { "type": "lv" } },
+      { "dx": 2, "dy": 6, "state": { "type": "lv" } },
+      { "dx": 3, "dy": 3, "state": { "type": "lv" } },
+      { "dx": 3, "dy": 4, "state": { "type": "lv" } },
+      { "dx": 3, "dy": 5, "state": { "type": "lv" } },
+      { "dx": 3, "dy": 6, "state": { "type": "lv" } },
+      { "dx": 4, "dy": 4, "state": { "type": "lv" } },
+      { "dx": 4, "dy": 5, "state": { "type": "lv" } }
     ],
   }
 ];
@@ -167,16 +53,34 @@ loadSavedStructures();
 // --- KEYBOARD TRAP (BLOQUEO DE TECLAS) ---
 window.addEventListener('keydown', function(e) {
     if (isInputBlocked) {
-        // Permitir F12, Escape y escritura en inputs
-        if (e.key === 'F12' || e.key === 'Escape') return;
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+        // 1. Permitir F12 para depuración
+        if (e.key === 'F12') return;
 
-        // Bloquear todo lo demás (WASD, herramientas, etc.)
+        // 2. Permitir interacción normal dentro de Inputs/Selects
+        const target = e.target;
+        if (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') {
+            // Permitir que Escape cierre el modal incluso estando en un input
+            if (e.key === 'Escape') {
+                closeModal('save-structure-modal');
+                closeModal('structures-modal');
+            }
+            // IMPORTANTE: Aquí retornamos para dejar que el input reciba la tecla.
+            // La propagación hacia los atajos globales se detiene en los propios inputs (ver preventInputBubbling más abajo)
+            return; 
+        }
+
+        // 3. Cerrar modales con Escape si no estamos escribiendo
+        if (e.key === 'Escape') {
+            closeModal('save-structure-modal');
+            closeModal('structures-modal');
+        }
+
+        // 4. Bloquear todo lo demás (WASD, herramientas, Ctrl+Z, etc.) en fase de captura
+        e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
-        e.preventDefault();
     }
-}, true);
+}, true); 
 
 // --- IMPORT/EXPORT/RESET ---
 function exportSavedStructures() {
@@ -213,7 +117,7 @@ function handleImportFile(input) {
                 }
             });
             updateLocalStorage();
-            filterStructures('saved');
+            filterStructures('saved', 'all');
             alert(`Imported ${count} structures.`);
         } catch (err) { alert("Error importing file."); }
     };
@@ -225,23 +129,22 @@ function resetSavedStructures() {
     if (confirm("Delete ALL saved structures?")) {
         structureDB = structureDB.filter(s => s.category !== 'saved');
         updateLocalStorage();
-        filterStructures('saved');
+        filterStructures('saved', 'all');
     }
 }
 
 // --- GESTIÓN DE MODALES Y BLOQUEO ---
 function openStructuresModal() {
     document.getElementById('structures-modal').style.display = 'flex';
-    isInputBlocked = true; // BLOQUEAR TECLADO
-    filterStructures('saved'); 
+    isInputBlocked = true; 
+    filterStructures('saved', 'all');
 }
 
 // Override seguro para liberar teclado al cerrar
 const originalCloseModal = window.closeModal;
 window.closeModal = function(modalId) {
-    // Si cerramos cualquier modal relacionado con estructuras, desbloqueamos
     if (modalId === 'structures-modal' || modalId === 'save-structure-modal') {
-        isInputBlocked = false; // DESBLOQUEAR TECLADO
+        isInputBlocked = false; 
     }
     
     if (typeof originalCloseModal === 'function') {
@@ -252,9 +155,7 @@ window.closeModal = function(modalId) {
     }
 }
 
-// --- CORRECCIÓN: DETECTOR DE CLIC FUERA (Click Outside) ---
-// Esto asegura que si cierras el modal haciendo clic en el fondo gris,
-// también se desbloquee el teclado.
+// DETECTOR DE CLIC FUERA
 window.addEventListener('click', function(e) {
     if (e.target.id === 'structures-modal') {
         closeModal('structures-modal');
@@ -263,7 +164,6 @@ window.addEventListener('click', function(e) {
         closeModal('save-structure-modal');
     }
 });
-// -----------------------------------------------------------
 
 function filterStructures(category, subcategory = null) {
     currentStructCategory = category;
@@ -365,7 +265,7 @@ function loadStructureToClipboard() {
     const h = Math.max(...ys) - Math.min(...ys) + 1;
     window.clipboard = { width: w, height: h, data: JSON.parse(JSON.stringify(selectedStructure.data)) };
     
-    closeModal('structures-modal'); // Libera teclado
+    closeModal('structures-modal'); 
     activatePasteMode(); 
 }
 
@@ -374,12 +274,17 @@ function deleteSavedStructure() {
     if (!confirm(`Delete "${selectedStructure.title}"?`)) return;
     structureDB = structureDB.filter(s => s !== selectedStructure);
     updateLocalStorage();
-    filterStructures('saved');
+    filterStructures('saved', 'all');
 }
 
 function updateLocalStorage() {
-    const toSave = structureDB.filter(s => s.category === 'saved');
-    localStorage.setItem('mbw_saved_structures', JSON.stringify(toSave));
+    try {
+        const toSave = structureDB.filter(s => s.category === 'saved');
+        localStorage.setItem('mbw_saved_structures', JSON.stringify(toSave));
+    } catch (e) {
+        console.error("Save failed:", e);
+        alert("Error: Storage might be full.");
+    }
 }
 
 // --- SAVE MODAL ---
@@ -388,21 +293,30 @@ function openSaveStructureModal() {
         alert("Select an area first!"); return;
     }
     
-    isInputBlocked = true; // BLOQUEAR
-
     let minX, maxX, minY, maxY;
-    if (window.selection.type === 'poly') {
-        const xs = window.selection.path.map(p => p.x); const ys = window.selection.path.map(p => p.y);
-        minX = Math.min(...xs); maxX = Math.max(...xs); minY = Math.min(...ys); maxY = Math.max(...ys);
+    if (typeof getSelectionBounds === 'function') {
+        const bounds = getSelectionBounds();
+        if(!bounds) return;
+        minX = bounds.minX; maxX = bounds.maxX; minY = bounds.minY; maxY = bounds.maxY;
     } else {
-        minX = Math.min(window.selection.p1.x, window.selection.p2.x); maxX = Math.max(window.selection.p1.x, window.selection.p2.x);
-        minY = Math.min(window.selection.p1.y, window.selection.p2.y); maxY = Math.max(window.selection.p1.y, window.selection.p2.y);
+        if (window.selection.type === 'poly') {
+            const xs = window.selection.path.map(p => p.x); const ys = window.selection.path.map(p => p.y);
+            minX = Math.min(...xs); maxX = Math.max(...xs); minY = Math.min(...ys); maxY = Math.max(...ys);
+        } else {
+            minX = Math.min(window.selection.p1.x, window.selection.p2.x); maxX = Math.max(window.selection.p1.x, window.selection.p2.x);
+            minY = Math.min(window.selection.p1.y, window.selection.p2.y); maxY = Math.max(window.selection.p1.y, window.selection.p2.y);
+        }
     }
 
     const data = [];
     for (let x = minX; x <= maxX; x++) {
         for (let y = minY; y <= maxY; y++) {
-            if (window.selection.type === 'poly') { if (!isPointInPolygon(x, y, window.selection.path)) continue; }
+            if (typeof isPointSelected === 'function') {
+                 if (!isPointSelected(x,y)) continue;
+            } else if (window.selection.type === 'poly') { 
+                 if (!isPointInPolygon(x, y, window.selection.path)) continue; 
+            }
+            
             const state = mbwom.getBlockState(x, y);
             if (state && state.type != null) {
                 data.push({ dx: x - minX, dy: y - minY, state: JSON.parse(JSON.stringify(state)) });
@@ -410,15 +324,27 @@ function openSaveStructureModal() {
         }
     }
     
-    if (data.length === 0) { 
-        alert("Area empty!"); 
-        isInputBlocked = false; 
-        return; 
-    }
+    if (data.length === 0) { alert("Area empty!"); return; }
 
     tempSaveData = data;
+    
+    // BLOQUEAR UI GLOBAL
+    isInputBlocked = true; 
     document.getElementById('save-structure-modal').style.display = 'flex';
     document.getElementById('input-struct-title').value = '';
+    
+    // BLOQUEAR PROPAGACIÓN EN INPUTS LOCALES
+    // Esto asegura que al escribir 'E' no se abra el inventario, etc.
+    const inputsToIsolate = ['input-struct-title', 'input-struct-author', 'input-struct-subcategory'];
+    inputsToIsolate.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.onkeydown = function(e) {
+                e.stopPropagation(); // ¡LA CLAVE! Detiene el evento aquí.
+                if(e.key === 'Escape') closeModal('save-structure-modal');
+            };
+        }
+    });
     
     const canvas = document.getElementById('struct-save-preview');
     canvas.style.imageRendering = 'pixelated';
@@ -428,7 +354,7 @@ function openSaveStructureModal() {
 function saveNewStructure() {
     const title = document.getElementById('input-struct-title').value.trim();
     const author = document.getElementById('input-struct-author').value.trim();
-    const category = document.getElementById('input-struct-category').value;
+    const category = 'saved'; 
     const subcategory = document.getElementById('input-struct-subcategory').value;
 
     if (!title) { alert("Please enter a title."); return; }
@@ -440,10 +366,12 @@ function saveNewStructure() {
 
     structureDB.push(newStruct);
     updateLocalStorage();
-    closeModal('save-structure-modal'); // Libera teclado
+    
+    filterStructures('saved', 'all');
+    closeModal('save-structure-modal'); 
     alert("Saved!");
     
-    window.selection.p1 = null; window.selection.p2 = null; window.selection.path = [];
+    window.selection.p1 = null; window.selection.p2 = null; window.selection.path = []; window.selection.subRects = [];
     if(typeof checkSelectionState === 'function') checkSelectionState();
 }
 
