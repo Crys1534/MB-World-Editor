@@ -71,6 +71,13 @@ body {
  position: relative;
 }
 
+.app-icon {
+    width: 16px;
+    height: 16px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
 .left-group, .right-group {
  display: flex;
  align-items: center;
@@ -196,39 +203,44 @@ body {
 /* --- SIDEBAR (HERRAMIENTAS) --- */
 #toolbar-sidebar {
  position: absolute;
- top: 112px; /* TopBar(35) + RibbonTabs(aprox 31) + RibbonContent(40) + Bordes = ~112px */
- left: 0;
- bottom: 0;
- width: 60px;
+ top: 185px; /* Ajustado para estar debajo de la cinta de opciones con un poco de aire */
+ left: 15px; /* Separación del borde izquierdo */
+ bottom: auto; /* IMPORTANTE: Ya no se estira hasta abajo */
+ height: auto; /* La altura se ajusta al contenido de los botones */
+ width: 55px;  /* Ancho compacto */
+ 
+ /* Estética Flotante */
  background-color: var(--bg-panel);
- border-right: 1px solid var(--border);
+ border: 1px solid var(--border);
+ border-radius: 12px; /* Bordes redondeados */
+ box-shadow: 0 4px 15px rgba(0,0,0,0.5); /* Sombra para dar efecto de elevación */
+ 
  display: flex;
- flex-direction: column;
+ flex-direction: column; /* Asegura 1 sola columna vertical */
  align-items: center;
- padding-top: 10px;
- gap: 0; 
- z-index: 15;
+ padding: 10px 0; /* Relleno superior e inferior */
+ gap: 0px; 
+ z-index: 100; /* Asegura que flote sobre el canvas */
 }
 
 .tool-btn {
- width: 45px;
- height: 45px;
+ width: 40px;
+ height: 40px;
  background: transparent;
  border: 1px solid transparent;
  color: var(--text);
  cursor: pointer;
  border-radius: 6px;
- font-size: 24px;
+ font-size: 18px; /* <--- CAMBIA ESTE VALOR */
  display: flex;
  justify-content: center;
  align-items: center;
  transition: all 0.2s;
- margin-bottom: 5px;
+ margin-bottom: 0px;
 }
 
 .tool-btn:hover {
  background-color: rgba(128,128,128,0.2);
- transform: scale(1.05);
 }
 
 .tool-btn.active {
@@ -242,8 +254,8 @@ body {
 #workspace {
  position: absolute;
  top: 112px;
- left: 60px; 
- width: calc(100% - 60px); /* Restamos el ancho exacto de la sidebar */
+ left: 0; /* ELIMINADO el margen de 60px */
+ width: 100%; /* ELIMINADO el cálculo, ahora usa todo el ancho */
  bottom: 0;
  background-color: #1a1a1a;
  overflow: hidden;
@@ -276,7 +288,7 @@ canvas {
  bottom: 20px;
  right: 20px;
  background: transparent; /* Transparente */
- padding: 10px 15px;
+ padding: 0px 0px;
  display: flex;
  align-items: center;
  gap: 10px;
