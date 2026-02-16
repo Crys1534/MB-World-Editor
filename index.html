@@ -67,7 +67,7 @@
         display: flex; justify-content: space-between; align-items: center; 
         border-bottom: 2px solid #FFF; margin-bottom: 10px; background: #8B8B8B; padding-right: 5px;
     }
-    .struct-tabs { display: flex; gap: 5px; margin-bottom: -2px; }
+    .struct-tabs { display: flex; margin-bottom: -2px; }
     .struct-tab {
         padding: 8px 15px; background: #8B8B8B; border: 2px solid #373737; border-bottom: 2px solid #FFF;
         cursor: pointer; font-weight: bold; color: #000;
@@ -264,7 +264,7 @@
  <div id="settings-modal" class="modal">
     <div class="modal-content" style="width: 400px;">
         <span class="close-modal" onclick="closeModal('settings-modal')">&times;</span>
-        <h2 style="color:black;">Settings</h2>
+        <h2 style="color:gray;">Settings</h2>
         <div class="settings-row">
             <label>Theme</label>
             <select id="theme-select" onchange="setTheme(this.value)">
@@ -282,7 +282,7 @@
         <div class="inventory-layout">
             <div class="inventory-main-area">
                 <div class="inv-header">
-                    <h3 style="color:black;">Inventory</h3>
+                    <h3 style="color:gray;">Inventory</h3>
                     <span class="close-modal" onclick="closeModal('inventory-modal')" style="cursor:pointer; font-weight:bold; color:black;">&times;</span>
                 </div>
                 <input type="text" id="inventory-search" placeholder="Search..." oninput="filterInventory(this.value)">
@@ -297,7 +297,7 @@
     <div class="modal-content">
         <div class="struct-main">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 5px;">
-                <h3 style="margin:0; color:black;">Structures Browser</h3>
+                <h3 style="margin:0; color:gray;">Structures Browser</h3>
                 <span class="close-modal" onclick="closeModal('structures-modal')" style="color:black;">&times;</span>
             </div>
             
@@ -324,7 +324,7 @@
             <div id="structures-grid"></div>
         </div>
         <div class="struct-sidebar">
-            <h4 style="margin-top:0; color:black;">Preview</h4>
+            <h4 style="margin-top:0; color:gray;">Preview</h4>
             <canvas id="struct-preview-canvas" width="200" height="200"></canvas>
             <div class="struct-info">
                 <h3 id="struct-info-title">Select an item</h3>
@@ -337,8 +337,10 @@
     </div>
  </div>
 
- <div id="save-structure-modal" class="modal">
+<div id="save-structure-modal" class="modal">
     <div class="modal-content">
+        <span class="close-modal" onclick="closeModal('save-structure-modal')" style="float:right; cursor:pointer; font-weight:bold;">&times;</span>
+        
         <h3 style="margin: 0; text-align: center; color: black;">Save New Structure</h3>
         <canvas id="struct-save-preview" width="460" height="295"></canvas>
         
@@ -350,12 +352,14 @@
             <label>Author</label>
             <input type="text" id="input-struct-author" placeholder="Your Name">
         </div>
-        <div class="save-form-row">
+        
+        <div class="save-form-row" style="display: none;">
             <label>Category</label>
-            <input type="text" id="input-struct-category" value="saved" readonly style="background: #ddd; color: #555; cursor: not-allowed;">
+            <input type="text" id="input-struct-category" value="saved" readonly>
         </div>
+        
         <div class="save-form-row">
-            <label>Subcategory</label>
+            <label>Tag</label>
             <select id="input-struct-subcategory">
                 <option value="House">House</option>
                 <option value="Structure">Structure</option>
@@ -375,7 +379,7 @@
  <div id="achievements-modal" class="modal">
   <div class="modal-content">
    <span class="close-modal" onclick="closeModal('achievements-modal')">&times;</span>
-   <h2 style="color:black;">Achievements Manager</h2>
+   <h2 style="color:gray;">Achievements Manager</h2>
    <div class="modal-actions">
     <button onclick="toggleAchievements(true)">Unlock All</button>
     <button onclick="toggleAchievements(false)">Reset All</button>

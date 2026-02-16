@@ -89,7 +89,7 @@ body {
  border: 1px solid transparent;
  color: var(--text);
  cursor: pointer;
- padding: 2px 8px;
+ padding: 8px 8px;
  font-size: 14px;
  border-radius: 3px;
  display: flex;
@@ -103,7 +103,7 @@ body {
 
 .separator {
  width: 1px;
- height: 18px;
+ height: 24px;
  background-color: var(--border);
  margin: 0 5px;
 }
@@ -301,7 +301,7 @@ canvas {
 
 #zoom-floating input[type=range] {
  cursor: pointer;
- width: 120px;
+ width: 100px;
  box-shadow: 0 0 5px rgba(0,0,0,0.8);
  border-radius: 5px;
 }
@@ -431,7 +431,7 @@ canvas {
 /* UI GENERAL */
 select, button, .input-group input {
  background: var(--input-bg);
- color: var(--text);
+ color: black;
  border: 1px solid var(--border);
  padding: 5px 10px;
  border-radius: 3px;

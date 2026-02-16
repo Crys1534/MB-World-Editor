@@ -25,25 +25,23 @@ let showGrid = false;
 const grid = { width: 60, height: 30 };
 let tileSize = BASE_TILE_SIZE;
 
-// --- CAMBIO IMPORTANTE: Hacer las imágenes globales ---
+// --- IMÁGENES GLOBALES ---
 window.images = { names: ["blocks", "hotbar", "slot"] };
 
 window.images.names.forEach((name) => {
     window.images[name] = new Image();
     window.images[name].src = `assets/${name}.png`;
     
-    // Cuando la imagen carga, forzamos un redibujado del mundo
     window.images[name].onload = () => {
         worldDirty = true;
-        // Si hay algún modal abierto con canvas, esto ayuda a que se vean
         const structCanvas = document.getElementById('struct-preview-canvas');
         if (structCanvas && structCanvas.offsetParent !== null) {
-            // Intentar redibujar la preview si está visible (opcional, depende de la lógica)
+            // Opcional: refresco de preview
         }
     };
 });
 
-// Velocidad fija en 1 para evitar decimales
+// Velocidad fija en 1
 const camera = { x: 0, y: 148, speed: 1 }
 
 function resizeCanvas() {
@@ -138,7 +136,6 @@ function renderBlock(x, y) {
 }
 
 function drawBlock(texture, values, targetCtx = ctx) {
-    // Usamos window.images
     if (window.images.blocks && window.images.blocks.complete && window.images.blocks.naturalWidth !== 0) {
         targetCtx.drawImage(window.images.blocks, texture.x, texture.y, 16, 16, values.x, values.y, values.width, values.height);
     }
@@ -295,25 +292,35 @@ function drawUI() {
         ctx.strokeRect(startScreenX, startScreenY, window.clipboard.width * tileSize, -(window.clipboard.height * tileSize));
     }
 
-    if (window.selection.type === 'rect' && window.selection.p1 && window.selection.p2) {
-        const minX = Math.min(window.selection.p1.x, window.selection.p2.x);
-        const maxX = Math.max(window.selection.p1.x, window.selection.p2.x);
-        const minY = Math.min(window.selection.p1.y, window.selection.p2.y);
-        const maxY = Math.max(window.selection.p1.y, window.selection.p2.y);
+    // --- SELECCIONES MÚLTIPLES (Rect) ---
+    if (window.selection.type === 'rect') {
+        // Combinamos la selección actual (p1, p2) con las guardadas (subRects)
+        const rectsToDraw = [...window.selection.subRects];
+        if (window.selection.p1 && window.selection.p2) {
+            rectsToDraw.push({ p1: window.selection.p1, p2: window.selection.p2 });
+        }
 
-        const screenX = (minX - camera.x) * tileSize;
-        const screenY = canvas.height - (minY - camera.y) * tileSize;
-        const screenW = (maxX - minX + 1) * tileSize;
-        const screenH = -(maxY - minY + 1) * tileSize;
+        rectsToDraw.forEach(r => {
+            const minX = Math.min(r.p1.x, r.p2.x);
+            const maxX = Math.max(r.p1.x, r.p2.x);
+            const minY = Math.min(r.p1.y, r.p2.y);
+            const maxY = Math.max(r.p1.y, r.p2.y);
 
-        ctx.fillStyle = "rgba(0, 255, 255, 0.2)"; 
-        ctx.fillRect(screenX, screenY, screenW, screenH);
+            const screenX = (minX - camera.x) * tileSize;
+            const screenY = canvas.height - (minY - camera.y) * tileSize;
+            const screenW = (maxX - minX + 1) * tileSize;
+            const screenH = -(maxY - minY + 1) * tileSize;
 
-        ctx.strokeStyle = "#87CEFA";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(screenX, screenY, screenW, screenH);
+            ctx.fillStyle = "rgba(0, 255, 255, 0.2)"; 
+            ctx.fillRect(screenX, screenY, screenW, screenH);
+
+            ctx.strokeStyle = "#87CEFA";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(screenX, screenY, screenW, screenH);
+        });
     }
     
+    // --- POLY (Lasso) ---
     if (window.selection.type === 'poly' && window.selection.path.length > 0) {
         ctx.strokeStyle = "#FFD700";
         ctx.lineWidth = 2;
