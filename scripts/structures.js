@@ -1,183 +1,292 @@
 /* SISTEMA DE ESTRUCTURAS - DATABASE Y LÓGICA */
 
-// 1. Estructuras por defecto (Vanilla/System)
 const defaultStructures = [
-    {
-        title: "Oak Tree",
-        author: "System",
-        category: "vanilla",
-        subcategory: "nature",
-        data: [
-            {dx:0, dy:0, state:{type:"tob"}}, {dx:0, dy:1, state:{type:"tob"}}, {dx:0, dy:2, state:{type:"tob"}},
-            {dx:-1, dy:3, state:{type:"l"}}, {dx:0, dy:3, state:{type:"l"}}, {dx:1, dy:3, state:{type:"l"}},
-            {dx:-1, dy:4, state:{type:"l"}}, {dx:0, dy:4, state:{type:"l"}}, {dx:1, dy:4, state:{type:"l"}},
-            {dx:0, dy:5, state:{type:"l"}}
-        ]
-    }
+	  {
+    title: "Tree 1",
+    author: "Mine Blocks",
+    category: "vanilla",
+    subcategory: "Structure",
+    data: [
+      {
+        "dx": 0,
+        "dy": 4,
+        "state": {
+          "type": "lv"
+        }
+      },
+      {
+        "dx": 0,
+        "dy": 5,
+        "state": {
+          "type": "lv"
+        }
+      },
+      {
+        "dx": 1,
+        "dy": 3,
+        "state": {
+          "type": "lv"
+        }
+      },
+      {
+        "dx": 1,
+        "dy": 4,
+        "state": {
+          "type": "lv"
+        }
+      },
+      {
+        "dx": 1,
+        "dy": 5,
+        "state": {
+          "type": "lv"
+        }
+      },
+      {
+        "dx": 1,
+        "dy": 6,
+        "state": {
+          "type": "lv"
+        }
+      },
+      {
+        "dx": 2,
+        "dy": 0,
+        "state": {
+          "type": "wd1"
+        }
+      },
+      {
+        "dx": 2,
+        "dy": 1,
+        "state": {
+          "type": "wd1"
+        }
+      },
+      {
+        "dx": 2,
+        "dy": 2,
+        "state": {
+          "type": "wd1"
+        }
+      },
+      {
+        "dx": 2,
+        "dy": 3,
+        "state": {
+          "type": "wd1"
+        }
+      },
+      {
+        "dx": 2,
+        "dy": 4,
+        "state": {
+          "type": "wd1"
+        }
+      },
+      {
+        "dx": 2,
+        "dy": 5,
+        "state": {
+          "type": "lv"
+        }
+      },
+      {
+        "dx": 2,
+        "dy": 6,
+        "state": {
+          "type": "lv"
+        }
+      },
+      {
+        "dx": 3,
+        "dy": 3,
+        "state": {
+          "type": "lv"
+        }
+      },
+      {
+        "dx": 3,
+        "dy": 4,
+        "state": {
+          "type": "lv"
+        }
+      },
+      {
+        "dx": 3,
+        "dy": 5,
+        "state": {
+          "type": "lv"
+        }
+      },
+      {
+        "dx": 3,
+        "dy": 6,
+        "state": {
+          "type": "lv"
+        }
+      },
+      {
+        "dx": 4,
+        "dy": 4,
+        "state": {
+          "type": "lv"
+        }
+      },
+      {
+        "dx": 4,
+        "dy": 5,
+        "state": {
+          "type": "lv"
+        }
+      }
+    ],
+  }
 ];
 
-// Array en memoria que combina defecto + guardadas
 let structureDB = [...defaultStructures];
-
 let currentStructCategory = 'saved'; 
 let currentStructSubCategory = 'all'; 
 let selectedStructure = null;
 let tempSaveData = null; 
-let isStructuresModalOpen = false; // Flag para control de teclado
+let isInputBlocked = false; // Flag maestro para bloqueo de teclado
 
-// --- CARGAR DATOS PERSISTENTES ---
+// --- CARGA ---
 function loadSavedStructures() {
     try {
         const savedJson = localStorage.getItem('mbw_saved_structures');
         if (savedJson) {
             const savedItems = JSON.parse(savedJson);
-            // Reconstruimos la DB combinando defecto + localStorage
             structureDB = [...defaultStructures, ...savedItems];
-            console.log(`Loaded ${savedItems.length} custom structures from storage.`);
+            console.log(`Loaded ${savedItems.length} custom structures.`);
         }
-    } catch (e) {
-        console.error("Error loading structures:", e);
-    }
+    } catch (e) { console.error(e); }
 }
 loadSavedStructures();
 
-// --- SISTEMA DE BLOQUEO DE ATAJOS (KEYBOARD TRAP) ---
+// --- KEYBOARD TRAP (BLOQUEO DE TECLAS) ---
 window.addEventListener('keydown', function(e) {
-    if (isStructuresModalOpen) {
-        // Permitir F12 (DevTools) y Escape (Cerrar modal)
+    if (isInputBlocked) {
+        // Permitir F12, Escape y escritura en inputs
         if (e.key === 'F12' || e.key === 'Escape') return;
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
 
-        // Detener cualquier otro atajo (WASD, Herramientas, etc.)
+        // Bloquear todo lo demás (WASD, herramientas, etc.)
         e.stopPropagation();
         e.stopImmediatePropagation();
+        e.preventDefault();
     }
-}, true); // Use Capture Phase para interceptar antes que otros scripts
+}, true);
 
-// --- IMPORTAR / EXPORTAR / RESET ---
-
+// --- IMPORT/EXPORT/RESET ---
 function exportSavedStructures() {
     const savedStructs = structureDB.filter(s => s.category === 'saved');
-    if (savedStructs.length === 0) {
-        alert("No saved structures found to export.");
-        return;
-    }
-    const dataStr = JSON.stringify(savedStructs, null, 2);
-    const blob = new Blob([dataStr], { type: "application/json" });
+    if (savedStructs.length === 0) { alert("No saved structures."); return; }
+    
+    const blob = new Blob([JSON.stringify(savedStructs, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `mbw_structures_backup_${Date.now()}.json`;
+    a.download = `mbw_structures_${Date.now()}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 }
 
-function importStructures() {
-    document.getElementById('import-struct-input').click();
-}
+function importStructures() { document.getElementById('import-struct-input').click(); }
 
 function handleImportFile(input) {
     const file = input.files[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
-            const importedData = JSON.parse(e.target.result);
-            if (!Array.isArray(importedData)) {
-                alert("Invalid file format. Expected a JSON array.");
-                return;
-            }
-
-            let addedCount = 0;
-            importedData.forEach(struct => {
-                // Validación básica: debe tener titulo y datos
-                if (struct.title && struct.data) {
-                    // Forzar categoría 'saved' para que aparezcan en la pestaña correcta
-                    // aunque vengan de otro usuario
-                    struct.category = 'saved';
-                    structureDB.push(struct);
-                    addedCount++;
+            const imported = JSON.parse(e.target.result);
+            if (!Array.isArray(imported)) throw new Error("Not an array");
+            let count = 0;
+            imported.forEach(s => {
+                if (s.title && s.data) {
+                    s.category = 'saved';
+                    structureDB.push(s);
+                    count++;
                 }
             });
-
             updateLocalStorage();
-            filterStructures('saved'); // Refrescar vista
-            alert(`Successfully imported ${addedCount} structures.`);
-        } catch (err) {
-            console.error(err);
-            alert("Error parsing JSON file.");
-        }
+            filterStructures('saved');
+            alert(`Imported ${count} structures.`);
+        } catch (err) { alert("Error importing file."); }
     };
     reader.readAsText(file);
-    input.value = ''; // Limpiar para permitir re-importar el mismo archivo
+    input.value = '';
 }
 
 function resetSavedStructures() {
-    if (!confirm("WARNING: This will delete ALL your saved structures.\nThis action cannot be undone.\nAre you sure?")) {
-        return;
+    if (confirm("Delete ALL saved structures?")) {
+        structureDB = structureDB.filter(s => s.category !== 'saved');
+        updateLocalStorage();
+        filterStructures('saved');
     }
-    
-    // Filtramos para dejar SOLO las que NO son 'saved' (es decir, las vanilla)
-    structureDB = structureDB.filter(s => s.category !== 'saved');
-    
-    updateLocalStorage();
-    filterStructures('saved');
 }
 
-// --- BROWSER MODAL ---
+// --- GESTIÓN DE MODALES Y BLOQUEO ---
 function openStructuresModal() {
-    const modal = document.getElementById('structures-modal');
-    modal.style.display = 'flex';
-    isStructuresModalOpen = true; // Activar bloqueo de teclas
-    
-    // Abrir directamente en la pestaña "Saved"
+    document.getElementById('structures-modal').style.display = 'flex';
+    isInputBlocked = true; // BLOQUEAR TECLADO
     filterStructures('saved'); 
 }
 
-// Interceptamos el cierre del modal para liberar el teclado
+// Override seguro para liberar teclado al cerrar
 const originalCloseModal = window.closeModal;
 window.closeModal = function(modalId) {
+    // Si cerramos cualquier modal relacionado con estructuras, desbloqueamos
     if (modalId === 'structures-modal' || modalId === 'save-structure-modal') {
-        isStructuresModalOpen = false; // Desactivar bloqueo
+        isInputBlocked = false; // DESBLOQUEAR TECLADO
     }
-    if (originalCloseModal) originalCloseModal(modalId);
-    else {
-        const modal = document.getElementById(modalId);
-        if(modal) modal.style.display = 'none';
+    
+    if (typeof originalCloseModal === 'function') {
+        originalCloseModal(modalId);
+    } else {
+        const m = document.getElementById(modalId);
+        if(m) m.style.display = 'none';
     }
 }
+
+// --- CORRECCIÓN: DETECTOR DE CLIC FUERA (Click Outside) ---
+// Esto asegura que si cierras el modal haciendo clic en el fondo gris,
+// también se desbloquee el teclado.
+window.addEventListener('click', function(e) {
+    if (e.target.id === 'structures-modal') {
+        closeModal('structures-modal');
+    }
+    if (e.target.id === 'save-structure-modal') {
+        closeModal('save-structure-modal');
+    }
+});
+// -----------------------------------------------------------
 
 function filterStructures(category, subcategory = null) {
     currentStructCategory = category;
     if (subcategory) currentStructSubCategory = subcategory;
 
     document.querySelectorAll('.struct-tab').forEach(t => t.classList.remove('active'));
-    const activeTab = document.getElementById(`tab-struct-${category}`);
-    if(activeTab) activeTab.classList.add('active');
+    document.getElementById(`tab-struct-${category}`).classList.add('active');
 
-    // Manejo de subpestañas
     const subtabs = document.getElementById('struct-subtabs');
-    if (category === 'community') { 
+    if (category === 'community' || category === 'saved') { 
         subtabs.style.display = 'flex'; 
     } else { 
         subtabs.style.display = 'none'; 
         currentStructSubCategory = null; 
     }
 
-    // --- MANEJO DE BOTONES DE ACCIÓN ---
     const actionsDiv = document.getElementById('struct-saved-actions');
-    if (actionsDiv) {
-        // Solo mostrar botones Export/Import/Reset en la pestaña SAVED
-        actionsDiv.style.display = (category === 'saved') ? 'flex' : 'none';
-    }
+    if (actionsDiv) actionsDiv.style.display = (category === 'saved') ? 'flex' : 'none';
 
-    // Resetear selección
     selectedStructure = null;
     document.getElementById('struct-info-title').innerText = "Select an item";
-    document.getElementById('struct-info-author').innerText = "";
-    document.getElementById('struct-info-sub').innerText = "";
+    document.getElementById('struct-info-author').innerText = "-";
+    document.getElementById('struct-info-sub').innerText = "-";
     document.getElementById('btn-delete-struct').style.display = 'none';
     
     const canvas = document.getElementById('struct-preview-canvas');
@@ -208,7 +317,7 @@ function renderStructureGrid() {
     });
 
     if (filtered.length === 0) {
-        grid.innerHTML = '<div style="color:#888; grid-column: 1/-1; text-align:center; padding-top:20px;">No structures found.</div>';
+        grid.innerHTML = '<div style="color:#FFF; grid-column: 1/-1; text-align:center; padding-top:20px;">No structures found.</div>';
         return;
     }
 
@@ -217,8 +326,7 @@ function renderStructureGrid() {
         item.className = 'struct-item';
         
         const previewCanvas = document.createElement('canvas');
-        previewCanvas.width = 64; 
-        previewCanvas.height = 64;
+        previewCanvas.width = 64; previewCanvas.height = 64;
         previewCanvas.style.marginBottom = '5px';
         previewCanvas.style.imageRendering = 'pixelated'; 
         
@@ -239,36 +347,31 @@ function renderStructureGrid() {
 function selectStructure(struct) {
     selectedStructure = struct;
     document.getElementById('struct-info-title').innerText = struct.title;
-    document.getElementById('struct-info-author').innerText = "Author: " + struct.author;
-    if(document.getElementById('struct-info-sub')) {
-        document.getElementById('struct-info-sub').innerText = `Type: ${struct.subcategory}`;
-    }
+    document.getElementById('struct-info-author').innerText = struct.author;
+    document.getElementById('struct-info-sub').innerText = struct.subcategory || 'Misc';
     
     const canvas = document.getElementById('struct-preview-canvas');
     canvas.style.imageRendering = 'pixelated';
     renderPreviewOnCanvas(canvas, struct.data, true);
 
     const btnDel = document.getElementById('btn-delete-struct');
-    if (btnDel) {
-        btnDel.style.display = (struct.category === 'saved') ? 'block' : 'none';
-    }
+    if (btnDel) btnDel.style.display = (struct.category === 'saved') ? 'block' : 'none';
 }
 
 function loadStructureToClipboard() {
     if (!selectedStructure) return;
     const xs = selectedStructure.data.map(b => b.dx); const ys = selectedStructure.data.map(b => b.dy);
-    const width = Math.max(...xs) - Math.min(...xs) + 1;
-    const height = Math.max(...ys) - Math.min(...ys) + 1;
-    window.clipboard = { width: width, height: height, data: JSON.parse(JSON.stringify(selectedStructure.data)) };
+    const w = Math.max(...xs) - Math.min(...xs) + 1;
+    const h = Math.max(...ys) - Math.min(...ys) + 1;
+    window.clipboard = { width: w, height: h, data: JSON.parse(JSON.stringify(selectedStructure.data)) };
     
-    closeModal('structures-modal');
+    closeModal('structures-modal'); // Libera teclado
     activatePasteMode(); 
 }
 
 function deleteSavedStructure() {
     if (!selectedStructure || selectedStructure.category !== 'saved') return;
-    if (!confirm(`Permanently delete "${selectedStructure.title}"?`)) return;
-
+    if (!confirm(`Delete "${selectedStructure.title}"?`)) return;
     structureDB = structureDB.filter(s => s !== selectedStructure);
     updateLocalStorage();
     filterStructures('saved');
@@ -285,7 +388,7 @@ function openSaveStructureModal() {
         alert("Select an area first!"); return;
     }
     
-    isStructuresModalOpen = true; // Bloquear teclado
+    isInputBlocked = true; // BLOQUEAR
 
     let minX, maxX, minY, maxY;
     if (window.selection.type === 'poly') {
@@ -302,21 +405,20 @@ function openSaveStructureModal() {
             if (window.selection.type === 'poly') { if (!isPointInPolygon(x, y, window.selection.path)) continue; }
             const state = mbwom.getBlockState(x, y);
             if (state && state.type != null) {
-                const clonedState = JSON.parse(JSON.stringify(state));
-                data.push({ dx: x - minX, dy: y - minY, state: clonedState });
+                data.push({ dx: x - minX, dy: y - minY, state: JSON.parse(JSON.stringify(state)) });
             }
         }
     }
+    
     if (data.length === 0) { 
         alert("Area empty!"); 
-        isStructuresModalOpen = false; // Desbloquear si cancelamos por error
+        isInputBlocked = false; 
         return; 
     }
 
     tempSaveData = data;
     document.getElementById('save-structure-modal').style.display = 'flex';
     document.getElementById('input-struct-title').value = '';
-    document.getElementById('input-struct-author').value = 'User';
     
     const canvas = document.getElementById('struct-save-preview');
     canvas.style.imageRendering = 'pixelated';
@@ -326,7 +428,7 @@ function openSaveStructureModal() {
 function saveNewStructure() {
     const title = document.getElementById('input-struct-title').value.trim();
     const author = document.getElementById('input-struct-author').value.trim();
-    const category = 'saved';
+    const category = document.getElementById('input-struct-category').value;
     const subcategory = document.getElementById('input-struct-subcategory').value;
 
     if (!title) { alert("Please enter a title."); return; }
@@ -338,14 +440,13 @@ function saveNewStructure() {
 
     structureDB.push(newStruct);
     updateLocalStorage();
-    closeModal('save-structure-modal');
-    alert("Structure saved successfully!");
+    closeModal('save-structure-modal'); // Libera teclado
+    alert("Saved!");
     
     window.selection.p1 = null; window.selection.p2 = null; window.selection.path = [];
     if(typeof checkSelectionState === 'function') checkSelectionState();
 }
 
-// --- ENGINE RENDERIZADO PREVIEW ---
 function renderPreviewOnCanvas(canvas, blockData, fit = true, forceCover = false) {
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false; 
@@ -354,25 +455,23 @@ function renderPreviewOnCanvas(canvas, blockData, fit = true, forceCover = false
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     if (!blockData || blockData.length === 0) return;
-
+    
     const xs = blockData.map(b => b.dx); const ys = blockData.map(b => b.dy);
-    const width = Math.max(...xs) - Math.min(...xs) + 1;
-    const height = Math.max(...ys) - Math.min(...ys) + 1;
+    const w = Math.max(...xs) - Math.min(...xs) + 1;
+    const h = Math.max(...ys) - Math.min(...ys) + 1;
 
     let tileSize = 16;
     if (forceCover) {
-        let multiplier = 2; 
-        while ((width * multiplier * 16 < canvas.width) && (height * multiplier * 16 < canvas.height)) {
-            multiplier += 2;
-        }
-        tileSize = 16 * multiplier;
+        let m = 2; 
+        while ((w * m * 16 < canvas.width) && (h * m * 16 < canvas.height)) m += 2;
+        tileSize = 16 * m;
     } else if (fit) {
-        const maxSize = Math.max(width, height);
+        const maxSize = Math.max(w, h);
         tileSize = Math.floor(Math.min(canvas.width, canvas.height) / maxSize);
         if (tileSize < 1) tileSize = 1;
     }
 
-    const totalW = width * tileSize; const totalH = height * tileSize;
+    const totalW = w * tileSize; const totalH = h * tileSize;
     const offsetX = (canvas.width - totalW) / 2;
     const offsetY = (canvas.height - totalH) / 2;
     const imgs = window.images;
@@ -380,21 +479,14 @@ function renderPreviewOnCanvas(canvas, blockData, fit = true, forceCover = false
     blockData.forEach(block => {
         const drawX = offsetX + block.dx * tileSize;
         const drawY = canvas.height - (offsetY + block.dy * tileSize) - tileSize;
-
-        if (imgs && imgs.blocks && imgs.blocks.complete && imgs.blocks.naturalWidth !== 0) {
+        if (imgs && imgs.blocks && imgs.blocks.complete) {
             try {
                 const renderer = window.blockData ? window.blockData[block.state.type] : null;
                 if (renderer) {
                     const tex = renderer(block.state);
                     ctx.drawImage(imgs.blocks, tex.x, tex.y, 16, 16, drawX, drawY, tileSize, tileSize);
-                } else {
-                    ctx.fillStyle = '#888'; ctx.fillRect(drawX, drawY, tileSize, tileSize);
-                }
-            } catch(e) {
-                ctx.fillStyle = '#F0F'; ctx.fillRect(drawX, drawY, tileSize, tileSize);
-            }
-        } else {
-            ctx.fillStyle = '#555'; ctx.fillRect(drawX, drawY, tileSize, tileSize);
-        }
+                } else ctx.fillStyle = '#888', ctx.fillRect(drawX, drawY, tileSize, tileSize);
+            } catch(e) { ctx.fillStyle = '#F0F'; ctx.fillRect(drawX, drawY, tileSize, tileSize); }
+        } else { ctx.fillStyle = '#555'; ctx.fillRect(drawX, drawY, tileSize, tileSize); }
     });
 }
