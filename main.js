@@ -69,7 +69,12 @@ function updateGridDimensions() {
     grid.width = Math.ceil(canvas.width / tileSize);
     grid.height = Math.ceil(canvas.height / tileSize);
     
-    camera.speed = 1; 
+    // CAMBIO AQUÍ:
+    // Antes: camera.speed = 1;
+    // Ahora: La velocidad se ajusta para mantener una sensación constante
+    // (Más lento con zoom in, más rápido con zoom out)
+    camera.speed = 100 / currentZoom; 
+    
     camera.x = Math.round(camera.x);
     camera.y = Math.round(camera.y);
 
@@ -356,12 +361,33 @@ function mainLoop() {
     requestAnimationFrame(mainLoop);
 }
 
-document.getElementById("dimension").addEventListener("change", function () {
-    if (mbwom.world) {
-        const sceneIndex = parseInt(this.value);
+function changeDimension(sceneIndex) {
+    if (typeof mbwom !== 'undefined' && mbwom.world) {
+        // Verificar si la escena existe (scene1, scene2, scene3)
         if (mbwom.world["scene" + sceneIndex]) {
             mbwom.loadScene(sceneIndex);
-            initializeWorldCache();
+            initializeWorldCache(); // Recargar caché visual
+            closeModal('dimensions-modal'); // Cerrar el modal
+            
+            // --- ACTUALIZAR ICONO EN LA INTERFAZ ---
+            const iconElement = document.getElementById('current-dim-icon');
+            if (iconElement) {
+                switch(sceneIndex) {
+                    case 1:
+                        iconElement.src = "assets/Underworld icon.png";
+                        break;
+                    case 2:
+                        iconElement.src = "assets/Nether icon.png";
+                        break;
+                    case 3:
+                        iconElement.src = "assets/End icon.png";
+                        break;
+                }
+            }
+            
+            console.log("Switched to dimension:", sceneIndex);
+        } else {
+            alert("This dimension is not generated in the current world.");
         }
     }
-});
+}

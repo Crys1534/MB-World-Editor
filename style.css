@@ -97,6 +97,14 @@ body {
  gap: 5px;
 }
 
+.icon-small {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    image-rendering: pixelated;
+    vertical-align: middle;
+}
+
 .icon-btn:hover {
  background-color: rgba(128, 128, 128, 0.2);
 }
@@ -236,6 +244,7 @@ body {
     margin-top: 2px;
     padding-top: 2px;
     width: 100%;
+	user-select: none;
 }
 
 /* Botón Grande (Pegar) */
@@ -256,6 +265,16 @@ body {
 .ribbon-btn-large:hover { background-color: rgba(128,128,128,0.2); border-color: var(--border); }
 .ribbon-btn-large .icon { font-size: 28px; }
 .ribbon-btn-large .text { font-size: 12px; font-weight: 500; }
+
+/* NUEVO: Clase para la imagen dentro del botón de la Ribbon */
+.icon-img {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+    margin-bottom: 2px;
+    image-rendering: pixelated;
+	cursor: unset;
+}
 
 /* Columna de botones pequeños (Cortar/Copiar) */
 .ribbon-btn-col {
@@ -333,7 +352,6 @@ body {
 /* --- WORKSPACE (LIENZO COMPLETO) --- */
 #workspace {
  position: absolute;
- top: 153px; /* Ajustado para la nueva altura de la Ribbon */
  top: 153px; /* Ajustado para la nueva altura de la Ribbon */
  left: 0; /* Ocupa todo el ancho */
  width: 100%; 
@@ -521,7 +539,7 @@ canvas {
 .save-form-row label { 
     width: 100px; /* Ancho fijo para la etiqueta a la izquierda */
     text-align: right; 
-    font-size: 14px; 
+    font-size: 12px; 
     font-weight: bold; 
     color: #000; /* Texto Negro */
     margin-right: 15px; 
@@ -557,4 +575,50 @@ button:hover {
 .input-group {
  display: flex;
  align-items: center;
+}
+
+
+
+/* --- ESTILOS DE DIMENSIONES MODIFICADOS --- */
+.dimensions-grid {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    padding: 20px 0;
+}
+
+.dim-item {
+    background: #555;
+    border: 2px solid #333;
+    width: 120px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 4px;
+}
+
+.dim-item:hover {
+    background: #666;
+    border-color: #FFF;
+    transform: translateY(-2px);
+}
+
+/* Modificado para soportar etiquetas IMG */
+.dim-preview {
+    width: 100px;
+    height: 100px;
+    margin-bottom: 10px;
+    border: 2px solid #222;
+    background-color: #000; /* Fondo negro por si la imagen tiene transparencia */
+    image-rendering: pixelated;
+    object-fit: cover; /* Ajuste para la imagen */
+}
+
+.dim-name {
+    color: white;
+    font-weight: bold;
+    font-size: 12px;
 }

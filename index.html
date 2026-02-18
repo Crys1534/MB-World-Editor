@@ -194,6 +194,30 @@
         </div>
 
         <div class="separator"></div>
+		
+		<div class="ribbon-group">
+    <div class="ribbon-group-content" style="gap: 15px;">
+        <div style="input: flex; flex-direction: column; align-items: center;">
+            <label style="font-size: 12px; color: var(--text); margin-bottom: 2px;">Size</label>
+            <select id="tool-size-select" onchange="updateToolSize(this.value)" style="width: 50px; text-align: center;">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+            </select>
+        </div>
+        <label style="font-size: 12px; cursor: pointer; display: flex; align-items: center;">
+            <input type="checkbox" id="tool-rounded-checkbox" onchange="updateToolRounded(this.checked)" style="margin-right: 4px;"> Rounded
+        </label>
+    </div>
+    <div class="ribbon-group-label">Brush Settings</div>
+</div>
+
+        <div class="separator"></div>
+
 
         <div class="ribbon-group">
             <div class="ribbon-group-content">
@@ -205,27 +229,14 @@
         <div class="separator"></div>
         
         <div class="ribbon-group">
-            <div class="ribbon-group-content" style="gap: 15px;">
-                <div style="display: flex; flex-direction: column; align-items: center;">
-                    <label style="font-size: 10px; color: var(--text); margin-bottom: 2px;">Size: <span id="tool-size-display" style="font-weight: bold;">1</span></label>
-                    <input type="range" id="tool-size-slider" min="1" max="7" value="1" oninput="updateToolSize(this.value)" style="width: 80px; cursor: pointer;">
-                </div>
-                <label style="font-size: 10px; cursor: pointer; display: flex; align-items: center;">
-                    <input type="checkbox" id="tool-rounded-checkbox" onchange="updateToolRounded(this.checked)" style="margin-right: 4px;"> Rounded
-                </label>
-            </div>
-            <div class="ribbon-group-label">Brush Settings</div>
-        </div>
-
-        <div class="separator"></div>
-        
-        <div class="ribbon-group">
             <div class="ribbon-group-content">
                 <button class="icon-btn" onclick="openStructuresModal()" title="Open Library" style="flex-direction:column; height:auto; border:none;">
                     <span style="font-size:20px;">🏛️</span>
+					<span class="text">Structures</span>
                 </button>
                 <button id="btn-save-struct" class="icon-btn" onclick="openSaveStructureModal()" disabled title="Select an area first" style="flex-direction:column; height:auto; border:none;">
                     <span style="font-size:20px;">💾</span>
+					<span class="text">Save Sructure</span>
                 </button>
             </div>
             <div class="ribbon-group-label">Library</div>
@@ -233,32 +244,65 @@
 
    </div>
 
-   <div id="tab-settings" class="tab-pane">
-    <div class="input-group">
-     <label style="margin-right: 5px;">Gamemode:</label>
-     <select id="gamemode">
-      <option value="0">Survival</option>
-      <option value="1">Creative</option>
-      <option value="2">Adventure</option>
-      <option value="3">Spectator</option>
-     </select>
+<div id="tab-settings" class="tab-pane">
+    
+    <div class="ribbon-group">
+        <div class="ribbon-group-content" style="flex-direction: column; align-items: flex-start; justify-content: center; gap: 5px;">
+            <div class="input-group">
+                <label style="margin-right: 5px; font-size: 11px;">Gamemode:</label>
+                <select id="gamemode" style="padding: 2px;">
+                    <option value="0">Survival</option>
+                    <option value="1">Creative</option>
+                    <option value="2">Adventure</option>
+                    <option value="3">Spectator</option>
+                </select>
+            </div>
+            <label style="cursor: pointer; font-size: 11px;">
+                <input type="checkbox" id="cheats"> Cheats
+            </label>
+        </div>
+        <div class="ribbon-group-label">World Settings</div>
     </div>
-    <label style="cursor: pointer;"><input type="checkbox" id="cheats"> Cheats</label>
+
     <div class="separator"></div>
-    <button onclick="openModal('achievements-modal')">🏆 Manage Achievements</button>
-   </div>
-   <div id="tab-view" class="tab-pane">
-    <label><input type="checkbox" id="show-grid" onchange="toggleGrid(this.checked)"> Show Grid</label>
-    <div class="separator"></div>
-    <div class="input-group">
-        <label style="margin-right: 5px;">Dimension:</label>
-        <select id="dimension">
-         <option value="1">Overworld</option>
-         <option value="2">Nether</option>
-         <option value="3">End</option>
-        </select>
+
+    <div class="ribbon-group">
+        <div class="ribbon-group-content">
+            <button class="ribbon-btn-large" onclick="openModal('achievements-modal')">
+                <span class="icon">🏆</span>
+                <span class="text">Manage Achievs.</span>
+            </button>
+        </div>
+        <div class="ribbon-group-label">Achievements</div>
     </div>
+
    </div>
+<div id="tab-view" class="tab-pane">
+    
+<div class="ribbon-group">
+        <div class="ribbon-group-content" style="flex-direction: column; justify-content: center; gap: 2px;">
+            <img src="assets/Grid.png" class="icon-img" alt="Grid">
+            
+            <label style="cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 11px;">
+                <input type="checkbox" id="show-grid" onchange="toggleGrid(this.checked)"> Show Grid
+            </label>
+        </div>
+        <div class="ribbon-group-label">Grid</div>
+    </div>
+
+    <div class="separator"></div>
+
+    <div class="ribbon-group">
+        <div class="ribbon-group-content">
+            <button class="ribbon-btn-large" onclick="openModal('dimensions-modal')">
+                <img id="current-dim-icon" src="assets/underworld icon.png" class="icon-img" alt="Dim">
+                <span class="text">Change Dimension</span>
+            </button>
+        </div>
+        <div class="ribbon-group-label">Dimensions</div>
+    </div>
+
+</div>
   </div>
  </div>
 
@@ -467,6 +511,34 @@
     <label><input type="checkbox" data-index="40"> Use an anvil</label>
    </div> </div>
  </div>
+ 
+ 
+ 
+ <div id="dimensions-modal" class="modal">
+    <div class="modal-content" style="width: 550px; height: auto;">
+        <span class="close-modal" onclick="closeModal('dimensions-modal')">&times;</span>
+        <h3 style="color:gray; margin-top: 0;">Select Dimension</h3>
+        
+        <div class="dimensions-grid">
+            <div class="dim-item" onclick="changeDimension(1)">
+                <img src="assets/underworld icon.png" class="dim-preview">
+                <span class="dim-name">Overworld</span> 
+            </div>
+
+            <div class="dim-item" onclick="changeDimension(2)">
+                <img src="assets/nether icon.png" class="dim-preview">
+                <span class="dim-name">Nether</span>
+            </div>
+
+            <div class="dim-item" onclick="changeDimension(3)">
+                <img src="assets/end icon.png" class="dim-preview">
+                <span class="dim-name">End</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+
 
  <input type="file" id="file-input" accept=".mbw" style="display: none;">
  <input type="file" id="import-struct-input" accept=".json" style="display: none;" onchange="handleImportFile(this)">
