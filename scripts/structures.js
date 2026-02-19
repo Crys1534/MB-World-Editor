@@ -36,8 +36,9 @@ let currentStructSubCategory = 'all';
 let selectedStructure = null;
 let tempSaveData = null; 
 let isInputBlocked = false; // Flag maestro para bloqueo de teclado
+let confirmCallback = null; // Callback para el modal de confirmación
 
-// --- CARGA ---
+// --- CARGA INICIAL ---
 function loadSavedStructures() {
     try {
         const savedJson = localStorage.getItem('mbw_saved_structures');
@@ -48,7 +49,6 @@ function loadSavedStructures() {
         }
     } catch (e) { console.error(e); }
     
-    // Actualizar el ribbon al iniciar
     updateRibbonQuickAccess();
 }
 loadSavedStructures();
@@ -56,34 +56,33 @@ loadSavedStructures();
 // --- KEYBOARD TRAP (BLOQUEO DE TECLAS) ---
 window.addEventListener('keydown', function(e) {
     if (isInputBlocked) {
-        // 1. Permitir F12 para depuración
         if (e.key === 'F12') return;
 
-        // 2. Permitir interacción normal dentro de Inputs/Selects
         const target = e.target;
         if (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') {
-            // Permitir que Escape cierre el modal incluso estando en un input
             if (e.key === 'Escape') {
                 closeModal('save-structure-modal');
                 closeModal('structures-modal');
+                closeModal('edit-info-modal');
+                closeModal('custom-confirm-modal');
             }
             return; 
         }
 
-        // 3. Cerrar modales con Escape si no estamos escribiendo
         if (e.key === 'Escape') {
             closeModal('save-structure-modal');
             closeModal('structures-modal');
+            closeModal('edit-info-modal');
+            closeModal('custom-confirm-modal');
         }
 
-        // 4. Bloquear todo lo demás
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
     }
 }, true); 
 
-// --- IMPORT/EXPORT/RESET ---
+// --- IMPORT/EXPORT ---
 function exportSavedStructures() {
     const savedStructs = structureDB.filter(s => s.category === 'saved');
     if (savedStructs.length === 0) { alert("No saved structures."); return; }
@@ -120,8 +119,6 @@ function handleImportFile(input) {
             updateLocalStorage();
             filterStructures('saved', 'all');
             alert(`Imported ${count} structures.`);
-            
-            // Actualizar el ribbon tras importar
             updateRibbonQuickAccess();
         } catch (err) { alert("Error importing file."); }
     };
@@ -129,18 +126,17 @@ function handleImportFile(input) {
     input.value = '';
 }
 
+// --- RESET CON CONFIRMACIÓN CUSTOM ---
 function resetSavedStructures() {
-    if (confirm("Delete ALL saved structures?")) {
+    showCustomConfirm("Delete ALL saved structures? This cannot be undone.", function() {
         structureDB = structureDB.filter(s => s.category !== 'saved');
         updateLocalStorage();
         filterStructures('saved', 'all');
-        
-        // Actualizar el ribbon tras resetear
         updateRibbonQuickAccess();
-    }
+    });
 }
 
-// --- GESTIÓN DE MODALES Y BLOQUEO ---
+// --- GESTIÓN DE MODALES ---
 function openStructuresModal() {
     document.getElementById('structures-modal').style.display = 'flex';
     isInputBlocked = true; 
@@ -150,8 +146,15 @@ function openStructuresModal() {
 // Override seguro para liberar teclado al cerrar
 const originalCloseModal = window.closeModal;
 window.closeModal = function(modalId) {
-    if (modalId === 'structures-modal' || modalId === 'save-structure-modal') {
-        isInputBlocked = false; 
+    if (modalId === 'structures-modal' || modalId === 'save-structure-modal' || modalId === 'edit-info-modal' || modalId === 'custom-confirm-modal') {
+        
+        // Si cerramos un sub-modal (edit o confirm) pero el principal sigue abierto, mantenemos el bloqueo
+        if ((modalId === 'edit-info-modal' || modalId === 'custom-confirm-modal') && 
+            document.getElementById('structures-modal').style.display === 'flex') {
+            isInputBlocked = true;
+        } else {
+            isInputBlocked = false; 
+        }
     }
     
     if (typeof originalCloseModal === 'function') {
@@ -162,16 +165,28 @@ window.closeModal = function(modalId) {
     }
 }
 
-// DETECTOR DE CLIC FUERA
+// Detector de clic fuera
 window.addEventListener('click', function(e) {
-    if (e.target.id === 'structures-modal') {
-        closeModal('structures-modal');
-    }
-    if (e.target.id === 'save-structure-modal') {
-        closeModal('save-structure-modal');
-    }
+    if (e.target.id === 'structures-modal') closeModal('structures-modal');
+    if (e.target.id === 'save-structure-modal') closeModal('save-structure-modal');
+    // Los modales de edición y confirmación suelen ser modales puros (no cierran al click fuera por seguridad),
+    // pero si quisieras podrías agregarlos aquí.
 });
 
+// --- SISTEMA DE CONFIRMACIÓN CUSTOM ---
+function showCustomConfirm(message, callback) {
+    document.getElementById('confirm-msg').innerText = message;
+    confirmCallback = callback;
+    document.getElementById('custom-confirm-modal').style.display = 'flex';
+    isInputBlocked = true;
+}
+
+document.getElementById('btn-confirm-yes').onclick = function() {
+    if (confirmCallback) confirmCallback();
+    closeModal('custom-confirm-modal');
+};
+
+// --- LOGICA PRINCIPAL DE ESTRUCTURAS ---
 function filterStructures(category, subcategory = null) {
     currentStructCategory = category;
     if (subcategory) currentStructSubCategory = subcategory;
@@ -190,11 +205,15 @@ function filterStructures(category, subcategory = null) {
     const actionsDiv = document.getElementById('struct-saved-actions');
     if (actionsDiv) actionsDiv.style.display = (category === 'saved') ? 'flex' : 'none';
 
+    // Resetear selección visual
     selectedStructure = null;
     document.getElementById('struct-info-title').innerText = "Select an item";
     document.getElementById('struct-info-author').innerText = "-";
     document.getElementById('struct-info-sub').innerText = "-";
-    document.getElementById('btn-delete-struct').style.display = 'none';
+    
+    // Ocultar acciones de edición por defecto
+    const editCol = document.getElementById('struct-edit-actions');
+    if(editCol) editCol.style.display = 'none';
     
     const canvas = document.getElementById('struct-preview-canvas');
     const ctx = canvas.getContext('2d');
@@ -261,9 +280,18 @@ function selectStructure(struct) {
     canvas.style.imageRendering = 'pixelated';
     renderPreviewOnCanvas(canvas, struct.data, true);
 
-    const btnDel = document.getElementById('btn-delete-struct');
-    if (btnDel) btnDel.style.display = (struct.category === 'saved') ? 'block' : 'none';
+    // LÓGICA DE VISIBILIDAD DE BOTONES
+    const editCol = document.getElementById('struct-edit-actions');
+    if (editCol) {
+        if (struct.category === 'saved') {
+            editCol.style.display = 'flex'; 
+        } else {
+            editCol.style.display = 'none'; 
+        }
+    }
 }
+
+// --- CARGAR / BORRAR / EDITAR ---
 
 function loadStructureToClipboard() {
     if (!selectedStructure) return;
@@ -273,26 +301,57 @@ function loadStructureToClipboard() {
 
 function deleteSavedStructure() {
     if (!selectedStructure || selectedStructure.category !== 'saved') return;
-    if (!confirm(`Delete "${selectedStructure.title}"?`)) return;
-    structureDB = structureDB.filter(s => s !== selectedStructure);
-    updateLocalStorage();
-    filterStructures('saved', 'all');
     
-    // Actualizar el ribbon tras borrar
-    updateRibbonQuickAccess();
+    showCustomConfirm(`Delete "${selectedStructure.title}" permanently?`, function() {
+        structureDB = structureDB.filter(s => s !== selectedStructure);
+        updateLocalStorage();
+        filterStructures('saved', 'all');
+        updateRibbonQuickAccess();
+    });
 }
 
-function updateLocalStorage() {
-    try {
-        const toSave = structureDB.filter(s => s.category === 'saved');
-        localStorage.setItem('mbw_saved_structures', JSON.stringify(toSave));
-    } catch (e) {
-        console.error("Save failed:", e);
-        alert("Error: Storage might be full.");
-    }
+function openEditInfoModal() {
+    if (!selectedStructure || selectedStructure.category !== 'saved') return;
+    
+    document.getElementById('edit-struct-title').value = selectedStructure.title;
+    document.getElementById('edit-struct-author').value = selectedStructure.author;
+    
+    document.getElementById('edit-info-modal').style.display = 'flex';
+    isInputBlocked = true;
+    
+    ['edit-struct-title', 'edit-struct-author'].forEach(id => {
+        const el = document.getElementById(id);
+        if(el) {
+            el.onkeydown = function(e) {
+                e.stopPropagation();
+                if(e.key === 'Escape') closeModal('edit-info-modal');
+            };
+        }
+    });
 }
 
-// --- SAVE MODAL ---
+function saveEditedInfo() {
+    if (!selectedStructure) return;
+    
+    const newTitle = document.getElementById('edit-struct-title').value.trim();
+    const newAuthor = document.getElementById('edit-struct-author').value.trim();
+    
+    if (!newTitle) { alert("Title cannot be empty"); return; }
+    
+    selectedStructure.title = newTitle;
+    selectedStructure.author = newAuthor || "Anonymous";
+    
+    updateLocalStorage();
+    
+    filterStructures('saved', currentStructSubCategory); 
+    selectStructure(selectedStructure); 
+    updateRibbonQuickAccess(); 
+    
+    closeModal('edit-info-modal');
+}
+
+// --- GUARDAR NUEVA ESTRUCTURA ---
+
 function openSaveStructureModal() {
     if (!window.selection.p1 || (!window.selection.p2 && window.selection.path.length === 0)) {
         alert("Select an area first!"); return;
@@ -333,12 +392,10 @@ function openSaveStructureModal() {
 
     tempSaveData = data;
     
-    // BLOQUEAR UI GLOBAL
     isInputBlocked = true; 
     document.getElementById('save-structure-modal').style.display = 'flex';
     document.getElementById('input-struct-title').value = '';
     
-    // BLOQUEAR PROPAGACIÓN EN INPUTS LOCALES
     const inputsToIsolate = ['input-struct-title', 'input-struct-author', 'input-struct-subcategory'];
     inputsToIsolate.forEach(id => {
         const el = document.getElementById(id);
@@ -373,13 +430,23 @@ function saveNewStructure() {
     
     filterStructures('saved', 'all');
     closeModal('save-structure-modal'); 
-    alert("Saved!");
     
     window.selection.p1 = null; window.selection.p2 = null; window.selection.path = []; window.selection.subRects = [];
     if(typeof checkSelectionState === 'function') checkSelectionState();
 
-    // Actualizar el ribbon tras guardar
     updateRibbonQuickAccess();
+}
+
+// --- UTILIDADES ---
+
+function updateLocalStorage() {
+    try {
+        const toSave = structureDB.filter(s => s.category === 'saved');
+        localStorage.setItem('mbw_saved_structures', JSON.stringify(toSave));
+    } catch (e) {
+        console.error("Save failed:", e);
+        alert("Error: Storage might be full.");
+    }
 }
 
 function renderPreviewOnCanvas(canvas, blockData, fit = true, forceCover = false) {
@@ -427,60 +494,68 @@ function renderPreviewOnCanvas(canvas, blockData, fit = true, forceCover = false
 }
 
 // ==========================================
-// 🆕 LÓGICA PARA QUICK ACCESS EN EL RIBBON
+// 🆕 RIBBON QUICK ACCESS (5 SLOTS FIJOS)
 // ==========================================
 
 function updateRibbonQuickAccess() {
     const container = document.getElementById('recent-structures-ribbon');
     if (!container) return;
     
-    container.innerHTML = ''; // Limpiar contenedor
+    container.innerHTML = ''; 
 
-    // Filtrar solo las guardadas ('saved')
     const savedStructs = structureDB.filter(s => s.category === 'saved');
     
-    // Obtener las últimas 4 (usando slice y reverse para que la más nueva salga primero)
-    const last3 = savedStructs.slice(-4).reverse();
+    // Obtenemos los últimos 5 (si existen) y los invertimos
+    const lastItems = savedStructs.slice(-5).reverse(); 
 
-    if (last3.length === 0) {
-        container.innerHTML = '<span style="font-size: 10px; color: #555; font-style: italic; padding: 0 5px;">No saved items</span>';
-        return;
-    }
-
-    last3.forEach(struct => {
-        // Crear botón contenedor
+    // Generamos SIEMPRE 5 botones
+    for (let i = 0; i < 5; i++) {
+        const struct = lastItems[i]; // Puede ser undefined si no hay suficientes
+        
         const btn = document.createElement('button');
-        btn.className = 'ribbon-btn-small'; // Reusamos estilo
-        btn.title = `Load "${struct.title}"`;
+        btn.className = 'ribbon-btn-small';
+        
+        // Estilos base (Tamaño 66px)
         btn.style.width = '66px';
         btn.style.height = '66px';
         btn.style.padding = '2px';
         btn.style.border = '1px solid #555';
-        btn.style.cursor = 'pointer';
         btn.style.display = 'flex';
         btn.style.justifyContent = 'center';
         btn.style.alignItems = 'center';
-        btn.style.background = '#8B8B8B';
-
-        // Crear Canvas para la preview
-        const canvas = document.createElement('canvas');
-        canvas.width = 60;
-        canvas.height = 60;
         
-        // Renderizar la estructura (delay para asegurar carga)
-        setTimeout(() => {
-             renderPreviewOnCanvas(canvas, struct.data, true); 
-        }, 100);
+        if (struct) {
+            // --- CASO: SLOT OCUPADO ---
+            btn.title = `Load "${struct.title}"`;
+            btn.style.cursor = 'pointer';
+            btn.style.background = '#8B8B8B'; // Gris normal
 
-        // Evento Click: Cargar al portapapeles directamente
-        btn.onclick = () => loadSpecificStructure(struct);
+            const canvas = document.createElement('canvas');
+            canvas.width = 60; 
+            canvas.height = 60;
+            
+            // Renderizar la preview
+            setTimeout(() => {
+                 renderPreviewOnCanvas(canvas, struct.data, true); 
+            }, 100);
 
-        btn.appendChild(canvas);
+            btn.onclick = () => loadSpecificStructure(struct);
+            btn.appendChild(canvas);
+            
+        } else {
+            // --- CASO: SLOT VACÍO ---
+            btn.title = "Empty Slot";
+            btn.style.cursor = 'default';
+            btn.style.background = '#444'; // Gris más oscuro para indicar vacío
+            btn.style.opacity = '0.5';
+            // Opcional: Agregar un texto o dejarlo limpio
+            // btn.innerText = "-"; 
+        }
+
         container.appendChild(btn);
-    });
+    }
 }
 
-// Función auxiliar para cargar sin abrir el modal
 function loadSpecificStructure(struct) {
     if (!struct || !struct.data) return;
     
@@ -495,7 +570,10 @@ function loadSpecificStructure(struct) {
         data: JSON.parse(JSON.stringify(struct.data)) 
     };
     
-    activatePasteMode(); // Activa la herramienta de pegar del tools.js
-    
-    console.log(`Structure "${struct.title}" loaded to clipboard.`);
+    if (typeof activatePasteMode === 'function') {
+        activatePasteMode(); 
+    } else {
+        // Fallback si no existe la función global
+        console.log("Clipboard ready. Select Paste tool.");
+    }
 }

@@ -9,11 +9,10 @@ const inventoryCategories = {
     // La pestaña "all" se llena automáticamente, no necesitas editar 'items' aquí.
     all: { icon: 'chest', items: [] }, 
 
-    // 🧱 CONSTRUCCIÓN: Bloques sólidos, piedras, maderas, minerales
-    building: { 
+    // 🧱 Blocks
+    Blocks: { 
         icon: 'bricks', 
         items: [
-            // Piedras y Tierras
 'br', 'dt', 'dt_1', ,'farm', 'myc', 'gdt', 'cdt','r', 'cs', 
 'ms', 'sb', 'clore', 'in', 'gd', 'dmore', 'rs', 'os', 'lap', 
 'b', 'to', 'egem', 'wd1', 'wd_1','wd_2', 'wp', 'top', 'ib', 'gb', 
@@ -26,52 +25,14 @@ const inventoryCategories = {
         ]
     },
 
-    // 🌿 NATURALEZA: Plantas, líquidos, cultivos, hielo
-    nature: { 
-        icon: 'gv', 
+    // 🌿 Deocrations
+    Decorations: { 
+        icon: 'br', 
         items: [
-            // Terreno
-            'gv', 'br', 'sand', 'gr', 'myc', 'snow', 'snowblock', 'ice', 'fice',
-            // Vegetación
-            'lv', 'shrub', 'flower', 'rose', 'mush', 'mush_red', 'cactus', 'web', 'coral', 'lp',
-            // Cultivos y Comida
-            'wheat', 'carrot', 'potato', 'seed', 'mel', 'pk', 'hay_1', 'cake', 
-            // Líquidos (Cubos)
-            'wr', 'la', 'ad'
+            'br',
         ]
     },
 
-    // 🧨 MECANISMOS: Redstone, TNT, Railes, Puertas
-    redstone: { 
-        icon: 'rsd', 
-        items: [
-            // Energía
-            'rsd', 'rstorch', 'block_redstone', 
-            // Actuadores
-            'piston', 'spiston', 'TNT', 'dispense', 'dropper', 'note', 'lamp', 'light',
-            // Entradas
-            'lever', 'button', 'pp', 'tripwire', 
-            // Railes
-            'rail', 'raila', 'raild', 'railp',
-            // Puertas y Trampillas
-            'door', 'iron_door', 'trapdoor', 'fncg'
-        ]
-    },
-
-    // 🛋️ DECORACIÓN: Muebles, utilidades, iluminación
-    decor: { 
-        icon: 'bed', 
-        items: [
-            // Utilidades
-            'craft', 'oven', 'chest', 'echest', 'anvil', 'enchant', 'brew', 'cauldron', 'j',
-            // Iluminación
-            'torch', 'lant', 'glow', 'sea_lantern',
-            // Mobiliario
-            'bed', 'books', 'sign', 'ladder', 'fnc', 'nfnc', 'ibar', 'glass_pane', 
-            // Alfombras
-            'carpet_white', 'carpet_red', 'carpet_blue', 'carpet_green'
-        ]
-    }
 };
 
 // =================================================================
@@ -313,4 +274,27 @@ function updateHotbarSelection() {
         if (i === slotIndex) s.classList.add('active');
         else s.classList.remove('active');
     });
+}
+
+// ==========================================
+// 🆕 LÓGICA DE MUNDO (HARDCORE)
+// ==========================================
+
+function toggleHardcore(isHardcore) {
+    const gmSelect = document.getElementById('gamemode');
+    const cheatsCheckbox = document.getElementById('cheats');
+    
+    if (isHardcore) {
+        // Guardar el estado anterior si quisieras restaurarlo (opcional)
+        // Forzar Survival (Valor 0)
+        gmSelect.value = "0"; 
+        gmSelect.disabled = true; // Bloquear selector
+        
+        // Opcional: Desactivar trucos en Hardcore por defecto
+        if(cheatsCheckbox) cheatsCheckbox.checked = false;
+        
+    } else {
+        // Reactivar selector
+        gmSelect.disabled = false;
+    }
 }

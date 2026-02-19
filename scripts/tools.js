@@ -370,7 +370,7 @@ function performPaste(targetX, targetY) {
     historyManager.commitAction();
 }
 
-const hotbar = { offset: { x: 0, y: 0 }, slots: [{ type: "db" }, { type: "gb" }, { type: "ib" }, { type: "clb" }, { type: "tob" }, { type: "lapb" }, { type: "j" }, { type: "fire" }, { type: "b" }] }
+const hotbar = { offset: { x: 0, y: 0 }, slots: [{ type: "dt" }, { type: "dt_1" }, { type: "ib" }, { type: "clb" }, { type: "tob" }, { type: "lapb" }, { type: "wp" }, { type: "fire" }, { type: "b" }] }
 function drawHotbar() { if (!images.hotbar.complete) return; }
 function eyedropper(x, y) {
  const states = mbwom.getBlockState(x, y);
