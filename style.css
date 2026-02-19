@@ -264,7 +264,7 @@ body {
 }
 .ribbon-btn-large:hover { background-color: rgba(128,128,128,0.2); border-color: var(--border); }
 .ribbon-btn-large .icon { font-size: 28px; }
-.ribbon-btn-large .text { font-size: 12px; font-weight: 500; }
+.ribbon-btn-large .text { font-size: 12px; font-weight: 500; line-height: 1}
 
 /* NUEVO: Clase para la imagen dentro del botón de la Ribbon */
 .icon-img {
@@ -384,7 +384,7 @@ canvas {
 /* ZOOM TRANSPARENTE CON SOMBRA */
 #zoom-floating {
  position: absolute;
- bottom: 20px;
+ bottom: 10px;
  right: 20px;
  background: transparent; 
  padding: 0px 0px;

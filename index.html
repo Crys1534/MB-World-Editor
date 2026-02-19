@@ -143,6 +143,93 @@
     /* ESTILO MODAL SETTINGS (para mantener consistencia) */
     .settings-row { display: flex; flex-direction: row; align-items: center; justify-content: space-between; margin-bottom: 10px; }
     .settings-row label { color: #000; font-weight: bold; }
+	
+
+
+/* --- NUEVOS ESTILOS PARA BOTONES DE ESTRUCTURA --- */
+.struct-actions-container {
+        display: flex;
+        flex-direction: column; /* Cambiado a columna: Load arriba, acciones abajo */
+        gap: 8px;
+        width: 100%;
+        margin-top: 10px;
+    }
+
+.btn-load-struct {
+        width: 100%;
+        padding: 16px 0;
+        font-size: 14px;
+        background: #4CAF50; color: white; border: 2px solid #2E7D32; 
+        cursor: pointer; font-weight: bold;
+    }
+    .btn-load-struct:hover { background: #66BB6A; }
+
+    .struct-actions-col {
+        flex: 1; /* Columna derecha más angosta */
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        display: none; /* Oculto por defecto */
+    }
+
+    .btn-icon-action {
+        flex: 1; /* Ocupa 50% de la altura cada uno */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 20px;
+        cursor: pointer;
+        border: 2px solid #555;
+        color: white;
+    }
+	
+	.struct-actions-row {
+        display: flex;
+        flex-direction: row; /* Botones editar y borrar lado a lado */
+        gap: 5px;
+        width: 100%;
+        display: none; /* Se activa vía JS si es 'saved' */
+    }
+	
+	.btn-action-text {
+        flex: 1;
+        padding: 8px 0;
+        cursor: pointer;
+        font-weight: bold;
+        color: white;
+        border: 2px solid #555;
+        font-size: 12px;
+        display: flex; 
+        align-items: center; 
+        justify-content: center; 
+        gap: 5px;
+    }
+    
+	/* Botón Editar Celeste */
+    .btn-edit-action { background: #29B6F6; border-color: #0288D1; color: black; }
+    .btn-edit-action:hover { background: #4FC3F7; }
+
+    /* Botón Borrar Rojo */
+    .btn-delete-action { background: #C0392B; border-color: #922B21; color: white; }
+    .btn-delete-action:hover { background: #E74C3C; }
+
+#custom-confirm-modal h3, #edit-info-modal h3 {
+        margin: 0; font-size: 16px; color: #333; text-align: center;
+        border-bottom: 1px solid #999; padding-bottom: 5px;
+    }
+    
+    #confirm-msg { margin: 5px 0; font-size: 13px; text-align: center; color: #000; }
+    
+    .confirm-btn-group, .save-actions { 
+        display: flex; justify-content: flex-end; gap: 8px; margin-top: 5px; 
+    }
+    
+    .btn-yes, .btn-confirm-save { padding: 4px 15px; font-size: 12px; }
+    .btn-no, .btn-cancel { padding: 4px 15px; font-size: 12px; }
+    
+    .save-form-row { margin-bottom: 2px; }
+    .save-form-row label { width: 60px; font-size: 12px; }
+    .save-form-row input { padding: 2px 5px; font-size: 12px; }
  </style>
 </head>
 <body>
@@ -164,15 +251,16 @@
   </div>
  </div>
 
- <div id="ribbon">
+<div id="ribbon">
   <div class="tabs">
    <button class="tab-btn active" onclick="openTab('insert')">Insert</button>
    <button class="tab-btn" onclick="openTab('settings')">World Settings</button>
    <button class="tab-btn" onclick="openTab('view')">View</button>
   </div>
+  
   <div class="tab-content">
    
-<div id="tab-insert" class="tab-pane active">
+    <div id="tab-insert" class="tab-pane active">
         
         <div class="ribbon-group">
             <div class="ribbon-group-content">
@@ -195,7 +283,7 @@
 
         <div class="separator"></div>
 		
-<div class="ribbon-group">
+        <div class="ribbon-group">
             <div class="ribbon-group-content" style="gap: 15px;">
                 <div style="display: flex; flex-direction: column; align-items: center;">
                     <label style="font-size: 12px; color: var(--text); margin-bottom: 2px;">Size</label>
@@ -224,98 +312,102 @@
 
         <div class="separator"></div>
 
-
         <div class="ribbon-group">
             <div class="ribbon-group-content">
                 <div id="hotbar-container"></div>
             </div>
-            <div class="ribbon-group-label">Inventory</div>
+            <div class="ribbon-group-label">Inventory (E)</div>
         </div>
 
         <div class="separator"></div>
         
-<div class="ribbon-group">
+        <div class="ribbon-group">
             <div class="ribbon-group-content">
-                <button class="icon-btn" onclick="openStructuresModal()" title="Open Library" style="flex-direction:column; height:auto; border:none;">
-                    <span style="font-size:20px;">🏛️</span>
-					<span class="text">Structures</span>
-                </button>
-                <button id="btn-save-struct" class="icon-btn" onclick="openSaveStructureModal()" disabled title="Select an area first" style="flex-direction:column; height:auto; border:none;">
+				<button id="btn-save-struct" class="icon-btn" onclick="openSaveStructureModal()" disabled title="Select an area first" style="flex-direction:column; height:auto; border:none;">
                     <span style="font-size:20px;">💾</span>
-					<span class="text">Save Structure</span>
+                    <span class="text" style="font-size: 12px; line-height: 1; text-align: center;">Save<br>Structure</span>
                 </button>
                 
                 <div id="recent-structures-ribbon" style="display: flex; align-items: center;">
                     <span style="font-size: 10px; color: #555;">Empty</span>
                 </div>
 
+                <button class="ribbon-btn-small" onclick="openStructuresModal()" title="Open Library / See All" style="margin-left: 1px; height: 66px; width: 20px; background: #999; display: flex; align-items: center; justify-content: center;">
+                    <span style="font-size:14px; font-weight: bold; color: #333;">»</span>
+                </button>
             </div>
-            <div class="ribbon-group-label">Library</div>
+            <div class="ribbon-group-label">Structures Library</div>
         </div>
 
    </div>
 
-<div id="tab-settings" class="tab-pane">
-    
-    <div class="ribbon-group">
-        <div class="ribbon-group-content" style="flex-direction: column; align-items: flex-start; justify-content: center; gap: 5px;">
-            <div class="input-group">
-                <label style="margin-right: 5px; font-size: 11px;">Gamemode:</label>
-                <select id="gamemode" style="padding: 2px;">
-                    <option value="0">Survival</option>
-                    <option value="1">Creative</option>
-                    <option value="2">Adventure</option>
-                    <option value="3">Spectator</option>
-                </select>
+    <div id="tab-settings" class="tab-pane">
+        
+        <div class="ribbon-group">
+            <div class="ribbon-group-content" style="flex-direction: column; align-items: flex-start; justify-content: center; gap: 5px;">
+                <div class="input-group">
+                    <label style="margin-right: 5px; font-size: 11px;">Gamemode:</label>
+                    <select id="gamemode" style="padding: 2px;">
+                        <option value="0">Survival</option>
+                        <option value="1">Creative</option>
+                        <option value="2">Adventure</option>
+                        <option value="3">Spectator</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <label style="cursor: pointer; font-size: 11px;">
+                        <input type="checkbox" id="cheats"> Cheats
+                    </label>
+                    <label style="cursor: pointer; font-size: 11px; color: #ff5555; font-weight: bold;">
+                        <input type="checkbox" id="hardcore" onchange="toggleHardcore(this.checked)"> Hardcore
+                    </label>
+                </div>
             </div>
-            <label style="cursor: pointer; font-size: 11px;">
-                <input type="checkbox" id="cheats"> Cheats
-            </label>
+            <div class="ribbon-group-label">World Settings</div>
         </div>
-        <div class="ribbon-group-label">World Settings</div>
+
+        <div class="separator"></div>
+
+        <div class="ribbon-group">
+            <div class="ribbon-group-content">
+                <button class="ribbon-btn-large" onclick="openModal('achievements-modal')">
+                    <span class="icon">🏆</span>
+                    <span class="text">Manage</br>Achievs.</span>
+                </button>
+            </div>
+            <div class="ribbon-group-label">Achievements</div>
+        </div>
+
     </div>
 
-    <div class="separator"></div>
-
-    <div class="ribbon-group">
-        <div class="ribbon-group-content">
-            <button class="ribbon-btn-large" onclick="openModal('achievements-modal')">
-                <span class="icon">🏆</span>
-                <span class="text">Manage Achievs.</span>
-            </button>
+    <div id="tab-view" class="tab-pane">
+        
+        <div class="ribbon-group">
+            <div class="ribbon-group-content" style="flex-direction: column; justify-content: center; gap: 2px;">
+                <img src="assets/Grid.png" class="icon-img" alt="Grid">
+                
+                <label style="cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 11px;">
+                    <input type="checkbox" id="show-grid" onchange="toggleGrid(this.checked)"> Show Grid
+                </label>
+            </div>
+            <div class="ribbon-group-label">Grid</div>
         </div>
-        <div class="ribbon-group-label">Achievements</div>
+
+        <div class="separator"></div>
+
+        <div class="ribbon-group">
+            <div class="ribbon-group-content">
+                <button class="ribbon-btn-large" onclick="openModal('dimensions-modal')">
+                    <img id="current-dim-icon" src="assets/Underworld icon.png" class="icon-img" alt="Dim">
+                    <span class="text">Change</br>Dimension</span>
+                </button>
+            </div>
+            <div class="ribbon-group-label">Dimensions</div>
+        </div>
+
     </div>
 
-   </div>
-<div id="tab-view" class="tab-pane">
-    
-<div class="ribbon-group">
-        <div class="ribbon-group-content" style="flex-direction: column; justify-content: center; gap: 2px;">
-            <img src="assets/Grid.png" class="icon-img" alt="Grid">
-            
-            <label style="cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 11px;">
-                <input type="checkbox" id="show-grid" onchange="toggleGrid(this.checked)"> Show Grid
-            </label>
-        </div>
-        <div class="ribbon-group-label">Grid</div>
-    </div>
-
-    <div class="separator"></div>
-
-    <div class="ribbon-group">
-        <div class="ribbon-group-content">
-            <button class="ribbon-btn-large" onclick="openModal('dimensions-modal')">
-                <img id="current-dim-icon" src="assets/underworld icon.png" class="icon-img" alt="Dim">
-                <span class="text">Change Dimension</span>
-            </button>
-        </div>
-        <div class="ribbon-group-label">Dimensions</div>
-    </div>
-
-</div>
-  </div>
- </div>
+  </div> </div> ```
 
  <div id="toolbar-sidebar">
     <button class="tool-btn active" id="tool-pencil" onclick="selectTool('pencil')" title="Pencil">✏️</button>
@@ -412,25 +504,43 @@
             </div>
             <div id="structures-grid"></div>
         </div>
-        <div class="struct-sidebar">
+<div class="struct-sidebar">
             <h4 style="margin-top:0; color:gray;">Preview</h4>
             <canvas id="struct-preview-canvas" width="200" height="200"></canvas>
+            
             <div class="struct-info">
                 <h3 id="struct-info-title">Select an item</h3>
                 <p>Author: <span id="struct-info-author" style="font-weight:normal;">-</span></p>
                 <p>Category: <span id="struct-info-sub" style="font-weight:normal;">-</span></p>
             </div>
-            <button class="btn-load-struct" onclick="loadStructureToClipboard()">Load Structure</button>
-            <button id="btn-delete-struct" class="btn-delete-struct" onclick="deleteSavedStructure()">Delete Selection</button>
+
+            <div class="struct-actions-container">
+                <button class="btn-load-struct" onclick="loadStructureToClipboard()">Load Structure</button>
+                
+                <div id="struct-edit-actions" class="struct-actions-row">
+                    <button class="btn-action-text btn-edit-action" onclick="openEditInfoModal()" title="Edit Info">
+                        <span>✏️</span> Edit
+                    </button>
+                    <button class="btn-action-text btn-delete-action" onclick="deleteSavedStructure()" title="Delete">
+                        <span>🗑️</span> Delete
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
  </div>
 
 <div id="save-structure-modal" class="modal">
     <div class="modal-content">
-        <span class="close-modal" onclick="closeModal('save-structure-modal')" style="float:right; cursor:pointer; font-weight:bold;">&times;</span>
         
-        <h3 style="margin: 0; text-align: center; color: black;">Save New Structure</h3>
+        <div style="display: flex; justify-content: center; align-items: center; position: relative; margin-bottom: 5px;">
+            <h3 style="margin: 0; text-align: center; color: black;">Save New Structure</h3>
+            <span class="close-modal" onclick="closeModal('save-structure-modal')" 
+                  style="position: absolute; right: 0; top: -2px; cursor:pointer; font-weight:bold; color:black; font-size: 20px; line-height: 1;">
+                &times;
+            </span>
+        </div>
+
         <canvas id="struct-save-preview" width="460" height="295"></canvas>
         
         <div class="save-form-row">
@@ -554,6 +664,38 @@
  <input type="file" id="file-input" accept=".mbw" style="display: none;">
  <input type="file" id="import-struct-input" accept=".json" style="display: none;" onchange="handleImportFile(this)">
 
+<div id="edit-info-modal" class="modal" style="z-index: 2500;">
+    <div class="modal-content" style="width: 300px; height: auto; gap: 10px;">
+        <h3 style="margin: 0; color: gray;">Edit Info</h3>
+        
+        <div class="save-form-row">
+            <label>Title</label>
+            <input type="text" id="edit-struct-title">
+        </div>
+        <div class="save-form-row">
+            <label>Author</label>
+            <input type="text" id="edit-struct-author">
+        </div>
+        
+        <div class="save-actions">
+            <button class="btn-cancel" onclick="closeModal('edit-info-modal')">Cancel</button>
+            <button class="btn-confirm-save" onclick="saveEditedInfo()">Update</button>
+        </div>
+    </div>
+ </div>
+
+ <div id="custom-confirm-modal" class="modal" style="z-index: 3000;">
+    <div class="modal-content">
+        <h3 style="margin-top:0; color: black;">Are you sure?</h3>
+        <p id="confirm-msg" style="color: black;">Do you really want to delete this?</p>
+        <div class="confirm-btn-group">
+            <button class="btn-yes" id="btn-confirm-yes">Yes</button>
+            <button class="btn-no" onclick="closeModal('custom-confirm-modal')">No</button>
+        </div>
+    </div>
+ </div>
+ 
+ 
  <script src="scripts/ui-handler.js"></script>
  <script src="scripts/mbwom.js"></script>
  <script src="scripts/mbw-algorithm.js"></script>
