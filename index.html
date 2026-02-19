@@ -149,7 +149,7 @@
  
  <div id="top-bar">
   <div class="left-group">
-  <img src="favicon.ico" class="app-icon" style="margin-right: 10px;" alt="App Icon">
+  <img src="favicon.ico" class="app-icon" style= alt="App Icon">
    <button class="icon-btn" onclick="document.getElementById('file-input').click()">📂 Load World</button>
    <button class="icon-btn" onclick="fileManager.export()">💾 Save World</button>
    <button class="icon-btn" onclick="openModal('settings-modal')">⚙️ Configuration</button>
@@ -195,26 +195,32 @@
 
         <div class="separator"></div>
 		
-		<div class="ribbon-group">
-    <div class="ribbon-group-content" style="gap: 15px;">
-        <div style="input: flex; flex-direction: column; align-items: center;">
-            <label style="font-size: 12px; color: var(--text); margin-bottom: 2px;">Size</label>
-            <select id="tool-size-select" onchange="updateToolSize(this.value)" style="width: 50px; text-align: center;">
-                <option value="1">1</option>
-                <option value="2">2</option>
-                <option value="3">3</option>
-                <option value="4">4</option>
-                <option value="5">5</option>
-                <option value="6">6</option>
-                <option value="7">7</option>
-            </select>
+<div class="ribbon-group">
+            <div class="ribbon-group-content" style="gap: 15px;">
+                <div style="display: flex; flex-direction: column; align-items: center;">
+                    <label style="font-size: 12px; color: var(--text); margin-bottom: 2px;">Size</label>
+                    <select id="tool-size-select" onchange="updateToolSize(this.value)" style="width: 50px; text-align: center;">
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                    </select>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; justify-content: center; gap: 2px;">
+                    <label style="font-size: 12px; cursor: pointer; display: flex; align-items: center;">
+                        <input type="checkbox" id="tool-rounded-checkbox" onchange="updateToolRounded(this.checked)" style="margin-right: 4px;"> Rounded
+                    </label>
+                    <label style="font-size: 12px; cursor: pointer; display: flex; align-items: center;">
+                        <input type="checkbox" id="tool-spray-checkbox" onchange="updateToolSpray(this.checked)" style="margin-right: 4px;"> Spray
+                    </label>
+                </div>
+            </div>
+            <div class="ribbon-group-label">Brush Settings</div>
         </div>
-        <label style="font-size: 12px; cursor: pointer; display: flex; align-items: center;">
-            <input type="checkbox" id="tool-rounded-checkbox" onchange="updateToolRounded(this.checked)" style="margin-right: 4px;"> Rounded
-        </label>
-    </div>
-    <div class="ribbon-group-label">Brush Settings</div>
-</div>
 
         <div class="separator"></div>
 
@@ -228,7 +234,7 @@
 
         <div class="separator"></div>
         
-        <div class="ribbon-group">
+<div class="ribbon-group">
             <div class="ribbon-group-content">
                 <button class="icon-btn" onclick="openStructuresModal()" title="Open Library" style="flex-direction:column; height:auto; border:none;">
                     <span style="font-size:20px;">🏛️</span>
@@ -236,8 +242,13 @@
                 </button>
                 <button id="btn-save-struct" class="icon-btn" onclick="openSaveStructureModal()" disabled title="Select an area first" style="flex-direction:column; height:auto; border:none;">
                     <span style="font-size:20px;">💾</span>
-					<span class="text">Save Sructure</span>
+					<span class="text">Save Structure</span>
                 </button>
+                
+                <div id="recent-structures-ribbon" style="display: flex; align-items: center;">
+                    <span style="font-size: 10px; color: #555;">Empty</span>
+                </div>
+
             </div>
             <div class="ribbon-group-label">Library</div>
         </div>
