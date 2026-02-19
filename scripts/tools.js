@@ -3,7 +3,8 @@ let slotIndex = 0;
 let currentTool = 'pencil'; 
 let toolSize = 1; 
 let toolRounded = false;
-let isShiftPressed = false; // Estado de la tecla Shift
+let toolSpray = false; // NUEVO: Estado del modo Spray
+let isShiftPressed = false; 
 
 // Estructura actualizada para soportar múltiples selecciones
 window.selection = { 
@@ -12,7 +13,7 @@ window.selection = {
     path: [], 
     type: 'rect', 
     dragging: false, 
-    subRects: [] // Array para guardar selecciones previas al usar Shift
+    subRects: [] 
 };
 window.clipboard = null; 
 
@@ -26,7 +27,6 @@ function checkSelectionState() {
     if (!btn) return;
 
     let hasSelection = false;
-    // Verifica si hay selección activa o selecciones acumuladas
     if (window.selection.type === 'rect' && ((window.selection.p1 && window.selection.p2) || window.selection.subRects.length > 0)) {
         hasSelection = true;
     } else if (window.selection.type === 'poly' && window.selection.path.length > 2) {
@@ -57,7 +57,6 @@ function selectTool(toolName) {
     const selOverlay = document.getElementById('selection-overlay');
     if (selOverlay) selOverlay.style.display = 'none';
 
-    // Al cambiar de herramienta (excepto entre selectores), limpiamos todo
     if (toolName !== 'select' && toolName !== 'lasso') {
         window.selection.dragging = false; 
         window.selection.path = []; 
@@ -74,7 +73,6 @@ function updateSelectionInfo() {
     if (!overlay) return;
     
     let width = 0; let height = 0;
-    // Solo mostramos dimensiones de lo que estás arrastrando actualmente
     if (window.selection.type === 'rect' && window.selection.p1 && window.selection.p2) {
         width = Math.abs(window.selection.p1.x - window.selection.p2.x) + 1;
         height = Math.abs(window.selection.p1.y - window.selection.p2.y) + 1;
@@ -97,34 +95,29 @@ function updateToolSize(val) {
 }
 
 function updateToolRounded(isRounded) { toolRounded = isRounded; }
+function updateToolSpray(isSpray) { toolSpray = isSpray; } // NUEVA FUNCIÓN
 
 // --- GESTIÓN DE ATAJOS DE TECLADO ---
 window.addEventListener('keydown', function(e) {
-    // Ignorar si el usuario está escribiendo en un input
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
 
-    // Tamaño de herramienta
     if (e.key === '+' || e.code === 'NumpadAdd') updateToolSize(toolSize + 1);
     if (e.key === '-' || e.code === 'NumpadSubtract') updateToolSize(toolSize - 1);
     
-    // Borrar
     if (e.key === 'Delete' || e.code === 'Delete') deleteSelection();
 
-    const isCtrl = e.ctrlKey || e.metaKey; // Soporte para Ctrl (Windows) o Cmd (Mac)
+    const isCtrl = e.ctrlKey || e.metaKey; 
 
-    // CORTAR (Ctrl + X)
     if (isCtrl && (e.key === 'x' || e.key === 'X')) {
         e.preventDefault();
         cutSelection();
     }
 
-    // COPIAR (Ctrl + C)
     if (isCtrl && (e.key === 'c' || e.key === 'C')) {
         e.preventDefault();
         copySelection(); 
     }
 
-    // PEGAR (Ctrl + V)
     if (isCtrl && (e.key === 'v' || e.key === 'V')) {
         e.preventDefault();
         activatePasteMode();
@@ -176,14 +169,11 @@ function isPointInPolygon(x, y, polygon) {
     return inside;
 }
 
-// Nueva función auxiliar: ¿Está el punto dentro de CUALQUIER selección?
 function isPointSelected(x, y) {
-    // 1. Polygon
     if (window.selection.type === 'poly' && window.selection.path.length > 2) {
         return isPointInPolygon(x, y, window.selection.path);
     }
     
-    // 2. Rectángulo Activo
     if (window.selection.p1 && window.selection.p2) {
         const minX = Math.min(window.selection.p1.x, window.selection.p2.x);
         const maxX = Math.max(window.selection.p1.x, window.selection.p2.x);
@@ -192,7 +182,6 @@ function isPointSelected(x, y) {
         if (x >= minX && x <= maxX && y >= minY && y <= maxY) return true;
     }
 
-    // 3. Rectángulos Acumulados (Shift)
     if (window.selection.subRects && window.selection.subRects.length > 0) {
         for (let r of window.selection.subRects) {
             const minX = Math.min(r.p1.x, r.p2.x);
@@ -206,17 +195,14 @@ function isPointSelected(x, y) {
     return false;
 }
 
-// Obtiene los límites totales de todas las selecciones combinadas
 function getSelectionBounds() {
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     
-    // Procesa Poly
     if (window.selection.type === 'poly' && window.selection.path.length > 0) {
         const xs = window.selection.path.map(p => p.x); const ys = window.selection.path.map(p => p.y);
         return { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
     }
 
-    // Recolecta todos los rectángulos (el activo + los acumulados)
     const allRects = [...window.selection.subRects];
     if (window.selection.p1 && window.selection.p2) {
         allRects.push({ p1: window.selection.p1, p2: window.selection.p2 });
@@ -235,11 +221,10 @@ function getSelectionBounds() {
 }
 
 function handleSelectionInput(action, x, y) {
-    // --- LÓGICA LASSO MEJORADA (Ortogonal) ---
     if (currentTool === 'lasso') {
         if (action === 'start') {
             window.selection.type = 'poly'; 
-            window.selection.subRects = []; // Lasso no combina con rects
+            window.selection.subRects = []; 
             window.selection.path = [{x, y}];
             window.selection.dragging = true; 
             window.selection.p1 = null; 
@@ -248,13 +233,10 @@ function handleSelectionInput(action, x, y) {
         } else if (action === 'move' && window.selection.dragging) {
             const last = window.selection.path[window.selection.path.length - 1];
             
-            // Si nos movemos, verificamos si es diagonal
             if (last.x !== x || last.y !== y) { 
                 if (last.x !== x && last.y !== y) {
-                    // Es diagonal. Insertamos punto intermedio (codo) para mantener 90 grados
                     window.selection.path.push({x: x, y: last.y}); 
                 }
-                // Insertamos el punto final
                 window.selection.path.push({x, y}); 
                 updateSelectionInfo(); 
             }
@@ -265,16 +247,13 @@ function handleSelectionInput(action, x, y) {
         return;
     }
     
-    // --- LÓGICA RECTÁNGULO + SHIFT ---
     window.selection.type = 'rect';
     if (action === 'start') {
         window.selection.path = []; 
         
-        // Si NO pulsamos Shift, limpiamos las selecciones anteriores
         if (!isShiftPressed) {
             window.selection.subRects = [];
         } else {
-            // Si pulsamos Shift y ya había una selección activa, la guardamos
             if (window.selection.p1 && window.selection.p2) {
                 window.selection.subRects.push({
                     p1: window.selection.p1, 
@@ -283,7 +262,6 @@ function handleSelectionInput(action, x, y) {
             }
         }
 
-        // Empezamos el nuevo rectángulo activo
         window.selection.p1 = { x, y }; 
         window.selection.p2 = { x, y }; 
         window.selection.dragging = true; 
@@ -315,7 +293,6 @@ function copySelection(keepSelection = false) {
     for (let x = bounds.minX; x <= bounds.maxX; x++) {
         for (let y = bounds.minY; y <= bounds.maxY; y++) {
             
-            // Usamos la nueva verificación global
             if (!isPointSelected(x, y)) continue;
 
             const state = mbwom.getBlockState(x, y);
@@ -327,7 +304,6 @@ function copySelection(keepSelection = false) {
     
     window.clipboard = { width: bounds.maxX - bounds.minX + 1, height: bounds.maxY - bounds.minY + 1, data: data };
     
-    // Limpieza tras copiar (Solo si keepSelection es false)
     if (!keepSelection) {
         window.selection.p1 = null; 
         window.selection.p2 = null; 
@@ -343,9 +319,7 @@ function copySelection(keepSelection = false) {
 }
 
 function cutSelection() {
-    // 1. Copiamos preservando la selección visual
     copySelection(true);
-    // 2. Borramos el contenido (la función delete usa la selección visual para saber qué borrar)
     deleteSelection();
 }
 
@@ -378,7 +352,7 @@ function deleteSelection() {
 }
 
 function activatePasteMode() {
-    if (!window.clipboard) { alert("Portapapeles vacío."); return; }
+    if (!window.clipboard) { alert("Clipboard empty."); return; }
     selectTool('paste');
 }
 function performPaste(targetX, targetY) {
@@ -421,15 +395,40 @@ function eraser(cx, cy) {
     }
     if (toolSize > 1) historyManager.commitAction();
 }
+
+// === FUNCIÓN BRUSH ACTUALIZADA CON SPRAY ===
 function brush(cx, cy) {
     const target = hotbar.slots[slotIndex];
     const range = toolSize - 1;
     if (toolSize > 1) historyManager.startAction();
+    
+    // Si el tamaño es 1, no aplicamos spray (es solo un punto)
+    if (toolSize === 1) {
+         const current = mbwom.getBlockState(cx, cy);
+         if (current && current.type === target.type) return;
+         historyManager.recordChange(cx, cy, current, target);
+         mbwom.setBlockState(cx, cy, target);
+         renderBlock(cx, cy);
+         if (toolSize > 1) historyManager.commitAction();
+         return;
+    }
+
     for (let x = cx - range; x <= cx + range; x++) {
         for (let y = cy - range; y <= cy + range; y++) {
-            if (toolRounded) { const dx = x - cx; const dy = y - cy; if ((dx*dx + dy*dy) > (range * range + 0.1)) continue; }
+            
+            // 1. Lógica Rounded
+            if (toolRounded) { 
+                const dx = x - cx; const dy = y - cy; 
+                if ((dx*dx + dy*dy) > (range * range + 0.1)) continue; 
+            }
+
+            // 2. Lógica Spray (NUEVO)
+            // Si está activado, solo pintamos el 10% de los bloques por frame
+            if (toolSpray && Math.random() > 0.1) continue;
+
             const current = mbwom.getBlockState(x, y);
             if (current && current.type === target.type) continue;
+            
             historyManager.recordChange(x, y, current, target);
             mbwom.setBlockState(x, y, target);
             renderBlock(x, y);
@@ -437,6 +436,7 @@ function brush(cx, cy) {
     }
     if (toolSize > 1) historyManager.commitAction();
 }
+
 function bucketFill(startX, startY) {
     const targetState = hotbar.slots[slotIndex];
     const startBlock = mbwom.getBlockState(startX, startY);

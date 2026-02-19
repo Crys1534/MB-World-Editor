@@ -47,6 +47,9 @@ function loadSavedStructures() {
             console.log(`Loaded ${savedItems.length} custom structures.`);
         }
     } catch (e) { console.error(e); }
+    
+    // Actualizar el ribbon al iniciar
+    updateRibbonQuickAccess();
 }
 loadSavedStructures();
 
@@ -64,8 +67,6 @@ window.addEventListener('keydown', function(e) {
                 closeModal('save-structure-modal');
                 closeModal('structures-modal');
             }
-            // IMPORTANTE: Aquí retornamos para dejar que el input reciba la tecla.
-            // La propagación hacia los atajos globales se detiene en los propios inputs (ver preventInputBubbling más abajo)
             return; 
         }
 
@@ -75,7 +76,7 @@ window.addEventListener('keydown', function(e) {
             closeModal('structures-modal');
         }
 
-        // 4. Bloquear todo lo demás (WASD, herramientas, Ctrl+Z, etc.) en fase de captura
+        // 4. Bloquear todo lo demás
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
@@ -119,6 +120,9 @@ function handleImportFile(input) {
             updateLocalStorage();
             filterStructures('saved', 'all');
             alert(`Imported ${count} structures.`);
+            
+            // Actualizar el ribbon tras importar
+            updateRibbonQuickAccess();
         } catch (err) { alert("Error importing file."); }
     };
     reader.readAsText(file);
@@ -130,6 +134,9 @@ function resetSavedStructures() {
         structureDB = structureDB.filter(s => s.category !== 'saved');
         updateLocalStorage();
         filterStructures('saved', 'all');
+        
+        // Actualizar el ribbon tras resetear
+        updateRibbonQuickAccess();
     }
 }
 
@@ -260,13 +267,8 @@ function selectStructure(struct) {
 
 function loadStructureToClipboard() {
     if (!selectedStructure) return;
-    const xs = selectedStructure.data.map(b => b.dx); const ys = selectedStructure.data.map(b => b.dy);
-    const w = Math.max(...xs) - Math.min(...xs) + 1;
-    const h = Math.max(...ys) - Math.min(...ys) + 1;
-    window.clipboard = { width: w, height: h, data: JSON.parse(JSON.stringify(selectedStructure.data)) };
-    
+    loadSpecificStructure(selectedStructure);
     closeModal('structures-modal'); 
-    activatePasteMode(); 
 }
 
 function deleteSavedStructure() {
@@ -275,6 +277,9 @@ function deleteSavedStructure() {
     structureDB = structureDB.filter(s => s !== selectedStructure);
     updateLocalStorage();
     filterStructures('saved', 'all');
+    
+    // Actualizar el ribbon tras borrar
+    updateRibbonQuickAccess();
 }
 
 function updateLocalStorage() {
@@ -334,13 +339,12 @@ function openSaveStructureModal() {
     document.getElementById('input-struct-title').value = '';
     
     // BLOQUEAR PROPAGACIÓN EN INPUTS LOCALES
-    // Esto asegura que al escribir 'E' no se abra el inventario, etc.
     const inputsToIsolate = ['input-struct-title', 'input-struct-author', 'input-struct-subcategory'];
     inputsToIsolate.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
             el.onkeydown = function(e) {
-                e.stopPropagation(); // ¡LA CLAVE! Detiene el evento aquí.
+                e.stopPropagation(); 
                 if(e.key === 'Escape') closeModal('save-structure-modal');
             };
         }
@@ -373,6 +377,9 @@ function saveNewStructure() {
     
     window.selection.p1 = null; window.selection.p2 = null; window.selection.path = []; window.selection.subRects = [];
     if(typeof checkSelectionState === 'function') checkSelectionState();
+
+    // Actualizar el ribbon tras guardar
+    updateRibbonQuickAccess();
 }
 
 function renderPreviewOnCanvas(canvas, blockData, fit = true, forceCover = false) {
@@ -417,4 +424,78 @@ function renderPreviewOnCanvas(canvas, blockData, fit = true, forceCover = false
             } catch(e) { ctx.fillStyle = '#F0F'; ctx.fillRect(drawX, drawY, tileSize, tileSize); }
         } else { ctx.fillStyle = '#555'; ctx.fillRect(drawX, drawY, tileSize, tileSize); }
     });
+}
+
+// ==========================================
+// 🆕 LÓGICA PARA QUICK ACCESS EN EL RIBBON
+// ==========================================
+
+function updateRibbonQuickAccess() {
+    const container = document.getElementById('recent-structures-ribbon');
+    if (!container) return;
+    
+    container.innerHTML = ''; // Limpiar contenedor
+
+    // Filtrar solo las guardadas ('saved')
+    const savedStructs = structureDB.filter(s => s.category === 'saved');
+    
+    // Obtener las últimas 4 (usando slice y reverse para que la más nueva salga primero)
+    const last3 = savedStructs.slice(-4).reverse();
+
+    if (last3.length === 0) {
+        container.innerHTML = '<span style="font-size: 10px; color: #555; font-style: italic; padding: 0 5px;">No saved items</span>';
+        return;
+    }
+
+    last3.forEach(struct => {
+        // Crear botón contenedor
+        const btn = document.createElement('button');
+        btn.className = 'ribbon-btn-small'; // Reusamos estilo
+        btn.title = `Load "${struct.title}"`;
+        btn.style.width = '66px';
+        btn.style.height = '66px';
+        btn.style.padding = '2px';
+        btn.style.border = '1px solid #555';
+        btn.style.cursor = 'pointer';
+        btn.style.display = 'flex';
+        btn.style.justifyContent = 'center';
+        btn.style.alignItems = 'center';
+        btn.style.background = '#8B8B8B';
+
+        // Crear Canvas para la preview
+        const canvas = document.createElement('canvas');
+        canvas.width = 60;
+        canvas.height = 60;
+        
+        // Renderizar la estructura (delay para asegurar carga)
+        setTimeout(() => {
+             renderPreviewOnCanvas(canvas, struct.data, true); 
+        }, 100);
+
+        // Evento Click: Cargar al portapapeles directamente
+        btn.onclick = () => loadSpecificStructure(struct);
+
+        btn.appendChild(canvas);
+        container.appendChild(btn);
+    });
+}
+
+// Función auxiliar para cargar sin abrir el modal
+function loadSpecificStructure(struct) {
+    if (!struct || !struct.data) return;
+    
+    const xs = struct.data.map(b => b.dx); 
+    const ys = struct.data.map(b => b.dy);
+    const w = Math.max(...xs) - Math.min(...xs) + 1;
+    const h = Math.max(...ys) - Math.min(...ys) + 1;
+    
+    window.clipboard = { 
+        width: w, 
+        height: h, 
+        data: JSON.parse(JSON.stringify(struct.data)) 
+    };
+    
+    activatePasteMode(); // Activa la herramienta de pegar del tools.js
+    
+    console.log(`Structure "${struct.title}" loaded to clipboard.`);
 }
