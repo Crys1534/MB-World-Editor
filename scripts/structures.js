@@ -503,7 +503,7 @@ function updateRibbonQuickAccess() {
     
     container.innerHTML = ''; 
 
-    const savedStructs = structureDB.filter(s => s.category === 'saved');
+    const savedStructs = structureDB.filter(s => s.category === 'vanilla');
     
     // Obtenemos los últimos 5 (si existen) y los invertimos
     const lastItems = savedStructs.slice(-5).reverse(); 
