@@ -13,7 +13,8 @@ const fileManager = {
    
    mbwom.loadScene(1);
 
-   // --- ACTUALIZADO: Cargar logros usando data-index ---
+   // --- NOTA: Código de carga de SpawnPoint eliminado a petición ---
+
    if (typeof checkboxes !== 'undefined') {
        checkboxes.forEach(cb => {
            const index = parseInt(cb.getAttribute('data-index'));
@@ -23,7 +24,6 @@ const fileManager = {
        });
    }
 
-   // Nombre de archivo
    const filenameInput = document.getElementById("filename-display");
    if (filenameInput && fileManager.file) {
        filenameInput.value = fileManager.file.name.replace(/\.mbw$/i, "");
@@ -46,7 +46,6 @@ const fileManager = {
    mbwom.world.gamemode = gamemodeEl ? gamemodeEl.value : 0;
    mbwom.world.cheats = cheatsEl ? cheatsEl.checked : false;
 
-   // --- ACTUALIZADO: Guardar logros usando data-index ---
    if (typeof checkboxes !== 'undefined') {
        checkboxes.forEach(cb => {
            const index = parseInt(cb.getAttribute('data-index'));

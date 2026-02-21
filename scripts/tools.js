@@ -468,3 +468,31 @@ function mineAndPlace() {
     else if (currentTool === 'eraser') { if (mouse.left || mouse.right) eraser(mouse.worldX, mouse.worldY); }
     else if (currentTool === 'eyedropper') { if (mouse.left) eyedropper(mouse.worldX, mouse.worldY); }
 }
+
+
+// Variable global para el estado de la herramienta de Spawn
+let isSettingSpawn = false;
+
+function toggleSetSpawnMode() {
+    isSettingSpawn = !isSettingSpawn;
+    
+    const btn = document.getElementById('btn-set-spawn');
+    const canvas = document.getElementById('canvas');
+    
+    if (isSettingSpawn) {
+        // ACTIVAR MODO
+        if (btn) btn.classList.add('active-tool'); 
+        
+        // Cambiar cursor para indicar que se debe hacer clic
+        if (canvas) canvas.style.cursor = "crosshair";
+        
+        // Opcional: Desactivar otras herramientas si es necesario
+        // selectTool(null); 
+    } else {
+        // DESACTIVAR MODO
+        if (btn) btn.classList.remove('active-tool');
+        
+        // Restaurar cursor
+        if (canvas) canvas.style.cursor = "default";
+    }
+}

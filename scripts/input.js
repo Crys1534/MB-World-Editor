@@ -48,10 +48,8 @@ let lastPosition = [{}, {}];
 
 // --- TECLADO ---
 window.addEventListener("keydown", function (event) {
-    // Si estamos escribiendo en el chat/consola, ignorar controles de juego
     if (document.activeElement === document.getElementById('console-input') || 
         document.activeElement === document.getElementById('inventory-search')) {
-        // Permitir cerrar inventario con E incluso si estamos escribiendo
         if (event.code === 'KeyE' && document.activeElement === document.getElementById('inventory-search')) {
              event.preventDefault();
              if (typeof toggleInventory === 'function') toggleInventory();
@@ -101,14 +99,18 @@ window.addEventListener("keydown", function (event) {
          eyedropper(mouse.worldX, mouse.worldY);
     }
 
-    // --- NUEVO INVENTARIO ---
     if (event.code === 'KeyE') {
-        // PREVENIMOS que la 'e' se escriba en el input
         event.preventDefault(); 
         if (typeof toggleInventory === 'function') toggleInventory();
     }
 
-    // --- HOTBAR (Números) ---
+    if (event.code === 'KeyR') {
+        event.preventDefault(); 
+        if (typeof openStructuresModal === 'function') {
+            openStructuresModal();
+        }
+    }
+
     if (event.code.startsWith('Digit')) {
         let num = parseInt(event.code.charAt(5));
         if (!isNaN(num) && num > 0) {
@@ -135,6 +137,8 @@ canvas.addEventListener("mousemove", (event) => {
 })
 
 canvas.addEventListener("mousedown", function (event) {
+    // --- NOTA: Código de Set Spawn Eliminado ---
+
 	if (event.button == 0) mouse.left = true;
 	if (event.button == 2) mouse.right = true;
 

@@ -27,7 +27,15 @@ const defaultStructures = [
       { "dx": 4, "dy": 4, "state": { "type": "lv" } },
       { "dx": 4, "dy": 5, "state": { "type": "lv" } }
     ],
-  }
+  },
+  
+{
+  "title": "Tree 2",
+  "author": "Mine Blocks",
+  "category": "vanilla",
+  "subcategory": "Other",
+  "data": [{"dx":0,"dy":5,"state":{"type":"lv"}},{"dx":0,"dy":6,"state":{"type":"lv"}},{"dx":1,"dy":4,"state":{"type":"lv"}},{"dx":1,"dy":5,"state":{"type":"lv"}},{"dx":1,"dy":6,"state":{"type":"lv"}},{"dx":1,"dy":7,"state":{"type":"lv"}},{"dx":2,"dy":3,"state":{"type":"lv"}},{"dx":2,"dy":4,"state":{"type":"lv"}},{"dx":2,"dy":5,"state":{"type":"lv"}},{"dx":2,"dy":6,"state":{"type":"lv"}},{"dx":2,"dy":7,"state":{"type":"lv"}},{"dx":2,"dy":8,"state":{"type":"lv"}},{"dx":3,"dy":0,"state":{"type":"wd1"}},{"dx":3,"dy":1,"state":{"type":"wd1"}},{"dx":3,"dy":2,"state":{"type":"wd1"}},{"dx":3,"dy":3,"state":{"type":"wd1"}},{"dx":3,"dy":4,"state":{"type":"wd1"}},{"dx":3,"dy":5,"state":{"type":"wd1"}},{"dx":3,"dy":6,"state":{"type":"lv"}},{"dx":3,"dy":7,"state":{"type":"lv"}},{"dx":3,"dy":8,"state":{"type":"lv"}},{"dx":4,"dy":3,"state":{"type":"lv"}},{"dx":4,"dy":4,"state":{"type":"lv"}},{"dx":4,"dy":5,"state":{"type":"lv"}},{"dx":4,"dy":6,"state":{"type":"lv"}},{"dx":4,"dy":7,"state":{"type":"lv"}},{"dx":4,"dy":8,"state":{"type":"lv"}},{"dx":5,"dy":4,"state":{"type":"lv"}},{"dx":5,"dy":5,"state":{"type":"lv"}},{"dx":5,"dy":6,"state":{"type":"lv"}},{"dx":5,"dy":7,"state":{"type":"lv"}},{"dx":6,"dy":5,"state":{"type":"lv"}},{"dx":6,"dy":6,"state":{"type":"lv"}}]
+}
 ];
 
 let structureDB = [...defaultStructures];
@@ -35,8 +43,8 @@ let currentStructCategory = 'saved';
 let currentStructSubCategory = 'all'; 
 let selectedStructure = null;
 let tempSaveData = null; 
-let isInputBlocked = false; // Flag maestro para bloqueo de teclado
-let confirmCallback = null; // Callback para el modal de confirmación
+let isInputBlocked = false; 
+let confirmCallback = null; 
 
 // --- CARGA INICIAL ---
 function loadSavedStructures() {
@@ -53,7 +61,7 @@ function loadSavedStructures() {
 }
 loadSavedStructures();
 
-// --- KEYBOARD TRAP (BLOQUEO DE TECLAS) ---
+// --- KEYBOARD TRAP ---
 window.addEventListener('keydown', function(e) {
     if (isInputBlocked) {
         if (e.key === 'F12') return;
@@ -87,7 +95,15 @@ function exportSavedStructures() {
     const savedStructs = structureDB.filter(s => s.category === 'saved');
     if (savedStructs.length === 0) { alert("No saved structures."); return; }
     
-    const blob = new Blob([JSON.stringify(savedStructs, null, 2)], { type: "application/json" });
+    const formattedJson = "[\n" + savedStructs.map(struct => {
+        const { data, ...meta } = struct;
+        let metaString = JSON.stringify(meta, null, 2);
+        const dataString = JSON.stringify(data);
+        const content = metaString.substring(0, metaString.lastIndexOf('}')).trimEnd();
+        return content + ',\n  "data": ' + dataString + '\n}';
+    }).join(",\n") + "\n]";
+    
+    const blob = new Blob([formattedJson], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -126,7 +142,6 @@ function handleImportFile(input) {
     input.value = '';
 }
 
-// --- RESET CON CONFIRMACIÓN CUSTOM ---
 function resetSavedStructures() {
     showCustomConfirm("Delete ALL saved structures? This cannot be undone.", function() {
         structureDB = structureDB.filter(s => s.category !== 'saved');
@@ -143,12 +158,9 @@ function openStructuresModal() {
     filterStructures('saved', 'all');
 }
 
-// Override seguro para liberar teclado al cerrar
 const originalCloseModal = window.closeModal;
 window.closeModal = function(modalId) {
     if (modalId === 'structures-modal' || modalId === 'save-structure-modal' || modalId === 'edit-info-modal' || modalId === 'custom-confirm-modal') {
-        
-        // Si cerramos un sub-modal (edit o confirm) pero el principal sigue abierto, mantenemos el bloqueo
         if ((modalId === 'edit-info-modal' || modalId === 'custom-confirm-modal') && 
             document.getElementById('structures-modal').style.display === 'flex') {
             isInputBlocked = true;
@@ -165,15 +177,11 @@ window.closeModal = function(modalId) {
     }
 }
 
-// Detector de clic fuera
 window.addEventListener('click', function(e) {
     if (e.target.id === 'structures-modal') closeModal('structures-modal');
     if (e.target.id === 'save-structure-modal') closeModal('save-structure-modal');
-    // Los modales de edición y confirmación suelen ser modales puros (no cierran al click fuera por seguridad),
-    // pero si quisieras podrías agregarlos aquí.
 });
 
-// --- SISTEMA DE CONFIRMACIÓN CUSTOM ---
 function showCustomConfirm(message, callback) {
     document.getElementById('confirm-msg').innerText = message;
     confirmCallback = callback;
@@ -205,13 +213,11 @@ function filterStructures(category, subcategory = null) {
     const actionsDiv = document.getElementById('struct-saved-actions');
     if (actionsDiv) actionsDiv.style.display = (category === 'saved') ? 'flex' : 'none';
 
-    // Resetear selección visual
     selectedStructure = null;
     document.getElementById('struct-info-title').innerText = "Select an item";
     document.getElementById('struct-info-author').innerText = "-";
     document.getElementById('struct-info-sub').innerText = "-";
     
-    // Ocultar acciones de edición por defecto
     const editCol = document.getElementById('struct-edit-actions');
     if(editCol) editCol.style.display = 'none';
     
@@ -280,7 +286,6 @@ function selectStructure(struct) {
     canvas.style.imageRendering = 'pixelated';
     renderPreviewOnCanvas(canvas, struct.data, true);
 
-    // LÓGICA DE VISIBILIDAD DE BOTONES
     const editCol = document.getElementById('struct-edit-actions');
     if (editCol) {
         if (struct.category === 'saved') {
@@ -292,7 +297,6 @@ function selectStructure(struct) {
 }
 
 // --- CARGAR / BORRAR / EDITAR ---
-
 function loadStructureToClipboard() {
     if (!selectedStructure) return;
     loadSpecificStructure(selectedStructure);
@@ -303,6 +307,12 @@ function deleteSavedStructure() {
     if (!selectedStructure || selectedStructure.category !== 'saved') return;
     
     showCustomConfirm(`Delete "${selectedStructure.title}" permanently?`, function() {
+        // --- NUEVO: SONIDO DE BASURA ---
+        if (typeof audioManager !== 'undefined') {
+            audioManager.playSound('trash');
+        }
+        
+        // Lógica de borrado existente
         structureDB = structureDB.filter(s => s !== selectedStructure);
         updateLocalStorage();
         filterStructures('saved', 'all');
@@ -316,10 +326,15 @@ function openEditInfoModal() {
     document.getElementById('edit-struct-title').value = selectedStructure.title;
     document.getElementById('edit-struct-author').value = selectedStructure.author;
     
+    const subSelect = document.getElementById('edit-struct-subcategory');
+    if (subSelect) {
+        subSelect.value = selectedStructure.subcategory || 'Other';
+    }
+    
     document.getElementById('edit-info-modal').style.display = 'flex';
     isInputBlocked = true;
     
-    ['edit-struct-title', 'edit-struct-author'].forEach(id => {
+    ['edit-struct-title', 'edit-struct-author', 'edit-struct-subcategory'].forEach(id => {
         const el = document.getElementById(id);
         if(el) {
             el.onkeydown = function(e) {
@@ -335,11 +350,13 @@ function saveEditedInfo() {
     
     const newTitle = document.getElementById('edit-struct-title').value.trim();
     const newAuthor = document.getElementById('edit-struct-author').value.trim();
+    const newSubcategory = document.getElementById('edit-struct-subcategory').value;
     
     if (!newTitle) { alert("Title cannot be empty"); return; }
     
     selectedStructure.title = newTitle;
     selectedStructure.author = newAuthor || "Anonymous";
+    selectedStructure.subcategory = newSubcategory; 
     
     updateLocalStorage();
     
@@ -351,7 +368,6 @@ function saveEditedInfo() {
 }
 
 // --- GUARDAR NUEVA ESTRUCTURA ---
-
 function openSaveStructureModal() {
     if (!window.selection.p1 || (!window.selection.p2 && window.selection.path.length === 0)) {
         alert("Select an area first!"); return;
@@ -438,7 +454,6 @@ function saveNewStructure() {
 }
 
 // --- UTILIDADES ---
-
 function updateLocalStorage() {
     try {
         const toSave = structureDB.filter(s => s.category === 'saved');
@@ -449,6 +464,9 @@ function updateLocalStorage() {
     }
 }
 
+// ==========================================
+// 🎨 RENDER PREVIEW (CORREGIDO: AJUSTE VERTICAL)
+// ==========================================
 function renderPreviewOnCanvas(canvas, blockData, fit = true, forceCover = false) {
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false; 
@@ -458,6 +476,20 @@ function renderPreviewOnCanvas(canvas, blockData, fit = true, forceCover = false
 
     if (!blockData || blockData.length === 0) return;
     
+    // --- GESTIÓN DE CARGA (Para asegurar descarga) ---
+    const imgs = window.images;
+    if (!imgs || !imgs.blocks || !imgs.blocks.complete) {
+        ctx.fillStyle = "#FFF";
+        ctx.font = "10px monospace";
+        ctx.fillText("Loading...", 5, canvas.height / 2);
+
+        // Reintentar en 100ms hasta que cargue
+        if (imgs && imgs.blocks) {
+            setTimeout(() => renderPreviewOnCanvas(canvas, blockData, fit, forceCover), 100);
+        }
+        return; 
+    }
+
     const xs = blockData.map(b => b.dx); const ys = blockData.map(b => b.dy);
     const w = Math.max(...xs) - Math.min(...xs) + 1;
     const h = Math.max(...ys) - Math.min(...ys) + 1;
@@ -468,34 +500,36 @@ function renderPreviewOnCanvas(canvas, blockData, fit = true, forceCover = false
         while ((w * m * 16 < canvas.width) && (h * m * 16 < canvas.height)) m += 2;
         tileSize = 16 * m;
     } else if (fit) {
-        const maxSize = Math.max(w, h);
-        tileSize = Math.floor(Math.min(canvas.width, canvas.height) / maxSize);
-        if (tileSize < 1) tileSize = 1;
+        // --- CAMBIO CLAVE: AJUSTE VERTICAL ---
+        // Ignoramos el ancho. Calculamos el tamaño para llenar la ALTURA (h).
+        tileSize = Math.floor(canvas.height / h);
+        if (tileSize < 1) tileSize = 1; 
     }
 
     const totalW = w * tileSize; const totalH = h * tileSize;
     const offsetX = (canvas.width - totalW) / 2;
     const offsetY = (canvas.height - totalH) / 2;
-    const imgs = window.images;
 
     blockData.forEach(block => {
         const drawX = offsetX + block.dx * tileSize;
+        // Invertimos Y para que dibuje de abajo hacia arriba correctamente
         const drawY = canvas.height - (offsetY + block.dy * tileSize) - tileSize;
-        if (imgs && imgs.blocks && imgs.blocks.complete) {
-            try {
-                const renderer = window.blockData ? window.blockData[block.state.type] : null;
-                if (renderer) {
-                    const tex = renderer(block.state);
-                    ctx.drawImage(imgs.blocks, tex.x, tex.y, 16, 16, drawX, drawY, tileSize, tileSize);
-                } else ctx.fillStyle = '#888', ctx.fillRect(drawX, drawY, tileSize, tileSize);
-            } catch(e) { ctx.fillStyle = '#F0F'; ctx.fillRect(drawX, drawY, tileSize, tileSize); }
-        } else { ctx.fillStyle = '#555'; ctx.fillRect(drawX, drawY, tileSize, tileSize); }
+        
+        try {
+            const renderer = window.blockData ? window.blockData[block.state.type] : null;
+            if (renderer) {
+                const tex = renderer(block.state);
+                ctx.drawImage(imgs.blocks, tex.x, tex.y, 16, 16, drawX, drawY, tileSize, tileSize);
+            } else { 
+                ctx.fillStyle = '#888'; 
+                ctx.fillRect(drawX, drawY, tileSize, tileSize);
+            }
+        } catch(e) { 
+            ctx.fillStyle = '#F0F'; 
+            ctx.fillRect(drawX, drawY, tileSize, tileSize); 
+        }
     });
 }
-
-// ==========================================
-// 🆕 RIBBON QUICK ACCESS (5 SLOTS FIJOS)
-// ==========================================
 
 function updateRibbonQuickAccess() {
     const container = document.getElementById('recent-structures-ribbon');
@@ -503,55 +537,35 @@ function updateRibbonQuickAccess() {
     
     container.innerHTML = ''; 
 
-    const savedStructs = structureDB.filter(s => s.category === 'vanilla');
-    
-    // Obtenemos los últimos 5 (si existen) y los invertimos
-    const lastItems = savedStructs.slice(-5).reverse(); 
+    const structList = structureDB.filter(s => s.category === 'vanilla');
+    const displayItems = structList.slice(0, 5); 
 
-    // Generamos SIEMPRE 5 botones
     for (let i = 0; i < 5; i++) {
-        const struct = lastItems[i]; // Puede ser undefined si no hay suficientes
-        
+        const struct = displayItems[i];
         const btn = document.createElement('button');
-        btn.className = 'ribbon-btn-small';
-        
-        // Estilos base (Tamaño 66px)
-        btn.style.width = '66px';
-        btn.style.height = '66px';
-        btn.style.padding = '2px';
-        btn.style.border = '1px solid #555';
-        btn.style.display = 'flex';
-        btn.style.justifyContent = 'center';
-        btn.style.alignItems = 'center';
+        btn.className = 'quick-struct-btn'; 
         
         if (struct) {
-            // --- CASO: SLOT OCUPADO ---
             btn.title = `Load "${struct.title}"`;
-            btn.style.cursor = 'pointer';
-            btn.style.background = '#8B8B8B'; // Gris normal
-
             const canvas = document.createElement('canvas');
             canvas.width = 60; 
             canvas.height = 60;
             
-            // Renderizar la preview
             setTimeout(() => {
                  renderPreviewOnCanvas(canvas, struct.data, true); 
             }, 100);
 
-            btn.onclick = () => loadSpecificStructure(struct);
             btn.appendChild(canvas);
-            
+            btn.onclick = function() {
+                loadSpecificStructure(struct);
+                const allBtns = container.querySelectorAll('.quick-struct-btn');
+                allBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            };
         } else {
-            // --- CASO: SLOT VACÍO ---
+            btn.classList.add('empty-slot');
             btn.title = "Empty Slot";
-            btn.style.cursor = 'default';
-            btn.style.background = '#444'; // Gris más oscuro para indicar vacío
-            btn.style.opacity = '0.5';
-            // Opcional: Agregar un texto o dejarlo limpio
-            // btn.innerText = "-"; 
         }
-
         container.appendChild(btn);
     }
 }
@@ -572,8 +586,5 @@ function loadSpecificStructure(struct) {
     
     if (typeof activatePasteMode === 'function') {
         activatePasteMode(); 
-    } else {
-        // Fallback si no existe la función global
-        console.log("Clipboard ready. Select Paste tool.");
     }
 }

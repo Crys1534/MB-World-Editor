@@ -13,21 +13,29 @@ const inventoryCategories = {
     Blocks: { 
         icon: 'bricks', 
         items: [
-'br', 'dt', 'dt_1', ,'farm', 'myc', 'gdt', 'cdt','r', 'cs', 
-'ms', 'sb', 'clore', 'in', 'gd', 'dmore', 'rs', 'os', 'lap', 
-'b', 'to', 'egem', 'wd1', 'wd_1','wd_2', 'wp', 'top', 'ib', 'gb', 
-'db', 'lapb', 'clb', 'sd', 'ss', 'cy1', 'bricks', 'snowblock', 'ice', 
-'fice', 'gv', 'books', 'cloth_white', 'cloth_lightgray', 'cloth_gray', 'cloth_black', 'cloth_brown', 'cloth_purple', 
-'cloth_magenta', 'cloth_red', 'cloth_orange', 'cloth_pink', 'cloth_yellow', 'cloth_lightgreen', 'cloth_green', 'cloth_cyan', 'cloth_lightblue', 
-'cloth_blue', 'cloth_rainbow', 'gs', 'gs_white', 'gslightgray', 'gs_gray', 'gs_black', 'gs_brown', 'gs_purple', 
-'gs_magenta', 'gs_redg', 'gs_orange', 'gs_pink', 'gs_yellow', 'gs_lightgreen', 'gs_green', 'gs_cyan', 'gs_lughtblue', 
-'blueglass',
+'br', 'bddt', 'dt', 'dt_1','farm', 'myc', 'gdt', 'cdt', 'bdr', 'r', 'bdcs', 'cs', 
+'ms', 'bdsb', 'sb', 'clore', 'in', 'gd', 'dmore', 'rs', 'os', 'lap',
+'to', 'egem', 'wd1', 'wd_1','wd_2', 'bdwp', 'wp', 'bdbbb', 'bbb', 'top', 'ib', 'gb', 
+'db', 'lapb', 'clb', 'sd', 'ss', 'cy1', 'bdbricks', 'bricks', 'bdbooks', 'books', 'b','snowblock', 
+'ice', 'fice', 'fice_1', 'fice_2', 'fice_3', 'fice_4', 'gv',  'cloth_white',  'cloth_lightgray',  'cloth_gray', 
+ 'cloth_black',  'cloth_brown',  'cloth_purple',  'cloth_magenta',  
+'cloth_red',  'cloth_orange', 'cloth_pink', 'cloth_yellow',  'cloth_lightgreen', 
+ 'cloth_green', 'cloth_cyan',  'cloth_lightblue', 'cloth_blue', 
+'cloth_rainbow', 'gs', 'gs_white', 'gs_lightgray', 'gs_gray', 'gs_black', 'gs_brown', 'gs_purple', 'gs_magenta', 
+'gs_redg', 'gs_orange', 'gs_pink', 'gs_yellow', 'gs_lightgreen', 'gs_green', 'gs_cyan', 'gs_lightblue', 'gs_blue', 'bdcloth_white', 'bdcloth_lightgray', 'bdcloth_gray', 'bdcloth_black', 'bdcloth_brown', 'bdcloth_purple', 'bdcloth_magenta', 'bdcloth_red', 'bdcloth_orange',  'bdcloth_pink', 'bdcloth_yellow', 'bdcloth_lightgreen', 'bdcloth_green', 'bdcloth_cyan', 'bdcloth_lightblue',  'bdcloth_blue', 'bdcloth_rainbow', 'bdgs', 'bdgs_white', 'bdgs_lightgray', 'bdgs_gray', 'bdgs_black', 'bdgs_brown', 'bdgs_purple', 'bdgs_magenta', 
+'bdgs_redg', 'bdgs_orange', 'bdgs_pink', 'bdgs_yellow', 'bdgs_lightgreen', 'bdgs_green', 'bdgs_cyan', 'bdgs_lightblue', 'bdgs_blue',
+
+
+
+
+
+
         ]
     },
 
     // 🌿 Deocrations
     Decorations: { 
-        icon: 'br', 
+        icon: 'shrub', 
         items: [
             'br',
         ]
