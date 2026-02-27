@@ -1,6 +1,6 @@
-# mbwedit
+# Mine Blocks World Editor
 
-Mine Blocks world editor tool designed to make it easier to modify `.mbw` files.
+Mine Blocks World Editor tool designed to make it easier to modify `.mbw` files.
 
 ## Controls
 
