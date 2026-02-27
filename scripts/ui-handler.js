@@ -34,10 +34,10 @@ const inventoryCategories = {
     },
 
     // 🌿 Deocrations
-    Decorations: { 
-        icon: 'shrub', 
+    Transportation: { 
+        icon: 'rail', 
         items: [
-            'br',
+            'rail', 'rail_1', 'rail_2', 'railp', 'railp_1', 'railp_2', 'raila', 'raila_1', 'raila_2', 'raild', 'raild_1', 'raild_2'
         ]
     },
 
