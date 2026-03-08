@@ -187,10 +187,14 @@ function renderWorldToBuffer() {
 }
 
 function drawWorld() {
-    if (camera.x !== lastCameraX || camera.y !== lastCameraY || grid.width !== lastGridWidth) {
+    // Optimización: Aplicar Math.floor para redibujar el buffer solo al cruzar enteros
+    const camX = Math.floor(camera.x);
+    const camY = Math.floor(camera.y);
+
+    if (camX !== lastCameraX || camY !== lastCameraY || grid.width !== lastGridWidth) {
         worldDirty = true;
-        lastCameraX = camera.x;
-        lastCameraY = camera.y;
+        lastCameraX = camX;
+        lastCameraY = camY;
         lastGridWidth = grid.width;
     }
 
@@ -353,11 +357,17 @@ function drawUI() {
 }
 
 function mainLoop() {
-    mouse.calculateCoordinates();
+    // 1. Primero actualizamos la posición de la cámara
     cameraMovement();
+    
+    // 2. Luego calculamos el mouse basándonos en la nueva cámara
+    mouse.calculateCoordinates();
+    
+    // 3. Ahora sí, interacciones y dibujo sincronizados
     if (typeof mineAndPlace === 'function') mineAndPlace();
     drawWorld();
     drawUI();
+    
     requestAnimationFrame(mainLoop);
 }
 

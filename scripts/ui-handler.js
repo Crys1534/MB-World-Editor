@@ -3,44 +3,62 @@
 let activeInventoryTab = 'all';
 
 // =================================================================
-// ⬇️ LISTA COMPLETA DE BLOQUES CLASIFICADOS ⬇️
+// ⬇️ LISTA COMPLETA DE BLOQUES ⬇️
 // =================================================================
 const inventoryCategories = {
     // La pestaña "all" se llena automáticamente, no necesitas editar 'items' aquí.
     all: { icon: 'chest', items: [] }, 
 
-    // 🧱 Blocks
-    Blocks: { 
-        icon: 'bricks', 
-        items: [
-'br', 'bddt', 'dt', 'dt_1','farm', 'myc', 'gdt', 'cdt', 'bdr', 'r', 'bdcs', 'cs', 
-'ms', 'bdsb', 'sb', 'clore', 'in', 'gd', 'dmore', 'rs', 'os', 'lap',
-'to', 'egem', 'wd1', 'wd_1','wd_2', 'bdwp', 'wp', 'bdbbb', 'bbb', 'top', 'ib', 'gb', 
-'db', 'lapb', 'clb', 'sd', 'ss', 'cy1', 'bdbricks', 'bricks', 'bdbooks', 'books', 'b','snowblock', 
-'ice', 'fice', 'fice_1', 'fice_2', 'fice_3', 'fice_4', 'gv',  'cloth_white',  'cloth_lightgray',  'cloth_gray', 
- 'cloth_black',  'cloth_brown',  'cloth_purple',  'cloth_magenta',  
-'cloth_red',  'cloth_orange', 'cloth_pink', 'cloth_yellow',  'cloth_lightgreen', 
- 'cloth_green', 'cloth_cyan',  'cloth_lightblue', 'cloth_blue', 
-'cloth_rainbow', 'gs', 'gs_white', 'gs_lightgray', 'gs_gray', 'gs_black', 'gs_brown', 'gs_purple', 'gs_magenta', 
-'gs_redg', 'gs_orange', 'gs_pink', 'gs_yellow', 'gs_lightgreen', 'gs_green', 'gs_cyan', 'gs_lightblue', 'gs_blue', 'bdcloth_white', 'bdcloth_lightgray', 'bdcloth_gray', 'bdcloth_black', 'bdcloth_brown', 'bdcloth_purple', 'bdcloth_magenta', 'bdcloth_red', 'bdcloth_orange',  'bdcloth_pink', 'bdcloth_yellow', 'bdcloth_lightgreen', 'bdcloth_green', 'bdcloth_cyan', 'bdcloth_lightblue',  'bdcloth_blue', 'bdcloth_rainbow', 'bdgs', 'bdgs_white', 'bdgs_lightgray', 'bdgs_gray', 'bdgs_black', 'bdgs_brown', 'bdgs_purple', 'bdgs_magenta', 
-'bdgs_redg', 'bdgs_orange', 'bdgs_pink', 'bdgs_yellow', 'bdgs_lightgreen', 'bdgs_green', 'bdgs_cyan', 'bdgs_lightblue', 'bdgs_blue',
-
-
-
-
-
-
-        ]
+	// 🧱 Blocks
+	Blocks: { 
+		icon: 'bricks', 
+		items: [
+'br', 'dt', 'dt_1', 'farm', 'myc', 'gdt', 'cdt', 'r', 'cs',
+'ms', 'sb', 'clore', 'in', 'gd', 'dmore', 'rs', 'os', 'lap',
+'to', 'egem', 'wd1', 'wd_1', 'wd_2', 'wp', 'bbb', 'top', 'ib',
+'gb', 'db', 'lapb', 'clb', 'sd', 'ss', 'cy1', 'bricks', 'books',
+'b', 'snowblock', 'ice', 'fice', 'fice_1', 'fice_2', 'fice_3', 'fice_4', 'gv',
+'cloth_white', 'cloth_lightgray', 'cloth_gray', 'cloth_black', 'cloth_brown', 'cloth_purple', 'cloth_magenta', 'cloth_red', 'cloth_orange',
+'cloth_pink', 'cloth_yellow', 'cloth_lightgreen', 'cloth_green', 'cloth_cyan', 'cloth_lightblue', 'cloth_blue', 'cloth_rainbow', 'gs',
+'gs_white', 'gs_lightgray', 'gs_gray', 'gs_black', 'gs_brown', 'gs_purple', 'gs_magenta', 'gs_redg', 'gs_orange',
+'gs_pink', 'gs_yellow', 'gs_lightgreen', 'gs_green', 'gs_cyan', 'gs_lightblue', 'gs_blue', 'bddt', 'bdr',
+'bdcs', 'bdbbb', 'bdbricks', 'bdbooks', 'bdsb', 'bdcloth_white', 'bdcloth_lightgray', 'bdcloth_gray', 'bdcloth_black',
+'bdcloth_brown', 'bdcloth_purple', 'bdcloth_magenta', 'bdcloth_red', 'bdcloth_orange', 'bdcloth_pink', 'bdcloth_yellow', 'bdcloth_lightgreen', 'bdcloth_green',
+'bdcloth_cyan', 'bdcloth_lightblue', 'bdcloth_blue', 'bdcloth_rainbow', 'bdgs', 'bdgs_white', 'bdgs_lightgray', 'bdgs_gray', 'bdgs_black',
+'bdgs_brown', 'bdgs_purple', 'bdgs_magenta', 'bdwp', 'bdgs_redg', 'bdgs_orange', 'bdgs_pink', 'bdgs_yellow', 'bdgs_lightgreen',
+'bdgs_green', 'bdgs_cyan', 'bdgs_lightblue', 'bdgs_blue', 'pk', 'pk_2', 'pk_3', 'pk_4', 'pk_5', 'pk_6', 'pk_7', 'pk_8', 'pk_9', 'pk_10', 'pk_11',
+		]
     },
 
-    // 🌿 Deocrations
+    // 🌿 Transportation
     Transportation: { 
         icon: 'rail', 
         items: [
-            'rail', 'rail_1', 'rail_2', 'railp', 'railp_1', 'railp_2', 'raila', 'raila_1', 'raila_2', 'raild', 'raild_1', 'raild_2'
+            'rail', 'rail_1', 'rail_2', 'railp', 'railp_1', 'railp_2', 'raila', 'raila_1', 'raila_2', 'raild', 'raild_1', 'raild_2', 'dm', 'gi',
         ]
     },
 
+    // 🌿 Tools
+    Tools: { 
+        icon: 'DiamondPickaxe', 
+        items: [
+			'WoodenPickaxe', 'StonePickaxe', 'IronPickaxe', 'GoldPickaxe', 'DiamondPickaxe', 'ObsidianPickaxe',
+			'WoodenSword', 'StoneSword', 'IronSword', 'GoldSword', 'DiamondSword',
+			'WoodenAxe', 'StoneAxe', 'IronAxe', 'GoldAxe', 'DiamondAxe',
+			'WoodenShovel', 'StoneShovel', 'IronShovel', 'GoldShovel', 'DiamondShovel',
+			'WoodenHoe', 'StoneHoe', 'IronHoe', 'GoldHoe', 'DiamondHoe'
+        ]
+    },
+	
+	    // 🌿 Armor
+    Tools: { 
+        icon: 'DiamondShirt', 
+        items: [
+			'LeatherCap', 'LeatherShirt', 'LeatherPants', 'LeatherShoes', 'IronCap', 'IronShirt', 'IronPants', 'IronShoes', 'GoldCap', 
+			'GoldShirt', 'GoldPants', 'GoldShoes', 'DiamondCap', 'DiamondShirt', 'DiamondPants', 'DiamondShoes', 'DragonCap', 'DragonShirt', 
+			'DragonPants', 'DragonShoes','SnowCap', 'AfroCap', 'PartyCap', 'ShadesCap', 'MustacheCap',
+        ]
+    },
 };
 
 // =================================================================
@@ -88,7 +106,7 @@ function toggleAchievements(checked) {
 // --- GESTIÓN DE TEMAS ---
 function setTheme(themeName) {
     const body = document.body;
-    body.classList.remove('theme-white', 'theme-pastel', 'theme-darkblue');
+    body.classList.remove('theme-white', 'theme-pastel', 'theme-darkblue', 'theme-winxp');
     if (themeName !== 'dark') {
         body.classList.add('theme-' + themeName);
     }
@@ -235,7 +253,27 @@ function filterInventory(query) {
 
 function selectBlockFromInventory(blockType) {
     if (typeof hotbar !== 'undefined') {
-        hotbar.slots[slotIndex] = { type: blockType };
+        // Por defecto, asumimos que es un bloque normal
+        let type = blockType;
+        let states1 = undefined;
+        
+        // Si el nombre tiene un guion bajo (ej. pk_2 o cloth_red)
+        if (blockType.includes('_')) {
+            let parts = blockType.split('_');
+            type = parts[0]; // El tipo base (pk, cloth, etc)
+            
+            // Verificamos si el estado es un número o un texto
+            states1 = isNaN(parts[1]) ? parts[1] : parseInt(parts[1]); 
+        }
+        
+        // Construimos el objeto de estado tal como lo usa Mine Blocks
+        let newState = { type: type };
+        if (states1 !== undefined) {
+            newState.states1 = states1;
+        }
+
+        // Lo guardamos en el slot de la hotbar
+        hotbar.slots[slotIndex] = newState;
         renderHotbarUI();
     }
     closeModal('inventory-modal');
