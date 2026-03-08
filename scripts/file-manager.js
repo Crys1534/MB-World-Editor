@@ -30,7 +30,15 @@ const fileManager = {
    }
 
    initializeWorldCache();
-   mainLoop();
+   
+   // --- CÓDIGO CORREGIDO: PREVENIR ACELERACIÓN DE CÁMARA ---
+   // Validamos si el mainLoop ya fue iniciado previamente.
+   if (!window.isMainLoopRunning) {
+       mainLoop();
+       window.isMainLoopRunning = true; // Marcamos que ya está corriendo
+   }
+   // ---------------------------------------------------------
+
    console.log("Mundo cargado exitosamente.");
 
   } catch (error) {
