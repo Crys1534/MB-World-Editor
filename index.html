@@ -47,8 +47,8 @@
     #tab-insert.active { justify-content: left; }
 
     /* --- OVERLAYS --- */
-    #coords-overlay { position: absolute; top: 15px; left: 85px; font-family: 'Consolas', monospace; font-size: 24px; font-weight: bold; color: white; text-shadow: 1px 1px 2px black; pointer-events: none; z-index: 10; }
-    #selection-overlay { position: absolute; top: 45px; left: 85px; font-family: 'Consolas', monospace; font-size: 18px; font-weight: bold; color: #FFD700; text-shadow: 1px 1px 2px black; pointer-events: none; z-index: 10; display: none; }
+    #coords-overlay { position: absolute; top: 0px; left: 85px; font-family: 'Consolas', monospace; font-size: 24px; font-weight: bold; color: white; text-shadow: 1px 1px 2px black; pointer-events: none; z-index: 10; }
+    #selection-overlay { position: absolute; top: 24px; left: 85px; font-family: 'Consolas', monospace; font-size: 18px; font-weight: bold; color: #FFD700; text-shadow: 1px 1px 2px black; pointer-events: none; z-index: 10; display: none; }
     #console-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(2px); }
     .console-container { background: #2b2b2b; border: 2px solid #555; border-radius: 5px; padding: 20px; width: 300px; display: flex; flex-direction: column; gap: 10px; }
     #console-suggestion { color: #888; font-family: monospace; font-size: 12px; margin-bottom: 5px; }
@@ -86,21 +86,31 @@
     .struct-subtab { font-size: 12px; cursor: pointer; padding: 2px 8px; background: #777; color: #DDD; }
     .struct-subtab.active { background: #FFF; color: #000; }
 
-    #structures-grid {
-        display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; overflow-y: auto;
-        background: #8B8B8B; padding: 10px; border: 2px solid #373737; border-right-color: #FFF; border-bottom-color: #FFF; flex: 1;
+#structures-grid {
+        display: grid; 
+        grid-template-columns: repeat(4, 1fr); 
+        gap: 2px; 
+        overflow-y: auto;
+        background: #8B8B8B; 
+        padding: 10px; 
+        border: 2px solid #373737; 
+        border-right-color: #FFF; 
+        border-bottom-color: #FFF; 
+        flex: 1;
+        align-content: start;
     }
+	
     .struct-item {
         background: #555; border: 2px solid #333; aspect-ratio: 1; display: flex; flex-direction: column;
-        align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s;
+        align-items: center; justify-content: center; cursor: pointer;
     }
     .struct-item:hover { background: #666; border-color: #FFF; }
-    .struct-name { font-size: 12px; text-align: center; color: white; padding: 0 5px; margin-top: 5px; }
+    .struct-name { font-size: 12px; text-align: center; color: white; padding: 0 5px;}
 
     /* SIDEBAR INFO */
-    .struct-sidebar { width: 250px; background: #B0B0B0; display: flex; flex-direction: column; padding: 15px; align-items: center; }
+    .struct-sidebar { width: 250px; background: #B0B0B0; display: flex; flex-direction: column; padding: 15px; align-items: center; overflow-y: auto; }
     #struct-preview-canvas { width: 200px; height: 200px; background: #8B8B8B; border: 2px solid #373737; margin-bottom: 15px; image-rendering: pixelated; }
-    .struct-info { width: 100%; text-align: left; margin-bottom: 20px; }
+    .struct-info { width: 100%; text-align: left;}
     .struct-info h3 { margin: 0 0 5px 0; font-size: 18px; color: #000; } 
     .struct-info p { margin: 0; color: #000; font-size: 14px; font-weight: bold; } 
     
@@ -110,7 +120,7 @@
     .btn-load-struct:hover { background: #66BB6A; }
     .struct-actions-row { display: flex; flex-direction: row; gap: 5px; width: 100%; display: none; }
     .btn-action-text { flex: 1; padding: 8px 0; cursor: pointer; font-weight: bold; color: white; border: 2px solid #555; font-size: 16px; display: flex; align-items: center; justify-content: center; gap: 5px; }
-    .btn-edit-action { background: #29B6F6; border-color: #0288D1; color: black; }
+    .btn-edit-action { background: #29B6F6; border-color: #0288D1; color: white; }
     .btn-edit-action:hover { background: #4FC3F7; }
     .btn-delete-action { background: #C0392B; border-color: #922B21; color: white; }
     .btn-delete-action:hover { background: #E74C3C; }
@@ -162,9 +172,9 @@
 </head>
 <body>
  
- <div id="top-bar">
+<div id="top-bar" style="display: flex; justify-content: space-between; align-items: center;">
   <div class="left-group">
-  <img src="favicon.ico" class="app-icon" style= alt="App Icon">
+   <img src="favicon.ico" class="app-icon" alt="App Icon">
    <button class="icon-btn" onclick="document.getElementById('file-input').click()">📂 Load World</button>
    <button class="icon-btn" onclick="fileManager.export()">💾 Save World</button>
    <button class="icon-btn" onclick="openModal('settings-modal')">⚙️ Configuration</button>
@@ -177,9 +187,18 @@
     <span class="extension">.mbw</span>
    </div>
   </div>
+  
+  <div class="right-group" style="padding-right: 15px;">
+      <button class="icon-btn" id="toggle-ui-btn" onclick="toggleUICollapse()" title="Ocultar Paneles" style="font-size: 16px;">🔼</button>
+  </div>
  </div>
 
-<div id="ribbon">
+ <div id="ui-collapse-wrapper" class="collapsible-wrapper">
+  <div class="ui-collapse-inner">
+      
+      <div id="world-tabs"></div>
+
+      <div id="ribbon">
   <div class="tabs">
    <button class="tab-btn active" onclick="openTab('insert')">Insert</button>
    <button class="tab-btn" onclick="openTab('settings')">World Settings</button>
@@ -320,6 +339,12 @@
  <div id="workspace">
   <div id="coords-overlay">X: 0 Y: 0</div>
   <div id="selection-overlay">W: 0 H: 0</div>
+  
+ <div id="chest-tooltip-overlay" style="display: none;">
+
+      <div id="chest-tooltip-grid"></div>
+  </div>
+  
   <div id="zoom-floating">
     <label for="zoom-slider">Zoom</label>
     <input type="range" id="zoom-slider" min="0" max="4" step="1" value="2" oninput="updateZoomSlider(this.value)">
@@ -350,7 +375,7 @@
                     <option value="white">⚪ White</option>
                     <option value="pastel">🌸 Pastel</option>
                     <option value="darkblue">🔵 Dark Blue</option>
-                </select>
+					<option value="winxp">🪟 Windows XP</option></select>
             </div>
         </div>
     </div>
@@ -361,7 +386,7 @@
         <div class="inventory-layout">
             <div class="inventory-main-area">
                 <div class="inv-header">
-                    <h3 style="color:gray;">Inventory</h3>
+                    <h3 style="color:gray;margin-top: 5px;margin-bottom: 5px;">Inventory</h3>
                     <span class="close-modal" onclick="closeModal('inventory-modal')" style="cursor:pointer; font-weight:bold; color:black;">&times;</span>
                 </div>
                 <input type="text" id="inventory-search" placeholder="Search..." oninput="filterInventory(this.value)">
@@ -394,22 +419,22 @@
             </div>
 
             <div id="struct-subtabs">
-                <div id="subtab-house" class="struct-subtab active" onclick="filterSubCategory('house')">House</div>
+                <div id="subtab-structure" class="struct-subtab active" onclick="filterSubCategory('structure')">Structure</div>
+                <div id="subtab-house" class="struct-subtab" onclick="filterSubCategory('house')">House</div>
+                <div id="subtab-chests" class="struct-subtab" onclick="filterSubCategory('chests')">Chests</div>
                 <div id="subtab-pixelart" class="struct-subtab" onclick="filterSubCategory('pixelart')">Pixel Art</div>
                 <div id="subtab-vehicle" class="struct-subtab" onclick="filterSubCategory('vehicle')">Vehicle</div>
-                <div id="subtab-structure" class="struct-subtab" onclick="filterSubCategory('structure')">Structure</div>
-                <div id="subtab-chests" class="struct-subtab" onclick="filterSubCategory('chests')">Chests</div>
                 <div id="subtab-other" class="struct-subtab" onclick="filterSubCategory('other')">Other</div>
             </div>
             <div id="structures-grid"></div>
         </div>
 <div class="struct-sidebar">
-            <h4 style="margin-top:0; color:gray;">Preview</h4>
+            <h4 style="margin-top:0; color:gray; margin-bottom: 10px;">Preview</h4>
             <canvas id="struct-preview-canvas" width="200" height="200"></canvas>
-            
-            <div class="struct-info">
+			
+			<div class="struct-info">
                 <h3 id="struct-info-title">Select an item</h3>
-                <p>Author: <span id="struct-info-author" style="font-weight:normal;">-</span></p>
+                <p id="struct-author-row">Author: <span id="struct-info-author" style="font-weight:normal;">-</span></p>
                 <p>Category: <span id="struct-info-sub" style="font-weight:normal;">-</span></p>
             </div>
 
@@ -428,16 +453,16 @@
     <div class="modal-content">
         <div style="display: flex; justify-content: center; align-items: center; position: relative; margin-bottom: 5px;">
             <h3 style="margin: 0; text-align: center; color: black;">Save New Structure</h3>
-            <span class="close-modal" onclick="closeModal('save-structure-modal')" style="position: absolute; right: 0; top: -2px; cursor:pointer; font-weight:bold; color:black; font-size: 20px; line-height: 1;">&times;</span>
+            <span class="close-modal" onclick="closeModal('save-structure-modal')" style="position: absolute; right: 2; top: -1px; cursor:pointer; font-weight:bold; color:black; font-size: 20px; line-height: 1;">&times;</span>
         </div>
         <canvas id="struct-save-preview" width="460" height="295"></canvas>
         <div class="save-form-row">
             <label>Title</label>
-            <input type="text" id="input-struct-title" placeholder="e.g. My Castle">
+            <input type="text" id="input-struct-title" placeholder="Text">
         </div>
         <div class="save-form-row">
             <label>Author</label>
-            <input type="text" id="input-struct-author" placeholder="Your Name">
+            <input type="text" id="input-struct-author" placeholder="Username">
         </div>
         <div class="save-form-row" style="display: none;">
             <label>Category</label>
@@ -446,11 +471,11 @@
         <div class="save-form-row">
             <label>Tag</label>
             <select id="input-struct-subcategory">
-                <option value="House">House</option>
                 <option value="Structure">Structure</option>
+                <option value="House">House</option>
+                <option value="Chests">Chests</option>
                 <option value="PixelArt">Pixel Art</option>
                 <option value="Vehicle">Vehicle</option>
-                <option value="Chests">Chests</option>
                 <option value="Other" selected>Other</option>
             </select>
         </div>
@@ -563,11 +588,11 @@
             <div class="save-form-row">
                 <label>Tag</label>
                 <select id="edit-struct-subcategory">
-                    <option value="House">House</option>
                     <option value="Structure">Structure</option>
+                    <option value="House">House</option>
+                    <option value="Chests">Chests</option>
                     <option value="PixelArt">Pixel Art</option>
                     <option value="Vehicle">Vehicle</option>
-                    <option value="Chests">Chests</option>
                     <option value="Other">Other</option>
                 </select>
             </div>

@@ -103,25 +103,9 @@ window.addEventListener('keydown', function(e) {
 
     if (e.key === '+' || e.code === 'NumpadAdd') updateToolSize(toolSize + 1);
     if (e.key === '-' || e.code === 'NumpadSubtract') updateToolSize(toolSize - 1);
-    
     if (e.key === 'Delete' || e.code === 'Delete') deleteSelection();
 
-    const isCtrl = e.ctrlKey || e.metaKey; 
-
-    if (isCtrl && (e.key === 'x' || e.key === 'X')) {
-        e.preventDefault();
-        cutSelection();
-    }
-
-    if (isCtrl && (e.key === 'c' || e.key === 'C')) {
-        e.preventDefault();
-        copySelection(); 
-    }
-
-    if (isCtrl && (e.key === 'v' || e.key === 'V')) {
-        e.preventDefault();
-        activatePasteMode();
-    }
+    // LÍNEAS DE Ctrl+X, Ctrl+C y Ctrl+V FUERON ELIMINADAS AQUÍ.
 });
 
 function takeScreenshot() {
