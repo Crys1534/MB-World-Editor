@@ -2,7 +2,7 @@ window.renderers = {
     default: function (states) {
         const block = states.type;
         const state = states.states1;
-        return getTexture(block, state);
+        return getTexture(block, state); 
     },
     furnace: function (states) {
         const fuelTimer = states.toSmelt ? states.toSmelt.fuelTimer : 0;

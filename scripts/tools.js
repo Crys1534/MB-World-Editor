@@ -1,7 +1,7 @@
 let shapeIndex = 0;
 let slotIndex = 0;
 let currentTool = 'pencil'; 
-let toolSize = 1; 
+let toolSize = 1;  
 let toolRounded = false;
 let toolSpray = false; // NUEVO: Estado del modo Spray
 let isShiftPressed = false; 

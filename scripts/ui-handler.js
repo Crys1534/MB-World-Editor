@@ -1,6 +1,6 @@
 // --- CONFIGURACIÓN DE PESTAÑAS E INVENTARIO ---
 
-let activeInventoryTab = 'all';
+let activeInventoryTab = 'all'; 
 
 // =================================================================
 // ⬇️ LISTA COMPLETA DE BLOQUES ⬇️

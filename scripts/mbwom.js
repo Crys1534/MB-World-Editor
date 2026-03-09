@@ -2,7 +2,7 @@ const mbwom = {
 	sceneList: [
 		"chickenNum",
 		"spawnskinNum",
-		"mobNum",
+		"mobNum", 
 		"ghastNum",
 		"blazeNum",
 		"hasSignal",

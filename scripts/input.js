@@ -1,7 +1,7 @@
 const keys = {
 	KeyW: false, KeyA: false, KeyS: false, KeyD: false,
 	KeyC: false, Tab: false, KeyQ: false, KeyE: false,
-    KeyZ: false, KeyX: false, KeyV: false
+    KeyZ: false, KeyX: false, KeyV: false 
 };
 
 const mouse = {

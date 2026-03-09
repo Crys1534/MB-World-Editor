@@ -1,7 +1,7 @@
 const mbwAlgorithm = {
  decode: function (string) {
   var decodedString = "";
-  for (var a = 0, b = string.length; a < b;) {
+  for (var a = 0, b = string.length; a < b;) { 
    var c = a++;
    var characterCode = string.charCodeAt(c) - (c * 5 % 33 + 1);
    decodedString += String.fromCodePoint(characterCode);

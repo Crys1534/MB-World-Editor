@@ -1,6 +1,6 @@
 const historyManager = {
     undoStack: [],
-    redoStack: [],
+    redoStack: [], 
     maxDepth: 50, // Ahora podemos guardar más pasos porque pesan muy poco
 
     // Variable para agrupar cambios (ej: un trazo de lápiz completo)
