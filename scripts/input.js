@@ -183,68 +183,91 @@ function updateChestTooltip(screenX, screenY) {
     const tooltip = document.getElementById('chest-tooltip-overlay');
     if (!tooltip) return;
 
-    // Obtener la información del bloque bajo el cursor en tiempo real
+    // Obtener la información del bloque bajo el ratón
     const blockState = typeof mbwom !== 'undefined' ? mbwom.getBlockState(mouse.worldX, mouse.worldY) : null;
     
-    // Verificar si el bloque es un cofre válido y si tiene la propiedad inventario ('chests')
+    // Diccionario de durabilidad máxima (Declarado arriba para que cofres y hornos lo puedan usar)
+    const maxDurabilityMap = {
+        "WoodenPickaxe": 60, "StonePickaxe": 132, "IronPickaxe": 251, "GoldPickaxe": 33, "DiamondPickaxe": 1562, "ObsidianPickaxe": 2500,
+        "WoodenSword": 60, "StoneSword": 132, "IronSword": 251, "GoldSword": 33, "DiamondSword": 1562,
+        "WoodenAxe": 60, "StoneAxe": 132, "IronAxe": 251, "GoldAxe": 33, "DiamondAxe": 1562,
+        "WoodenShovel": 60, "StoneShovel": 132, "IronShovel": 251, "GoldShovel": 33, "DiamondShovel": 1562,
+        "WoodenHoe": 60, "StoneHoe": 132, "IronHoe": 251, "GoldHoe": 33, "DiamondHoe": 1562
+    };
+
+// --- LÓGICA DEL COFRE ---
     if (blockState && blockState.type === 'chest' && blockState.chests && Array.isArray(blockState.chests)) {
         
-        // Mostrar el tooltip y posicionarlo al lado del ratón
         tooltip.style.display = 'block';
         tooltip.style.left = screenX + 'px';
         tooltip.style.top = screenY + 'px';
         
         const gridContainer = document.getElementById('chest-tooltip-grid');
-        gridContainer.innerHTML = ''; // Limpiar el renderizado anterior
+        gridContainer.innerHTML = ''; 
+        
+        // Forzamos el diseño de cuadrícula perfecta de 9 columnas
+        gridContainer.style.display = 'grid'; 
+        gridContainer.style.gridTemplateColumns = 'repeat(9, 24px)'; // 9 columnas de exactamente 24px
+        gridContainer.style.gap = '0px';
+        gridContainer.style.padding = '0px';
+        gridContainer.style.alignItems = 'start'; // Evita que se estiren
 
         const inventory = blockState.chests;
         
-        // Renderizar los items exactamente como en el Sidebar
         for (let i = 0; i < inventory.length; i++) {
             let slot = document.createElement('div');
             slot.className = 'chest-tooltip-slot';
             
+            // Forzamos que cada "slot" sea un cuadrado rígido y perfecto
+            slot.style.width = '24px';
+            slot.style.height = '24px';
+            slot.style.background = '#8B8B8B';
+            slot.style.border = '1px inset #FFF';
+            slot.style.display = 'flex';
+            slot.style.justifyContent = 'center';
+            slot.style.alignItems = 'center';
+            slot.style.position = 'relative';
+            slot.style.boxSizing = 'border-box'; // Evita que el borde sume tamaño
+            
             let item = inventory[i];
-            let itemID, itemCount;
+            let itemID, itemCount, itemDamage = 0;
 
             if (Array.isArray(item)) {
-                itemID = item[0];
-                itemCount = item[1];
+                itemID = item[0]; itemCount = item[1]; itemDamage = item[2] || 0;
             } else if (item && typeof item === 'object') {
-                itemID = item.id;
-                itemCount = item.count;
+                itemID = item.id; itemCount = item.count; itemDamage = item.damage || 0;
             }
             
-            // Si el slot no está vacío ("air" o 0)
             if (itemID && itemID !== "air" && itemID !== "0" && itemID !== 0) { 
                 let cvs = document.createElement('canvas');
                 cvs.width = 16; cvs.height = 16;
+                cvs.style.width = '16px';  // Fijamos el tamaño visual
+                cvs.style.height = '16px';
                 let ctx = cvs.getContext('2d');
                 ctx.imageSmoothingEnabled = false;
 
-                // Buscar la textura en el spritesheet
                 let tempState = { type: itemID }; 
-                let renderObj = null;
-                if (typeof getBlockObject === 'function') {
-                    renderObj = getBlockObject(tempState);
-                }
+                let renderObj = typeof getBlockObject === 'function' ? getBlockObject(tempState) : null;
 
                 if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
                     ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
+                    
+                    let maxDur = maxDurabilityMap[itemID];
+                    if (maxDur && typeof drawDurabilityBar === 'function') {
+                        drawDurabilityBar(ctx, 0, 0, 16, 16, itemDamage, maxDur);
+                    }
                 } else {
-                    ctx.fillStyle = "magenta";
-                    ctx.fillRect(4, 4, 8, 8);
+                    ctx.fillStyle = "magenta"; ctx.fillRect(4, 4, 8, 8);
                 }
 
                 slot.appendChild(cvs);
 
-                // Añadir el numerito de cantidad
                 if (itemCount > 1) {
                     let countTag = document.createElement('span');
                     countTag.innerText = itemCount;
                     countTag.style.position = 'absolute';
                     countTag.style.bottom = '-2px';
-                    countTag.style.right = '0px';
+                    countTag.style.right = '2px';
                     countTag.style.color = 'white';
                     countTag.style.fontSize = '10px';
                     countTag.style.fontWeight = 'bold';
@@ -255,11 +278,97 @@ function updateChestTooltip(screenX, screenY) {
             }
             gridContainer.appendChild(slot);
         }
-    } else {
-        // Si el bloque bajo el ratón no es un cofre, ocultarlo
+    }
+
+    // --- LÓGICA DEL HORNO (Nueva) ---
+    else if (blockState && blockState.toSmelt) {
+        tooltip.style.display = 'block';
+        tooltip.style.left = screenX + 'px';
+        tooltip.style.top = screenY + 'px';
+        
+        const gridContainer = document.getElementById('chest-tooltip-grid');
+        gridContainer.innerHTML = ''; 
+        gridContainer.style.display = 'flex'; 
+        gridContainer.style.alignItems = 'center';
+        gridContainer.style.gap = '0px';
+        gridContainer.style.padding = '0px';
+
+        let ovenData = blockState.toSmelt;
+
+        function buildOvenSlot(itemData, isLarge=false) {
+            let slot = document.createElement('div');
+            let size = isLarge ? '28px' : '20px';
+            slot.style.width = size; slot.style.height = size;
+            slot.style.background = '#8B8B8B'; slot.style.border = '1px inset #FFF';
+            slot.style.position = 'relative'; slot.style.display = 'flex';
+            slot.style.justifyContent = 'center'; slot.style.alignItems = 'center';
+
+            if (itemData && itemData[0] !== "air" && itemData[0] !== 0 && itemData[0] !== "0") {
+                let cvs = document.createElement('canvas');
+                cvs.width = 16; cvs.height = 16;
+                cvs.style.width = isLarge ? '20px' : '14px';
+                cvs.style.height = isLarge ? '20px' : '14px';
+                cvs.style.imageRendering = 'pixelated';
+                let ctx = cvs.getContext('2d');
+                ctx.imageSmoothingEnabled = false;
+
+                let tempState = { type: itemData[0] }; 
+                let renderObj = typeof getBlockObject === 'function' ? getBlockObject(tempState) : null;
+
+                if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
+                    ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
+                    
+                    let maxDur = maxDurabilityMap[itemData[0]];
+                    if (maxDur && typeof drawDurabilityBar === 'function') {
+                        drawDurabilityBar(ctx, 0, 0, 16, 16, itemData[2] || 0, maxDur);
+                    }
+                } else {
+                    ctx.fillStyle = "magenta"; ctx.fillRect(4, 4, 8, 8);
+                }
+                slot.appendChild(cvs);
+
+                if (itemData[1] > 1) {
+                    let countTag = document.createElement('span');
+                    countTag.innerText = itemData[1];
+                    countTag.style.position = 'absolute'; countTag.style.bottom = '-2px'; countTag.style.right = '0px';
+                    countTag.style.color = 'white'; countTag.style.fontSize = '10px'; countTag.style.fontWeight = 'bold';
+                    countTag.style.textShadow = '1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000';
+                    slot.appendChild(countTag);
+                }
+            }
+            return slot;
+        }
+
+        let leftCol = document.createElement('div');
+        leftCol.style.display = 'flex'; leftCol.style.flexDirection = 'column';
+        leftCol.style.gap = '5px'; leftCol.style.alignItems = 'center';
+
+        leftCol.appendChild(buildOvenSlot(ovenData.input));
+        
+        let fire = document.createElement('div');
+        fire.innerText = ovenData.fuelTimer > 0 ? '🔥' : '♨️';
+        fire.style.fontSize = '10px';
+        leftCol.appendChild(fire);
+        
+        leftCol.appendChild(buildOvenSlot(ovenData.fuel));
+
+        let arrow = document.createElement('div');
+        arrow.innerText = '➡️'; arrow.style.fontSize = '16px';
+
+        let rightCol = document.createElement('div');
+        rightCol.appendChild(buildOvenSlot(ovenData.output, true));
+
+        gridContainer.appendChild(leftCol);
+        gridContainer.appendChild(arrow);
+        gridContainer.appendChild(rightCol);
+
+    } 
+    // --- SI NO ES NADA, OCULTAR EL TOOLTIP ---
+    else {
         tooltip.style.display = 'none';
     }
 }
+
 
 canvas.addEventListener("mousedown", function (event) {
 	if (event.button == 0) mouse.left = true;
@@ -268,8 +377,9 @@ canvas.addEventListener("mousedown", function (event) {
     if ((currentTool === 'select' || currentTool === 'lasso') && mouse.left) {
         handleSelectionInput('start', mouse.worldX, mouse.worldY);
     } 
-    else if (currentTool === 'paste' && mouse.left) {
-        performPaste(mouse.worldX, mouse.worldY);
+else if (currentTool === 'paste' && mouse.left) {
+        // Le mandamos event.shiftKey: será true si lo estás presionando, false si no
+        performPaste(mouse.worldX, mouse.worldY, event.shiftKey);
     }
     else if (mouse.left || mouse.right) {
         if (currentTool === 'bucket' && mouse.left) {

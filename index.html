@@ -5,21 +5,21 @@
  <meta name="viewport" content="width=device-width, initial-scale=1.0">
  <link rel="icon" href="favicon.ico" type="image/x-icon">
  <link rel="stylesheet" href="style.css">
- <title>MB World Edit</title>
+ <title>MB World Editor</title>
  <style>
     /* --- ESTILOS GENERALES Y CORRECCIONES --- */
     #inventory-modal .modal-content {
         background: #C6C6C6; border: 2px solid #555; width: 700px; padding: 0;   
-        color: #000; display: flex; flex-direction: column; height: 550px; 
+        color: #000; display: flex; flex-direction: column; height: 500px; 
     }
     .inventory-layout { display: flex; flex-direction: column; flex: 1; overflow: hidden; padding: 10px; }
-    #inventory-tabs-sidebar { width: 100%; display: flex; flex-direction: row; gap: 5px; margin-top: 5px; padding-left: 5px; z-index: 10; }
+    #inventory-tabs-sidebar { width: 96%; display: flex; flex-direction: row; background: #c6c6c6; gap: 0px; margin-top: 0px; padding-left: 5px; z-index: 10; }
     .inv-tab-btn {
         width: 40px; height: 40px; background: #8B8B8B; border: 2px solid #373737;
         border-bottom-color: #FFF; cursor: pointer; display: flex; justify-content: center; align-items: center;
     }
     .inv-tab-btn.active {
-        background: #C6C6C6; border-color: #FFF; border-bottom: none; 
+        background: #8b8b8b; border-color: #FFF; border-bottom: none; 
         height: 45px; position: relative; margin-bottom: -2px; border-right: 2px solid #373737;
     }
     .inventory-main-area { flex: 1; display: flex; flex-direction: column; background: #C6C6C6; min-height: 0; }
@@ -31,7 +31,8 @@
     #inventory-grid {
         display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px; overflow-y: auto;
         background: #8B8B8B; padding: 5px; border: 2px solid #373737; border-top: 2px solid #373737; 
-        border-bottom-color: #FFF; border-right-color: #FFF; flex: 1; min-height: 0;
+        border-bottom-color: #c6c6c6; border-right-color: #c6c6c6; flex: 1; min-height: 0;
+		border-right-width: 6px;
     }
     .inv-item {
         width: 100%; aspect-ratio: 1; background: #8B8B8B; border: 1px solid transparent;
@@ -58,7 +59,7 @@
     .icon-btn:disabled, .icon-btn[disabled] { opacity: 0.4; cursor: not-allowed; filter: grayscale(100%); }
 
     #structures-modal .modal-content {
-        width: 850px; height: 600px; background: #C6C6C6; border: 2px solid #555; padding: 0;
+        width: 984px; height: 600px; background: #C6C6C6; border: 2px solid #555; padding: 0;
         display: flex; flex-direction: row; overflow: hidden;
     }
     .struct-main { flex: 1; display: flex; flex-direction: column; padding: 10px; border-right: 2px solid #555; }
@@ -92,7 +93,7 @@
         gap: 2px; 
         overflow-y: auto;
         background: #8B8B8B; 
-        padding: 10px; 
+        padding: 0px; 
         border: 2px solid #373737; 
         border-right-color: #FFF; 
         border-bottom-color: #FFF; 
@@ -105,7 +106,21 @@
         align-items: center; justify-content: center; cursor: pointer;
     }
     .struct-item:hover { background: #666; border-color: #FFF; }
-    .struct-name { font-size: 12px; text-align: center; color: white; padding: 0 5px;}
+.struct-name { 
+        font-size: 14px; 
+        text-align: center; 
+        color: white; 
+        padding: 0 5px;
+        width: 100%;
+        box-sizing: border-box;
+        
+        /* --- MAGIA MULTI-LÍNEA CON PUNTOS SUSPENSIVOS --- */
+        display: -webkit-box;
+        -webkit-line-clamp: 1; /* Aquí eliges el límite de renglones (ej. 2) */
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        word-wrap: break-word; /* Rompe palabras ultra largas si es necesario */
+    }
 
     /* SIDEBAR INFO */
     .struct-sidebar { width: 250px; background: #B0B0B0; display: flex; flex-direction: column; padding: 15px; align-items: center; overflow-y: auto; }
@@ -248,7 +263,13 @@
 
         <div class="ribbon-group">
             <div class="ribbon-group-content">
-                <div id="hotbar-container"></div>
+                <div id="hotbar-container">
+				
+				<button class="ribbon-btn-small" onclick="toggleInventory()" title="Open Inventory (E)" style="margin-left: 1px; height: 34px; width: 20px; background: #999; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border: 2px outset #FFF; padding: 0; box-sizing: border-box; vertical-align: top;">
+    <span style="font-size:14px; font-weight: bold; color: #333;">»</span>
+</button>
+
+</div>
             </div>
             <div class="ribbon-group-label">Inventory (E)</div>
         </div>
@@ -267,9 +288,19 @@
             </div>
             <div class="ribbon-group-label">Structures (R)</div>
         </div>
+		<div class="separator"></div>
+		
+		<div class="ribbon-group">
+						<button class="ribbon-btn-large" onclick="openCreateChestModal()">
+							<img src="assets/Create Loot Chest.png" alt="Loot Chest" style="width: 32px; height: 32px; object-fit: contain; margin-bottom: 0px; image-rendering: pixelated;">
+							<span>Create<br>Loot Chest</span>
+						</button>
+                        <div class="ribbon-group-label">Chests</div>
+                    </div>
+					
    </div>
 
-    <div id="tab-settings" class="tab-pane">
+<div id="tab-settings" class="tab-pane">
         <div class="ribbon-group">
             <div class="ribbon-group-content" style="flex-direction: column; align-items: flex-start; justify-content: center; gap: 5px;">
                 <div class="input-group">
@@ -290,12 +321,44 @@
 
         <div class="ribbon-group">
             <div class="ribbon-group-content">
-                <button class="ribbon-btn-large" onclick="openModal('achievements-modal')">
-                    <span class="icon">🏆</span>
-                    <span class="text">Manage</br>Achievs.</span>
-                </button>
+					<button class="ribbon-btn-large" onclick="openModal('achievements-modal')">
+						<img src="assets/Achievements.png" alt="Achievements" style="width: 32px; height: 32px; object-fit: contain; margin-bottom: 0px; image-rendering: pixelated;">
+						<span>Manage<br>Achievs.</span>
+					</button>
             </div>
             <div class="ribbon-group-label">Achievements</div>
+        </div>
+        <div class="separator"></div>
+
+        <div class="ribbon-group">
+            <div class="ribbon-group-content" style="display: flex; gap: 15px; align-items: center; justify-content: center;">
+                
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%;">
+                    <span class="icon" style="font-size: 18px; line-height: 1;">🎒</span>
+                    <label style="font-size: 12px; font-weight: normal; text-align: center; margin-top: 2px;line-height: 1;">Keep<br>Inventory</label>
+                    <input type="checkbox" id="gr-keepinventory" style="cursor: pointer; margin-top: auto;">
+                </div>
+
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%;">
+                    <span class="icon" style="font-size: 18px; line-height: 1;">☀️</span>
+                    <label style="font-size: 12px; font-weight: normal; text-align: center; margin-top: 2px;line-height: 1;">Daylight<br>Cycle</label>
+                    <input type="checkbox" id="gr-dodaylightcycle" checked style="cursor: pointer; margin-top: auto;">
+                </div>
+
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%;">
+                    <span class="icon" style="font-size: 18px; line-height: 1;">❤️</span>
+                    <label style="font-size: 12px; font-weight: normal; margin-top: 2px;line-height: 1;">Health</label>
+                    <input type="number" id="player-health" min="0" value="20" style="width: 40px; text-align: center; font-size: 12px; border: 1px solid #555; padding: 2px; margin-top: auto;">
+                </div>
+
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%;">
+                    <span class="icon" style="font-size: 18px; line-height: 1;">🌟</span>
+                    <label style="font-size: 12px; font-weight: fi; margin-top: 2px;line-height: 1;">XP</label>
+                    <input type="number" id="player-xp" min="0" value="0" style="width: 50px; text-align: center; font-size: 12px; border: 1px solid #555; padding: 2px; margin-top: auto;">
+                </div>
+
+            </div>
+            <div class="ribbon-group-label">Game Rules</div>
         </div>
     </div>
 
@@ -341,7 +404,6 @@
   <div id="selection-overlay">W: 0 H: 0</div>
   
  <div id="chest-tooltip-overlay" style="display: none;">
-      <h4 style="margin: 0 0 5px 0; color: #494949; font-size: 14px; ">Chest Contents</h4>
       <div id="chest-tooltip-grid"></div>
   </div>
   
@@ -381,22 +443,45 @@
     </div>
  </div>
 
- <div id="inventory-modal" class="modal">
-    <div class="modal-content">
-        <div class="inventory-layout">
-            <div class="inventory-main-area">
-                <div class="inv-header">
-                    <h3 style="color:gray;margin-top: 5px;margin-bottom: 5px;">Inventory</h3>
-                    <span class="close-modal" onclick="closeModal('inventory-modal')" style="cursor:pointer; font-weight:bold; color:black;">&times;</span>
+<div id="inventory-modal" class="modal" style="display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+        
+        <div id="inventory-modal-content" class="modal-content" style="margin: 5% auto; width: max-content; bla: #373737; border: 4px solid #555; color: #FFF; display: flex; flex-direction: column;">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #c6c6c6;">
+                <h3 style="margin: 0; color: #333" id="inventory-modal-title">Inventory</h3>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="text" id="inventory-search" placeholder="Search..." onkeyup="filterInventory(this.value)" style="padding: 5px; background: #111; color: #FFF; border: 1px solid #555;">
+                    <span onclick="toggleInventory()" style="cursor: pointer; font-size: 20px; font-weight: bold;">&times;</span>
                 </div>
-                <input type="text" id="inventory-search" placeholder="Search..." oninput="filterInventory(this.value)">
-                <div id="inventory-tabs-sidebar"></div>
-                <div id="inventory-grid"></div>
+            </div>
+            
+            <div style="display: flex; flex-direction: row;">
+                
+                <div style="display: flex; flex-direction: column; width: 584px; border-right: 4px solid #555;">
+                    
+                    <div style="display: flex; flex-direction: column; height: 372px;">
+                        <div id="inventory-tabs-sidebar" style="background: #c6c6c6; display: flex; flex-direction: row; gap: 8px; padding: 8px 10px 0px 10px; overflow-x: auto; overflow-y: hidden; align-items: flex-end; border-bottom: 3px solid #111; min-height: 38px;"></div>
+                        <div id="inventory-grid" style="flex-grow: 1; overflow-y: auto; background: #373737;"></div>
+                    </div>
+
+                    <div id="modal-hotbar-container" style="background: #c6c6c6; padding: 15px 10px; display: grid; grid-template-columns: repeat(9, 48px); gap: 0px; justify-content: center;"></div>
+                </div>
+
+                <div id="chest-builder-panel" style="display: none; background: #C6C6C6; padding: 15px; width: 584px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h4 style="margin: 0; color: #333; font-size: 18px;">Loot Chest Content</h4>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="custom-chest-name" placeholder="Chest Name..." style="padding: 5px; border: 2px inset #FFF; background: #8B8B8B; color: #FFF; font-weight: bold; width: 130px;">
+                            <button onclick="saveCustomChest()" style="padding: 5px 10px; background: #8B8B8B; border: 2px outset #FFF; cursor: pointer; font-weight: bold; color: white;">Save Chest</button>
+                        </div>
+                    </div>
+                    
+                    <div id="chest-builder-grid" style="display: grid; grid-template-columns: repeat(9, 64px); gap: 0px; justify-content: center;"></div>
+                </div>
+                
             </div>
         </div>
-    </div>
- </div>
- 
+    </div>	
  <div id="structures-modal" class="modal">
     <div class="modal-content">
         <div class="struct-main">
@@ -406,26 +491,35 @@
             </div>
             
             <div class="struct-tabs-container">
-                <div class="struct-tabs">
+<div class="struct-tabs">
+                    <div id="tab-struct-favs" class="struct-tab" onclick="filterStructures('favs')">⭐</div>
                     <div id="tab-struct-saved" class="struct-tab" onclick="filterStructures('saved')">Saved</div>
                     <div id="tab-struct-vanilla" class="struct-tab active" onclick="filterStructures('vanilla')">Vanilla</div>
                     <div id="tab-struct-community" class="struct-tab" onclick="filterStructures('community')">Community</div>
                 </div>
                 <div id="struct-saved-actions" style="display: none; gap: 5px;">
                     <button class="mini-btn btn-import" onclick="importStructures()" title="Import JSON">📥 Import</button>
-                    <button class="mini-btn btn-export" onclick="exportSavedStructures()" title="Export JSON">📤 Export</button>
+                    <button class="mini-btn btn-export" onclick="exportSavedStructures()" title="Export JSON">💾 Export</button>
                     <button class="mini-btn btn-reset" onclick="resetSavedStructures()" title="Delete All Saved">🗑️ Reset</button>
                 </div>
             </div>
 
-            <div id="struct-subtabs">
-                <div id="subtab-structure" class="struct-subtab active" onclick="filterSubCategory('structure')">Structure</div>
-                <div id="subtab-house" class="struct-subtab" onclick="filterSubCategory('house')">House</div>
-                <div id="subtab-chests" class="struct-subtab" onclick="filterSubCategory('chests')">Chests</div>
-                <div id="subtab-pixelart" class="struct-subtab" onclick="filterSubCategory('pixelart')">Pixel Art</div>
-                <div id="subtab-vehicle" class="struct-subtab" onclick="filterSubCategory('vehicle')">Vehicle</div>
-                <div id="subtab-other" class="struct-subtab" onclick="filterSubCategory('other')">Other</div>
-            </div>
+<div id="struct-subtabs" style="display: none; justify-content: space-between; align-items: center; margin-top: 10px; margin-bottom: 10px; width: 100%;">
+    
+<select id="struct-subcategory-select" onchange="filterSubCategory(this.value)" style="padding: 5px; border-radius: 4px; background: #FFF; color: #000; border: 1px solid #555;">
+        <option value="all">All</option>
+        <option value="Structure">Structures</option>
+        <option value="Chests">Chests</option>
+        <option value="Houses">Houses</option>
+        <option value="PixelArt">Pixel Art</option>
+        <option value="Other">Other</option>
+    </select>
+
+    <button id="btn-generate-chest" onclick="generateRandomLootChest()" style="padding: 5px 10px; cursor: pointer; border-radius: 4px; background: #FFF; color: #000; border: 1px solid #555;">
+        🎁 Generate Chest
+    </button>
+</div>
+
             <div id="structures-grid"></div>
         </div>
 <div class="struct-sidebar">

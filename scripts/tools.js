@@ -339,18 +339,62 @@ function activatePasteMode() {
     if (!window.clipboard) { alert("Clipboard empty."); return; }
     selectTool('paste');
 }
-function performPaste(targetX, targetY) {
+function performPaste(targetX, targetY, replaceAir = false) {
     if (!window.clipboard) return;
     historyManager.startAction();
+
+    // 1. SI SHIFT ESTÁ PRESIONADO: Limpiamos toda el área primero
+    if (replaceAir) {
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        
+        // Calculamos la caja exacta que ocupa la estructura
+        window.clipboard.data.forEach(blockData => {
+            if (blockData.dx < minX) minX = blockData.dx;
+            if (blockData.dx > maxX) maxX = blockData.dx;
+            if (blockData.dy < minY) minY = blockData.dy;
+            if (blockData.dy > maxY) maxY = blockData.dy;
+        });
+
+        // Recorremos esa caja y borramos todo (lo llenamos de aire)
+        for (let x = minX; x <= maxX; x++) {
+            for (let y = minY; y <= maxY; y++) {
+                const absX = targetX + x;
+                const absY = targetY + y;
+                const oldState = mbwom.getBlockState(absX, absY);
+                
+                // Si había un bloque ahí, lo borramos y lo guardamos en el historial
+                if (oldState) {
+                    historyManager.recordChange(absX, absY, oldState, null);
+                    if (mbwom.scene[absX]) delete mbwom.scene[absX][absY];
+                    renderBlock(absX, absY);
+                }
+            }
+        }
+    }
+
+    // 2. PEGAMOS LA ESTRUCTURA NORMALMENTE
     window.clipboard.data.forEach(blockData => {
-        const absX = targetX + blockData.dx; const absY = targetY + blockData.dy;
+        // Si NO estamos usando Shift y el bloque de la estructura es aire, lo ignoramos para no borrar el fondo
+        if (!replaceAir && (!blockData.state || blockData.state.type === "air" || blockData.state.type === "0" || blockData.state.type === 0)) {
+            return;
+        }
+
+        const absX = targetX + blockData.dx; 
+        const absY = targetY + blockData.dy;
         const oldState = mbwom.getBlockState(absX, absY);
+        
         if (!oldState && !blockData.state) return;
+        
         historyManager.recordChange(absX, absY, oldState, blockData.state);
-        if (blockData.state) mbwom.setBlockState(absX, absY, blockData.state);
-        else { if (mbwom.scene[absX]) delete mbwom.scene[absX][absY]; }
+        
+        if (blockData.state) {
+            mbwom.setBlockState(absX, absY, blockData.state);
+        } else { 
+            if (mbwom.scene[absX]) delete mbwom.scene[absX][absY]; 
+        }
         renderBlock(absX, absY);
     });
+    
     historyManager.commitAction();
 }
 

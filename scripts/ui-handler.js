@@ -9,15 +9,15 @@ const inventoryCategories = {
     // La pestaña "all" se llena automáticamente, no necesitas editar 'items' aquí.
     all: { icon: 'chest', items: [] }, 
 
-	// 🧱 Blocks
-	Blocks: { 
-		icon: 'bricks', 
-		items: [
+    // 🧱 Blocks
+    Blocks: { 
+        icon: 'bricks', 
+        items: [
 'br', 'dt', 'dt_1', 'farm', 'myc', 'gdt', 'cdt', 'r', 'cs',
 'ms', 'sb', 'clore', 'in', 'gd', 'dmore', 'rs', 'os', 'lap',
 'to', 'egem', 'wd1', 'wd_1', 'wd_2', 'wp', 'bbb', 'top', 'ib',
 'gb', 'db', 'lapb', 'clb', 'sd', 'ss', 'cy1', 'bricks', 'books',
-'b', 'snowblock', 'ice', 'fice', 'fice_1', 'fice_2', 'fice_3', 'fice_4', 'gv',
+'b', 'j', 'snowblock', 'ice', 'fice', 'fice_1', 'fice_2', 'fice_3', 'fice_4', 'gv',
 'cloth_white', 'cloth_lightgray', 'cloth_gray', 'cloth_black', 'cloth_brown', 'cloth_purple', 'cloth_magenta', 'cloth_red', 'cloth_orange',
 'cloth_pink', 'cloth_yellow', 'cloth_lightgreen', 'cloth_green', 'cloth_cyan', 'cloth_lightblue', 'cloth_blue', 'cloth_rainbow', 'gs',
 'gs_white', 'gs_lightgray', 'gs_gray', 'gs_black', 'gs_brown', 'gs_purple', 'gs_magenta', 'gs_redg', 'gs_orange',
@@ -27,7 +27,7 @@ const inventoryCategories = {
 'bdcloth_cyan', 'bdcloth_lightblue', 'bdcloth_blue', 'bdcloth_rainbow', 'bdgs', 'bdgs_white', 'bdgs_lightgray', 'bdgs_gray', 'bdgs_black',
 'bdgs_brown', 'bdgs_purple', 'bdgs_magenta', 'bdwp', 'bdgs_redg', 'bdgs_orange', 'bdgs_pink', 'bdgs_yellow', 'bdgs_lightgreen',
 'bdgs_green', 'bdgs_cyan', 'bdgs_lightblue', 'bdgs_blue', 'pk', 'pk_2', 'pk_3', 'pk_4', 'pk_5', 'pk_6', 'pk_7', 'pk_8', 'pk_9', 'pk_10', 'pk_11',
-		]
+        ]
     },
 
     // 🌿 Transportation
@@ -42,21 +42,21 @@ const inventoryCategories = {
     Tools: { 
         icon: 'DiamondPickaxe', 
         items: [
-			'WoodenPickaxe', 'StonePickaxe', 'IronPickaxe', 'GoldPickaxe', 'DiamondPickaxe', 'ObsidianPickaxe',
-			'WoodenSword', 'StoneSword', 'IronSword', 'GoldSword', 'DiamondSword',
-			'WoodenAxe', 'StoneAxe', 'IronAxe', 'GoldAxe', 'DiamondAxe',
-			'WoodenShovel', 'StoneShovel', 'IronShovel', 'GoldShovel', 'DiamondShovel',
-			'WoodenHoe', 'StoneHoe', 'IronHoe', 'GoldHoe', 'DiamondHoe'
+            'WoodenPickaxe', 'StonePickaxe', 'IronPickaxe', 'GoldPickaxe', 'DiamondPickaxe', 'ObsidianPickaxe',
+            'WoodenSword', 'StoneSword', 'IronSword', 'GoldSword', 'DiamondSword',
+            'WoodenAxe', 'StoneAxe', 'IronAxe', 'GoldAxe', 'DiamondAxe',
+            'WoodenShovel', 'StoneShovel', 'IronShovel', 'GoldShovel', 'DiamondShovel',
+            'WoodenHoe', 'StoneHoe', 'IronHoe', 'GoldHoe', 'DiamondHoe'
         ]
     },
-	
-	    // 🌿 Armor
-    Tools: { 
+    
+    // 🌿 Armor
+    Armor: { // Corregido el nombre de la categoría (antes decía Tools de nuevo)
         icon: 'DiamondShirt', 
         items: [
-			'LeatherCap', 'LeatherShirt', 'LeatherPants', 'LeatherShoes', 'IronCap', 'IronShirt', 'IronPants', 'IronShoes', 'GoldCap', 
-			'GoldShirt', 'GoldPants', 'GoldShoes', 'DiamondCap', 'DiamondShirt', 'DiamondPants', 'DiamondShoes', 'DragonCap', 'DragonShirt', 
-			'DragonPants', 'DragonShoes','SnowCap', 'AfroCap', 'PartyCap', 'ShadesCap', 'MustacheCap',
+            'LeatherCap', 'LeatherShirt', 'LeatherPants', 'LeatherShoes', 'IronCap', 'IronShirt', 'IronPants', 'IronShoes', 'GoldCap', 
+            'GoldShirt', 'GoldPants', 'GoldShoes', 'DiamondCap', 'DiamondShirt', 'DiamondPants', 'DiamondShoes', 'DragonCap', 'DragonShirt', 
+            'DragonPants', 'DragonShoes','SnowCap', 'AfroCap', 'PartyCap', 'ShadesCap', 'MustacheCap',
         ]
     },
 };
@@ -121,14 +121,41 @@ window.addEventListener('DOMContentLoaded', () => {
     setTimeout(renderHotbarUI, 500);
 });
 
-// --- SISTEMA DE INVENTARIO ---
+// =================================================================
+// --- SISTEMA DE INVENTARIO (DRAG & DROP) ---
+// =================================================================
+
+let heldItem = null; // Variable global para guardar qué llevas en la mano
+
+// Evento para que el ítem siga al ratón en toda la pantalla
+document.addEventListener('mousemove', (e) => {
+    const floater = document.getElementById('floating-held-item');
+    if (floater && heldItem) {
+        floater.style.left = e.clientX + 'px';
+        floater.style.top = e.clientY + 'px';
+    }
+});
+
+let isBuildingChest = false;
+let customChestInventory = new Array(27).fill(null);
+
+
 function toggleInventory() {
     const modal = document.getElementById('inventory-modal');
+    const chestPanel = document.getElementById('chest-builder-panel');
+    const title = document.getElementById('inventory-modal-title');
+
     if (modal.style.display === 'block') {
         modal.style.display = 'none';
+        heldItem = null; 
+        updateFloatingItem();
+        isBuildingChest = false; 
     } else {
         modal.style.display = 'block';
         
+        if (title) title.innerText = "Inventory";
+        if (chestPanel) chestPanel.style.display = 'none'; 
+
         const searchInput = document.getElementById('inventory-search');
         if(searchInput) {
             searchInput.value = ''; 
@@ -137,6 +164,7 @@ function toggleInventory() {
 
         renderInventoryTabs(); 
         populateInventory();   
+        renderModalHotbar(); 
     }
 }
 
@@ -145,20 +173,58 @@ function renderInventoryTabs() {
     if (!container) return;
     container.innerHTML = '';
 
+    container.style.display = 'flex';
+    container.style.flexDirection = 'row';
+    container.style.gap = '2px';
+    container.style.padding = '8px 10px 0px 10px'; 
+    container.style.background = 'lightgray';
+    container.style.borderBottom = 'none'; 
+    container.style.alignItems = 'flex-end'; 
+
     Object.keys(inventoryCategories).forEach(key => {
         const tabConfig = inventoryCategories[key];
+        const isActive = activeInventoryTab === key;
         
         const tabBtn = document.createElement('div');
-        tabBtn.className = `inv-tab-btn ${activeInventoryTab === key ? 'active' : ''}`;
+        
+        // Estilo de Pestaña (Solo ícono)
+        tabBtn.style.display = 'flex';
+        tabBtn.style.alignItems = 'center';
+        tabBtn.style.justifyContent = 'center';
+        tabBtn.style.padding = '6px 12px'; // Un poco más cuadradas
+        tabBtn.style.cursor = 'pointer';
+        tabBtn.style.borderTopLeftRadius = '0px'; 
+        tabBtn.style.borderTopRightRadius = '0px';
+        tabBtn.style.border = '2px solid #555';
+        
+        // Tooltip: Se mostrará el nombre al pasar el ratón por encima
+        tabBtn.title = key === 'all' ? 'All Items' : key; 
+        
+        if (isActive) {
+            tabBtn.style.background = '#373737'; 
+            tabBtn.style.borderBottom = '2px solid #373737'; 
+            tabBtn.style.marginBottom = '-2px'; 
+            tabBtn.style.paddingTop = '8px'; 
+        } else {
+            tabBtn.style.background = '#2A2A2A';
+            tabBtn.style.borderBottom = '2px solid #555';
+            tabBtn.style.marginBottom = '0px';
+        }
+
         tabBtn.onclick = () => {
             activeInventoryTab = key;
             populateInventory();
             renderInventoryTabs(); 
         };
 
+        // El Ícono (Canvas)
         const cvs = document.createElement('canvas');
-        cvs.width = 24;
-        cvs.height = 24;
+        cvs.width = 16;
+        cvs.height = 16;
+        // Hacemos el ícono un poquito más grande (24px) ya que no hay texto
+        cvs.style.width = '24px'; 
+        cvs.style.height = '24px';
+        cvs.style.imageRendering = 'pixelated';
         const ctx = cvs.getContext('2d');
         ctx.imageSmoothingEnabled = false;
 
@@ -173,14 +239,20 @@ function renderInventoryTabs() {
             renderObj = { x: 0, y: 0 }; 
         }
 
-        if (renderObj && images.blocks.complete) {
-             ctx.drawImage(images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 24, 24);
+        if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
+             ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
         }
 
         tabBtn.appendChild(cvs);
+
+        // Efecto Hover
+        tabBtn.onmouseenter = () => { if(!isActive) tabBtn.style.background = '#333'; };
+        tabBtn.onmouseleave = () => { if(!isActive) tabBtn.style.background = '#2A2A2A'; };
+
         container.appendChild(tabBtn);
     });
 }
+
 
 function populateInventory() {
     const grid = document.getElementById('inventory-grid');
@@ -191,6 +263,14 @@ function populateInventory() {
         return;
     }
 
+	grid.style.display = 'grid';
+    grid.style.gridTemplateColumns = 'repeat(9, 64px)'; 
+    grid.style.gap = '0px'; 
+    grid.style.padding = '0px';
+    grid.style.alignItems = 'start';
+    grid.style.alignContent = 'start'; // <--- ESTA LÍNEA ES LA SOLUCIÓN
+    grid.style.justifyContent = 'center';
+
     const allBlocks = (typeof window.blockData !== 'undefined') ? Object.keys(window.blockData) : [];
     let blocksToShow = [];
 
@@ -198,8 +278,6 @@ function populateInventory() {
         blocksToShow = allBlocks;
     } else {
         const categoryItems = inventoryCategories[activeInventoryTab].items;
-        // Solo mostramos bloques que realmente existen en el sistema (window.blockData)
-        // Esto evita bloques vacíos/negros si me equivoqué en algún nombre de la lista de arriba
         blocksToShow = categoryItems.filter(item => allBlocks.includes(item));
     }
 
@@ -207,16 +285,36 @@ function populateInventory() {
         const item = document.createElement('div');
         item.className = 'inv-item';
         item.title = blockType; 
-        item.onclick = () => selectBlockFromInventory(blockType);
+        
+        item.onclick = () => pickupItemFromInventory(blockType);
+        
+// --- TAMAÑO DEL SLOT: 64px ---
+        item.style.width = '64px';
+        item.style.height = '64px';
+        item.style.minWidth = '64px';
+        item.style.minHeight = '64px';
+        item.style.flexShrink = '0';
+        item.style.background = '#8B8B8B'; 
+        item.style.border = '4px inset #FFF'; 
+        item.style.display = 'flex';
+        item.style.justifyContent = 'center';
+        item.style.alignItems = 'center';
+        item.style.boxSizing = 'border-box';
+        item.style.cursor = 'pointer';
         
         const cvs = document.createElement('canvas');
-        cvs.width = 32;
-        cvs.height = 32;
+        cvs.width = 16;  
+        cvs.height = 16;
+// --- TAMAÑO DEL ÍTEM (CANVAS): 48px ---
+        cvs.style.width = '48px'; 
+        cvs.style.height = '48px';
+        cvs.style.imageRendering = 'pixelated';
         const ctx = cvs.getContext('2d');
         ctx.imageSmoothingEnabled = false;
         
         const tempState = { type: blockType }; 
         let renderObj = null;
+
         if (typeof getBlockObject === 'function') {
             renderObj = getBlockObject(tempState);
         } else if (window.blockData[blockType]) {
@@ -225,10 +323,17 @@ function populateInventory() {
         }
 
         if (renderObj && images.blocks.complete) {
-             ctx.drawImage(images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 32, 32);
+             ctx.drawImage(images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
+        } else {
+             ctx.fillStyle = "magenta"; 
+             ctx.fillRect(4, 4, 8, 8);
         }
         
         item.appendChild(cvs);
+
+        item.onmouseenter = () => { item.style.background = '#A0A0A0'; };
+        item.onmouseleave = () => { item.style.background = '#8B8B8B'; };
+
         grid.appendChild(item);
     });
 
@@ -251,32 +356,255 @@ function filterInventory(query) {
     });
 }
 
-function selectBlockFromInventory(blockType) {
-    if (typeof hotbar !== 'undefined') {
-        // Por defecto, asumimos que es un bloque normal
-        let type = blockType;
-        let states1 = undefined;
-        
-        // Si el nombre tiene un guion bajo (ej. pk_2 o cloth_red)
-        if (blockType.includes('_')) {
-            let parts = blockType.split('_');
-            type = parts[0]; // El tipo base (pk, cloth, etc)
-            
-            // Verificamos si el estado es un número o un texto
-            states1 = isNaN(parts[1]) ? parts[1] : parseInt(parts[1]); 
+// --- RECOGER ÍTEMS DEL INVENTARIO ---
+function pickupItemFromInventory(blockType) {
+    let type = blockType;
+    let states1 = undefined;
+    
+    if (blockType.includes('_')) {
+        let parts = blockType.split('_');
+        type = parts[0];
+        states1 = isNaN(parts[1]) ? parts[1] : parseInt(parts[1]); 
+    }
+
+    if (heldItem && heldItem.type === type && heldItem.states1 === states1) {
+        heldItem.count += 1;
+        if (heldItem.count > 64) heldItem.count = 64; 
+    } else {
+        heldItem = { type: type, states1: states1, count: 1 };
+    }
+    
+    updateFloatingItem();
+}
+
+// --- DIBUJAR EL ÍTEM FLOTANTE (TRANSPARENTE) ---
+function updateFloatingItem() {
+    let floater = document.getElementById('floating-held-item');
+    
+    if (!floater) {
+        floater = document.createElement('div');
+        floater.id = 'floating-held-item';
+        floater.style.position = 'fixed';
+        floater.style.pointerEvents = 'none'; 
+        floater.style.zIndex = '999999';
+        floater.style.opacity = '0.8'; 
+        floater.style.width = '64px';
+        floater.style.height = '64px';
+        floater.style.transform = 'translate(-50%, -50%)'; 
+        document.body.appendChild(floater);
+    }
+
+    if (!heldItem) {
+        floater.style.display = 'none';
+        return;
+    }
+
+    floater.style.display = 'block';
+    floater.innerHTML = ''; 
+
+    const cvs = document.createElement('canvas');
+    cvs.width = 16; cvs.height = 16;
+    cvs.style.width = '100%'; cvs.style.height = '100%';
+    cvs.style.imageRendering = 'pixelated';
+    const ctx = cvs.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+
+    let tempState = { type: heldItem.type };
+    if (heldItem.states1 !== undefined) tempState.states1 = heldItem.states1;
+
+    let renderObj = typeof getBlockObject === 'function' ? getBlockObject(tempState) : null;
+    if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
+        ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
+    } else {
+        ctx.fillStyle = "magenta"; ctx.fillRect(4, 4, 8, 8);
+    }
+    floater.appendChild(cvs);
+
+    if (heldItem.count > 1) {
+        let countTag = document.createElement('span');
+        countTag.innerText = heldItem.count;
+        countTag.style.position = 'absolute';
+        countTag.style.bottom = '-5px';
+        countTag.style.right = '0px';
+        countTag.style.color = 'white';
+        countTag.style.fontSize = '18px';
+        countTag.style.fontWeight = 'bold';
+        countTag.style.textShadow = '2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000';
+        floater.appendChild(countTag);
+    }
+}
+
+
+// --- DIBUJAR LA MOCHILA DEL JUGADOR (27 SLOTS) ---
+function renderPlayerInventory() {
+    const grid = document.getElementById('player-inventory-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    for (let i = 0; i < 36; i++) {
+        const slotDiv = document.createElement('div');
+        slotDiv.style.width = '64px';
+        slotDiv.style.height = '64px';
+        slotDiv.style.background = '#8B8B8B';
+        slotDiv.style.border = '4px inset #FFF';
+        slotDiv.style.display = 'flex';
+        slotDiv.style.justifyContent = 'center';
+        slotDiv.style.alignItems = 'center';
+        slotDiv.style.boxSizing = 'border-box';
+        slotDiv.style.position = 'relative';
+        slotDiv.style.cursor = 'pointer';
+
+        const slotData = playerInventory[i];
+
+        slotDiv.onclick = () => {
+            if (heldItem) {
+                let temp = slotData ? { type: slotData.type, states1: slotData.states1, count: slotData.count } : null;
+                let newState = { type: heldItem.type, count: heldItem.count };
+                if (heldItem.states1 !== undefined) newState.states1 = heldItem.states1;
+                
+                playerInventory[i] = newState;
+                heldItem = temp; 
+            } else {
+                if (slotData && slotData.type) {
+                    heldItem = { type: slotData.type, states1: slotData.states1, count: slotData.count || 1 };
+                    playerInventory[i] = null;
+                }
+            }
+            updateFloatingItem();
+            renderPlayerInventory(); 
+        };
+
+        slotDiv.onmouseenter = () => { slotDiv.style.background = '#A0A0A0'; };
+        slotDiv.onmouseleave = () => { slotDiv.style.background = '#8B8B8B'; };
+
+        if (slotData && slotData.type) {
+            const cvs = document.createElement('canvas');
+            cvs.width = 16; cvs.height = 16;
+            cvs.style.width = '48px'; 
+            cvs.style.height = '48px';
+            cvs.style.imageRendering = 'pixelated';
+            const ctx = cvs.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+
+            let renderObj = typeof getBlockObject === 'function' ? getBlockObject(slotData) : null;
+            if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
+                ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
+            }
+            slotDiv.appendChild(cvs);
+
+            if (slotData.count && slotData.count > 1) {
+                let countTag = document.createElement('span');
+                countTag.innerText = slotData.count;
+                countTag.style.position = 'absolute';
+                countTag.style.bottom = '-2px';
+                countTag.style.right = '4px';
+                countTag.style.color = 'white';
+                countTag.style.fontSize = '14px';
+                countTag.style.fontWeight = 'bold';
+                countTag.style.textShadow = '2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000';
+                slotDiv.appendChild(countTag);
+            }
         }
+        grid.appendChild(slotDiv);
+    }
+}
+
+
+// --- CREAR LA HOTBAR DENTRO DEL INVENTARIO ---
+function renderModalHotbar() {
+    let container = document.getElementById('modal-hotbar-container');
+    
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'modal-hotbar-container';
+        const grid = document.getElementById('inventory-grid');
+        if (grid && grid.parentNode) {
+            grid.parentNode.insertBefore(container, grid.nextSibling);
+        } else return;
+    }
+    
+    container.innerHTML = '';
+    container.style.display = 'grid';
+    container.style.gridTemplateColumns = 'repeat(9, 64px)'; // Cambiado a 64px
+    container.style.gap = '0px';
+    container.style.padding = '10px 10px 10px 10px';
+    container.style.justifyContent = 'center';
+
+    if (typeof hotbar === 'undefined' || !hotbar.slots) return;
+
+    hotbar.slots.forEach((slot, index) => {
+        const slotDiv = document.createElement('div');
+        // --- TAMAÑO DEL SLOT: 64px ---
+        slotDiv.style.width = '64px';
+        slotDiv.style.height = '64px';
+        slotDiv.style.background = '#8B8B8B';
+        slotDiv.style.border = '4px inset #FFF';
+        slotDiv.style.display = 'flex';
+        slotDiv.style.justifyContent = 'center';
+        slotDiv.style.alignItems = 'center';
+        slotDiv.style.boxSizing = 'border-box';
+        slotDiv.style.position = 'relative';
+        slotDiv.style.cursor = 'pointer';
+
+        slotDiv.onclick = () => {
+            if (heldItem) {
+                let newState = { type: heldItem.type };
+                if (heldItem.states1 !== undefined) newState.states1 = heldItem.states1;
+                if (heldItem.count > 1) newState.count = heldItem.count;
+
+                hotbar.slots[index] = newState;
+                heldItem = null; 
+                
+                updateFloatingItem();
+                renderModalHotbar(); 
+                if(typeof renderHotbarUI === 'function') renderHotbarUI(); 
+            } else {
+                if (slot && slot.type) {
+                    heldItem = { type: slot.type, states1: slot.states1, count: slot.count || 1 };
+                    hotbar.slots[index] = { type: null }; 
+                    
+                    updateFloatingItem();
+                    renderModalHotbar();
+                    if(typeof renderHotbarUI === 'function') renderHotbarUI();
+                }
+            }
+        };
         
-        // Construimos el objeto de estado tal como lo usa Mine Blocks
-        let newState = { type: type };
-        if (states1 !== undefined) {
-            newState.states1 = states1;
+        slotDiv.onmouseenter = () => { slotDiv.style.background = '#A0A0A0'; };
+        slotDiv.onmouseleave = () => { slotDiv.style.background = '#8B8B8B'; };
+
+        if (slot && slot.type) {
+            const cvs = document.createElement('canvas');
+            cvs.width = 16; cvs.height = 16;
+            // --- TAMAÑO DEL ÍTEM (CANVAS): 48px ---
+            cvs.style.width = '48px'; 
+            cvs.style.height = '48px';
+            cvs.style.imageRendering = 'pixelated';
+            const ctx = cvs.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+
+            let renderObj = typeof getBlockObject === 'function' ? getBlockObject(slot) : null;
+            if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
+                ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
+            }
+            slotDiv.appendChild(cvs);
+
+            if (slot.count && slot.count > 1) {
+                let countTag = document.createElement('span');
+                countTag.innerText = slot.count;
+                countTag.style.position = 'absolute';
+                countTag.style.bottom = '-2px';
+                countTag.style.right = '4px';
+                countTag.style.color = 'white';
+                countTag.style.fontSize = '14px';
+                countTag.style.fontWeight = 'bold';
+                countTag.style.textShadow = '2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000';
+                slotDiv.appendChild(countTag);
+            }
         }
 
-        // Lo guardamos en el slot de la hotbar
-        hotbar.slots[slotIndex] = newState;
-        renderHotbarUI();
-    }
-    closeModal('inventory-modal');
+        container.appendChild(slotDiv);
+    });
 }
 
 function renderHotbarUI() {
@@ -305,13 +633,26 @@ function renderHotbarUI() {
              renderObj = getBlockObject(slot);
         }
         
-        if (renderObj && images && images.blocks && images.blocks.complete) {
-            ctx.drawImage(images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 24, 24);
+        if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
+            ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 24, 24);
         }
         
         slotDiv.appendChild(cvs);
         container.appendChild(slotDiv);
     });
+
+    // --- AQUÍ AÑADIMOS TU BOTÓN EXACTO AL FINAL DE LA HOTBAR ---
+    const invBtn = document.createElement('button');
+    invBtn.className = 'ribbon-btn-small';
+    invBtn.onclick = toggleInventory;
+    invBtn.title = "Open Inventory (E)";
+    
+    // Usé tu estilo exacto. Solo cambié el "height" a 34px para que coincida 
+    // con la altura de los slots de tu hotbar, pero si lo quieres más alto ponle 66px.
+    invBtn.style.cssText = "margin-left: 2px; height: 34px; width: 20px; background: #999; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 2px outset #FFF; box-sizing: border-box;";
+    invBtn.innerHTML = '<span style="font-size:14px; font-weight: bold; color: #333;">»</span>';
+    
+    container.appendChild(invBtn);
 }
 
 function updateHotbarSelection() {
@@ -331,16 +672,169 @@ function toggleHardcore(isHardcore) {
     const cheatsCheckbox = document.getElementById('cheats');
     
     if (isHardcore) {
-        // Guardar el estado anterior si quisieras restaurarlo (opcional)
-        // Forzar Survival (Valor 0)
         gmSelect.value = "0"; 
-        gmSelect.disabled = true; // Bloquear selector
+        gmSelect.disabled = true; 
         
-        // Opcional: Desactivar trucos en Hardcore por defecto
         if(cheatsCheckbox) cheatsCheckbox.checked = false;
         
     } else {
-        // Reactivar selector
         gmSelect.disabled = false;
+    }
+}
+
+
+
+// ==========================================
+// 🎁 CREADOR DE COFRES (CHEST BUILDER)
+// ==========================================
+
+function openCreateChestModal() {
+    isBuildingChest = true;
+    customChestInventory = new Array(27).fill(null); 
+    
+    const modal = document.getElementById('inventory-modal');
+    const chestPanel = document.getElementById('chest-builder-panel');
+    const title = document.getElementById('inventory-modal-title');
+    
+    modal.style.display = 'block';
+    
+    if (title) title.innerText = "Create Loot Chest";
+    if (chestPanel) chestPanel.style.display = 'block'; 
+    
+    const nameInput = document.getElementById('custom-chest-name');
+    if (nameInput) nameInput.value = 'Loot Chest';
+
+    renderInventoryTabs(); 
+    populateInventory();
+    renderChestBuilder(); 
+    renderModalHotbar(); 
+}
+
+function renderChestBuilder() {
+    const grid = document.getElementById('chest-builder-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    
+    for (let i = 0; i < 27; i++) {
+        const slotDiv = document.createElement('div');
+        // --- TAMAÑO DEL SLOT: 64px ---
+        slotDiv.style.width = '64px';
+        slotDiv.style.height = '64px';
+        slotDiv.style.minWidth = '64px';
+        slotDiv.style.minHeight = '64px';
+        slotDiv.style.flexShrink = '0';
+        slotDiv.style.background = '#8B8B8B';
+        slotDiv.style.border = '4px inset #FFF';
+        slotDiv.style.display = 'flex';
+        slotDiv.style.justifyContent = 'center';
+        slotDiv.style.alignItems = 'center';
+        slotDiv.style.boxSizing = 'border-box';
+        slotDiv.style.position = 'relative';
+        slotDiv.style.cursor = 'pointer';
+
+        const slotData = customChestInventory[i];
+
+        slotDiv.onclick = () => {
+            if (heldItem) {
+                let temp = slotData ? { type: slotData.type, states1: slotData.states1, count: slotData.count } : null;
+                let newState = { type: heldItem.type, count: heldItem.count };
+                if (heldItem.states1 !== undefined) newState.states1 = heldItem.states1;
+                
+                customChestInventory[i] = newState;
+                heldItem = temp; 
+            } else {
+                if (slotData && slotData.type) {
+                    heldItem = { type: slotData.type, states1: slotData.states1, count: slotData.count || 1 };
+                    customChestInventory[i] = null;
+                }
+            }
+            updateFloatingItem();
+            renderChestBuilder(); 
+        };
+
+        slotDiv.onmouseenter = () => { slotDiv.style.background = '#A0A0A0'; };
+        slotDiv.onmouseleave = () => { slotDiv.style.background = '#8B8B8B'; };
+
+        if (slotData && slotData.type) {
+            const cvs = document.createElement('canvas');
+            cvs.width = 16; cvs.height = 16;
+            // --- TAMAÑO DEL ÍTEM (CANVAS): 48px ---
+            cvs.style.width = '48px'; 
+            cvs.style.height = '48px';
+            cvs.style.imageRendering = 'pixelated';
+            const ctx = cvs.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+
+            let renderObj = typeof getBlockObject === 'function' ? getBlockObject(slotData) : null;
+            if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
+                ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
+            }
+            slotDiv.appendChild(cvs);
+
+            if (slotData.count && slotData.count > 1) {
+                let countTag = document.createElement('span');
+                countTag.innerText = slotData.count;
+                countTag.style.position = 'absolute';
+                countTag.style.bottom = '-2px';
+                countTag.style.right = '4px';
+                countTag.style.color = 'white';
+                countTag.style.fontSize = '14px';
+                countTag.style.fontWeight = 'bold';
+                countTag.style.textShadow = '2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000';
+                slotDiv.appendChild(countTag);
+            }
+        }
+        grid.appendChild(slotDiv);
+    }
+}
+
+async function saveCustomChest() {
+    const titleInput = document.getElementById('custom-chest-name');
+    let title = titleInput ? titleInput.value.trim() : 'Loot Chest';
+    if (!title) title = 'Custom Chest';
+
+    // Convertimos el inventario del Creador al formato interno que usa Mine Blocks
+    const formattedInventory = customChestInventory.map(item => {
+        if (!item) return 0; // 0 significa slot vacío
+        return [item.type, item.count || 1, item.states1 || 0];
+    });
+
+    // Creamos la "Estructura" de un solo bloque (El cofre)
+    const chestData = [
+        {
+            dx: 0, dy: 0,
+            state: {
+                type: "chest",
+                chests: formattedInventory
+            }
+        }
+    ];
+
+    const newStruct = {
+        title: title,
+        author: "Anonymous",
+        category: "saved",
+        subcategory: "Chests",
+        data: chestData,
+        timestamp: Date.now()
+    };
+
+    // 1. Guardar en Base de Datos Real
+    if (typeof dbManager !== 'undefined') {
+        await dbManager.save(newStruct);
+    }
+    
+    // 2. Guardar en Memoria RAM
+    if (typeof structureDB !== 'undefined') {
+        structureDB.push(newStruct);
+    }
+
+    // 3. Cerramos el Inventario
+    toggleInventory();
+
+    // 4. Abrimos el menú de Estructuras y lo mandamos a la pestaña correcta
+    if (typeof openStructuresModal === 'function') openStructuresModal();
+    if (typeof filterStructures === 'function') {
+        filterStructures('saved', 'Chests');
     }
 }

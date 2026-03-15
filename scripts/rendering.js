@@ -81,3 +81,34 @@ if (typeof window.texturesMap !== 'undefined') {
 } else {
     console.error("ERROR: texturesMap no encontrado. Asegúrate de cargar scripts/textures.js antes.");
 }
+
+
+
+function drawDurabilityBar(ctx, x, y, slotWidth, slotHeight, damage, maxDurability) {
+    // Si no hay daño, no tiene durabilidad o está intacto, no dibujamos nada
+    if (!damage || damage <= 0 || !maxDurability) return; 
+
+    // Calculamos la vida restante
+    const remaining = maxDurability - damage;
+    let percentage = remaining / maxDurability;
+    if (percentage < 0) percentage = 0;
+
+    // Colores clásicos de Mine Blocks / Minecraft
+    let color = '#00FF00'; // Verde (Sano)
+    if (percentage <= 0.5) color = '#FFFF00'; // Amarillo (Mitad)
+    if (percentage <= 0.25) color = '#FFAA00'; // Naranja (Grave)
+    if (percentage <= 0.1) color = '#FF0000'; // Rojo (Casi roto)
+
+    // Ajustamos la posición al fondo del slot
+    const barX = x + 2;
+    const barY = y + slotHeight - 2; // A 5 píxeles del fondo
+    const barMaxWidth = slotWidth - 4; // Dejamos un margen a los lados
+
+    // 1. Dibujar el fondo negro de la barra
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(barX, barY, barMaxWidth, 3);
+
+    // 2. Dibujar el relleno de color (la vida real)
+    ctx.fillStyle = color;
+    ctx.fillRect(barX, barY, Math.max(1, barMaxWidth * percentage), 2);
+}

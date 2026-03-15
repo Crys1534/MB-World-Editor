@@ -508,7 +508,7 @@ canvas {
  border: 1px solid var(--border);
  width: 600px;
  max-width: 90vw;
- max-height: 93vh;
+
  overflow-y: auto;
  border-radius: 5px;
  box-shadow: 0 4px 15px rgba(0,0,0,0.5);
@@ -786,8 +786,8 @@ button:hover {
 }
 
 .chest-tooltip-slot {
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
     background: #8B8B8B;
     border: 2px inset #FFF;
     display: flex;
