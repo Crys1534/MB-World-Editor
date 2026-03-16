@@ -377,8 +377,11 @@ canvas.addEventListener("mousedown", function (event) {
     if ((currentTool === 'select' || currentTool === 'lasso') && mouse.left) {
         handleSelectionInput('start', mouse.worldX, mouse.worldY);
     } 
-else if (currentTool === 'paste' && mouse.left) {
-        // Le mandamos event.shiftKey: será true si lo estás presionando, false si no
+    // NUEVO: Evento para la varita mágica
+    else if (currentTool === 'magic' && mouse.left) {
+        magicWandSelect(mouse.worldX, mouse.worldY);
+    }
+    else if (currentTool === 'paste' && mouse.left) {
         performPaste(mouse.worldX, mouse.worldY, event.shiftKey);
     }
     else if (mouse.left || mouse.right) {

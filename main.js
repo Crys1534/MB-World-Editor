@@ -301,6 +301,48 @@ function drawUI() {
         ctx.strokeRect(startScreenX, startScreenY, window.clipboard.width * tileSize, -(window.clipboard.height * tileSize));
     }
 
+
+// --- MAGIC WAND (Varita Mágica) ---
+    if (window.selection.type === 'magic' && window.selection.points && window.selection.points.length > 0) {
+        ctx.fillStyle = "rgba(0, 255, 255, 0.2)"; // Un rosa translúcido para identificar la magia
+        ctx.strokeStyle = "#87CEFA"; // Borde rosa fuerte
+        ctx.lineWidth = 2;
+
+        ctx.beginPath();
+        
+        // Iteramos sobre todos los puntos que atrapó la varita
+        window.selection.points.forEach(point => {
+            const screenX = (point.x - camera.x) * tileSize;
+            const screenY = canvas.height - (point.y - camera.y) * tileSize;
+            
+            // Dibujamos el relleno de cada bloque
+            ctx.fillRect(screenX, screenY, tileSize, -tileSize);
+
+            // --- DIBUJO DE BORDES INTELIGENTES ---
+            // Solo dibujamos la línea si no hay un bloque contiguo seleccionado
+            const left = screenX;
+            const right = screenX + tileSize;
+            const bottom = screenY; 
+            const top = screenY - tileSize;
+
+            if (!window.selection.pointSet.has((point.x + 1) + "," + point.y)) { 
+                ctx.moveTo(right, bottom); ctx.lineTo(right, top); 
+            }
+            if (!window.selection.pointSet.has((point.x - 1) + "," + point.y)) { 
+                ctx.moveTo(left, bottom); ctx.lineTo(left, top); 
+            }
+            if (!window.selection.pointSet.has(point.x + "," + (point.y + 1))) { 
+                ctx.moveTo(left, top); ctx.lineTo(right, top); 
+            }
+            if (!window.selection.pointSet.has(point.x + "," + (point.y - 1))) { 
+                ctx.moveTo(left, bottom); ctx.lineTo(right, bottom); 
+            }
+        });
+        
+        ctx.stroke();
+    }
+
+
     // --- SELECCIONES MÚLTIPLES (Rect) ---
     if (window.selection.type === 'rect') {
         // Combinamos la selección actual (p1, p2) con las guardadas (subRects)

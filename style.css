@@ -345,7 +345,7 @@ body {
 /* --- SIDEBAR (HERRAMIENTAS FLOTANTE) --- */
 #toolbar-sidebar {
  position: absolute;
- top: 225px; /* Ajustado para estar debajo de la cinta (TopBar + Ribbon ~153px) */
+ top: 192px; /* Ajustado para estar debajo de la cinta (TopBar + Ribbon ~153px) */
  left: 15px; /* Separación del borde izquierdo */
  bottom: auto; /* IMPORTANTE: Ya no se estira hasta abajo */
  height: auto; /* La altura se ajusta al contenido de los botones */

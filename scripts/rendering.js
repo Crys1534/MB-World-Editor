@@ -59,6 +59,15 @@ window.blockData = {
     carrot: window.renderers.wheat,
     nw: window.renderers.wheat,
     bseed: window.renderers.wheat,
+
+// --- SOLUCIÓN: ALIAS PARA BLOQUES CON VARIANTES DE COLOR ---
+    cloth: window.renderers.default,
+    bdcloth: window.renderers.default,
+    carpet: window.renderers.default,
+    bed1: window.renderers.default,
+    bed2: window.renderers.default,
+    cake: window.renderers.default,
+    ccake: window.renderers.default
 }
 
 // --- AUTO-POBLADO ROBUSTO DEL INVENTARIO ---

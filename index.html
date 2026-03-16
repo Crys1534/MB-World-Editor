@@ -300,19 +300,49 @@
 					
    </div>
 
-<div id="tab-settings" class="tab-pane">
+    <div id="tab-settings" class="tab-pane">
+        
         <div class="ribbon-group">
-            <div class="ribbon-group-content" style="flex-direction: column; align-items: flex-start; justify-content: center; gap: 5px;">
-                <div class="input-group">
-                    <label style="margin-right: 5px; font-size: 12px;">Gamemode:</label>
-                    <select id="gamemode" style="padding: 2px;">
-                        <option value="0">Survival</option><option value="1">Creative</option>
-                        <option value="2">Adventure</option><option value="3">Spectator</option>
-                    </select>
+            <div class="ribbon-group-content" style="display: flex; gap: 15px; align-items: center;">
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 5px;">
+                        <label style="font-size: 12px;">Gamemode:</label>
+                        <select id="gamemode" style="padding: 1px; font-size: 11px;">
+                            <option value="0">Survival</option><option value="1">Creative</option>
+                            <option value="2">Adventure</option><option value="3">Spectator</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 5px;">
+                        <label style="font-size: 12px;">Difficulty:</label>
+                        <select id="gr-difficulty" style="padding: 1px; font-size: 11px;">
+                            <option value="0">Peaceful</option><option value="1">Easy</option>
+                            <option value="2" selected>Normal</option><option value="3">Hard</option>
+                        </select>
+                    </div>
                 </div>
-                <div style="display: flex; gap: 10px;">
+                
+                <div style="display: flex; flex-direction: column; gap: 5px;">
                     <label style="cursor: pointer; font-size: 12px;"><input type="checkbox" id="cheats"> Cheats</label>
                     <label style="cursor: pointer; font-size: 12px; color: #ff5555; font-weight: bold;"><input type="checkbox" id="hardcore" onchange="toggleHardcore(this.checked)"> Hardcore</label>
+                </div>
+
+                <div style="width: 1px; height: 35px; background: #555; margin: 0 5px;"></div>
+
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 5px;">
+                        <label style="font-size: 12px;">Day:</label>
+                        <input type="text" id="gr-day" value="1" disabled title="Days passed (Read Only)" style="width: 40px; font-size: 11px; padding: 1px; text-align: center; background: #a0a0a0; border: 1px inset #555; color: #333; cursor: not-allowed;">
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 5px;">
+                        <label style="font-size: 12px;">Time:</label>
+                        <input type="number" id="gr-time" min="0" value="0" style="width: 40px; font-size: 11px; padding: 1px; text-align: center;">
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 5px;">
+                        <label style="font-size: 12px;">Weather:</label>
+                        <select id="gr-weather" style="padding: 1px; font-size: 11px; width: 60px;">
+                            <option value="clear" selected>Clear</option><option value="rain">Rain</option><option value="thunder">Thunder</option>
+                        </select>
+                    </div>
                 </div>
             </div>
             <div class="ribbon-group-label">World Settings</div>
@@ -321,45 +351,68 @@
 
         <div class="ribbon-group">
             <div class="ribbon-group-content">
-					<button class="ribbon-btn-large" onclick="openModal('achievements-modal')">
-						<img src="assets/Achievements.png" alt="Achievements" style="width: 32px; height: 32px; object-fit: contain; margin-bottom: 0px; image-rendering: pixelated;">
-						<span>Manage<br>Achievs.</span>
-					</button>
+                <button class="ribbon-btn-large" onclick="openModal('achievements-modal')">
+                    <img src="assets/Achievements.png" alt="Achievements" style="width: 32px; height: 32px; object-fit: contain; margin-bottom: 0px; image-rendering: pixelated;">
+                    <span>Manage<br>Achievs.</span>
+                </button>
             </div>
             <div class="ribbon-group-label">Achievements</div>
         </div>
         <div class="separator"></div>
 
         <div class="ribbon-group">
-            <div class="ribbon-group-content" style="display: flex; gap: 15px; align-items: center; justify-content: center;">
-                
+            <div class="ribbon-group-content" style="display: flex; gap: 12px; align-items: center; justify-content: center;">
                 <div style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%;">
                     <span class="icon" style="font-size: 18px; line-height: 1;">🎒</span>
-                    <label style="font-size: 12px; font-weight: normal; text-align: center; margin-top: 2px;line-height: 1;">Keep<br>Inventory</label>
+                    <label style="font-size: 11px; text-align: center; margin-top: 2px; line-height: 1;">Keep<br>Inv.</label>
                     <input type="checkbox" id="gr-keepinventory" style="cursor: pointer; margin-top: auto;">
                 </div>
-
                 <div style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%;">
                     <span class="icon" style="font-size: 18px; line-height: 1;">☀️</span>
-                    <label style="font-size: 12px; font-weight: normal; text-align: center; margin-top: 2px;line-height: 1;">Daylight<br>Cycle</label>
+                    <label style="font-size: 11px; text-align: center; margin-top: 2px; line-height: 1;">Daylight<br>Cycle</label>
                     <input type="checkbox" id="gr-dodaylightcycle" checked style="cursor: pointer; margin-top: auto;">
                 </div>
-
                 <div style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%;">
-                    <span class="icon" style="font-size: 18px; line-height: 1;">❤️</span>
-                    <label style="font-size: 12px; font-weight: normal; margin-top: 2px;line-height: 1;">Health</label>
-                    <input type="number" id="player-health" min="0" value="20" style="width: 40px; text-align: center; font-size: 12px; border: 1px solid #555; padding: 2px; margin-top: auto;">
+                    <span class="icon" style="font-size: 18px; line-height: 1;">💥</span>
+                    <label style="font-size: 11px; text-align: center; margin-top: 2px; line-height: 1;">Mob<br>Griefing</label>
+                    <input type="checkbox" id="gr-mobgriefing" checked style="cursor: pointer; margin-top: auto;">
                 </div>
-
                 <div style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%;">
-                    <span class="icon" style="font-size: 18px; line-height: 1;">🌟</span>
-                    <label style="font-size: 12px; font-weight: fi; margin-top: 2px;line-height: 1;">XP</label>
-                    <input type="number" id="player-xp" min="0" value="0" style="width: 50px; text-align: center; font-size: 12px; border: 1px solid #555; padding: 2px; margin-top: auto;">
+                    <span class="icon" style="font-size: 18px; line-height: 1;">🥩</span>
+                    <label style="font-size: 11px; text-align: center; margin-top: 2px; line-height: 1;">Mob<br>Loot</label>
+                    <input type="checkbox" id="gr-domobloot" checked style="cursor: pointer; margin-top: auto;">
                 </div>
-
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%;">
+                    <span class="icon" style="font-size: 18px; line-height: 1;">🔥</span>
+                    <label style="font-size: 11px; text-align: center; margin-top: 2px; line-height: 1;">Fire<br>Tick</label>
+                    <input type="checkbox" id="gr-dofiretick" checked style="cursor: pointer; margin-top: auto;">
+                </div>
             </div>
             <div class="ribbon-group-label">Game Rules</div>
         </div>
+        <div class="separator"></div>
+
+        <div class="ribbon-group">
+            <div class="ribbon-group-content" style="display: flex; gap: 15px; align-items: center; justify-content: center;">
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%;">
+                    <span class="icon" style="font-size: 18px; line-height: 1;">❤️</span>
+                    <label style="font-size: 12px; margin-top: 2px; line-height: 1;">Health</label>
+                    <input type="number" id="player-health" min="0" value="20" style="width: 40px; text-align: center; font-size: 12px; border: 1px solid #555; padding: 2px; margin-top: auto;">
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%;">
+                    <span class="icon" style="font-size: 18px; line-height: 1;">🍖</span>
+                    <label style="font-size: 12px; margin-top: 2px; line-height: 1;">Hunger</label>
+                    <input type="number" id="player-hunger" min="0" value="20" style="width: 40px; text-align: center; font-size: 12px; border: 1px solid #555; padding: 2px; margin-top: auto;">
+                </div>
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%;">
+                    <span class="icon" style="font-size: 18px; line-height: 1;">🌟</span>
+                    <label style="font-size: 12px; margin-top: 2px; line-height: 1;">XP</label>
+                    <input type="number" id="player-xp" min="0" value="0" style="width: 45px; text-align: center; font-size: 12px; border: 1px solid #555; padding: 2px; margin-top: auto;">
+                </div>
+            </div>
+            <div class="ribbon-group-label">Player</div>
+        </div>
+
     </div>
 
     <div id="tab-view" class="tab-pane">
@@ -392,6 +445,7 @@
     <button class="tool-btn" id="tool-eraser" onclick="selectTool('eraser')" title="Eraser">🧼</button>
     <button class="tool-btn" id="tool-bucket" onclick="selectTool('bucket')" title="Bucket">🪣</button>
 	<button class="tool-btn" id="tool-select" onclick="selectTool('select')" title="Select">🔳</button>
+	<button class="tool-btn" id="tool-magic" onclick="selectTool('magic')" title="Magic Wand">🪄</button>
     <button class="tool-btn" id="tool-lasso" onclick="selectTool('lasso')" title="Free form">➰</button>
     <button class="tool-btn" id="tool-eyedropper" onclick="selectTool('eyedropper')" title="Gotero">💧</button>
     <div class="separator" style="width: 80%; height: 1px; background: #444; margin: 5px 0;"></div>
@@ -739,6 +793,4 @@
  <script src="scripts/tools.js"></script>
 <script src="scripts/structures.js"></script>
  <script src="scripts/audio-manager.js"></script> </body>
-</html>
-</body>
 </html>

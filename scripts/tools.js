@@ -7,15 +7,18 @@ let toolSpray = false; // NUEVO: Estado del modo Spray
 let isShiftPressed = false; 
 
 // Estructura actualizada para soportar múltiples selecciones
+// Agregamos points y pointSet para manejar la varita mágica
 window.selection = { 
     p1: null, 
     p2: null, 
     path: [], 
     type: 'rect', 
     dragging: false, 
-    subRects: [] 
+    subRects: [],
+    points: [], 
+    pointSet: new Set() 
 };
-window.clipboard = null; 
+window.clipboard = null;
 
 // Detectores globales de Shift
 window.addEventListener('keydown', (e) => { if(e.key === 'Shift') isShiftPressed = true; });
@@ -30,6 +33,9 @@ function checkSelectionState() {
     if (window.selection.type === 'rect' && ((window.selection.p1 && window.selection.p2) || window.selection.subRects.length > 0)) {
         hasSelection = true;
     } else if (window.selection.type === 'poly' && window.selection.path.length > 2) {
+        hasSelection = true;
+    } else if (window.selection.type === 'magic' && window.selection.points.length > 0) {
+        // Validamos la selección mágica
         hasSelection = true;
     }
 
@@ -154,8 +160,16 @@ function isPointInPolygon(x, y, polygon) {
 }
 
 function isPointSelected(x, y) {
+    // NUEVO: Compatibilidad con la Varita Mágica
+    if (window.selection.type === 'magic') {
+        return window.selection.pointSet.has(x + "," + y);
+    }
+
     if (window.selection.type === 'poly' && window.selection.path.length > 2) {
-        return isPointInPolygon(x, y, window.selection.path);
+        for (let i = 0; i < window.selection.path.length; i++) {
+            if (window.selection.path[i].x === x && window.selection.path[i].y === y) return true;
+        }
+        return isPointInPolygon(x + 0.5, y + 0.5, window.selection.path);
     }
     
     if (window.selection.p1 && window.selection.p2) {
@@ -175,11 +189,18 @@ function isPointSelected(x, y) {
             if (x >= minX && x <= maxX && y >= minY && y <= maxY) return true;
         }
     }
-
     return false;
 }
 
 function getSelectionBounds() {
+    // NUEVO: Varita mágica
+    if (window.selection.type === 'magic' && window.selection.points.length > 0) {
+        return { 
+            minX: window.selection.p1.x, maxX: window.selection.p2.x, 
+            minY: window.selection.p1.y, maxY: window.selection.p2.y 
+        };
+    }
+
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     
     if (window.selection.type === 'poly' && window.selection.path.length > 0) {
@@ -218,34 +239,51 @@ function handleSelectionInput(action, x, y) {
             const last = window.selection.path[window.selection.path.length - 1];
             
             if (last.x !== x || last.y !== y) { 
-                if (last.x !== x && last.y !== y) {
-                    window.selection.path.push({x: x, y: last.y}); 
+                // Algoritmo para pintar bloque por bloque sin dejar huecos
+                let dx = Math.abs(x - last.x);
+                let dy = Math.abs(y - last.y);
+                let sx = (last.x < x) ? 1 : -1;
+                let sy = (last.y < y) ? 1 : -1;
+                let err = dx - dy;
+                let cx = last.x;
+                let cy = last.y;
+
+                while (true) {
+                    // Evitamos agregar el mismo bloque dos veces seguidas
+                    if (cx !== last.x || cy !== last.y) {
+                        window.selection.path.push({x: cx, y: cy});
+                    }
+                    if (cx === x && cy === y) break;
+                    let e2 = 2 * err;
+                    if (e2 > -dy) { err -= dy; cx += sx; }
+                    if (e2 < dx) { err += dx; cy += sy; }
                 }
-                window.selection.path.push({x, y}); 
                 updateSelectionInfo(); 
             }
 
         } else if (action === 'end') {
-            window.selection.dragging = false; updateSelectionInfo(); checkSelectionState();
+            window.selection.dragging = false; 
+            
+            // Calculamos el tamaño para que se pueda guardar como estructura
+            if (window.selection.path.length > 2) {
+                const xs = window.selection.path.map(p => p.x);
+                const ys = window.selection.path.map(p => p.y);
+                window.selection.p1 = { x: Math.min(...xs), y: Math.min(...ys) };
+                window.selection.p2 = { x: Math.max(...xs), y: Math.max(...ys) };
+            }
+            updateSelectionInfo(); checkSelectionState();
         }
         return;
     }
     
+    // --- Lógica original de la herramienta Select (Rectangular) ---
     window.selection.type = 'rect';
     if (action === 'start') {
         window.selection.path = []; 
-        
-        if (!isShiftPressed) {
-            window.selection.subRects = [];
-        } else {
-            if (window.selection.p1 && window.selection.p2) {
-                window.selection.subRects.push({
-                    p1: window.selection.p1, 
-                    p2: window.selection.p2
-                });
-            }
+        if (!isShiftPressed) window.selection.subRects = [];
+        else if (window.selection.p1 && window.selection.p2) {
+            window.selection.subRects.push({ p1: window.selection.p1, p2: window.selection.p2 });
         }
-
         window.selection.p1 = { x, y }; 
         window.selection.p2 = { x, y }; 
         window.selection.dragging = true; 
@@ -463,6 +501,73 @@ function brush(cx, cy) {
         }
     }
     if (toolSize > 1) historyManager.commitAction();
+}
+
+function magicWandSelect(startX, startY) {
+    // 1. LÓGICA DE SHIFT: Si NO está presionado, o venimos de otra herramienta, limpiamos la selección
+    if (!isShiftPressed || window.selection.type !== 'magic') {
+        window.selection.points = [];
+        window.selection.pointSet.clear();
+    }
+    
+    window.selection.type = 'magic';
+    window.selection.path = [];
+    window.selection.subRects = [];
+    window.selection.p1 = null;
+    window.selection.p2 = null;
+
+    const startBlock = mbwom.getBlockState(startX, startY);
+    const startType = startBlock ? startBlock.type : null;
+    
+    const maxPixels = 3000; 
+    let pixelsChanged = 0;
+    
+    const queue = [[startX, startY]]; 
+    const visited = new Set();
+
+    historyManager.startAction();
+
+    while(queue.length > 0) {
+        if (pixelsChanged > maxPixels) break;
+        const [x, y] = queue.shift();
+        const key = x + "," + y;
+        
+        if (visited.has(key)) continue; 
+        visited.add(key);
+        
+        if (x < -1000 || x > 1000 || y < 0 || y > 500) continue; 
+
+        const currentBlock = mbwom.getBlockState(x, y);
+        const currentType = currentBlock ? currentBlock.type : null;
+        
+        if (currentType === startType) {
+            // 2. EVITAR DUPLICADOS: Solo agregamos el bloque si no fue seleccionado en un Shift+Clic anterior
+            if (!window.selection.pointSet.has(key)) {
+                window.selection.points.push({x, y});
+                window.selection.pointSet.add(key);
+                pixelsChanged++;
+            }
+
+            queue.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+        }
+    }
+
+    // 3. RECALCULAR BOUNDING BOX: Calculamos los límites totales incluyendo las selecciones pasadas sumadas
+    if (window.selection.points.length > 0) {
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        for (let i = 0; i < window.selection.points.length; i++) {
+            const p = window.selection.points[i];
+            if (p.x < minX) minX = p.x;
+            if (p.x > maxX) maxX = p.x;
+            if (p.y < minY) minY = p.y;
+            if (p.y > maxY) maxY = p.y;
+        }
+        window.selection.p1 = { x: minX, y: minY };
+        window.selection.p2 = { x: maxX, y: maxY };
+    }
+
+    updateSelectionInfo();
+    checkSelectionState();
 }
 
 function bucketFill(startX, startY) {
