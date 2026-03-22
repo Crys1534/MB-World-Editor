@@ -26,15 +26,23 @@ const inventoryCategories = {
 'bdcloth_brown', 'bdcloth_purple', 'bdcloth_magenta', 'bdcloth_red', 'bdcloth_orange', 'bdcloth_pink', 'bdcloth_yellow', 'bdcloth_lightgreen', 'bdcloth_green',
 'bdcloth_cyan', 'bdcloth_lightblue', 'bdcloth_blue', 'bdcloth_rainbow', 'bdgs', 'bdgs_white', 'bdgs_lightgray', 'bdgs_gray', 'bdgs_black',
 'bdgs_brown', 'bdgs_purple', 'bdgs_magenta', 'bdwp', 'bdgs_redg', 'bdgs_orange', 'bdgs_pink', 'bdgs_yellow', 'bdgs_lightgreen',
-'bdgs_green', 'bdgs_cyan', 'bdgs_lightblue', 'bdgs_blue', 'pk', 'pk_2', 'pk_3', 'pk_4', 'pk_5', 'pk_6', 'pk_7', 'pk_8', 'pk_9', 'pk_10', 'pk_11',
+'bdgs_green', 'bdgs_cyan', 'bdgs_lightblue', 'bdgs_blue', 'pk', 'pk_2', 'pk_3', 'pk_4', 'pk_5', 'pk_6', 'pk_7', 'pk_8', 'pk_9', 'pk_10', 'pk_11', 'hai_1',
         ]
     },
 
+    // 🌿 Decoration
+    Decoration: { 
+        icon: 'shrub', 
+        items: [
+            'craft', 'oven', 'chest', 'echest', 'cmp', 'enchant', 'anvil', 'ntag', 'bed1_red', 'dr2', 'idr2', 'bdr2', 'td1', 'sign', 'sl', 'lv', 'lv1', 'lv2', 'lv3', 'lv4', 'st', 'ladder', 'fnc', 'fncg', 'nfnc', 'nfncg', 'ibar', 'th_1',
+        ]
+    },
+	
     // 🌿 Transportation
     Transportation: { 
         icon: 'rail', 
         items: [
-            'rail', 'rail_1', 'rail_2', 'railp', 'railp_1', 'railp_2', 'raila', 'raila_1', 'raila_2', 'raild', 'raild_1', 'raild_2', 'dm', 'gi',
+            'rail', 'rail_1', 'rail_2', 'railp', 'railp_1', 'railp_2', 'raila', 'raila_1', 'raila_2', 'raild', 'raild_1', 'raild_2',
         ]
     },
 
@@ -838,3 +846,298 @@ async function saveCustomChest() {
         filterStructures('saved', 'Chests');
     }
 }
+
+
+
+document.getElementById('console-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        const command = this.value.trim();
+        
+        if (command.startsWith('/tp ')) {
+            const parts = command.split(' ');
+            const x = parts[1] ? parts[1] : '0';
+            const y = parts[2] ? parts[2] : '0';
+            
+            // --- NUEVO: LÓGICA REAL DE TELETRANSPORTE ---
+            const targetX = Number(x);
+            const targetY = Number(y);
+            
+            if (!isNaN(targetX) && !isNaN(targetY)) {
+                camera.x = targetX;
+                camera.y = targetY;
+                worldDirty = true; // Obliga al editor a redibujar el mapa en la nueva zona
+            }
+            // ---------------------------------------------
+            
+            // Crear el mensaje visual
+            const historyDiv = document.getElementById('console-history');
+            const msgNode = document.createElement('div');
+            msgNode.className = 'console-msg';
+            msgNode.innerText = `[INFO] WHOOSH! Teleported to [X: ${x}, Y: ${y}].`;
+            
+            // Añadirlo a la pantalla
+            historyDiv.appendChild(msgNode);
+            
+            // Limpiar el input
+            this.value = '';
+            
+            // Hacer que desaparezca en 6 segundos (6000 ms)
+            setTimeout(() => {
+                msgNode.classList.add('fade-out');
+            }, 6000);
+        }
+    }
+});
+
+
+
+// Diccionario de traducciones de encantamientos
+const enchantTranslations = {
+    "unbreaking1": "Unbreaking I", "unbreaking2": "Unbreaking II", "unbreaking3": "Unbreaking III",
+    "sharpness1": "Sharpness I", "sharpness2": "Sharpness II", "sharpness3": "Sharpness III", "sharpness4": "Sharpness IV", "sharpness5": "Sharpness V",
+    "protection1": "Protection I", "protection2": "Protection II", "protection3": "Protection III", "protection4": "Protection IV"
+};
+
+// Función auxiliar para formatear el texto
+function formatEnchantments(enchantmentsObj) {
+    if (!enchantmentsObj) return "";
+    let enchantText = "";
+    for (let key in enchantmentsObj) {
+        if (enchantmentsObj[key] === "enchant") {
+            let niceName = enchantTranslations[key] || key; 
+            // Aquí agregamos line-height: 1.1 y margin: 0 para que queden pegaditos
+            enchantText += `<span class="tooltip-enchant" style="color: #FFFF; display: block; line-height: 0.6; margin-top: 2px;">${niceName}</span>`;
+        }
+    }
+    return enchantText;
+}
+
+
+// ==========================================
+// 📂 MULTI-DOCUMENT TABS (Photoshop Style)
+// ==========================================
+
+const WorldTabsManager = {
+    openWorlds: [],
+    activeWorldId: null,
+
+    // Inicializa la primera pestaña usando el mundo que ya está cargado al abrir el editor
+    init: function() {
+        if (this.openWorlds.length === 0) {
+            this.addWorld("world.mbw", true, true); // El 'true' final indica que tome la RAM actual
+        }
+    },
+
+    // Agrega una nueva pestaña
+    // useCurrentMemory: Si es true, copia lo que hay actualmente en pantalla. Si es false, crea un mundo vacío.
+    addWorld: function(filename, isActive = true, useCurrentMemory = false) {
+        const newId = 'world_' + Date.now() + Math.floor(Math.random() * 1000); // ID único
+        
+        const newWorld = {
+            id: newId,
+            filename: filename,
+            mbwomData: null,
+            cameraData: null,
+            historyData: null
+        };
+
+        // Si estamos abriendo el editor por primera vez, capturamos el estado base
+        if (useCurrentMemory) {
+            newWorld.mbwomData = this.cloneData(mbwom);
+            if (typeof camera !== 'undefined') {
+                newWorld.cameraData = { x: camera.x, y: camera.y, zoom: camera.zoom || 2 };
+            }
+            if (typeof historyManager !== 'undefined') {
+                newWorld.historyData = { undoStack: [...historyManager.undoStack], redoStack: [...historyManager.redoStack] };
+            }
+        }
+
+        this.openWorlds.push(newWorld);
+        
+        if (isActive) {
+            this.switchWorld(newId);
+        } else {
+            this.renderTabs();
+        }
+    },
+
+// Cambia de pestaña
+    switchWorld: function(id) {
+        if (this.activeWorldId === id) return; // Si ya estamos en esta pestaña, no hacemos nada
+
+        // 1. GUARDAR: Capturamos la pantalla actual antes de irnos
+        if (this.activeWorldId) {
+            this.saveCurrentWorldStateToMemory(this.activeWorldId);
+        }
+
+        this.activeWorldId = id;
+        
+        // 2. CARGAR: Traemos los datos de la pestaña a la que vamos
+        this.loadWorldStateFromMemory(id);
+
+        // --- 🛠️ FIX DEL CLON VISUAL ---
+        // Reconstruimos la "foto" del lienzo basada en los datos recién cargados
+        if (typeof initializeWorldCache === 'function') {
+            initializeWorldCache();
+        }
+        
+        // 3. Actualizamos la interfaz (el nombre de archivo en la barra superior)
+        const world = this.openWorlds.find(w => w.id === id);
+        if (world) {
+            const display = document.getElementById('filename-display');
+            if (display) display.value = world.filename.replace('.mbw', '');
+        }
+
+        this.renderTabs();
+        
+        // 4. Forzar al motor gráfico a redibujar el lienzo
+        if (typeof worldDirty !== 'undefined') worldDirty = true;
+    },
+
+    // ==========================================
+    // LÓGICA DE MEMORIA RAM (SAVE / LOAD)
+    // ==========================================
+
+    saveCurrentWorldStateToMemory: function(id) {
+        const world = this.openWorlds.find(w => w.id === id);
+        if (!world) return;
+
+        // Clonamos las variables del mundo de Mine Blocks
+        world.mbwomData = this.cloneData(mbwom);
+        
+        // Clonamos la posición de la cámara
+        if (typeof camera !== 'undefined') {
+            world.cameraData = { x: camera.x, y: camera.y, zoom: camera.zoom };
+        }
+        
+        // Clonamos el historial (Para no perder los Ctrl+Z de esta pestaña)
+        if (typeof historyManager !== 'undefined') {
+            world.historyData = {
+                undoStack: this.cloneData(historyManager.undoStack),
+                redoStack: this.cloneData(historyManager.redoStack)
+            };
+        }
+    },
+
+    loadWorldStateFromMemory: function(id) {
+        const world = this.openWorlds.find(w => w.id === id);
+        if (!world) return;
+
+        if (world.mbwomData) {
+            // Restauramos los datos del mundo en la variable global mbwom
+            for (let key in world.mbwomData) {
+                // Solo sobreescribimos los datos, no las funciones de mbwom
+                if (typeof mbwom[key] !== 'function') {
+                    mbwom[key] = this.cloneData(world.mbwomData[key]);
+                }
+            }
+        } else {
+            // Si no tiene datos guardados, significa que es una pestaña nueva/vacía
+            this.resetGlobalWorldState();
+        }
+
+        // Restauramos la cámara
+        if (world.cameraData && typeof camera !== 'undefined') {
+            camera.x = world.cameraData.x;
+            camera.y = world.cameraData.y;
+            if (world.cameraData.zoom !== undefined) camera.zoom = world.cameraData.zoom;
+        } else if (typeof camera !== 'undefined') {
+            camera.x = 0; camera.y = 0;
+        }
+
+        // Restauramos el historial
+        if (world.historyData && typeof historyManager !== 'undefined') {
+            historyManager.undoStack = this.cloneData(world.historyData.undoStack);
+            historyManager.redoStack = this.cloneData(world.historyData.redoStack);
+        } else if (typeof historyManager !== 'undefined') {
+            historyManager.undoStack = [];
+            historyManager.redoStack = [];
+        }
+    },
+
+    // Limpia el lienzo para una pestaña nueva
+    resetGlobalWorldState: function() {
+        if (typeof mbwom !== 'undefined' && mbwom.sceneList) {
+            mbwom.sceneList.forEach(key => {
+                if (Array.isArray(mbwom[key])) mbwom[key] = [];
+                else if (typeof mbwom[key] === 'object' && mbwom[key] !== null) mbwom[key] = {};
+                else if (typeof mbwom[key] === 'number') mbwom[key] = 0;
+            });
+        }
+        // Seguros adicionales
+        if (typeof mbwom !== 'undefined') {
+            mbwom.scene = [];
+            mbwom.states = {};
+            mbwom.chests = {};
+        }
+    },
+
+    // Herramienta maestra para hacer copias profundas sin ataduras de referencias
+    cloneData: function(data) {
+        if (data === undefined) return undefined;
+        // Al convertir a texto y luego a JSON rompemos cualquier vínculo de memoria (Deep Clone)
+        return JSON.parse(JSON.stringify(data));
+    },
+
+    // ==========================================
+    // LÓGICA VISUAL (CERRAR Y RENDERIZAR)
+    // ==========================================
+
+    closeWorld: function(id, event) {
+        event.stopPropagation(); // Evita que al dar clic en la X se seleccione la pestaña accidentalmente
+
+        const index = this.openWorlds.findIndex(w => w.id === id);
+        if (index === -1) return;
+
+        if (this.openWorlds.length === 1) {
+            // Si es la última pestaña, simplemente la limpiamos
+            this.resetGlobalWorldState();
+            this.openWorlds[0].filename = "nuevo_mundo.mbw";
+            this.switchWorld(id);
+            return;
+        }
+
+        // Eliminamos el mundo de la RAM
+        this.openWorlds.splice(index, 1);
+
+        // Si cerramos la pestaña que estábamos viendo, saltamos a la de al lado
+        if (this.activeWorldId === id) {
+            const nextIndex = index > 0 ? index - 1 : 0;
+            this.switchWorld(this.openWorlds[nextIndex].id);
+        } else {
+            this.renderTabs();
+        }
+    },
+
+    renderTabs: function() {
+        const container = document.getElementById('world-tabs');
+        if (!container) return;
+        
+        container.innerHTML = '';
+
+        this.openWorlds.forEach(world => {
+            const tab = document.createElement('div');
+            tab.className = `world-tab ${world.id === this.activeWorldId ? 'active' : ''}`;
+            tab.onclick = () => this.switchWorld(world.id);
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'world-tab-name';
+            nameSpan.innerText = world.filename;
+            nameSpan.title = world.filename; 
+
+            const closeBtn = document.createElement('span');
+            closeBtn.className = 'world-tab-close';
+            closeBtn.innerHTML = '&times;';
+            closeBtn.onclick = (e) => this.closeWorld(world.id, e);
+
+            tab.appendChild(nameSpan);
+            tab.appendChild(closeBtn);
+            container.appendChild(tab);
+        });
+    }
+};
+
+// Inicializamos las pestañas cuando cargue la página
+window.addEventListener('DOMContentLoaded', () => {
+    WorldTabsManager.init();
+});

@@ -371,15 +371,15 @@ function drawUI() {
         });
     }
     
-    // --- POLY (Lasso) ---
+// --- POLY (Lasso) ---
     if (window.selection.type === 'poly' && window.selection.path.length > 0) {
         ctx.strokeStyle = "#FFD700";
         ctx.lineWidth = 2;
         ctx.beginPath();
         
         window.selection.path.forEach((point, index) => {
-            const screenX = (point.x - camera.x) * tileSize + (tileSize / 2); 
-            const screenY = canvas.height - (point.y - camera.y) * tileSize - (tileSize / 2);
+            const screenX = (point.x - camera.x) * tileSize; 
+            const screenY = canvas.height - (point.y - camera.y) * tileSize;
             
             if (index === 0) {
                 ctx.moveTo(screenX, screenY);
@@ -397,6 +397,7 @@ function drawUI() {
         ctx.stroke();
     }
 }
+
 
 function mainLoop() {
     // 1. Primero actualizamos la posición de la cámara

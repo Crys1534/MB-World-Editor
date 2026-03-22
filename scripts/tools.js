@@ -115,12 +115,7 @@ window.addEventListener('keydown', function(e) {
 });
 
 function takeScreenshot() {
-    try {
-        const link = document.createElement('a');
-        link.download = `MBWorld_${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
-        link.href = canvas.toDataURL("image/png");
-        document.body.appendChild(link); link.click(); document.body.removeChild(link);
-    } catch (e) { console.error(e); }
+    alert("📸 To take a screenshot:\n\n1. Hold 'Shift'.\n2. Right-clic on the map.\n3. Select 'Save image as...' or 'Open image in a new tab'.");
 }
 
 function toggleConsole() {
@@ -132,6 +127,9 @@ function toggleConsole() {
         consoleDiv.style.display = 'flex';
         input.focus();
     }
+	
+// Agrega esto en tu función toggleConsole() cuando se muestra la consola
+document.querySelectorAll('.console-msg').forEach(msg => msg.classList.remove('fade-out'));
 }
 
 document.getElementById('console-input').addEventListener('keydown', function(e) {

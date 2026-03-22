@@ -554,8 +554,7 @@ canvas {
 
 .modal-actions {
  margin-bottom: 10px;
- padding-bottom: 10px;
- border-bottom: 1px solid var(--border);
+ padding-bottom: 4px;
  display: flex;
  gap: 10px;
 }
@@ -765,16 +764,14 @@ button:hover {
 
 /* --- TOOLTIP DE INVENTARIO FLOTANTE (WORKSPACE) --- */
 #chest-tooltip-overlay {
-    position: absolute;
-    background: white;
-    border: 2px solid #555;
-    border-radius: 4px;
-    padding: 0px;
-    pointer-events: none; /* Crucial: Evita que el ratón choque con el tooltip y parpadee */
-    z-index: 1000;
-    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.6);
-    transform: translate(15px, -15px); /* Offset para que no tape el cursor */
-}
+        position: absolute;
+        z-index: 1500;
+
+        padding: 8px; /* Espacio para que el mouse entre fácilmente */
+
+        border-radius: 4px;
+        pointer-events: auto; /* Permite que el mouse interactúe con el panel */
+    }
 
 #chest-tooltip-grid {
     display: grid;
@@ -800,4 +797,164 @@ button:hover {
     width: 100%;
     height: 100%;
     image-rendering: pixelated;
+}
+
+
+/* Borde morado para el slot encantado */
+.struct-chest-preview .slot.enchanted {
+    border: 2px solid #a200ff; /* Color morado de encantamiento */
+    box-shadow: 0 0 8px #a200ff inset; /* Brillo interno opcional */
+    position: relative;
+    overflow: hidden;
+}
+
+/* Efecto de brillitos animado */
+.struct-chest-preview .slot.enchanted::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-image: 
+        radial-gradient(circle, rgba(255, 255, 255, 0.8) 1px, transparent 2px),
+        radial-gradient(circle, rgba(255, 255, 255, 0.8) 1px, transparent 2px);
+    background-size: 15px 15px;
+    background-position: 0 0, 7px 7px;
+    animation: sparkles 2s linear infinite;
+    pointer-events: none; /* Para que no bloquee los clics en el ítem */
+    opacity: 0.6;
+    z-index: 2;
+}
+
+@keyframes sparkles {
+    0% { background-position: 0 0, 7px 7px; opacity: 0.3; }
+    50% { opacity: 0.8; }
+    100% { background-position: 0 15px, 7px 22px; opacity: 0.3; }
+}
+
+/* Estilo básico para el tooltip de los encantamientos */
+.struct-chest-preview .slot .tooltip {
+    visibility: hidden;
+    position: absolute;
+    bottom: 105%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(16, 0, 30, 0.95);
+    color: #fff;
+    padding: 6px 10px;
+    border: 1px solid #5a00a3;
+    border-radius: 4px;
+    white-space: nowrap;
+    z-index: 100;
+    font-size: 12px;
+    pointer-events: none;
+    text-align: center;
+}
+
+.struct-chest-preview .slot:hover .tooltip {
+    visibility: visible;
+}
+
+/* Color específico para el texto del encantamiento */
+.tooltip-enchant {
+    color: #ffaa00; /* Color dorado/naranja clásico o puedes usar #a200ff */
+    display: block;
+}
+
+
+
+/* Estilo general para el título del ítem en el tooltip */
+.enchant-tooltip strong {
+    color: #fff;
+    font-size: 24px;
+    display: block;
+    margin-bottom: 4px;
+    line-height: 1;
+}
+
+/* Estilo para cada línea de encantamiento */
+.tooltip-enchant {
+    color: #ffaa00;
+    display: block;
+    line-height: 1.1;
+    margin-top: 2px;
+}
+
+
+
+/* --- WORLD TABS (Estilo Photoshop) --- */
+#world-tabs {
+    display: flex;
+    flex-direction: row;
+    background-color: var(--bg-dark); /* Fondo oscuro del editor */
+    padding: 4px 8px 0 8px; /* Espacio arriba y a los lados */
+    gap: 2px;
+    overflow-x: auto; /* Scroll si hay muchas pestañas */
+    border-bottom: 1px solid var(--border);
+}
+
+/* Ocultar la barra de scroll en las pestañas */
+#world-tabs::-webkit-scrollbar { height: 4px; }
+#world-tabs::-webkit-scrollbar-thumb { background: #555; border-radius: 2px; }
+
+.world-tab {
+    display: flex;
+    align-items: center;
+    background-color: #2d2d2d; /* Color de pestaña inactiva */
+    color: #999;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-family: 'Segoe UI', sans-serif;
+    cursor: pointer;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    max-width: 180px;
+    min-width: 100px;
+    border: 1px solid transparent;
+    border-bottom: none;
+    user-select: none;
+    transition: background-color 0.2s;
+}
+
+.world-tab:hover {
+    background-color: #383838;
+    color: #ccc;
+}
+
+/* Pestaña Activa: Se fusiona con el panel de abajo */
+.world-tab.active {
+    background-color: var(--bg-panel);
+    color: var(--text);
+    border-color: var(--border);
+    position: relative;
+    z-index: 25;
+    margin-bottom: -1px; /* Para tapar el borde inferior */
+    border-bottom: 1px solid var(--bg-panel);
+}
+
+.world-tab-name {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-right: 8px;
+    pointer-events: none; /* Para que el clic vaya al tab */
+}
+
+.world-tab-close {
+    font-size: 12px;
+    font-weight: bold;
+    line-height: 1;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0.5;
+    transition: all 0.2s;
+}
+
+.world-tab-close:hover {
+    background-color: #c42b1c; /* Rojo estilo cierre de ventana */
+    color: white;
+    opacity: 1;
 }

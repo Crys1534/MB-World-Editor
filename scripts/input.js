@@ -178,56 +178,65 @@ canvas.addEventListener("mousemove", (event) => {
     updateChestTooltip(event.offsetX, event.offsetY);
 });
 
-// Función independiente para mantener limpio el evento mousemove
-function updateChestTooltip(screenX, screenY) {
-    const tooltip = document.getElementById('chest-tooltip-overlay');
-    if (!tooltip) return;
+// --- HERRAMIENTAS GLOBALES (Para poder reusarlas en otros archivos) ---
+const maxDurabilityMap = {
+    "WoodenPickaxe": 60, "StonePickaxe": 132, "IronPickaxe": 251, "GoldPickaxe": 33, "DiamondPickaxe": 1562, "ObsidianPickaxe": 2500,
+    "WoodenSword": 60, "StoneSword": 132, "IronSword": 251, "GoldSword": 33, "DiamondSword": 1562,
+    "WoodenAxe": 60, "StoneAxe": 132, "IronAxe": 251, "GoldAxe": 33, "DiamondAxe": 1562,
+    "WoodenShovel": 60, "StoneShovel": 132, "IronShovel": 251, "GoldShovel": 33, "DiamondShovel": 1562,
+    "WoodenHoe": 60, "StoneHoe": 132, "IronHoe": 251, "GoldHoe": 33, "DiamondHoe": 1562
+};
 
-    // Obtener la información del bloque bajo el ratón
-    const blockState = typeof mbwom !== 'undefined' ? mbwom.getBlockState(mouse.worldX, mouse.worldY) : null;
-    
-    // Diccionario de durabilidad máxima (Declarado arriba para que cofres y hornos lo puedan usar)
-    const maxDurabilityMap = {
-        "WoodenPickaxe": 60, "StonePickaxe": 132, "IronPickaxe": 251, "GoldPickaxe": 33, "DiamondPickaxe": 1562, "ObsidianPickaxe": 2500,
-        "WoodenSword": 60, "StoneSword": 132, "IronSword": 251, "GoldSword": 33, "DiamondSword": 1562,
-        "WoodenAxe": 60, "StoneAxe": 132, "IronAxe": 251, "GoldAxe": 33, "DiamondAxe": 1562,
-        "WoodenShovel": 60, "StoneShovel": 132, "IronShovel": 251, "GoldShovel": 33, "DiamondShovel": 1562,
-        "WoodenHoe": 60, "StoneHoe": 132, "IronHoe": 251, "GoldHoe": 33, "DiamondHoe": 1562
-    };
+function extractEnchants(itemData) {
+                let meta = null;
+                if (Array.isArray(itemData)) meta = itemData[3];
+                else if (itemData && typeof itemData === 'object') meta = itemData;
 
-// --- LÓGICA DEL COFRE ---
-    if (blockState && blockState.type === 'chest' && blockState.chests && Array.isArray(blockState.chests)) {
-        
-        tooltip.style.display = 'block';
-        tooltip.style.left = screenX + 'px';
-        tooltip.style.top = screenY + 'px';
-        
-        const gridContainer = document.getElementById('chest-tooltip-grid');
-        gridContainer.innerHTML = ''; 
-        
-        // Forzamos el diseño de cuadrícula perfecta de 9 columnas
+                let parsedEnchants = [];
+                if (meta && typeof meta === 'object') {
+                    for (let key in meta) {
+                        // CORRECCIÓN: Ahora detecta tanto "enchant" como "enchantment"
+                        if (meta[key] === "enchant" || meta[key] === "enchantment") {
+                            parsedEnchants.push(key);
+                        }
+                    }
+                }
+                return parsedEnchants;
+            }
+
+function formatEnchantText(rawEnchants) {
+    return rawEnchants.map(raw => {
+        let name = raw.replace(/[0-9]/g, '');
+        let level = raw.replace(/[^0-9]/g, '');
+        name = name.charAt(0).toUpperCase() + name.slice(1);
+        return name + (level ? " " + level : "");
+    }).join('</br>');
+}
+
+// --- DIBUJANTE UNIVERSAL DE INVENTARIOS ---
+// Toma los datos de un bloque y los dibuja adentro del contenedor que le pidas
+function renderChestOrOvenUI(blockState, gridContainer) {
+    gridContainer.innerHTML = ''; 
+    if (!blockState) return false;
+
+    // --- LÓGICA DEL COFRE ---
+    if (blockState.type === 'chest' && blockState.chests && Array.isArray(blockState.chests)) {
         gridContainer.style.display = 'grid'; 
-        gridContainer.style.gridTemplateColumns = 'repeat(9, 24px)'; // 9 columnas de exactamente 24px
+        gridContainer.style.gridTemplateColumns = 'repeat(9, 24px)';
         gridContainer.style.gap = '0px';
         gridContainer.style.padding = '0px';
-        gridContainer.style.alignItems = 'start'; // Evita que se estiren
+        gridContainer.style.alignItems = 'start';
 
         const inventory = blockState.chests;
         
         for (let i = 0; i < inventory.length; i++) {
             let slot = document.createElement('div');
             slot.className = 'chest-tooltip-slot';
-            
-            // Forzamos que cada "slot" sea un cuadrado rígido y perfecto
-            slot.style.width = '24px';
-            slot.style.height = '24px';
-            slot.style.background = '#8B8B8B';
-            slot.style.border = '1px inset #FFF';
-            slot.style.display = 'flex';
-            slot.style.justifyContent = 'center';
-            slot.style.alignItems = 'center';
-            slot.style.position = 'relative';
-            slot.style.boxSizing = 'border-box'; // Evita que el borde sume tamaño
+            slot.style.width = '24px'; slot.style.height = '24px';
+            slot.style.background = '#8B8B8B'; slot.style.border = '1px inset #FFF';
+            slot.style.display = 'flex'; slot.style.justifyContent = 'center';
+            slot.style.alignItems = 'center'; slot.style.position = 'relative';
+            slot.style.boxSizing = 'border-box';
             
             let item = inventory[i];
             let itemID, itemCount, itemDamage = 0;
@@ -238,11 +247,12 @@ function updateChestTooltip(screenX, screenY) {
                 itemID = item.id; itemCount = item.count; itemDamage = item.damage || 0;
             }
             
+            let itemEnchants = extractEnchants(item);
+
             if (itemID && itemID !== "air" && itemID !== "0" && itemID !== 0) { 
                 let cvs = document.createElement('canvas');
                 cvs.width = 16; cvs.height = 16;
-                cvs.style.width = '16px';  // Fijamos el tamaño visual
-                cvs.style.height = '16px';
+                cvs.style.width = '16px'; cvs.style.height = '16px';
                 let ctx = cvs.getContext('2d');
                 ctx.imageSmoothingEnabled = false;
 
@@ -251,7 +261,6 @@ function updateChestTooltip(screenX, screenY) {
 
                 if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
                     ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
-                    
                     let maxDur = maxDurabilityMap[itemID];
                     if (maxDur && typeof drawDurabilityBar === 'function') {
                         drawDurabilityBar(ctx, 0, 0, 16, 16, itemDamage, maxDur);
@@ -262,15 +271,28 @@ function updateChestTooltip(screenX, screenY) {
 
                 slot.appendChild(cvs);
 
+                // APLICAR EFECTO MAGIA
+// --- APLICAR EFECTO MAGIA Y NOMBRE DEL ÍTEM ---
+                if (itemEnchants.length > 0) {
+                    slot.classList.add('enchanted-slot');
+                    let tooltipDiv = document.createElement('div');
+                    tooltipDiv.className = 'enchant-tooltip';
+                    
+                    // Formatea "DiamondPickaxe" para que diga "Diamond Pickaxe"
+                    let itemNameStr = String(itemID).replace(/([A-Z])/g, ' $1').trim();
+                    
+                    // Agrega el nombre del ítem en amarillo (o cian) arriba de los encantamientos
+                    let nameHtml = `<span style="color: #FFFFFF; font-family: Pixeltype; font-size: 20px; display: block; padding-bottom: 2px; margin-bottom: 2px;">${itemNameStr}</span>`;
+                    
+                    tooltipDiv.innerHTML = nameHtml + formatEnchantText(itemEnchants);
+                    slot.appendChild(tooltipDiv);
+                }
+
                 if (itemCount > 1) {
                     let countTag = document.createElement('span');
                     countTag.innerText = itemCount;
-                    countTag.style.position = 'absolute';
-                    countTag.style.bottom = '-2px';
-                    countTag.style.right = '2px';
-                    countTag.style.color = 'white';
-                    countTag.style.fontSize = '10px';
-                    countTag.style.fontWeight = 'bold';
+                    countTag.style.position = 'absolute'; countTag.style.bottom = '-2px'; countTag.style.right = '2px';
+                    countTag.style.color = 'white'; countTag.style.fontSize = '10px'; countTag.style.fontWeight = 'bold';
                     countTag.style.textShadow = '1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000';
                     countTag.style.lineHeight = '1';
                     slot.appendChild(countTag);
@@ -278,16 +300,11 @@ function updateChestTooltip(screenX, screenY) {
             }
             gridContainer.appendChild(slot);
         }
+        return true;
     }
 
-    // --- LÓGICA DEL HORNO (Nueva) ---
-    else if (blockState && blockState.toSmelt) {
-        tooltip.style.display = 'block';
-        tooltip.style.left = screenX + 'px';
-        tooltip.style.top = screenY + 'px';
-        
-        const gridContainer = document.getElementById('chest-tooltip-grid');
-        gridContainer.innerHTML = ''; 
+    // --- LÓGICA DEL HORNO ---
+    else if (blockState.toSmelt) {
         gridContainer.style.display = 'flex'; 
         gridContainer.style.alignItems = 'center';
         gridContainer.style.gap = '0px';
@@ -303,11 +320,12 @@ function updateChestTooltip(screenX, screenY) {
             slot.style.position = 'relative'; slot.style.display = 'flex';
             slot.style.justifyContent = 'center'; slot.style.alignItems = 'center';
 
+            let itemEnchants = extractEnchants(itemData);
+
             if (itemData && itemData[0] !== "air" && itemData[0] !== 0 && itemData[0] !== "0") {
                 let cvs = document.createElement('canvas');
                 cvs.width = 16; cvs.height = 16;
-                cvs.style.width = isLarge ? '20px' : '14px';
-                cvs.style.height = isLarge ? '20px' : '14px';
+                cvs.style.width = isLarge ? '20px' : '14px'; cvs.style.height = isLarge ? '20px' : '14px';
                 cvs.style.imageRendering = 'pixelated';
                 let ctx = cvs.getContext('2d');
                 ctx.imageSmoothingEnabled = false;
@@ -317,7 +335,6 @@ function updateChestTooltip(screenX, screenY) {
 
                 if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
                     ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
-                    
                     let maxDur = maxDurabilityMap[itemData[0]];
                     if (maxDur && typeof drawDurabilityBar === 'function') {
                         drawDurabilityBar(ctx, 0, 0, 16, 16, itemData[2] || 0, maxDur);
@@ -326,6 +343,15 @@ function updateChestTooltip(screenX, screenY) {
                     ctx.fillStyle = "magenta"; ctx.fillRect(4, 4, 8, 8);
                 }
                 slot.appendChild(cvs);
+
+                // APLICAR EFECTO MAGIA
+                if (itemEnchants.length > 0) {
+                    slot.classList.add('enchanted-slot');
+                    let tooltipDiv = document.createElement('div');
+                    tooltipDiv.className = 'enchant-tooltip';
+                    tooltipDiv.innerHTML = formatEnchantText(itemEnchants);
+                    slot.appendChild(tooltipDiv);
+                }
 
                 if (itemData[1] > 1) {
                     let countTag = document.createElement('span');
@@ -362,13 +388,28 @@ function updateChestTooltip(screenX, screenY) {
         gridContainer.appendChild(arrow);
         gridContainer.appendChild(rightCol);
 
-    } 
-    // --- SI NO ES NADA, OCULTAR EL TOOLTIP ---
-    else {
+        return true;
+    }
+    return false;
+}
+
+// --- FUNCIÓN DEL TOOLTIP FLOTANTE (Ahora mucho más limpia) ---
+function updateChestTooltip(screenX, screenY) {
+    const tooltip = document.getElementById('chest-tooltip-overlay');
+    if (!tooltip) return;
+
+    const blockState = typeof mbwom !== 'undefined' ? mbwom.getBlockState(mouse.worldX, mouse.worldY) : null;
+    const gridContainer = document.getElementById('chest-tooltip-grid');
+
+    // Usamos el Dibujante Universal. Si nos dice que dibujó algo (true), mostramos el tooltip
+    if (renderChestOrOvenUI(blockState, gridContainer)) {
+        tooltip.style.display = 'block';
+        tooltip.style.left = screenX + 'px';
+        tooltip.style.top = screenY + 'px';
+    } else {
         tooltip.style.display = 'none';
     }
 }
-
 
 canvas.addEventListener("mousedown", function (event) {
 	if (event.button == 0) mouse.left = true;

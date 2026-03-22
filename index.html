@@ -7,10 +7,19 @@
  <link rel="stylesheet" href="style.css">
  <title>MB World Editor</title>
  <style>
+ 
+ /* --- FUENTES PERSONALIZADAS --- */
+    @font-face {
+        font-family: 'Pixeltype'; 
+        src: url('assets/Pixeltype.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+    }
+	
     /* --- ESTILOS GENERALES Y CORRECCIONES --- */
     #inventory-modal .modal-content {
         background: #C6C6C6; border: 2px solid #555; width: 700px; padding: 0;   
-        color: #000; display: flex; flex-direction: column; height: 500px; 
+        color: #000; display: flex; flex-direction: column; height: 504px; 
     }
     .inventory-layout { display: flex; flex-direction: column; flex: 1; overflow: hidden; padding: 10px; }
     #inventory-tabs-sidebar { width: 96%; display: flex; flex-direction: row; background: #c6c6c6; gap: 0px; margin-top: 0px; padding-left: 5px; z-index: 10; }
@@ -47,14 +56,37 @@
     .hotbar-slot.active { border-color: #FFF; background: #A0A0A0; box-shadow: inset 0 0 4px rgba(0,0,0,0.5); }
     #tab-insert.active { justify-content: left; }
 
-    /* --- OVERLAYS --- */
+/* --- OVERLAYS --- */
     #coords-overlay { position: absolute; top: 0px; left: 85px; font-family: 'Consolas', monospace; font-size: 24px; font-weight: bold; color: white; text-shadow: 1px 1px 2px black; pointer-events: none; z-index: 10; }
     #selection-overlay { position: absolute; top: 24px; left: 85px; font-family: 'Consolas', monospace; font-size: 18px; font-weight: bold; color: #FFD700; text-shadow: 1px 1px 2px black; pointer-events: none; z-index: 10; display: none; }
-    #console-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(2px); }
-    .console-container { background: #2b2b2b; border: 2px solid #555; border-radius: 5px; padding: 20px; width: 300px; display: flex; flex-direction: column; gap: 10px; }
-    #console-suggestion { color: #888; font-family: monospace; font-size: 12px; margin-bottom: 5px; }
-    #console-input { width: 100%; padding: 10px; background: #1a1a1a; border: 1px solid #444; color: #0f0; font-family: 'Consolas', monospace; outline: none; }
+    #console-overlay { position: absolute; bottom: 70px; left: 120px; display: none; z-index: 2000; }
+    .console-container { width: 350px; }
+    #console-input { width: 100%; padding: 8px 15px; background: #FFFFFF; border: 2px solid #555; color: #000000; font-family: 'Consolas', monospace; font-weight: bold; font-size: 14px; outline: none; box-sizing: border-box; box-shadow: 4px 4px 0px rgba(0,0,0,0.2); }
 
+/* Estilos para el historial de la consola */
+    #console-history {
+        display: flex;
+        flex-direction: column;
+        gap: 0px;
+        margin-bottom: 0px;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    
+    .console-msg {
+        background: rgba(0, 0, 0, 0.66); /* Fondo negro al 66% de opacidad */
+        color: white; /* Texto blanco */
+        padding: 5px 10px;
+        font-family: 'Consolas', monospace;
+        font-size: 12px;
+        transition: opacity 1s ease-out; /* Efecto suave al desaparecer */
+    }
+    
+    .console-msg.fade-out {
+        opacity: 0;
+        pointer-events: none;
+    }
+	
     /* --- ESTILOS DE ESTRUCTURAS --- */
     .icon-btn:disabled, .icon-btn[disabled] { opacity: 0.4; cursor: not-allowed; filter: grayscale(100%); }
 
@@ -72,6 +104,8 @@
     .struct-tab {
         padding: 8px 15px; background: #8B8B8B; border: 2px solid #373737; border-bottom: 2px solid #FFF;
         cursor: pointer; font-weight: bold; color: #000;
+		user-select: none;
+        -webkit-user-select: none; /* Soporte para navegadores basados en WebKit como Safari/Chrome antiguo */
     }
     .struct-tab.active {
         background: #C6C6C6; border-bottom: none; margin-bottom: 0; z-index: 10;
@@ -183,6 +217,71 @@
     .confirm-actions { display: flex; justify-content: center; gap: 15px; margin-top: 10px; }
     .btn-yes, .btn-confirm-save { padding: 4px 15px; font-size: 12px; }
     .btn-no, .btn-cancel { padding: 4px 15px; font-size: 12px; }
+	
+	
+/* --- ENCHANTMENT EFFECTS (Brillo Reluciente) --- */
+    .enchanted-slot {
+        border: 2px solid #a200ff !important;
+        box-shadow: 0 0 6px #a200ff; /* Mantiene un aura morada estática y elegante */
+        position: relative;
+    }
+
+    /* Capa fantasma interior que hace el efecto de barrido reluciente (brillitos) */
+    .enchanted-slot::before {
+        content: "";
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        /* Dibuja una línea de luz diagonal blanca y morada */
+        background: linear-gradient(
+            110deg,
+            transparent 25%,
+            rgba(255, 255, 255, 0.4) 40%,
+            rgba(255, 255, 255, 0.9) 50%,  /* El centro del destello super blanco */
+            rgba(224, 102, 255, 0.6) 60%,
+            transparent 75%
+        );
+        background-size: 500% 100%;
+        animation: shine-glint 10s infinite ease-in-out; /* Velocidad del destello */
+        pointer-events: none; /* SÚPER IMPORTANTE para que el mouse pueda tocar el ítem */
+        z-index: 5; /* Dibuja el brillo por encima de la imagen del ítem */
+    }
+
+    /* La animación que mueve el brillo de un lado al otro */
+    @keyframes shine-glint {
+        0% { background-position: 200% 0; }
+        40% { background-position: -100% 0; } /* Pasa rápido */
+        100% { background-position: -100% 0; } /* Se espera un momento antes de volver a brillar */
+    }
+
+/* Tooltip de encantamientos OCULTO por defecto */
+    .enchant-tooltip {
+        display: none; 
+        position: absolute;
+        bottom: 110%; 
+        left: 50%;
+        transform: translateX(-50%);
+        background: #07104ae0; 
+        
+        /* --- EL TRUCO DEL DOBLE BORDE --- */
+        border: 2px solid #062a67; /* Primer borde (Rosa interior) */
+        box-shadow: 0 0 0 2px #064380; /* Segundo borde (Morado oscuro exterior) */
+        
+        color: white; 
+        padding: 4px 6px;
+        font-family: 'Pixeltype', monospace;
+        font-size: 16px;
+        text-align: left;
+        white-space: nowrap;
+        text-shadow: 1px 1px 0 #000;
+        z-index: 99999; 
+        pointer-events: none; 
+
+    }
+	
+	
+	.enchanted-slot:hover .enchant-tooltip {
+        display: block;
+    }
  </style>
 </head>
 <body>
@@ -335,7 +434,7 @@
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center; gap: 5px;">
                         <label style="font-size: 12px;">Time:</label>
-                        <input type="number" id="gr-time" min="0" value="0" style="width: 40px; font-size: 11px; padding: 1px; text-align: center;">
+                        <input type="number" id="gr-time" min="0" max="99" value="0" style="width: 40px; font-size: 11px; padding: 1px; text-align: center;">
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center; gap: 5px;">
                         <label style="font-size: 12px;">Weather:</label>
@@ -394,26 +493,27 @@
 
         <div class="ribbon-group">
             <div class="ribbon-group-content" style="display: flex; gap: 15px; align-items: center; justify-content: center;">
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%;">
-                    <span class="icon" style="font-size: 18px; line-height: 1;">❤️</span>
-                    <label style="font-size: 12px; margin-top: 2px; line-height: 1;">Health</label>
-                    <input type="number" id="player-health" min="0" value="20" style="width: 40px; text-align: center; font-size: 12px; border: 1px solid #555; padding: 2px; margin-top: auto;">
-                </div>
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%;">
-                    <span class="icon" style="font-size: 18px; line-height: 1;">🍖</span>
-                    <label style="font-size: 12px; margin-top: 2px; line-height: 1;">Hunger</label>
-                    <input type="number" id="player-hunger" min="0" value="20" style="width: 40px; text-align: center; font-size: 12px; border: 1px solid #555; padding: 2px; margin-top: auto;">
-                </div>
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%;">
-                    <span class="icon" style="font-size: 18px; line-height: 1;">🌟</span>
-                    <label style="font-size: 12px; margin-top: 2px; line-height: 1;">XP</label>
-                    <input type="number" id="player-xp" min="0" value="0" style="width: 45px; text-align: center; font-size: 12px; border: 1px solid #555; padding: 2px; margin-top: auto;">
-                </div>
+				<div style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%;">
+					<img src="assets/HEALTH.png" alt="Health" style="width: 28px; height: 28px; object-fit: contain; margin-bottom: 0px; image-rendering: pixelated;">
+					<label style="font-size: 12px; margin-top: 2px; line-height: 1;">Health</label>
+					<input type="number" id="player-health" min="0" max="20" value="20" style="width: 40px; text-align: center; font-size: 12px; border: 1px solid #555; padding: 2px; margin-top: auto;">
+				</div>
+				<div style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%;">
+					<img src="assets/HUNGER.png" alt="Health" style="width: 28px; height: 28px; object-fit: contain; margin-bottom: 0px; image-rendering: pixelated;">
+					<label style="font-size: 12px; margin-top: 2px; line-height: 1;">Hunger</label>
+					<input type="number" id="player-health" min="0" max="20" value="20" style="width: 40px; text-align: center; font-size: 12px; border: 1px solid #555; padding: 2px; margin-top: auto;">
+				</div>
+				<div style="display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%;">
+					<img src="assets/XP.png" alt="Health" style="width: 28px; height: 28px; object-fit: contain; margin-bottom: 0px; image-rendering: pixelated;">
+					<label style="font-size: 12px; margin-top: 2px; line-height: 1;">XP</label>
+					<input type="number" id="player-health" min="0" max="10000" value="20" style="width: 52px; text-align: center; font-size: 12px; border: 1px solid #555; padding: 2px; margin-top: auto;">
+				</div>
             </div>
             <div class="ribbon-group-label">Player</div>
         </div>
 
     </div>
+
 
     <div id="tab-view" class="tab-pane">
         <div class="ribbon-group">
@@ -450,7 +550,7 @@
     <button class="tool-btn" id="tool-eyedropper" onclick="selectTool('eyedropper')" title="Gotero">💧</button>
     <div class="separator" style="width: 80%; height: 1px; background: #444; margin: 5px 0;"></div>
     <button class="tool-btn" onclick="takeScreenshot()" title="Screenshot">📷</button>
-    <button class="tool-btn" onclick="toggleConsole()" title="Teletransportation">📍</button>
+    <button class="tool-btn" onclick="toggleConsole()" title="/tp">📍</button>
  </div>
 
  <div id="workspace">
@@ -466,12 +566,10 @@
     <input type="range" id="zoom-slider" min="0" max="4" step="1" value="2" oninput="updateZoomSlider(this.value)">
     <span id="zoom-value">100%</span>
   </div>
-  <div id="console-overlay">
+<div id="console-overlay">
       <div class="console-container">
-          <h3 style="margin: 0 0 10px 0; color: white;">Teleport</h3>
-          <div id="console-suggestion">Format: /tp [x] [y]</div>
-          <input type="text" id="console-input" placeholder="/tp 100 50">
-          <div style="font-size: 10px; color: #666; margin-top: 5px;">Press Enter to go</div>
+          <div id="console-history"></div>
+          <input type="text" id="console-input" placeholder="/tp [x] [y]">
       </div>
   </div>
   <canvas id="canvas"></canvas>
@@ -511,7 +609,7 @@
             
             <div style="display: flex; flex-direction: row;">
                 
-                <div style="display: flex; flex-direction: column; width: 584px; border-right: 4px solid #555;">
+                <div style="display: flex; flex-direction: column; width: 584px;">
                     
                     <div style="display: flex; flex-direction: column; height: 372px;">
                         <div id="inventory-tabs-sidebar" style="background: #c6c6c6; display: flex; flex-direction: row; gap: 8px; padding: 8px 10px 0px 10px; overflow-x: auto; overflow-y: hidden; align-items: flex-end; border-bottom: 3px solid #111; min-height: 38px;"></div>
@@ -540,7 +638,7 @@
     <div class="modal-content">
         <div class="struct-main">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 5px;">
-                <h3 style="margin:0; color:gray;">Structures Browser</h3>
+                <h3 style="margin:0; color:gray; user-select: none;">Structures Browser</h3>
                 <span class="close-modal" onclick="closeModal('structures-modal')" style="color:black;">&times;</span>
             </div>
             
@@ -579,6 +677,8 @@
 <div class="struct-sidebar">
             <h4 style="margin-top:0; color:gray; margin-bottom: 10px;">Preview</h4>
             <canvas id="struct-preview-canvas" width="200" height="200"></canvas>
+			
+            <div id="struct-chest-preview" style="display: none; justify-content: center; width: 100%; margin-bottom: 15px; transform: scale(0.9);"></div>
 			
 			<div class="struct-info">
                 <h3 id="struct-info-title">Select an item</h3>

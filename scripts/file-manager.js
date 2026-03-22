@@ -1,12 +1,32 @@
 const fileManager = {
  input: document.getElementById("file-input"),
- load: function (event) {
+load: function (event) {
   try {
    const jsonString = mbwAlgorithm.decode(event.target.result);
-   mbwom.world = JSON.parse(jsonString);
+   const parsedWorld = JSON.parse(jsonString);
+
+   // --- 🛠️ FIX DE LA PESTAÑA DEFAULT ---
+   if (typeof WorldTabsManager !== 'undefined' && fileManager.file) {
+       // Verificamos si la ÚNICA pestaña abierta es el mundo por defecto
+       const isDefault = WorldTabsManager.openWorlds.length === 1 && WorldTabsManager.openWorlds[0].filename === "world.mbw";
+       
+       if (isDefault) {
+           // Si es el por defecto, simplemente le cambiamos el nombre (No creamos pestaña extra)
+           WorldTabsManager.openWorlds[0].filename = fileManager.file.name;
+           WorldTabsManager.renderTabs();
+       } else {
+           // Si ya tienes un mundo real abierto, creamos una pestaña nueva y limpia
+           WorldTabsManager.addWorld(fileManager.file.name, true, false);
+       }
+   }
+
+   // Ahora inyectamos los datos cargados al mundo global
+   mbwom.world = parsedWorld;
    
    const gamemodeEl = document.getElementById("gamemode");
    const cheatsEl = document.getElementById("cheats");
+   
+   // ... [Tu código sigue exactamente igual a partir de aquí] ...
    
    // --- Mapeo de Gamemode ---
    if (gamemodeEl) {
@@ -95,6 +115,8 @@ const fileManager = {
        if (typeof mainLoop === 'function') mainLoop();
        window.isMainLoopRunning = true; 
    }
+
+   
 
    console.log("Mundo cargado exitosamente.");
 
