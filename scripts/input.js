@@ -344,12 +344,19 @@ function renderChestOrOvenUI(blockState, gridContainer) {
                 }
                 slot.appendChild(cvs);
 
-                // APLICAR EFECTO MAGIA
-                if (itemEnchants.length > 0) {
+// --- APLICAR EFECTO MAGIA Y NOMBRE DEL ÍTEM ---
+                let enchantments = Array.isArray(itemData) ? itemData[3] : itemData.nbt;
+                let isEnchanted = enchantments && Object.keys(enchantments).length > 0;
+
+                if (isEnchanted) {
                     slot.classList.add('enchanted-slot');
                     let tooltipDiv = document.createElement('div');
                     tooltipDiv.className = 'enchant-tooltip';
-                    tooltipDiv.innerHTML = formatEnchantText(itemEnchants);
+                    
+                    let itemNameStr = String(itemData[0]).replace(/([A-Z])/g, ' $1').trim();
+                    let enchantTooltipHTML = formatEnchantments(enchantments); // <- Usamos tu función global
+                    
+                    tooltipDiv.innerHTML = `<strong>${itemNameStr}</strong>${enchantTooltipHTML}`;
                     slot.appendChild(tooltipDiv);
                 }
 

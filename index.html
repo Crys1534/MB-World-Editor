@@ -395,8 +395,17 @@
 							<span>Create<br>Loot Chest</span>
 						</button>
                         <div class="ribbon-group-label">Chests</div>
-                    </div>
+		</div>
 					
+		<div class="separator"></div>
+		
+		<div class="ribbon-group">
+						<button class="ribbon-btn-large" onclick="openCustomItemsModal()">
+							<img src="assets/Create Item.png" alt="Create Item" style="width: 32px; height: 32px; object-fit: contain; margin-bottom: 0px; image-rendering: pixelated;">
+							<span>Create<br>Item</span>
+						</button>
+						<div class="ribbon-group-label">Custom Item</div>
+		</div>
    </div>
 
     <div id="tab-settings" class="tab-pane">
@@ -868,6 +877,83 @@
     </div>
  </div>
  
+ 
+ <div id="custom-items-modal" class="modal" style="z-index: 2100;">
+    <div class="modal-content mbw-standard-modal" style="width: 850px; height: 550px;">
+        <div class="mbw-modal-header">
+            <h3>Custom Items Creator</h3>
+            <span class="mbw-close-btn" onclick="closeModal('custom-items-modal')">&times;</span>
+        </div>
+        
+        <div class="mbw-modal-body" style="display: flex; flex-direction: row; padding: 0; overflow: hidden;">
+            
+            <div style="width: 60%; display: flex; flex-direction: column; background: #C6C6C6; border-right: 2px solid #555;">
+                <div style="display: flex; background: #8B8B8B; border-bottom: 2px solid #555;">
+                    <button class="struct-tab active" id="tab-ci-tools" onclick="renderCustomGrid('tools')">Tools</button>
+                    <button class="struct-tab" id="tab-ci-armor" onclick="renderCustomGrid('armor')">Armor</button>
+                    <button class="struct-tab" id="tab-ci-books" onclick="renderCustomGrid('books')">Books</button>
+                </div>
+                <div id="custom-items-grid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; padding: 10px; overflow-y: auto; background: #8B8B8B; align-content: start; flex: 1;">
+                    </div>
+            </div>
+
+            <div style="width: 40%; background: #B0B0B0; padding: 15px; display: flex; flex-direction: column; position: relative;">
+                <button id="save-custom-item" class="btn-confirm-save" style="position: absolute; top: 10px; right: 10px; padding: 5px 15px; display: none;" onclick="saveCustomItem()">💾 Save Item</button>
+                
+                <h4 id="ci-preview-title" style="margin-top: 0; text-align: center; color: #333; height: 18px;">Select an item</h4>
+                
+                <div style="display: flex; justify-content: center; margin: 15px 0;">
+                    <div id="ci-preview-slot" style="width: 128px; height: 128px; background: #8B8B8B; border: 6px inset #FFF; display: flex; justify-content: center; align-items: center; position: relative;">
+                        <canvas id="ci-preview-canvas" width="64" height="64" style="width: 96px; height: 96px; image-rendering: pixelated;"></canvas>
+                    </div>
+                </div>
+
+                <div id="ci-enchantments-list" style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; overflow-y: auto; align-content: flex-start; flex: 1; padding: 5px;">
+                    </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+ 
+ <div id="custom-items-modal" class="modal" style="z-index: 2100;">
+    <div class="modal-content mbw-standard-modal" style="width: 850px; height: 550px;">
+        <div class="mbw-modal-header">
+            <h3>Custom Items Creator</h3>
+            <span class="mbw-close-btn" onclick="closeModal('custom-items-modal')">&times;</span>
+        </div>
+        
+        <div class="mbw-modal-body" style="display: flex; flex-direction: row; padding: 0; overflow: hidden;">
+            
+            <div style="width: 60%; display: flex; flex-direction: column; background: #C6C6C6; border-right: 2px solid #555;">
+                <div style="display: flex; background: #8B8B8B; border-bottom: 2px solid #555;">
+                    <button class="struct-tab active" id="tab-ci-tools" onclick="renderCustomGrid('tools')">Tools</button>
+                    <button class="struct-tab" id="tab-ci-armor" onclick="renderCustomGrid('armor')">Armor</button>
+                    <button class="struct-tab" id="tab-ci-books" onclick="renderCustomGrid('books')">Books</button>
+                </div>
+                <div id="custom-items-grid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0px; padding: 0px; overflow-y: auto; background: #8B8B8B; align-content: start; flex: 1;">
+                    </div>
+            </div>
+
+            <div style="width: 40%; background: #B0B0B0; padding: 15px; display: flex; flex-direction: column; position: relative;">
+                <button id="save-custom-item" class="btn-confirm-save" style="position: absolute; top: 10px; right: 10px; padding: 5px 15px; display: none;" onclick="saveCustomItem()">💾 Save Item</button>
+                
+                <h4 id="ci-preview-title" style="margin-top: 0; text-align: center; color: #333; height: 18px;">Select an item</h4>
+                
+                <div style="display: flex; justify-content: center; margin: 15px 0;">
+                    <div id="ci-preview-slot" style="width: 128px; height: 128px; background: #8B8B8B; border: 6px inset #FFF; display: flex; justify-content: center; align-items: center; position: relative;">
+                        <canvas id="ci-preview-canvas" width="64" height="64" style="width: 96px; height: 96px; image-rendering: pixelated;"></canvas>
+                    </div>
+                </div>
+
+                <div id="ci-enchantments-list" style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; overflow-y: auto; align-content: flex-start; flex: 1; padding: 5px;">
+                    </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+ 
  <script>
     function toggleSpray(btn) {
         btn.classList.toggle('active');
@@ -892,5 +978,6 @@
  <script src="main.js"></script>
  <script src="scripts/tools.js"></script>
 <script src="scripts/structures.js"></script>
+<script src="scripts/custom-items.js"></script>
  <script src="scripts/audio-manager.js"></script> </body>
 </html>

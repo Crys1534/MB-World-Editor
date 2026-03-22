@@ -958,3 +958,53 @@ button:hover {
     color: white;
     opacity: 1;
 }
+
+
+
+/* --- CUSTOM ITEMS CREATOR --- */
+.enchant-option {
+    background-color: #FFEFAD; /* Amarillo mostaza pastel */
+    border: 2px solid #CFC07C; /* Borde mostaza */
+    color: #333;
+    padding: 6px 10px;
+    font-family: 'Eight Bit Dragon', monospace;
+    font-size: 14px;
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.1s;
+    box-shadow: 2px 2px 0px rgba(0,0,0,0.1);
+}
+
+.enchant-option:hover {
+    transform: scale(1.05);
+}
+
+/* Estado Asignado: Se roba el estilo del Tooltip Mágico */
+.enchant-option.active-enchant {
+    background-color: #07104ae0; /* Azul del tooltip */
+    border: 2px solid #a200ff;   /* Morado mágico */
+    color: #ffaa00;              /* Texto dorado */
+    text-shadow: 1px 1px 0 #000;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 0 6px #a200ff;
+}
+
+/* El efecto de brillitos del ítem encantado */
+.enchant-option.active-enchant::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(
+        110deg,
+        transparent 25%,
+        rgba(255, 255, 255, 0.4) 40%,
+        rgba(255, 255, 255, 0.9) 50%,
+        rgba(224, 102, 255, 0.6) 60%,
+        transparent 75%
+    );
+    background-size: 300% 100%;
+    animation: shine-glint 2s infinite ease-in-out;
+    pointer-events: none;
+    z-index: 5;
+}

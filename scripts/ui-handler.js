@@ -9,6 +9,12 @@ const inventoryCategories = {
     // La pestaña "all" se llena automáticamente, no necesitas editar 'items' aquí.
     all: { icon: 'chest', items: [] }, 
 
+// 🗡️ Ítems Creados
+    Custom: { 
+        icon: 'chest', 
+        items: [] // Se llena por LocalStorage
+    },
+	
     // 🧱 Blocks
     Blocks: { 
         icon: 'bricks', 
@@ -276,8 +282,82 @@ function populateInventory() {
     grid.style.gap = '0px'; 
     grid.style.padding = '0px';
     grid.style.alignItems = 'start';
-    grid.style.alignContent = 'start'; // <--- ESTA LÍNEA ES LA SOLUCIÓN
+    grid.style.alignContent = 'start';
     grid.style.justifyContent = 'center';
+
+    // --- LÓGICA ESPECIAL PARA PESTAÑA CUSTOM ---
+    if (activeInventoryTab === 'Custom') {
+        let savedCustomItems = JSON.parse(localStorage.getItem('mbw_custom_items')) || [];
+        
+        savedCustomItems.forEach((customItemData, index) => {
+            let itemID = customItemData[0];
+            let itemCount = customItemData[1];
+            let itemDamage = customItemData[2];
+            let enchantments = customItemData[3];
+
+            const item = document.createElement('div');
+            item.className = 'inv-item';
+            item.title = String(itemID).replace(/([A-Z])/g, ' $1').trim() + " (Custom)";
+            
+            // Lógica de Recogida (Soporta NBT)
+            item.onclick = () => {
+                heldItem = { type: itemID, count: itemCount, states1: itemDamage, nbt: enchantments };
+                updateFloatingItem();
+            };
+
+            // Eliminar con Clic Derecho
+            item.oncontextmenu = (e) => {
+                e.preventDefault();
+                savedCustomItems.splice(index, 1);
+                localStorage.setItem('mbw_custom_items', JSON.stringify(savedCustomItems));
+                populateInventory(); // Recargar
+            };
+
+            item.style.width = '64px'; item.style.height = '64px';
+            item.style.minWidth = '64px'; item.style.minHeight = '64px';
+            item.style.flexShrink = '0';
+            item.style.background = '#8B8B8B'; item.style.border = '4px inset #FFF'; 
+            item.style.display = 'flex'; item.style.justifyContent = 'center';
+            item.style.alignItems = 'center'; item.style.boxSizing = 'border-box';
+            item.style.cursor = 'pointer'; item.style.position = 'relative';
+
+            let isEnchanted = enchantments && Object.keys(enchantments).length > 0;
+            if (isEnchanted) item.classList.add('enchanted-slot');
+
+            const cvs = document.createElement('canvas');
+            cvs.width = 16; cvs.height = 16;
+            cvs.style.width = '48px'; cvs.style.height = '48px';
+            cvs.style.imageRendering = 'pixelated';
+            const ctx = cvs.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+
+            let renderObj = typeof getBlockObject === 'function' ? getBlockObject({type: itemID}) : null;
+            if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
+                ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
+            } else {
+                ctx.fillStyle = "magenta"; ctx.fillRect(4, 4, 8, 8);
+            }
+            item.appendChild(cvs);
+
+            // Inyectar Tooltip Global
+            if (isEnchanted) {
+                let tooltipDiv = document.createElement('div');
+                tooltipDiv.className = 'enchant-tooltip';
+                let itemNameStr = String(itemID).replace(/([A-Z])/g, ' $1').trim();
+                let enchantTooltipHTML = formatEnchantments(enchantments);
+                tooltipDiv.innerHTML = `<strong>${itemNameStr}</strong>${enchantTooltipHTML}`;
+                item.appendChild(tooltipDiv);
+            }
+
+            item.onmouseenter = () => { item.style.background = '#A0A0A0'; };
+            item.onmouseleave = () => { item.style.background = '#8B8B8B'; };
+
+            grid.appendChild(item);
+        });
+        
+        return; // Detenemos la función para que no cargue bloques normales
+    }
+    // ---------------------------------------------
 
     const allBlocks = (typeof window.blockData !== 'undefined') ? Object.keys(window.blockData) : [];
     let blocksToShow = [];
@@ -296,7 +376,6 @@ function populateInventory() {
         
         item.onclick = () => pickupItemFromInventory(blockType);
         
-// --- TAMAÑO DEL SLOT: 64px ---
         item.style.width = '64px';
         item.style.height = '64px';
         item.style.minWidth = '64px';
@@ -313,7 +392,6 @@ function populateInventory() {
         const cvs = document.createElement('canvas');
         cvs.width = 16;  
         cvs.height = 16;
-// --- TAMAÑO DEL ÍTEM (CANVAS): 48px ---
         cvs.style.width = '48px'; 
         cvs.style.height = '48px';
         cvs.style.imageRendering = 'pixelated';
@@ -325,12 +403,12 @@ function populateInventory() {
 
         if (typeof getBlockObject === 'function') {
             renderObj = getBlockObject(tempState);
-        } else if (window.blockData[blockType]) {
+        } else if (window.blockData && window.blockData[blockType]) {
              const renderer = window.blockData[blockType];
              renderObj = renderer(tempState);
         }
 
-        if (renderObj && images.blocks.complete) {
+        if (renderObj && images.blocks && images.blocks.complete) {
              ctx.drawImage(images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
         } else {
              ctx.fillStyle = "magenta"; 
@@ -891,11 +969,38 @@ document.getElementById('console-input').addEventListener('keydown', function(e)
 
 
 
-// Diccionario de traducciones de encantamientos
+// --- DICCIONARIO Y FORMATEO GLOBAL DE ENCANTAMIENTOS ---
 const enchantTranslations = {
+    // Generales
     "unbreaking1": "Unbreaking I", "unbreaking2": "Unbreaking II", "unbreaking3": "Unbreaking III",
+    "mending1": "Mending",
+
+    // Herramientas y Armas
     "sharpness1": "Sharpness I", "sharpness2": "Sharpness II", "sharpness3": "Sharpness III", "sharpness4": "Sharpness IV", "sharpness5": "Sharpness V",
-    "protection1": "Protection I", "protection2": "Protection II", "protection3": "Protection III", "protection4": "Protection IV"
+    "smite1": "Smite I", "smite2": "Smite II", "smite3": "Smite III", "smite4": "Smite IV", "smite5": "Smite V",
+    "baneofarthropods1": "Bane of Arthropods I", "baneofarthropods2": "Bane of Arthropods II", "baneofarthropods3": "Bane of Arthropods III", "baneofarthropods4": "Bane of Arthropods IV", "baneofarthropods5": "Bane of Arthropods V",
+    "knockback1": "Knockback I", "knockback2": "Knockback II",
+    "fireaspect1": "Fire Aspect I", "fireaspect2": "Fire Aspect II",
+    "looting1": "Looting I", "looting2": "Looting II", "looting3": "Looting III",
+    "efficiency1": "Efficiency I", "efficiency2": "Efficiency II", "efficiency3": "Efficiency III", "efficiency4": "Efficiency IV", "efficiency5": "Efficiency V",
+    "silktouch1": "Silk Touch",
+    "fortune1": "Fortune I", "fortune2": "Fortune II", "fortune3": "Fortune III",
+    
+    // Arcos
+    "power1": "Power I", "power2": "Power II", "power3": "Power III", "power4": "Power IV", "power5": "Power V",
+    "punch1": "Punch I", "punch2": "Punch II",
+    "flame1": "Flame",
+    "infinity1": "Infinity",
+    
+    // Armadura
+    "protection1": "Protection I", "protection2": "Protection II", "protection3": "Protection III", "protection4": "Protection IV",
+    "fireprotection1": "Fire Protection I", "fireprotection2": "Fire Protection II", "fireprotection3": "Fire Protection III", "fireprotection4": "Fire Protection IV",
+    "featherfalling1": "Feather Falling I", "featherfalling2": "Feather Falling II", "featherfalling3": "Feather Falling III", "featherfalling4": "Feather Falling IV",
+    "blastprotection1": "Blast Protection I", "blastprotection2": "Blast Protection II", "blastprotection3": "Blast Protection III", "blastprotection4": "Blast Protection IV",
+    "projectileprotection1": "Projectile Protection I", "projectileprotection2": "Projectile Protection II", "projectileprotection3": "Projectile Protection III", "projectileprotection4": "Projectile Protection IV",
+    "respiration1": "Respiration I", "respiration2": "Respiration II", "respiration3": "Respiration III",
+    "aquaaffinity1": "Aqua Affinity",
+    "thorns1": "Thorns I", "thorns2": "Thorns II", "thorns3": "Thorns III"
 };
 
 // Función auxiliar para formatear el texto

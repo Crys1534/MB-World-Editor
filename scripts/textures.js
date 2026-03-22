@@ -567,6 +567,15 @@ AfroCap: { x: 0000, y: 0000 },
 PartyCap: { x: 0000, y: 0000 },
 ShadesCap: { x: 0000, y: 0000 },
 MustacheCap: { x: 0000, y: 0000 },
+frodcarrot: { x: 2, y: 209 },
+Shear: { x: 3, y: 209 },
+bow: { x: 7, y: 209 },
+fr: { x: 0, y: 209 },
+tag: { x: 0, y: 219 },
+paper: { x: 1, y: 219 },
+book: { x: 2, y: 219 },
+ebook: { x: 3, y: 219 },
+cbook: { x: 4, y: 219 },
 
  // ALIAS para que aparezcan en el inventario bloques que no tienen textura base directa
 
