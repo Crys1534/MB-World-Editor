@@ -11,7 +11,7 @@ const inventoryCategories = {
 
 // 🗡️ Ítems Creados
     Custom: { 
-        icon: 'chest', 
+        icon: 'ObsidianPickaxe', 
         items: [] // Se llena por LocalStorage
     },
 	
@@ -72,6 +72,12 @@ const inventoryCategories = {
             'GoldShirt', 'GoldPants', 'GoldShoes', 'DiamondCap', 'DiamondShirt', 'DiamondPants', 'DiamondShoes', 'DragonCap', 'DragonShirt', 
             'DragonPants', 'DragonShoes','SnowCap', 'AfroCap', 'PartyCap', 'ShadesCap', 'MustacheCap',
         ]
+    },
+	
+// 📚 Libros Encantados
+    EnchantedBooks: {
+        icon: 'ebook',
+        items: [] 
     },
 };
 
@@ -277,7 +283,7 @@ function populateInventory() {
         return;
     }
 
-	grid.style.display = 'grid';
+    grid.style.display = 'grid';
     grid.style.gridTemplateColumns = 'repeat(9, 64px)'; 
     grid.style.gap = '0px'; 
     grid.style.padding = '0px';
@@ -285,7 +291,71 @@ function populateInventory() {
     grid.style.alignContent = 'start';
     grid.style.justifyContent = 'center';
 
-    // --- LÓGICA ESPECIAL PARA PESTAÑA CUSTOM ---
+    // ========================================================
+    // --- LÓGICA ESPECIAL: PESTAÑA LIBROS ENCANTADOS (LIMPIA) ---
+    // ========================================================
+    if (activeInventoryTab === 'EnchantedBooks') {
+        const enchants = Object.keys(enchantTranslations);
+        
+        enchants.forEach(enchantKey => {
+            let enchantments = {};
+            enchantments[enchantKey] = "enchant"; 
+
+            const item = document.createElement('div');
+            item.className = 'inv-item enchanted-slot'; // Añadimos la clase mágica aquí
+            
+            // ELIMINAMOS el item.title nativo y no inyectamos div in-line
+            item.title = ""; 
+            
+            // GUARDAMOS EL TEXTO MÁGICO EN EL DATASET PARA EL TOOLTIP MAESTRO
+            let niceName = enchantTranslations[enchantKey];
+            let enchantTooltipHTML = typeof formatEnchantments === 'function' ? formatEnchantments(enchantments) : "";
+            item.dataset.enchantTooltip = `<strong>Enchanted Book</strong>${enchantTooltipHTML}`;
+
+            // Lógica de Recogida (Soporta NBT)
+            item.onclick = () => {
+                heldItem = { type: 'book', count: 1, states1: 0, nbt: enchantments };
+                updateFloatingItem();
+            };
+
+            // Estilos del slot
+            item.style.width = '64px'; item.style.height = '64px';
+            item.style.minWidth = '64px'; item.style.minHeight = '64px';
+            item.style.flexShrink = '0';
+            item.style.background = '#8B8B8B'; item.style.border = '4px inset #FFF'; 
+            item.style.display = 'flex'; item.style.justifyContent = 'center';
+            item.style.alignItems = 'center'; item.style.boxSizing = 'border-box';
+            item.style.cursor = 'pointer'; item.style.position = 'relative';
+
+            // Dibujar el canvas del ítem (Usamos 'book' que sí existe en texturas)
+            const cvs = document.createElement('canvas');
+            cvs.width = 16; cvs.height = 16;
+            cvs.style.width = '48px'; cvs.style.height = '48px';
+            cvs.style.imageRendering = 'pixelated';
+            const ctx = cvs.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+
+            let renderObj = typeof getBlockObject === 'function' ? getBlockObject({type: 'book'}) : null;
+            if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
+                ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
+            } else {
+                ctx.fillStyle = "magenta"; ctx.fillRect(4, 4, 8, 8);
+            }
+            item.appendChild(cvs);
+
+            // Efecto Hover
+            item.onmouseenter = () => { item.style.background = '#A0A0A0'; };
+            item.onmouseleave = () => { item.style.background = '#8B8B8B'; };
+
+            grid.appendChild(item);
+        });
+        
+        return; // Detenemos la función para que no se rompa buscando texturas
+    }
+
+    // ========================================================
+    // --- LÓGICA ESPECIAL: PESTAÑA CUSTOM (LIMPIA) ---
+    // ========================================================
     if (activeInventoryTab === 'Custom') {
         let savedCustomItems = JSON.parse(localStorage.getItem('mbw_custom_items')) || [];
         
@@ -297,20 +367,17 @@ function populateInventory() {
 
             const item = document.createElement('div');
             item.className = 'inv-item';
-            item.title = String(itemID).replace(/([A-Z])/g, ' $1').trim() + " (Custom)";
             
-            // Lógica de Recogida (Soporta NBT)
             item.onclick = () => {
                 heldItem = { type: itemID, count: itemCount, states1: itemDamage, nbt: enchantments };
                 updateFloatingItem();
             };
 
-            // Eliminar con Clic Derecho
             item.oncontextmenu = (e) => {
                 e.preventDefault();
                 savedCustomItems.splice(index, 1);
                 localStorage.setItem('mbw_custom_items', JSON.stringify(savedCustomItems));
-                populateInventory(); // Recargar
+                populateInventory(); 
             };
 
             item.style.width = '64px'; item.style.height = '64px';
@@ -322,7 +389,17 @@ function populateInventory() {
             item.style.cursor = 'pointer'; item.style.position = 'relative';
 
             let isEnchanted = enchantments && Object.keys(enchantments).length > 0;
-            if (isEnchanted) item.classList.add('enchanted-slot');
+            if (isEnchanted) {
+                item.classList.add('enchanted-slot');
+                item.title = ""; // Ocultamos el título nativo si tiene magia
+
+                // GUARDAMOS EL TEXTO MÁGICO EN EL DATASET
+                let itemNameStr = String(itemID).replace(/([A-Z])/g, ' $1').trim();
+                let enchantTooltipHTML = typeof formatEnchantments === 'function' ? formatEnchantments(enchantments) : "";
+                item.dataset.enchantTooltip = `<strong>${itemNameStr}</strong>${enchantTooltipHTML}`;
+            } else {
+                item.title = String(itemID).replace(/([A-Z])/g, ' $1').trim() + " (Custom)";
+            }
 
             const cvs = document.createElement('canvas');
             cvs.width = 16; cvs.height = 16;
@@ -339,26 +416,18 @@ function populateInventory() {
             }
             item.appendChild(cvs);
 
-            // Inyectar Tooltip Global
-            if (isEnchanted) {
-                let tooltipDiv = document.createElement('div');
-                tooltipDiv.className = 'enchant-tooltip';
-                let itemNameStr = String(itemID).replace(/([A-Z])/g, ' $1').trim();
-                let enchantTooltipHTML = formatEnchantments(enchantments);
-                tooltipDiv.innerHTML = `<strong>${itemNameStr}</strong>${enchantTooltipHTML}`;
-                item.appendChild(tooltipDiv);
-            }
-
             item.onmouseenter = () => { item.style.background = '#A0A0A0'; };
             item.onmouseleave = () => { item.style.background = '#8B8B8B'; };
 
             grid.appendChild(item);
         });
         
-        return; // Detenemos la función para que no cargue bloques normales
+        return; 
     }
-    // ---------------------------------------------
 
+    // ========================================================
+    // --- LÓGICA NORMAL: PESTAÑAS DEL JUEGO BASE ---
+    // ========================================================
     const allBlocks = (typeof window.blockData !== 'undefined') ? Object.keys(window.blockData) : [];
     let blocksToShow = [];
 
@@ -820,17 +889,19 @@ function renderChestBuilder() {
 
         const slotData = customChestInventory[i];
 
-        slotDiv.onclick = () => {
+slotDiv.onclick = () => {
             if (heldItem) {
-                let temp = slotData ? { type: slotData.type, states1: slotData.states1, count: slotData.count } : null;
+                // SALVAMOS EL NBT (LA MAGIA) AL INTERCAMBIAR
+                let temp = slotData ? { type: slotData.type, states1: slotData.states1, count: slotData.count, nbt: slotData.nbt } : null;
                 let newState = { type: heldItem.type, count: heldItem.count };
                 if (heldItem.states1 !== undefined) newState.states1 = heldItem.states1;
+                if (heldItem.nbt !== undefined) newState.nbt = heldItem.nbt; // <- AQUI GUARDAMOS LA MAGIA
                 
                 customChestInventory[i] = newState;
                 heldItem = temp; 
             } else {
                 if (slotData && slotData.type) {
-                    heldItem = { type: slotData.type, states1: slotData.states1, count: slotData.count || 1 };
+                    heldItem = { type: slotData.type, states1: slotData.states1, count: slotData.count || 1, nbt: slotData.nbt };
                     customChestInventory[i] = null;
                 }
             }
@@ -879,10 +950,14 @@ async function saveCustomChest() {
     let title = titleInput ? titleInput.value.trim() : 'Loot Chest';
     if (!title) title = 'Custom Chest';
 
-    // Convertimos el inventario del Creador al formato interno que usa Mine Blocks
+// Convertimos el inventario del Creador al formato interno que usa Mine Blocks
     const formattedInventory = customChestInventory.map(item => {
         if (!item) return 0; // 0 significa slot vacío
-        return [item.type, item.count || 1, item.states1 || 0];
+        
+        // RECUPERAMOS EL NBT Y LO AGREGAMOS AL ARRAY FINAL (INDICE 3)
+        let nbtData = item.nbt ? item.nbt : {}; 
+        
+        return [item.type, item.count || 1, item.states1 || 0, nbtData];
     });
 
     // Creamos la "Estructura" de un solo bloque (El cofre)
@@ -973,7 +1048,6 @@ document.getElementById('console-input').addEventListener('keydown', function(e)
 const enchantTranslations = {
     // Generales
     "unbreaking1": "Unbreaking I", "unbreaking2": "Unbreaking II", "unbreaking3": "Unbreaking III",
-    "mending1": "Mending",
 
     // Herramientas y Armas
     "sharpness1": "Sharpness I", "sharpness2": "Sharpness II", "sharpness3": "Sharpness III", "sharpness4": "Sharpness IV", "sharpness5": "Sharpness V",
@@ -1245,4 +1319,92 @@ const WorldTabsManager = {
 // Inicializamos las pestañas cuando cargue la página
 window.addEventListener('DOMContentLoaded', () => {
     WorldTabsManager.init();
+});
+
+
+
+// ========================================================
+// --- SISTEMA DE TOOLTIPS FLOTANTES GLOBALES (CORREGIDO Y UNIFICADO) ---
+// ========================================================
+
+// 1. INYECTAMOS EL CSS DEL TOOLTIP PERFECTO DENTRO DEL SCRIPT (A PRUEBA DE FALLAS)
+//    He copiado y pulido el estilo morado de Minecraft para que se enrolle bien sobre el texto
+//    y no se desconecte ni se corte.
+const enchantedTooltipStyle = document.createElement('style');
+enchantedTooltipStyle.innerHTML = `
+    /* Ocultamos los tooltips viejos por si quedara alguno in-line */
+    .enchant-slot .enchant-tooltip, .inv-item .enchant-tooltip {
+        display: none !important; 
+    }
+
+    /* Estilo Definido para el Tooltip Maestro Flotante */
+    .master-enchant-tooltip {
+        position: fixed;
+        z-index: 9999999 !important; /* Por encima de TODO */
+        background-color: rgba(0, 34, 85, 0.95) !important; /* Fondo oscuro y sutil */
+        border: 2px solid #0055ff !important; /* Borde morado oscuro */
+        border-image: linear-gradient(to bottom, #2e0066, #160033) 1; /* Efecto de degradado en el borde */
+        color: #ffffff !important; /* Texto gris claro por defecto */
+        font-family: 'Pixeltype', sans-serif !important; /* Tu fuente pixel art */
+        font-size: 22px !important;
+        padding: 6px 10px !important;
+        pointer-events: none; /* No interfiere con los clics */
+        white-space: nowrap; /* Evita que el texto se parta en varias líneas */
+        width: fit-content; /* Se ajusta exactamente al texto */
+        box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5); /* Sombra nítida estilo Minecraft */
+        display: none; /* Oculto por defecto */
+    }
+
+    /* Estilo para el título dorado dentro del tooltip */
+    .master-enchant-tooltip strong {
+        color: #ffffff !important; /* Dorado/Amarillo Minecraft */
+		font-size: 26px !important; /* <--- AQUÍ LE DAS EL TAMAÑO AL NOMBRE DEL ÍTEM */
+        display: block;
+        margin-bottom: 0px;
+    }
+`;
+document.head.appendChild(enchantedTooltipStyle);
+
+// 2. Creamos el Tooltip Maestro único que flotará libremente
+const masterTooltip = document.createElement('div');
+masterTooltip.className = 'master-enchant-tooltip'; // Le asignamos la clase que acabamos de definir
+document.body.appendChild(masterTooltip);
+
+let lastHoveredSlot = null;
+
+// 3. Lógica para seguir al ratón y actualizar el contenido dinámicamente
+document.addEventListener('mousemove', (e) => {
+    // Buscamos si el ratón está sobre un slot encantado
+    let slot = e.target.closest('.enchanted-slot');
+    
+    if (slot) {
+        // Si cambiamos de slot, actualizamos el contenido
+        if (slot !== lastHoveredSlot) {
+            // LEEMOS LA MAGIA DESDE EL DATASET (El atributo invisible data-enchant-tooltip)
+            // Ya no buscamos tooltips in-line dentro del contenedor de la cuadrícula
+            let tooltipHTML = slot.dataset.enchantTooltip;
+            if (tooltipHTML) {
+                masterTooltip.innerHTML = tooltipHTML;
+            } else {
+                masterTooltip.innerHTML = "";
+            }
+            lastHoveredSlot = slot;
+        }
+        // Mostramos el tooltip y lo posicionamos cerca del puntero
+        masterTooltip.style.display = 'block';
+        masterTooltip.style.left = (e.clientX + 15) + 'px';
+        
+        // Ajuste inteligente: si el tooltip es muy alto, lo movemos hacia arriba 
+        // para que no se corte por abajo de la pantalla
+        let tooltipHeight = masterTooltip.offsetHeight;
+        if (e.clientY + tooltipHeight + 20 > window.innerHeight) {
+            masterTooltip.style.top = (e.clientY - tooltipHeight - 10) + 'px';
+        } else {
+            masterTooltip.style.top = (e.clientY + 15) + 'px';
+        }
+    } else {
+        // Si no estamos sobre un slot encantado, ocultamos el tooltip maestro
+        masterTooltip.style.display = 'none';
+        lastHoveredSlot = null;
+    }
 });

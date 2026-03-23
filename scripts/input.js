@@ -1,20 +1,20 @@
 const keys = {
-	KeyW: false, KeyA: false, KeyS: false, KeyD: false,
-	KeyC: false, Tab: false, KeyQ: false, KeyE: false,
+    KeyW: false, KeyA: false, KeyS: false, KeyD: false,
+    KeyC: false, Tab: false, KeyQ: false, KeyE: false,
     KeyZ: false, KeyX: false, KeyV: false 
 };
 
 const mouse = {
-	canvasX: null, canvasY: null, gridX: null, gridY: null,
-	alignedX: null, alignedY: null, worldX: null, worldY: null,
-	right: false, left: false,
-	calculateCoordinates: function () {
-		this.alignedX = this.gridX * tileSize;
-		this.alignedY = canvas.height - this.gridY * tileSize;
-		// Aplicamos Math.floor para forzar siempre números enteros (Alineación perfecta del Lasso con Zoom)
-		this.worldX = Math.floor(camera.x) + this.gridX;
-		this.worldY = Math.floor(camera.y) + this.gridY;
-	}
+    canvasX: null, canvasY: null, gridX: null, gridY: null,
+    alignedX: null, alignedY: null, worldX: null, worldY: null,
+    right: false, left: false,
+    calculateCoordinates: function () {
+        this.alignedX = this.gridX * tileSize;
+        this.alignedY = canvas.height - this.gridY * tileSize;
+        // Aplicamos Math.floor para forzar siempre números enteros (Alineación perfecta del Lasso con Zoom)
+        this.worldX = Math.floor(camera.x) + this.gridX;
+        this.worldY = Math.floor(camera.y) + this.gridY;
+    }
 }
 
 function cameraMovement() {
@@ -51,22 +51,22 @@ function cameraMovement() {
 }
 
 function teleportSwitch() {
-	if (!tpToggle) {
-		lastPosition[0].x = camera.x;
-		lastPosition[0].y = camera.y;
-		if (!firstTime) {
-			camera.x = lastPosition[1].x;
-			camera.y = lastPosition[1].y;
-		}
-		tpToggle = true;
-	} else {
-		lastPosition[1].x = camera.x;
-		lastPosition[1].y = camera.y;
-		camera.x = lastPosition[0].x;
-		camera.y = lastPosition[0].y;
-		tpToggle = false;
-		firstTime = false;
-	}
+    if (!tpToggle) {
+        lastPosition[0].x = camera.x;
+        lastPosition[0].y = camera.y;
+        if (!firstTime) {
+            camera.x = lastPosition[1].x;
+            camera.y = lastPosition[1].y;
+        }
+        tpToggle = true;
+    } else {
+        lastPosition[1].x = camera.x;
+        lastPosition[1].y = camera.y;
+        camera.x = lastPosition[0].x;
+        camera.y = lastPosition[0].y;
+        tpToggle = false;
+        firstTime = false;
+    }
 }
 
 let tpToggle = false;
@@ -160,14 +160,14 @@ window.addEventListener("keydown", function (event) {
 });
 
 window.addEventListener("keyup", function (event) {
-	if (keys.hasOwnProperty(event.code)) keys[event.code] = false;
+    if (keys.hasOwnProperty(event.code)) keys[event.code] = false;
 });
 
 canvas.addEventListener("mousemove", (event) => {
-	mouse.canvasX = event.offsetX;
-	mouse.canvasY = canvas.height - event.offsetY;
-	mouse.gridX = Math.floor(mouse.canvasX / tileSize);
-	mouse.gridY = Math.floor(mouse.canvasY / tileSize);
+    mouse.canvasX = event.offsetX;
+    mouse.canvasY = canvas.height - event.offsetY;
+    mouse.gridX = Math.floor(mouse.canvasX / tileSize);
+    mouse.gridY = Math.floor(mouse.canvasY / tileSize);
     mouse.calculateCoordinates(); 
 
     if ((currentTool === 'select' || currentTool === 'lasso') && mouse.left) {
@@ -187,32 +187,8 @@ const maxDurabilityMap = {
     "WoodenHoe": 60, "StoneHoe": 132, "IronHoe": 251, "GoldHoe": 33, "DiamondHoe": 1562
 };
 
-function extractEnchants(itemData) {
-                let meta = null;
-                if (Array.isArray(itemData)) meta = itemData[3];
-                else if (itemData && typeof itemData === 'object') meta = itemData;
-
-                let parsedEnchants = [];
-                if (meta && typeof meta === 'object') {
-                    for (let key in meta) {
-                        // CORRECCIÓN: Ahora detecta tanto "enchant" como "enchantment"
-                        if (meta[key] === "enchant" || meta[key] === "enchantment") {
-                            parsedEnchants.push(key);
-                        }
-                    }
-                }
-                return parsedEnchants;
-            }
-
-function formatEnchantText(rawEnchants) {
-    return rawEnchants.map(raw => {
-        let name = raw.replace(/[0-9]/g, '');
-        let level = raw.replace(/[^0-9]/g, '');
-        name = name.charAt(0).toUpperCase() + name.slice(1);
-        return name + (level ? " " + level : "");
-    }).join('</br>');
-}
-
+// --- DIBUJANTE UNIVERSAL DE INVENTARIOS ---
+// Toma los datos de un bloque y los dibuja adentro del contenedor que le pidas
 // --- DIBUJANTE UNIVERSAL DE INVENTARIOS ---
 // Toma los datos de un bloque y los dibuja adentro del contenedor que le pidas
 function renderChestOrOvenUI(blockState, gridContainer) {
@@ -239,15 +215,19 @@ function renderChestOrOvenUI(blockState, gridContainer) {
             slot.style.boxSizing = 'border-box';
             
             let item = inventory[i];
-            let itemID, itemCount, itemDamage = 0;
+            let itemID, itemCount, itemDamage = 0, enchantments = null;
 
+            // Extractor Inteligente (Detecta si es Array u Objeto)
             if (Array.isArray(item)) {
-                itemID = item[0]; itemCount = item[1]; itemDamage = item[2] || 0;
+                itemID = item[0]; itemCount = item[1]; itemDamage = item[2] || 0; enchantments = item[3];
             } else if (item && typeof item === 'object') {
-                itemID = item.id; itemCount = item.count; itemDamage = item.damage || 0;
+                itemID = item.id || item.type; 
+                itemCount = item.count || 1; 
+                itemDamage = item.damage || item.states1 || 0; 
+                enchantments = item.nbt;
             }
-            
-            let itemEnchants = extractEnchants(item);
+
+            let isEnchanted = enchantments && Object.keys(enchantments).length > 0;
 
             if (itemID && itemID !== "air" && itemID !== "0" && itemID !== 0) { 
                 let cvs = document.createElement('canvas');
@@ -261,7 +241,7 @@ function renderChestOrOvenUI(blockState, gridContainer) {
 
                 if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
                     ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
-                    let maxDur = maxDurabilityMap[itemID];
+                    let maxDur = typeof maxDurabilityMap !== 'undefined' ? maxDurabilityMap[itemID] : null;
                     if (maxDur && typeof drawDurabilityBar === 'function') {
                         drawDurabilityBar(ctx, 0, 0, 16, 16, itemDamage, maxDur);
                     }
@@ -271,21 +251,19 @@ function renderChestOrOvenUI(blockState, gridContainer) {
 
                 slot.appendChild(cvs);
 
-                // APLICAR EFECTO MAGIA
-// --- APLICAR EFECTO MAGIA Y NOMBRE DEL ÍTEM ---
-                if (itemEnchants.length > 0) {
+                // --- APLICAR EFECTO MAGIA CON EL NUEVO SISTEMA MAESTRO ---
+                if (isEnchanted) {
                     slot.classList.add('enchanted-slot');
-                    let tooltipDiv = document.createElement('div');
-                    tooltipDiv.className = 'enchant-tooltip';
+                    slot.title = ""; // Matamos el tooltip nativo
                     
-                    // Formatea "DiamondPickaxe" para que diga "Diamond Pickaxe"
                     let itemNameStr = String(itemID).replace(/([A-Z])/g, ' $1').trim();
+                    let enchantTooltipHTML = typeof formatEnchantments === 'function' ? formatEnchantments(enchantments) : "";
                     
-                    // Agrega el nombre del ítem en amarillo (o cian) arriba de los encantamientos
-                    let nameHtml = `<span style="color: #FFFFFF; font-family: Pixeltype; font-size: 20px; display: block; padding-bottom: 2px; margin-bottom: 2px;">${itemNameStr}</span>`;
-                    
-                    tooltipDiv.innerHTML = nameHtml + formatEnchantText(itemEnchants);
-                    slot.appendChild(tooltipDiv);
+                    // Guardamos el texto mágico invisiblemente para que el Tooltip Maestro lo lea
+                    slot.dataset.enchantTooltip = `<strong>${itemNameStr}</strong>${enchantTooltipHTML}`;
+                } else {
+                    // Si no es mágico, solo mostramos el nombre normal con el tooltip nativo
+                    slot.title = String(itemID).replace(/([A-Z])/g, ' $1').trim();
                 }
 
                 if (itemCount > 1) {
@@ -320,9 +298,18 @@ function renderChestOrOvenUI(blockState, gridContainer) {
             slot.style.position = 'relative'; slot.style.display = 'flex';
             slot.style.justifyContent = 'center'; slot.style.alignItems = 'center';
 
-            let itemEnchants = extractEnchants(itemData);
+            let itemID, itemCount, itemDamage = 0, enchantments = null;
 
-            if (itemData && itemData[0] !== "air" && itemData[0] !== 0 && itemData[0] !== "0") {
+            // Extractor Inteligente (Detecta si es Array u Objeto)
+            if (Array.isArray(itemData)) {
+                itemID = itemData[0]; itemCount = itemData[1]; itemDamage = itemData[2] || 0; enchantments = itemData[3];
+            } else if (itemData && typeof itemData === 'object') {
+                itemID = itemData.id || itemData.type; itemCount = itemData.count || 1; itemDamage = itemData.damage || itemData.states1 || 0; enchantments = itemData.nbt;
+            }
+
+            let isEnchanted = enchantments && Object.keys(enchantments).length > 0;
+
+            if (itemID && itemID !== "air" && itemID !== 0 && itemID !== "0") {
                 let cvs = document.createElement('canvas');
                 cvs.width = 16; cvs.height = 16;
                 cvs.style.width = isLarge ? '20px' : '14px'; cvs.style.height = isLarge ? '20px' : '14px';
@@ -330,39 +317,36 @@ function renderChestOrOvenUI(blockState, gridContainer) {
                 let ctx = cvs.getContext('2d');
                 ctx.imageSmoothingEnabled = false;
 
-                let tempState = { type: itemData[0] }; 
+                let tempState = { type: itemID }; 
                 let renderObj = typeof getBlockObject === 'function' ? getBlockObject(tempState) : null;
 
                 if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
                     ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
-                    let maxDur = maxDurabilityMap[itemData[0]];
+                    let maxDur = typeof maxDurabilityMap !== 'undefined' ? maxDurabilityMap[itemID] : null;
                     if (maxDur && typeof drawDurabilityBar === 'function') {
-                        drawDurabilityBar(ctx, 0, 0, 16, 16, itemData[2] || 0, maxDur);
+                        drawDurabilityBar(ctx, 0, 0, 16, 16, itemDamage, maxDur);
                     }
                 } else {
                     ctx.fillStyle = "magenta"; ctx.fillRect(4, 4, 8, 8);
                 }
                 slot.appendChild(cvs);
 
-// --- APLICAR EFECTO MAGIA Y NOMBRE DEL ÍTEM ---
-                let enchantments = Array.isArray(itemData) ? itemData[3] : itemData.nbt;
-                let isEnchanted = enchantments && Object.keys(enchantments).length > 0;
-
+                // --- APLICAR EFECTO MAGIA CON EL NUEVO SISTEMA MAESTRO ---
                 if (isEnchanted) {
                     slot.classList.add('enchanted-slot');
-                    let tooltipDiv = document.createElement('div');
-                    tooltipDiv.className = 'enchant-tooltip';
+                    slot.title = ""; 
                     
-                    let itemNameStr = String(itemData[0]).replace(/([A-Z])/g, ' $1').trim();
-                    let enchantTooltipHTML = formatEnchantments(enchantments); // <- Usamos tu función global
+                    let itemNameStr = String(itemID).replace(/([A-Z])/g, ' $1').trim();
+                    let enchantTooltipHTML = typeof formatEnchantments === 'function' ? formatEnchantments(enchantments) : "";
                     
-                    tooltipDiv.innerHTML = `<strong>${itemNameStr}</strong>${enchantTooltipHTML}`;
-                    slot.appendChild(tooltipDiv);
+                    slot.dataset.enchantTooltip = `<strong>${itemNameStr}</strong>${enchantTooltipHTML}`;
+                } else {
+                    slot.title = String(itemID).replace(/([A-Z])/g, ' $1').trim();
                 }
 
-                if (itemData[1] > 1) {
+                if (itemCount > 1) {
                     let countTag = document.createElement('span');
-                    countTag.innerText = itemData[1];
+                    countTag.innerText = itemCount;
                     countTag.style.position = 'absolute'; countTag.style.bottom = '-2px'; countTag.style.right = '0px';
                     countTag.style.color = 'white'; countTag.style.fontSize = '10px'; countTag.style.fontWeight = 'bold';
                     countTag.style.textShadow = '1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000';
@@ -419,8 +403,8 @@ function updateChestTooltip(screenX, screenY) {
 }
 
 canvas.addEventListener("mousedown", function (event) {
-	if (event.button == 0) mouse.left = true;
-	if (event.button == 2) mouse.right = true;
+    if (event.button == 0) mouse.left = true;
+    if (event.button == 2) mouse.right = true;
 
     if ((currentTool === 'select' || currentTool === 'lasso') && mouse.left) {
         handleSelectionInput('start', mouse.worldX, mouse.worldY);
@@ -446,8 +430,8 @@ window.addEventListener("mouseup", function (event) {
         handleSelectionInput('end', mouse.worldX, mouse.worldY);
     }
 
-	if (event.button == 0) mouse.left = false;
-	if (event.button == 2) mouse.right = false;
+    if (event.button == 0) mouse.left = false;
+    if (event.button == 2) mouse.right = false;
 
     if (currentTool !== 'eyedropper' && currentTool !== 'bucket' && currentTool !== 'select' && currentTool !== 'lasso' && currentTool !== 'paste') {
         historyManager.commitAction();

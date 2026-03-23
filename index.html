@@ -404,7 +404,7 @@
 							<img src="assets/Create Item.png" alt="Create Item" style="width: 32px; height: 32px; object-fit: contain; margin-bottom: 0px; image-rendering: pixelated;">
 							<span>Create<br>Item</span>
 						</button>
-						<div class="ribbon-group-label">Custom Item</div>
+						<div class="ribbon-group-label">Custom Items</div>
 		</div>
    </div>
 
@@ -879,7 +879,7 @@
  
  
  <div id="custom-items-modal" class="modal" style="z-index: 2100;">
-    <div class="modal-content mbw-standard-modal" style="width: 850px; height: 550px;">
+    <div class="modal-content mbw-standard-modal" style="width: 1113px; height: 550px;">
         <div class="mbw-modal-header">
             <h3>Custom Items Creator</h3>
             <span class="mbw-close-btn" onclick="closeModal('custom-items-modal')">&times;</span>
@@ -888,12 +888,18 @@
         <div class="mbw-modal-body" style="display: flex; flex-direction: row; padding: 0; overflow: hidden;">
             
             <div style="width: 60%; display: flex; flex-direction: column; background: #C6C6C6; border-right: 2px solid #555;">
-                <div style="display: flex; background: #8B8B8B; border-bottom: 2px solid #555;">
-                    <button class="struct-tab active" id="tab-ci-tools" onclick="renderCustomGrid('tools')">Tools</button>
-                    <button class="struct-tab" id="tab-ci-armor" onclick="renderCustomGrid('armor')">Armor</button>
-                    <button class="struct-tab" id="tab-ci-books" onclick="renderCustomGrid('books')">Books</button>
+<div style="display: flex; background: #8B8B8B; border-bottom: 2px solid #555;">
+                    <button class="struct-tab active" id="tab-ci-tools" onclick="renderCustomGrid('tools')" title="Tools" style="padding: 6px 12px; display: flex; align-items: center; justify-content: center;">
+                        <canvas id="ci-icon-tools" width="16" height="16" style="width: 24px; height: 24px; image-rendering: pixelated;"></canvas>
+                    </button>
+                    <button class="struct-tab" id="tab-ci-armor" onclick="renderCustomGrid('armor')" title="Armor" style="padding: 6px 12px; display: flex; align-items: center; justify-content: center;">
+                        <canvas id="ci-icon-armor" width="16" height="16" style="width: 24px; height: 24px; image-rendering: pixelated;"></canvas>
+                    </button>
+                    <button class="struct-tab" id="tab-ci-books" onclick="renderCustomGrid('books')" title="Books" style="padding: 6px 12px; display: flex; align-items: center; justify-content: center;">
+                        <canvas id="ci-icon-books" width="16" height="16" style="width: 24px; height: 24px; image-rendering: pixelated;"></canvas>
+                    </button>
                 </div>
-                <div id="custom-items-grid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; padding: 10px; overflow-y: auto; background: #8B8B8B; align-content: start; flex: 1;">
+<div id="custom-items-grid" style="display: grid; grid-template-columns: repeat(9, 64px); row-gap: 0px; column-gap: 8px; padding: 0px; overflow-y: auto; background: #373737; align-content: start; justify-content: left; flex: 1;">
                     </div>
             </div>
 
@@ -917,7 +923,7 @@
 </div>
  
  <div id="custom-items-modal" class="modal" style="z-index: 2100;">
-    <div class="modal-content mbw-standard-modal" style="width: 850px; height: 550px;">
+    <div class="modal-content mbw-standard-modal" style="width: 1113px; height: 550px;">
         <div class="mbw-modal-header">
             <h3>Custom Items Creator</h3>
             <span class="mbw-close-btn" onclick="closeModal('custom-items-modal')">&times;</span>
@@ -931,8 +937,7 @@
                     <button class="struct-tab" id="tab-ci-armor" onclick="renderCustomGrid('armor')">Armor</button>
                     <button class="struct-tab" id="tab-ci-books" onclick="renderCustomGrid('books')">Books</button>
                 </div>
-                <div id="custom-items-grid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0px; padding: 0px; overflow-y: auto; background: #8B8B8B; align-content: start; flex: 1;">
-                    </div>
+<div id="custom-items-grid" style="display: grid; grid-template-columns: repeat(9, 64px); row-gap: 0px; column-gap: 8px; padding: 0px; overflow-y: auto; background: #373737; align-content: start; justify-content: left; flex: 1;">                    </div>
             </div>
 
             <div style="width: 40%; background: #B0B0B0; padding: 15px; display: flex; flex-direction: column; position: relative;">

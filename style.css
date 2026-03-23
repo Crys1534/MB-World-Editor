@@ -345,7 +345,7 @@ body {
 /* --- SIDEBAR (HERRAMIENTAS FLOTANTE) --- */
 #toolbar-sidebar {
  position: absolute;
- top: 192px; /* Ajustado para estar debajo de la cinta (TopBar + Ribbon ~153px) */
+ top: 212px; /* Ajustado para estar debajo de la cinta (TopBar + Ribbon ~153px) */
  left: 15px; /* Separación del borde izquierdo */
  bottom: auto; /* IMPORTANTE: Ya no se estira hasta abajo */
  height: auto; /* La altura se ajusta al contenido de los botones */
@@ -960,6 +960,18 @@ button:hover {
 }
 
 
+/* Estado Bloqueado (Conflicto de nivel) */
+.enchant-option.disabled-enchant {
+    background-color: #666 !important;
+    border: 2px solid #444 !important;
+    color: #aaa !important;
+    pointer-events: none; /* Bloquea el clic */
+    filter: grayscale(100%);
+    box-shadow: none;
+    transform: none; /* Evita que se haga grande al pasar el ratón */
+}
+
+
 
 /* --- CUSTOM ITEMS CREATOR --- */
 .enchant-option {
@@ -1007,4 +1019,30 @@ button:hover {
     animation: shine-glint 2s infinite ease-in-out;
     pointer-events: none;
     z-index: 5;
+}
+
+
+
+/* Estilo unificado para el Tooltip Mágico Flotante */
+.enchant-tooltip-floating {
+    position: fixed;
+    z-index: 9999999 !important; /* Por encima de todo */
+    background-color: rgba(16, 0, 16, 0.9) !important; /* Fondo oscuro y sutil */
+    border: 2px solid #2e0066 !important; /* Borde morado oscuro */
+    border-image: linear_gradient(to bottom, #2e0066, #160033) 1; /* Efecto de degradado en el borde */
+    color: #a0a0a0 !important; /* Texto gris claro por defecto */
+    font-family: 'Pixeltype', sans-serif !important; /* Tu fuente pixel art */
+    font-size: 20px !important;
+    padding: 8px 12px !important;
+    pointer-events: none; /* No interfiere con los clics */
+    white-space: nowrap; /* Evita que el texto se parta en varias líneas */
+    box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.5); /* Sombra nítida estilo Minecraft */
+    display: none; /* Oculto por defecto */
+}
+
+/* Estilo para el título dorado dentro del tooltip */
+.enchant-tooltip-floating strong {
+    color: #ffaa00 !important; /* Dorado/Amarillo Minecraft */
+    display: block;
+    margin-bottom: 4px;
 }
