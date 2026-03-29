@@ -3,7 +3,7 @@
  --bg-dark: #1e1e1e;
  --bg-panel: #252526;
  --bg-header: #333333;
- --accent: #007acc;
+ --accent: #38bdf880;
  --text: #cccccc;
  --border: #3e3e42;
  --input-bg: #3c3c3c;
@@ -15,7 +15,7 @@ body.theme-white {
  --bg-dark: #f0f2f5;
  --bg-panel: #ffffff;
  --bg-header: #e4e6eb;
- --accent: #1877f2;
+ --accent: lightgray;
  --text: #050505;
  --border: #ccc;
  --input-bg: #ffffff;
@@ -27,7 +27,7 @@ body.theme-pastel {
  --bg-dark: #fdf6e3;
  --bg-panel: #eee8d5;
  --bg-header: #e6dfc8;
- --accent: #d33682;
+ --accent: #ff62ae80;
  --text: #586e75;
  --border: #d6d1bc;
  --input-bg: #fdf6e3;
@@ -39,7 +39,7 @@ body.theme-darkblue {
  --bg-dark: #0f172a;
  --bg-panel: #1e293b;
  --bg-header: #0f172a;
- --accent: #38bdf8;
+ --accent: #38bdf880;
  --text: #e2e8f0;
  --border: #334155;
  --input-bg: #1e293b;
@@ -71,7 +71,7 @@ body.theme-winxp .ribbon-group-label { color: #000; font-weight: bold; }
 
 body {
  margin: 0;
- background-color: var(--bg-dark);
+ background-color: #1a1a1a;
  color: var(--text);
  height: 100vh;
  display: flex;
@@ -136,17 +136,23 @@ body {
  width: 1px;
  height: 18px;
  background-color: var(--border);
- margin: 0 5px;
 }
 
 .filename-wrapper {
- display: flex;
- align-items: center;
- background-color: var(--input-bg);
- border: 1px solid var(--border);
- border-radius: 3px;
- padding: 2px 5px;
- width: 300px;
+    display: flex;
+    align-items: center;
+    background-color: var(--bg-header); 
+    border: 2px solid var(--bg-header); /* ✨ Borde del mismo color que el fondo */
+    padding: 2px 5px;
+    height: 28px;
+    box-sizing: border-box;
+    transition: background-color 0.2s ease, border-color 0.2s ease; /* Transición para ambos */
+}
+
+/* ✨ Efecto al pasar el ratón */
+.filename-wrapper:hover {
+    background-color: var(--input-bg);
+    border-color: var(--input-bg); /* ✨ El borde acompaña al nuevo fondo */
 }
 
 #filename-display {
@@ -201,7 +207,6 @@ body {
 .tab-btn.active {
  background-color: var(--bg-panel);
  font-weight: bold;
- border-bottom: 2px solid var(--accent);
 }
 
 .tab-btn.disabled {
@@ -230,7 +235,7 @@ body {
 
 /* --- Ajuste específico para separadores en la Ribbon --- */
 .tab-pane .separator {
-    height: 75px;       /* Altura mayor (el contenedor mide 85px) */
+    height: 85px;       /* Altura mayor (el contenedor mide 85px) */
     align-self: center; /* Centrado verticalmente (ignora el estiramiento del padre) */
     background-color: rgba(128, 128, 128, 0.4); /* Opcional: un poco más visible */
 }
@@ -345,11 +350,11 @@ body {
 /* --- SIDEBAR (HERRAMIENTAS FLOTANTE) --- */
 #toolbar-sidebar {
  position: absolute;
- top: 212px; /* Ajustado para estar debajo de la cinta (TopBar + Ribbon ~153px) */
+ top: 248px; /* Ajustado para estar debajo de la cinta (TopBar + Ribbon ~153px) */
  left: 15px; /* Separación del borde izquierdo */
  bottom: auto; /* IMPORTANTE: Ya no se estira hasta abajo */
  height: auto; /* La altura se ajusta al contenido de los botones */
- width: 55px;  /* Ancho compacto */
+ width: 48px;  /* Ancho compacto */
  
  /* Estética Flotante */
  background-color: var(--bg-panel);
@@ -366,14 +371,14 @@ body {
 
 /* Ajuste de los botones para que encajen mejor en la barra flotante */
 .tool-btn {
- width: 40px; /* Ligeramente más pequeños para estética compacta */
- height: 40px;
+ width: 32px; /* Ligeramente más pequeños para estética compacta */
+ height: 32px;
  background: transparent;
  border: 1px solid transparent;
  color: var(--text);
  cursor: pointer;
  border-radius: 8px; /* Coincidir con el estilo redondeado */
- font-size: 26px; /* AUMENTADO SEGÚN PETICIÓN */
+ font-size: 24px; /* AUMENTADO SEGÚN PETICIÓN */
  display: flex;
  justify-content: center;
  align-items: center;
@@ -387,15 +392,15 @@ body {
 .tool-btn.active {
  background-color: var(--accent);
  color: white;
- box-shadow: 0 0 8px var(--accent);
+ 
  border: 1px solid rgba(255,255,255,0.3);
 }
 
 /* --- WORKSPACE (LIENZO COMPLETO) --- */
 #workspace {
  position: absolute;
- top: 167px; /* Ajustado para la nueva altura de la Ribbon */
- left: 0; /* Ocupa todo el ancho */
+ top: 195px; /* ✨ ACTUALIZADO: Antes era 167. Sumamos la barra de mundos */
+ left: 0; 
  width: 100%; 
  bottom: 0;
  background-color: #1a1a1a;
@@ -437,6 +442,7 @@ canvas {
  font-size: 12px;
  z-index: 10;
  text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+ transition: right 0.3s ease-in-out; /* ✨ NUEVO: Animación de deslizamiento suave */
 }
 
 #zoom-floating input[type=range] {
@@ -608,7 +614,6 @@ select, button, .input-group input {
  color: var(--text);
  border: 1px solid var(--border);
  padding: 5px 2px;
- border-radius: 3px;
  font-family: inherit;
  outline: none;
 }
@@ -1045,4 +1050,182 @@ button:hover {
     color: #ffaa00 !important; /* Dorado/Amarillo Minecraft */
     display: block;
     margin-bottom: 4px;
+}
+
+
+/* --- NOTICIAS --- */
+.news-card {
+    background: #8B8B8B; border: 2px outset #FFF; padding: 10px; 
+    margin-bottom: 10px; cursor: pointer; display: flex; gap: 15px; align-items: center;
+}
+.news-card:hover { background: #A0A0A0; }
+.news-card img { width: 80px; height: 80px; object-fit: cover; border: 2px inset #FFF; }
+
+/* Animación de alerta (Brillo dorado) */
+.news-unread { animation: glowNews 1.5s infinite alternate; }
+@keyframes glowNews { 
+    0% { box-shadow: 0 0 5px #ffaa00; background-color: #ffaa0033; border-color: #ffaa00; } 
+    100% { box-shadow: 0 0 15px #ff0000; background-color: #ff000055; border-color: #ff0000; } 
+}
+
+
+/* --- BOTÓN FLOTANTE "BACK" (SECCIÓN NOTICIAS) --- */
+#news-back-btn {
+    position: absolute; 
+    top: 8px; 
+    left: 8px; 
+    border: 2px outset #FFF; 
+    background: rgba(139, 139, 139, 0.9); 
+    color: #000; 
+    font-weight: bold; 
+    cursor: pointer; 
+    padding: 5px 10px; 
+    z-index: 10; 
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+    transition: background 0.2s ease, transform 0.1s ease; /* Transición suave */
+}
+
+/* Efecto al pasar el ratón por encima (Hover) */
+#news-back-btn:hover {
+    background: rgba(255, 255, 255, 0.9); /* Se vuelve más claro/blanco */
+    color: #000;
+}
+
+/* Efecto al hacer clic (Active) */
+#news-back-btn:active {
+    border: 2px inset #FFF; /* Cambia el borde para que parezca hundido */
+    background: rgba(100, 100, 100, 0.9); /* Se oscurece */
+    transform: translateY(2px); /* Baja 2 píxeles para dar peso */
+    box-shadow: 0px 0px 2px rgba(0,0,0,0.5);
+}
+
+
+/* --- GALERÍA DE NOTICIAS (3 por fila) --- */
+.news-gallery {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* ⬅️ ESTA ES LA MAGIA: 3 columnas exactas */
+    gap: 10px;
+    margin-top: 15px;
+    padding: 10px 5px;
+}
+
+.news-gallery-img {
+    width: 100%; /* Hace que la imagen llene su tercio de la pantalla */
+    height: 100px;
+    object-fit: cover;
+    border: 2px solid #555;
+    cursor: zoom-in;
+    transition: transform 0.2s ease-in-out, border-color 0.2s ease-in-out;
+    image-rendering: auto; /* Mantiene las fotos reales nítidas */
+}
+
+.news-gallery-img:hover {
+    border-color: #FFF;
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+    z-index: 10; /* Evita que al crecer se quede por debajo de otra imagen */
+}
+
+/* --- VISOR DE IMAGEN A PANTALLA COMPLETA (LIGHTBOX) --- */
+#lightbox-modal {
+    display: none;
+    position: fixed;
+    z-index: 99999; /* Por encima de todo */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.85);
+    justify-content: center;
+    align-items: center;
+}
+
+#lightbox-img {
+    max-width: 90%;
+    max-height: 90%;
+    border: 4px solid #FFF;
+    box-shadow: 0 0 20px rgba(0,0,0,0.8);
+    image-rendering: pixelated;
+}
+
+.lightbox-close {
+    position: absolute;
+    top: 20px;
+    right: 40px;
+    color: white;
+    font-size: 50px;
+    font-weight: bold;
+    cursor: pointer;
+    text-shadow: 2px 2px 0 #000;
+}
+.lightbox-close:hover { color: #FFD700; }
+
+
+/* --- ESTILO DE VIÑETAS PIXELADAS PARA LAS NOTICIAS --- */
+.pixel-list {
+    list-style: none; /* Quitamos los círculos redondos por defecto */
+    padding-left: 20px;
+    margin-top: 5px;
+}
+
+/* --- ESTILO PARA ETIQUETAS TIPO CÓDIGO [Beta] --- */
+.code-tag {
+    background-color: gray;
+    color: white; /* Un verde estilo consola/Matrix */
+    font-family: 'Consolas', monospace;
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid #444;
+    font-size: 12px;
+    box-shadow: inset 1px 1px 2px rgba(0,0,0,0.5);
+}
+
+.pixel-list li {
+    position: relative;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: #000;
+}
+
+/* Dibujamos un pequeño bloque cuadrado como viñeta */
+.pixel-list li::before {
+    content: "";
+    position: absolute;
+    left: -18px;
+    top: 5px;
+    width: 6px;
+    height: 6px;
+    background-color: #8B8B8B;
+    border: 2px solid #373737;
+    box-sizing: border-box;
+}
+
+
+/* --- ANIMACIÓN PARA NOTICIAS NO LEÍDAS --- */
+@keyframes newsPulse {
+    0% { background-color: #8B8B8B; border-color: #FFF; }
+    50% { background-color: #4AF626; border-color: #222; color: #000; }
+    100% { background-color: #8B8B8B; border-color: #FFF; }
+}
+
+.news-unread {
+    animation: newsPulse 1.5s infinite;
+    /* Forzamos el borde para que destaque más cuando parpadea */
+    border: 2px outset #FFF !important; 
+}
+
+
+/* --- FILTROS DE CLIMA PARA EL MUNDO --- */
+#canvas {
+    transition: filter 1.5s ease-in-out; 
+}
+
+/* Filtro para Lluvia Normal (Más grisáceo) */
+.canvas-raining {
+    filter: brightness(0.65) saturate(0.60); 
+}
+
+/* ✨ NUEVO: Filtro para Tormenta (Tus valores exactos) ✨ */
+.canvas-thunder {
+    filter: brightness(0.33) saturate(0.99); 
 }

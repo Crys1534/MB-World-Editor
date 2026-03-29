@@ -1,3 +1,23 @@
+// ==========================================
+// ✨ CAPA TRANSPARENTE PARA LA CUADRÍCULA
+// ==========================================
+const gridCanvas = document.getElementById('grid-canvas');
+const gridCtx = gridCanvas ? gridCanvas.getContext('2d') : null;
+
+function resizeGridCanvas() {
+    const workspace = document.getElementById('workspace');
+    if (workspace && gridCanvas) {
+        gridCanvas.width = workspace.clientWidth;
+        gridCanvas.height = workspace.clientHeight;
+    }
+}
+// Ajustamos el tamaño al abrir la página y al cambiar el tamaño de la ventana
+if (gridCanvas) {
+    window.addEventListener('resize', resizeGridCanvas);
+    resizeGridCanvas();
+}
+
+
 window.renderers = {
     default: function (states) {
         const block = states.type;

@@ -1,6 +1,6 @@
 const fileManager = {
  input: document.getElementById("file-input"),
-load: function (event) {
+ load: function (event) {
   try {
    const jsonString = mbwAlgorithm.decode(event.target.result);
    const parsedWorld = JSON.parse(jsonString);
@@ -22,23 +22,26 @@ load: function (event) {
 
    // Ahora inyectamos los datos cargados al mundo global
    mbwom.world = parsedWorld;
+
+   // ✨ NUEVO: Exponer datos para el Sidebar de World Info ✨
+   window.fileInfo = mbwom.world.fileInfo || { version: "Unknown", seed: "" };
+   window.cheats = mbwom.world.cheats || false;
+   window.defeatedEnder = mbwom.world.defeatedEnder || false;
+   
+   // Si la sidebar está abierta, la actualizamos inmediatamente
+   if (typeof populateWorldInfo === 'function') populateWorldInfo();
    
    const gamemodeEl = document.getElementById("gamemode");
    const cheatsEl = document.getElementById("cheats");
    
-   // ... [Tu código sigue exactamente igual a partir de aquí] ...
-   
    // --- Mapeo de Gamemode ---
    if (gamemodeEl) {
-       // Primero intentamos leer el número exacto del gamemode
        if (mbwom.world.gamemode !== undefined) {
            gamemodeEl.value = mbwom.world.gamemode;
        } 
-       // Si no existe, pero "creative" es true, lo ponemos en Creativo (1)
        else if (mbwom.world.creative) {
            gamemodeEl.value = "1";
        } 
-       // Por defecto, Supervivencia (0)
        else {
            gamemodeEl.value = "0";
        }
@@ -72,21 +75,19 @@ load: function (event) {
    const xpEl = document.getElementById("player-xp");
    const timeEl = document.getElementById("gr-time");
    const weatherEl = document.getElementById("gr-weather");
-   const dayEl = document.getElementById("gr-day"); // <-- NUEVO
+   const dayEl = document.getElementById("gr-day"); 
 
    if (healthEl && mbwom.world.health !== undefined) healthEl.value = mbwom.world.health;
-   // Usamos mbwom.world.food para el hambre
    if (hungerEl && mbwom.world.food !== undefined) hungerEl.value = mbwom.world.food; 
    if (xpEl && mbwom.world.experience !== undefined) {
        xpEl.value = Math.floor(mbwom.world.experience / 100);
    }
 
-// --- Lectura de Tiempo (tim), Clima (raining) y Día (day) ---
+   // --- Lectura de Tiempo (tim), Clima (raining) y Día (day) ---
    if (timeEl && mbwom.world.tim !== undefined) timeEl.value = mbwom.world.tim;
    if (weatherEl && mbwom.world.raining !== undefined) {
        weatherEl.value = mbwom.world.raining > 0 ? "rain" : "clear";
    }
-   // <-- NUEVO: Leemos y mostramos el día
    if (dayEl && mbwom.world.day !== undefined) {
        dayEl.value = mbwom.world.day;
    }
@@ -104,7 +105,13 @@ load: function (event) {
 
    const filenameInput = document.getElementById("filename-display");
    if (filenameInput && fileManager.file) {
-       filenameInput.value = fileManager.file.name.replace(/\.mbw$/i, "");
+       let cleanName = fileManager.file.name.replace(/\.mbw$/i, "");
+       // ✨ NUEVO: Usar updateFilename para que se cambie también en el Sidebar y Pestañas ✨
+       if (typeof updateFilename === 'function') {
+           updateFilename(cleanName);
+       } else {
+           filenameInput.value = cleanName;
+       }
    }
 
    if (typeof initializeWorldCache === 'function') {
@@ -115,8 +122,6 @@ load: function (event) {
        if (typeof mainLoop === 'function') mainLoop();
        window.isMainLoopRunning = true; 
    }
-
-   
 
    console.log("Mundo cargado exitosamente.");
 
@@ -132,9 +137,7 @@ load: function (event) {
    
    // --- Exportar Gamemode ---
    if (gamemodeEl) {
-       // Guardamos el número (0, 1, 2 o 3)
        mbwom.world.gamemode = parseInt(gamemodeEl.value);
-       // También actualizamos el booleano
        mbwom.world.creative = (gamemodeEl.value === "1");
    }
    if (cheatsEl) mbwom.world.cheats = cheatsEl.checked;
@@ -168,21 +171,18 @@ load: function (event) {
    const weatherEl = document.getElementById("gr-weather");
 
    if (healthEl) mbwom.world.health = parseInt(healthEl.value) || 20;
-   // Guardamos en mbwom.world.food
    if (hungerEl) mbwom.world.food = parseInt(hungerEl.value) || 20; 
    if (xpEl) {
        let x = parseInt(xpEl.value);
        mbwom.world.experience = isNaN(x) ? 0 : (x * 100);
    }
 
-   // --- Exportar Tiempo (tim) y Clima (raining) ---
    if (timeEl) {
        let t = parseInt(timeEl.value);
        mbwom.world.tim = isNaN(t) ? 0 : t;
    }
    if (weatherEl) {
        mbwom.world.raining = weatherEl.value === "clear" ? 0 : 1;
-       // Si activamos la lluvia en el editor, aseguramos que el juego sepa que es un día de lluvia
        if (weatherEl.value !== "clear") mbwom.world.rainDay = mbwom.world.day || 1;
    }
 
@@ -193,6 +193,18 @@ load: function (event) {
                mbwom.setAchievement(cb.checked, index);
            }
        });
+   }
+
+   // ✨ NUEVO: Guardar la Metadata modificada (Seed, Nombre, etc.) en el mundo antes de exportar ✨
+   if (window.fileInfo) {
+       const filenameInput = document.getElementById("filename-display");
+       if (filenameInput) {
+           window.fileInfo.name = filenameInput.value.trim();
+       }
+       mbwom.world.fileInfo = window.fileInfo;
+   }
+   if (typeof window.defeatedEnder !== 'undefined') {
+       mbwom.world.defeatedEnder = window.defeatedEnder;
    }
 
    const jsonString = JSON.stringify(mbwom.world);

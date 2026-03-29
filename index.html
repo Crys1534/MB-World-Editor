@@ -57,8 +57,8 @@
     #tab-insert.active { justify-content: left; }
 
 /* --- OVERLAYS --- */
-    #coords-overlay { position: absolute; top: 0px; left: 85px; font-family: 'Consolas', monospace; font-size: 24px; font-weight: bold; color: white; text-shadow: 1px 1px 2px black; pointer-events: none; z-index: 10; }
-    #selection-overlay { position: absolute; top: 24px; left: 85px; font-family: 'Consolas', monospace; font-size: 18px; font-weight: bold; color: #FFD700; text-shadow: 1px 1px 2px black; pointer-events: none; z-index: 10; display: none; }
+    #coords-overlay { position: absolute; top: 8px; left: 85px; font-family: 'Consolas', monospace; font-size: 24px; font-weight: bold; color: white; text-shadow: 1px 1px 2px black; pointer-events: none; z-index: 10; }
+    #selection-overlay { position: absolute; top: 32px; left: 85px; font-family: 'Consolas', monospace; font-size: 18px; font-weight: bold; color: #FFD700; text-shadow: 1px 1px 2px black; pointer-events: none; z-index: 10; display: none; }
     #console-overlay { position: absolute; bottom: 70px; left: 120px; display: none; z-index: 2000; }
     .console-container { width: 350px; }
     #console-input { width: 100%; padding: 8px 15px; background: #FFFFFF; border: 2px solid #555; color: #000000; font-family: 'Consolas', monospace; font-weight: bold; font-size: 14px; outline: none; box-sizing: border-box; box-shadow: 4px 4px 0px rgba(0,0,0,0.2); }
@@ -112,10 +112,10 @@
         border-top: 2px solid #FFF; border-left: 2px solid #FFF;
     }
     
-    .mini-btn { padding: 4px 8px; font-size: 11px; font-weight: bold; cursor: pointer; border: 1px solid #333; color: white; display: flex; align-items: center; gap: 3px; text-transform: uppercase; }
-    .btn-import { background: #E67E22; border-color: #D35400; } .btn-import:hover { background: #F39C12; }
-    .btn-export { background: #3498DB; border-color: #2980B9; } .btn-export:hover { background: #5DADE2; }
-    .btn-reset { background: #C0392B; border-color: #922B21; } .btn-reset:hover { background: #E74C3C; }
+    .mini-btn { padding: 4px 8px; font-size: 11px; font-weight: bold; cursor: pointer; border: 1px solid #333; color: black; display: flex; align-items: center; gap: 3px; text-transform: uppercase; }
+    .btn-import { background: lightgray; border-color: gray; } .btn-import:hover { background: white; }
+    .btn-export { background: lightgray; border-color: gray; } .btn-export:hover { background: #00abff; }
+    .btn-reset { background: lightgray; border-color: gray; } .btn-reset:hover { background: #ff4343; }
 
     #struct-subtabs { display: none; gap: 5px; margin-bottom: 10px; padding-left: 10px; background: #A0A0A0; padding: 5px; border: 1px solid #555; }
     .struct-subtab { font-size: 12px; cursor: pointer; padding: 2px 8px; background: #777; color: #DDD; }
@@ -158,7 +158,7 @@
 
     /* SIDEBAR INFO */
     .struct-sidebar { width: 250px; background: #B0B0B0; display: flex; flex-direction: column; padding: 15px; align-items: center; overflow-y: auto; }
-    #struct-preview-canvas { width: 200px; height: 200px; background: #8B8B8B; border: 2px solid #373737; margin-bottom: 15px; image-rendering: pixelated; }
+    #struct-preview-canvas { width: 256px; height: 256px; background: #8B8B8B; border: 2px solid #373737; margin-bottom: 8px; image-rendering: pixelated; }
     .struct-info { width: 100%; text-align: left;}
     .struct-info h3 { margin: 0 0 5px 0; font-size: 18px; color: #000; } 
     .struct-info p { margin: 0; color: #000; font-size: 14px; font-weight: bold; } 
@@ -289,6 +289,7 @@
 <div id="top-bar" style="display: flex; justify-content: space-between; align-items: center;">
   <div class="left-group">
    <img src="favicon.ico" class="app-icon" alt="App Icon">
+   <button class="icon-btn" onclick="openFileMenu()" style="background: #2b579a; color: white; border-color: #1e3f70;">📄 File</button>
    <button class="icon-btn" onclick="document.getElementById('file-input').click()">📂 Load World</button>
    <button class="icon-btn" onclick="fileManager.export()">💾 Save World</button>
    <button class="icon-btn" onclick="openModal('settings-modal')">⚙️ Configuration</button>
@@ -302,9 +303,7 @@
    </div>
   </div>
   
-  <div class="right-group" style="padding-right: 15px;">
-      <button class="icon-btn" id="toggle-ui-btn" onclick="toggleUICollapse()" title="Ocultar Paneles" style="font-size: 16px;">🔼</button>
-  </div>
+<button class="icon-btn" id="news-btn" onclick="openNewsModal()" title="Updates & Changelog" style="font-size: 14px; font-weight: bold;">📰 News</button>
  </div>
 
  <div id="ui-collapse-wrapper" class="collapsible-wrapper">
@@ -313,12 +312,16 @@
       <div id="world-tabs"></div>
 
       <div id="ribbon">
-  <div class="tabs">
-   <button class="tab-btn active" onclick="openTab('insert')">Insert</button>
-   <button class="tab-btn" onclick="openTab('settings')">World Settings</button>
-   <button class="tab-btn" onclick="openTab('view')">View</button>
+<div class="tabs" style="display: flex; width: 100%;">
+    <button class="tab-btn active" onclick="openTab('insert')">Insert</button>
+    <button class="tab-btn" onclick="openTab('settings')">World Settings</button>
+    <button class="tab-btn" onclick="openTab('view')">View</button>
+    
+<button id="btn-world-info" class="tab-btn" onclick="toggleWorldInfo()" disabled style="margin-left: auto; margin-right: 16px; margin-bottom: 4px; background: #2980B9; color: white; border-color: #1A5276; font-weight: bold; opacity: 0.5; cursor: not-allowed;">
+        ℹ️ World Info
+    </button>
   </div>
-  
+
   <div class="tab-content">
    
     <div id="tab-insert" class="tab-pane active">
@@ -525,14 +528,15 @@
 
 
     <div id="tab-view" class="tab-pane">
-        <div class="ribbon-group">
-            <div class="ribbon-group-content" style="flex-direction: column; justify-content: center; gap: 2px;">
-                <img src="assets/Grid.png" class="icon-img" alt="Grid">
-                <label style="cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 12px;">
-                    <input type="checkbox" id="show-grid" onchange="toggleGrid(this.checked)"> Show Grid
-                </label>
-            </div>
-            <div class="ribbon-group-label">Grid</div>
+<div class="ribbon-group">
+            <label class="ribbon-group-content" style="flex-direction: column; justify-content: center; gap: 2px; cursor: pointer; display: flex;">
+                <img src="assets/Grid.png" class="icon-img" alt="Grid" style="margin: 0 auto;">
+                <div style="display: flex; align-items: center; gap: 5px; font-size: 12px; justify-content: center;">
+                    <input type="checkbox" id="show-grid" onchange="toggleGrid(this.checked)"> 
+                    <span data-i18n="lbl_show_grid">Show Grid</span>
+                </div>
+            </label>
+            <div class="ribbon-group-label" data-i18n="lbl_grid_group">Grid</div>
         </div>
         <div class="separator"></div>
 
@@ -545,6 +549,20 @@
             </div>
             <div class="ribbon-group-label">Dimensions</div>
         </div>
+		
+		<div class="separator"></div>
+
+<div class="ribbon-group">
+            <label class="ribbon-group-content" style="flex-direction: column; justify-content: center; gap: 2px; cursor: pointer; display: flex;">
+                <span class="icon-img" style="font-size: 24px; line-height: 1; text-align: center; margin: 0 auto;">🌦️</span>
+                <div style="display: flex; align-items: center; gap: 5px; font-size: 12px; justify-content: center;">
+                    <input type="checkbox" id="show-weather-anim" checked onchange="toggleWeatherAnimation(this.checked)"> 
+                    <span data-i18n="lbl_weather_anim">Weather</br>Animation</span>
+                </div>
+            </label>
+            <div class="ribbon-group-label" data-i18n="lbl_weather_group">Weather</div>
+        </div>
+		
     </div>
 
   </div> </div>
@@ -581,7 +599,33 @@
           <input type="text" id="console-input" placeholder="/tp [x] [y]">
       </div>
   </div>
-  <canvas id="canvas"></canvas>
+  
+<canvas id="canvas"></canvas>
+  
+  <canvas id="weather-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5;"></canvas>
+  <canvas id="grid-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;"></canvas>
+ 
+<div id="world-info-sidebar" style="display: none; position: absolute; right: 0; top: 8px; bottom: 0; width: 250px; z-index: 100; flex-direction: column; padding: 15px; box-sizing: border-box; box-shadow: -4px 0 10px rgba(0,0,0,0.3); background-color: var(--bg-panel); color: var(--text); border-left: 2px solid var(--border);">
+     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid var(--border); padding-bottom: 5px;">
+         <h3 style="margin: 0; font-size: 16px;">World Info</h3>
+         <span onclick="toggleWorldInfo()" style="cursor: pointer; font-size: 20px; font-weight: bold;">&times;</span>
+     </div>
+     <div style="display: flex; flex-direction: column; gap: 10px; font-size: 12px;">
+         <label style="font-weight: bold; margin-bottom: -5px;">World Name:</label>
+         <input type="text" id="sidebar-world-name" oninput="updateFilename(this.value)" style="padding: 4px; background-color: var(--input-bg); color: var(--text); font-weight: bold; border: 1px solid var(--border); border-radius: 3px; outline: none;">
+         <label style="font-weight: bold; margin-bottom: -5px;">Version:</label>
+         <input type="text" id="sidebar-world-version" disabled style="padding: 4px; background-color: var(--bg-dark); color: var(--text); border: 1px solid var(--border); border-radius: 3px; cursor: not-allowed; opacity: 0.8;">
+         <label style="font-weight: bold; margin-bottom: -5px;">Seed:</label>
+         <input type="text" id="sidebar-world-seed" oninput="updateSeed(this.value)" style="padding: 4px; background-color: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 3px; outline: none;">
+         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px; padding: 5px; background-color: var(--bg-dark); border: 1px solid var(--border); border-radius: 3px;">
+             <label style="font-weight: bold; margin: 0;">Cheats Enabled:</label>
+             <span id="sidebar-world-cheats" style="font-weight: bold;">-</span>
+         </div>
+         <div style="display: flex; justify-content: space-between; align-items: center; padding: 5px; background-color: var(--bg-dark); border: 1px solid var(--border); border-radius: 3px;">
+             <label style="font-weight: bold; margin: 0;">Defeated Enderdragon:</label>
+             <span id="sidebar-world-ender" style="font-weight: bold;">-</span>
+         </div>
+     </div>
  </div>
 
  <div id="settings-modal" class="modal">
@@ -676,8 +720,10 @@
         <option value="Other">Other</option>
     </select>
 
-    <button id="btn-generate-chest" onclick="generateRandomLootChest()" style="padding: 5px 10px; cursor: pointer; border-radius: 4px; background: #FFF; color: #000; border: 1px solid #555;">
-        🎁 Generate Chest
+
+	<button id="btn-generate-chest" onclick="generateRandomLootChest()" style="padding: 5px 10px; cursor: pointer; border-radius: 4px; background: #FFF; color: #000; border: 1px solid #555; display: flex; align-items: center; gap: 6px; font-family: inherit;">
+        <img src="assets/Create Loot Chest.png" style="width: 16px; height: 16px; image-rendering: pixelated; object-fit: contain;">
+        Generate Chest
     </button>
 </div>
 
@@ -746,7 +792,7 @@
  <div id="achievements-modal" class="modal">
   <div class="modal-content mbw-standard-modal" style="width: 500px; height: 500px;">
    <div class="mbw-modal-header">
-       <h3>Achievements Manager</h3>
+       <h3>Achievements</h3>
        <span class="mbw-close-btn" onclick="closeModal('achievements-modal')">&times;</span>
    </div>
    <div class="mbw-modal-body" style="display: flex; flex-direction: column;">
@@ -959,6 +1005,37 @@
     </div>
 </div>
  
+ <div id="news-modal" class="modal" style="z-index: 3500;">
+    <div class="modal-content mbw-standard-modal" style="width: 600px; height: 500px;">
+        <div class="mbw-modal-header">
+            <h3 id="news-modal-title">📰 Updates</h3>
+            <span class="mbw-close-btn" onclick="closeModal('news-modal')">&times;</span>
+        </div>
+        <div class="mbw-modal-body" style="padding: 0; display: flex; flex-direction: column; overflow: hidden;">
+            
+            <div id="news-list-view" style="flex: 1; overflow-y: auto; padding: 15px; background: #C6C6C6;"></div>
+
+            <div id="news-detail-view" style="flex: 1; overflow-y: auto; padding: 5px 15px; background: #C6C6C6; display: none;">
+                <div style="width: 100%; height: 262px; background: #373737; border: 4px inset #FFF; display: flex; justify-content: center; align-items: center; overflow: hidden; margin-bottom: 15px; position: relative;">
+<button id="news-back-btn" onclick="showNewsList()">
+    ⬅️ Back
+</button>
+                    <img id="news-detail-image" src="" style="max-width: 100%; max-height: 100%; image-rendering: auto;">
+                </div>
+                <h2 id="news-detail-title" style="margin-top: 0; color: #333; font-size: 24px;"></h2>
+                <span id="news-detail-date" style="font-size: 12px; color: #555; font-weight: bold; display: block; margin-bottom: 15px;"></span>
+                <div id="news-detail-content" style="font-size: 14px; line-height: 1.5; color: #000;"></div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div id="lightbox-modal" onclick="closeLightbox()" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:4000; justify-content:center; align-items:center;">
+    <span class="lightbox-close" title="Cerrar" style="position:absolute; top:20px; right:30px; font-size:40px; color:white; cursor:pointer;">&times;</span>
+    <img id="lightbox-img" src="" style="max-width:90%; max-height:90%;">
+</div>
+
  <script>
     function toggleSpray(btn) {
         btn.classList.toggle('active');
@@ -971,6 +1048,12 @@
     }
  </script>
  
+<div id="lightbox-modal" onclick="closeLightbox()">
+    <span class="lightbox-close" title="Cerrar">&times;</span>
+    <img id="lightbox-img" src="">
+</div>
+
+
  <script src="scripts/ui-handler.js"></script>
  <script src="scripts/mbwom.js"></script>
  <script src="scripts/mbw-algorithm.js"></script>
@@ -985,4 +1068,5 @@
 <script src="scripts/structures.js"></script>
 <script src="scripts/custom-items.js"></script>
  <script src="scripts/audio-manager.js"></script> </body>
+ <script src="scripts/file-menu.js"></script>
 </html>

@@ -23,16 +23,25 @@ const inventoryCategories = {
 'ms', 'sb', 'clore', 'in', 'gd', 'dmore', 'rs', 'os', 'lap',
 'to', 'egem', 'wd1', 'wd_1', 'wd_2', 'wp', 'bbb', 'top', 'ib',
 'gb', 'db', 'lapb', 'clb', 'sd', 'ss', 'cy1', 'bricks', 'books',
-'b', 'j', 'snowblock', 'ice', 'fice', 'fice_1', 'fice_2', 'fice_3', 'fice_4', 'gv',
-'cloth_white', 'cloth_lightgray', 'cloth_gray', 'cloth_black', 'cloth_brown', 'cloth_purple', 'cloth_magenta', 'cloth_red', 'cloth_orange',
-'cloth_pink', 'cloth_yellow', 'cloth_lightgreen', 'cloth_green', 'cloth_cyan', 'cloth_lightblue', 'cloth_blue', 'cloth_rainbow', 'gs',
-'gs_white', 'gs_lightgray', 'gs_gray', 'gs_black', 'gs_brown', 'gs_purple', 'gs_magenta', 'gs_redg', 'gs_orange',
-'gs_pink', 'gs_yellow', 'gs_lightgreen', 'gs_green', 'gs_cyan', 'gs_lightblue', 'gs_blue', 'bddt', 'bdr',
-'bdcs', 'bdbbb', 'bdbricks', 'bdbooks', 'bdsb', 'bdcloth_white', 'bdcloth_lightgray', 'bdcloth_gray', 'bdcloth_black',
-'bdcloth_brown', 'bdcloth_purple', 'bdcloth_magenta', 'bdcloth_red', 'bdcloth_orange', 'bdcloth_pink', 'bdcloth_yellow', 'bdcloth_lightgreen', 'bdcloth_green',
-'bdcloth_cyan', 'bdcloth_lightblue', 'bdcloth_blue', 'bdcloth_rainbow', 'bdgs', 'bdgs_white', 'bdgs_lightgray', 'bdgs_gray', 'bdgs_black',
-'bdgs_brown', 'bdgs_purple', 'bdgs_magenta', 'bdwp', 'bdgs_redg', 'bdgs_orange', 'bdgs_pink', 'bdgs_yellow', 'bdgs_lightgreen',
-'bdgs_green', 'bdgs_cyan', 'bdgs_lightblue', 'bdgs_blue', 'pk', 'pk_2', 'pk_3', 'pk_4', 'pk_5', 'pk_6', 'pk_7', 'pk_8', 'pk_9', 'pk_10', 'pk_11', 'hai_1',
+'b', 'j', 'snowblock', 'ice', 'fice', 'fice_1', 'fice_2', 'fice_3', 'fice_4', 
+'gv', 'cloth_white', 'cloth_lightgray', 'cloth_gray', 'cloth_black', 'cloth_brown', 'cloth_purple', 'cloth_magenta', 'cloth_red', 
+'cloth_orange', 'cloth_pink', 'cloth_yellow', 'cloth_lightgreen', 'cloth_green', 'cloth_cyan', 'cloth_lightblue', 'cloth_blue', 'cloth_rainbow', 
+'gs', 'gs_white', 'gs_lightgray', 'gs_gray', 'gs_black', 'gs_brown', 'gs_purple', 'gs_magenta', 'gs_redg', 
+'gs_orange', 'gs_pink', 'gs_yellow', 'gs_lightgreen', 'gs_green', 'gs_cyan', 'gs_lightblue', 'gs_blue', 'bddt', 
+'bdr', 'bdcs', 'bdbbb', 'bdbricks', 'bdbooks', 'bdsb', 'bdcloth_white', 'bdcloth_lightgray', 'bdcloth_gray', 
+'bdcloth_black', 'bdcloth_brown', 'bdcloth_purple', 'bdcloth_magenta', 'bdcloth_red', 'bdcloth_orange', 'bdcloth_pink', 'bdcloth_yellow', 'bdcloth_lightgreen', 
+'bdcloth_green', 'bdcloth_cyan', 'bdcloth_lightblue', 'bdcloth_blue', 'bdcloth_rainbow', 'bdgs', 'bdgs_white', 'bdgs_lightgray', 'bdgs_gray', 
+'bdgs_black', 'bdgs_brown', 'bdgs_purple', 'bdgs_magenta', 'bdwp', 'bdgs_redg', 'bdgs_orange', 'bdgs_pink', 'bdgs_yellow', 
+'bdgs_lightgreen', 'bdgs_green', 'bdgs_cyan', 'bdgs_lightblue', 'bdgs_blue', 'pk', 'pk_2', 'pk_3', 'pk_4', 
+'pk_5', 'pk_6', 'pk_7', 'pk_8', 'pk_9', 'pk_10', 'pk_11', 'hai_1', 'stairr_1', 
+'stairr_2', 'stairr_3', 'stairr_4', 'staircs_1', 'staircs_2', 'staircs_3', 'staircs_4', 'stairsb_1', 'stairsb_2', 
+'stairsb_3', 'stairsb_4', 'stairob_1', 'stairob_2', 'stairob_3', 'stairob_4', 'stairbr_1', 'stairbr_2', 'stairbr_3', 
+'stairbr_4', 'stairwp_1', 'stairwp_2', 'stairwp_3', 'stairwp_4', 'stairib_1', 'stairib_2', 'stairib_3', 'stairib_4', 
+'stairgb_1', 'stairgb_2', 'stairgb_3', 'stairgb_4', 'stairdb_1', 'stairdb_2', 'stairdb_3', 'stairdb_4', 'stairbrick_1', 
+'stairbrick_2', 'stairbrick_3', 'stairbrick_4', 'stairn_1', 'stairn_2', 'stairn_3', 'stairn_4', 'stairbbb_1', 'stairbbb_2', 
+'stairbbb_3', 'stairbbb_4', 'halfr_1', 'halfr_2', 'halfcs_1', 'halfcs_2', 'halfsb_1', 'halfsb_2', 'halfob_1', 
+'halfob_2', 'halfbr_1', 'halfbr_2', 'halfwp_1', 'halfwp_2', 'halfib_1', 'halfib_2', 'halfgb_1', 'halfgb_2', 
+'halfdb_1', 'halfdb_2', 'halfbrick_1', 'halfbrick_2', 'halfn_1', 'halfn_2', 'halfbbb_1', 'halfbbb_2'
         ]
     },
 
@@ -60,7 +69,25 @@ const inventoryCategories = {
             'WoodenSword', 'StoneSword', 'IronSword', 'GoldSword', 'DiamondSword',
             'WoodenAxe', 'StoneAxe', 'IronAxe', 'GoldAxe', 'DiamondAxe',
             'WoodenShovel', 'StoneShovel', 'IronShovel', 'GoldShovel', 'DiamondShovel',
-            'WoodenHoe', 'StoneHoe', 'IronHoe', 'GoldHoe', 'DiamondHoe'
+            'WoodenHoe', 'StoneHoe', 'IronHoe', 'GoldHoe', 'DiamondHoe',
+			'fr', 'frodcarrot', 'Shear',
+        ]
+    },
+	
+    // 🌿 Food and Crops
+    Food: { 
+        icon: 'bread', 
+        items: [
+            'egg', 'fireegg', 'cegg', 'or', 'lemon', 'gasd', 'gap', 'capple', 'crml', 
+			'sugar', 'icec', 'potato', 'ppotato', 'bsed', 'beet', 'wseed', 'gmels', 'pseed', 
+			'pkp', 'carrot', 'gcarrot', 'wheat', 'bread', 'cookie', 'ccane', 
+			'cake_1', 'cake_2', 'cake_3', 'cake_4', 'cake_5', 'cake_6', 'cake_7', 
+			'ccake_1', 'ccake_2', 'ccake_3', 'ccake_4', 'ccake_5', 'ccake_6', 'ccake_7', 
+			'nw', 'nw_2', 'nw_3', 'nw_4', 'nw_5', 'nw_6', 'nw_7', 
+			'seed', 'seed_2', 'seed_3', 'seed_4', 'seed_5', 'seed_6', 'seed_7', 
+			'carrot', 'carrot_2', 'carrot_3', 'carrot_4', 'carrot_5', 'carrot_6', 'carrot_7', 
+			'wseed_1', 'wseed_2', 'wseed_3', 'wseed_4', 'wseed_5', 'wseed_6', 'wseed_7',
+			'pseed_2', 'pseed_3', 'pseed_4', 'pseed_5', 'pseed_6', 'pseed_7',
         ]
     },
     
@@ -79,6 +106,7 @@ const inventoryCategories = {
         icon: 'ebook',
         items: [] 
     },
+	
 };
 
 // =================================================================
@@ -1408,3 +1436,563 @@ document.addEventListener('mousemove', (e) => {
         lastHoveredSlot = null;
     }
 });
+
+
+// ==========================================
+// 📰 BASE DE DATOS DE NOTICIAS
+// ==========================================
+const newsDatabase = [
+
+{
+        id: 3,
+        title: "v2.2 - Chests Update",
+        date: "March 23, 2026", 
+        image: "https://i.imgur.com/HX0oYeQ.png", 
+        excerpt: "Huge update including new structures, magic wand, custom items, tabs system, and much more!",
+        content: `
+            <h3 style="margin-top: 0; color: #333;">Changelog:</h3>
+            <ul class="pixel-list">
+                <li><code class="code-tag">[Beta]</code><b>🏘️ Structures Library</b>
+                    <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
+                        <li>storage limit removed</li>
+                        <li><u>Vanilla</u>
+                            <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
+                                <li>Tree 3, Tree 4, Nether, Nether Portal, End Portal</li>
+                            </ul>
+                        </li>
+                        <li><u>Community</u>
+                            <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
+                                <li>Nether Portal (Minecraft), Special Items (v2), Overpowered Chest,</li>
+                                <li>J Block (pixelart), Sheep (pixelart), Bad Apple (pixelart),</li>
+                                <li>Nether Enhanced, The Four Wolves,</li>
+                                <li>SkyWars - Candy Map, SkyWars - Nether Map,</li>
+                                <li>SkyWars - Trees Map, SkyBlock, Dungeon Enhanced,</li>
+                                <li>Armor "Stand" (Diamond), Frank (pixelart)</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+                <li><b>🪄 new tool: magic wand</b></li>
+                <li><code class="code-tag">[Beta]</code> 🎒 Inventory
+                    <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
+                        <li>enchanted books</li>
+                        <li>more items added</li>
+                    </ul>
+                </li>
+                <li>🎨 new theme: Windows XP®</li>
+                <li><b>🎁 Chest Creator</b>
+                    <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
+                        <li>random loot chest generator button</li>
+                    </ul>
+                </li>
+                <li><b>📑 Gamerules</b>
+                    <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
+                        <li>keep inventory</li>
+                        <li>do daylight cycle</li>
+                        <li>mob griefing</li>
+                        <li>mob loot</li>
+                        <li>fire tick</li>
+                    </ul>
+                </li>
+                <li><b>📂 ¡Tabs System!</b> - Ahora se pueden abrir múltiples mundos</li>
+                <li><b>⛏️ Custom Items Creator</b></li>
+                <li>window effects</li>
+                <li>pasted structures now do paste the air blocks (shift+clic)</li>
+                <li>player and world options
+                    <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
+                        <li>health</li>
+                        <li>hunger</li>
+                        <li>xp</li>
+                        <li>time</li>
+                        <li>weather</li>
+                        <li>difficulty</li>
+                    </ul>
+                </li>
+                <li>changes to the console (/tp)</li>
+                <li><code class="code-tag">[Fixed]</code>  camera speed</li>
+                <li><code class="code-tag">[Fixed]</code> the lasso/free form tool now can save structures</li>
+                <li><code class="code-tag">[Fixed]</code>  some missing textures added</li>
+                <li><code class="code-tag">[Fixed]</code>  screenshot tool</li>
+            </ul>
+        `,
+		
+		gallery: [
+            "https://i.imgur.com/LgECGcx.png", 
+            "https://i.imgur.com/JVCV5E1.png", 
+            "https://i.imgur.com/ilXaPlD.png"
+        ]
+    },
+{
+        id: 2,
+        title: "v2.1 - Structures Update",
+        date: "February 23, 2026", // Ajusta la fecha real
+        image: "https://i.imgur.com/8IIHD3d.png", // Cambia esto por la imagen que prefieras
+        excerpt: "Structures library, improved tools, new UI, and bug fixes.",
+        content: `
+            <h3 style="margin-top: 0; color: #333;">Changelog:</h3>
+            <ul class="pixel-list">
+                <li><code class="code-tag">[Beta]</code>  🏘️ <b>Structures library!</b>
+                    <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
+                        <li>structures can be saved using the Select tool</li>
+                        <li>tabs: Saved, Vanilla, and Community</li>
+                        <li>backups</li>
+                        <li>quick access to structures (vanilla)</li>
+                    </ul>
+                </li>
+                <li>improved Select tool
+                    <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
+                        <li>now required to copy structures</li>
+                        <li>multiple selection</li>
+                    </ul>
+                </li>
+                <li>improved brush tool
+                    <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
+                        <li>brush/eraser sizes (1-7)</li>
+                        <li>rounded mode</li>
+                        <li>spray mode</li>
+                    </ul>
+                </li>
+                <li><code class="code-tag">[Beta]</code> 🔊 Sound effects
+                    <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
+                        <li>deleted structure</li>
+                    </ul>
+                </li>
+                <li>optimization improvements</li>
+                <li>cursor changed</li>
+                <li>floating toolbar</li>
+                <li>improved interface</li>
+                <li>grid icon</li>
+                <li>interface with icons to change dimensions</li>
+                <li><code class="code-tag">[Fixed]</code>  camera fixed</li>
+                <li><code class="code-tag">[Fixed]</code>  Fix Hardcore Mode option re-implemented</li>
+            </ul>
+        `
+    },
+{
+        id: 1,
+        title: "v2.0",
+        date: "January 16, 2026", // Ajusta la fecha real
+        image: "https://i.imgur.com/4ZYclOO.png", // Cambia esto por la imagen que prefieras
+        excerpt: "New UI, Copy-Paste, Zoom, and more!",
+        content: `
+            <h3 style="margin-top: 0; color: #333;">Changelog:</h3>
+            <ul class="pixel-list">
+                <li>new UI</li>
+                <li>copy-paste structures feature (select area, Ctrl+C)</li>
+                <li>zoom (25, 50, 100, 150, and 200%)</li>
+                <li><code class="code-tag">[Beta]</code> Inventory</li>
+                <li>optimization improvements</li>
+                <li>/tp command in-app</li>
+            </ul>
+        `
+    },
+];
+
+// ==========================================
+// 📰 FUNCIONES DEL SISTEMA DE NOTICIAS
+// ==========================================
+function openNewsModal() {
+    openModal('news-modal'); // Asume que tienes una función openModal general
+    showNewsList();
+    
+    // Al abrir el panel, marcamos las noticias como "leídas"
+    let latestNewsId = Math.max(...newsDatabase.map(n => n.id));
+    localStorage.setItem('mbw_last_seen_news', latestNewsId);
+    checkUnreadNews(); // Quita el brillo del botón
+}
+
+function showNewsList() {
+    document.getElementById('news-list-view').style.display = 'block';
+    document.getElementById('news-detail-view').style.display = 'none';
+    
+    const listContainer = document.getElementById('news-list-view');
+    listContainer.innerHTML = '';
+    
+    // Ordenamos para que la más nueva (ID más alto) salga arriba
+    const sortedNews = [...newsDatabase].sort((a, b) => b.id - a.id);
+    
+    sortedNews.forEach(news => {
+        let card = document.createElement('div');
+        card.className = 'news-card';
+        card.onclick = () => showNewsDetail(news.id);
+        
+        card.innerHTML = `
+    <img src="${news.image}" alt="News" onerror="this.src='favicon.ico'" style="image-rendering: auto;">
+    <div>
+        <h4 style="margin: 0 0 5px 0; color: #333; font-size: 18px;">${news.title}</h4>
+        <span style="font-size: 11px; color: #444; font-weight: bold; display: block; margin-bottom: 5px;">${news.date}</span>
+        
+        <p style="margin: 0; font-size: 12px; color: #000;">${news.excerpt}</p>
+    </div>
+`;
+        listContainer.appendChild(card);
+    });
+}
+
+function showNewsDetail(id) {
+    const news = newsDatabase.find(n => n.id === id);
+    if (!news) return;
+
+    document.getElementById('news-list-view').style.display = 'none';
+    document.getElementById('news-detail-view').style.display = 'block';
+
+    document.getElementById('news-detail-image').src = news.image;
+    document.getElementById('news-detail-title').innerText = news.title;
+    document.getElementById('news-detail-date').innerText = news.date;
+    
+    // Inyectamos el texto HTML
+    let contentHTML = news.content;
+    
+// Si la noticia tiene galería, inyectamos las imágenes usando las clases CSS correctas
+    if (news.gallery && news.gallery.length > 0) {
+        contentHTML += `<div class="news-gallery">`;
+        news.gallery.forEach(imgSrc => {
+            contentHTML += `<img src="${imgSrc}" class="news-gallery-img" onclick="openLightbox('${imgSrc}')" title="Click to enlarge">`;
+        });
+        contentHTML += `</div>`;
+    }
+    
+    document.getElementById('news-detail-content').innerHTML = contentHTML;
+}
+
+// ==========================================
+// 🔍 LIGHTBOX (Visor de imágenes grande)
+// ==========================================
+function openLightbox(src) {
+    document.getElementById('lightbox-img').src = src;
+    document.getElementById('lightbox-modal').style.display = 'flex';
+}
+
+function closeLightbox() {
+    document.getElementById('lightbox-modal').style.display = 'none';
+}
+
+// ==========================================
+// 🔔 SISTEMA DE ALERTA DE NOTICIAS NO LEÍDAS
+// ==========================================
+function checkUnreadNews() {
+    if (!newsDatabase || newsDatabase.length === 0) return;
+
+    let latestNewsId = Math.max(...newsDatabase.map(n => n.id));
+    let lastSeenNewsId = parseInt(localStorage.getItem('mbw_last_seen_news')) || 0;
+
+    let newsBtn = document.getElementById('news-btn');
+    if (newsBtn) {
+        if (latestNewsId > lastSeenNewsId) {
+            newsBtn.classList.add('news-unread'); // Enciende el brillo
+        } else {
+            newsBtn.classList.remove('news-unread'); // Apaga el brillo
+        }
+    }
+}
+
+// Comprueba si hay noticias nuevas cuando arranca el programa
+window.addEventListener('DOMContentLoaded', checkUnreadNews);
+
+
+// ==========================================
+// 🌧️⚡ SISTEMA DE CLIMA COMPLETO (Lluvia, Zoom y Tormenta)
+// ==========================================
+const weatherCanvas = document.getElementById('weather-canvas');
+const wCtx = weatherCanvas ? weatherCanvas.getContext('2d') : null;
+
+// Variables principales
+let rainDrops = [];
+let isRaining = false;
+let isThunder = false;
+let flashSequence = [];
+
+// 1. Ajusta el tamaño de la capa de lluvia
+function resizeWeatherCanvas() {
+    const workspace = document.getElementById('workspace');
+    if (workspace && weatherCanvas) {
+        weatherCanvas.width = workspace.clientWidth;
+        weatherCanvas.height = workspace.clientHeight;
+    }
+}
+
+// 2. Crea las propiedades de una gota de lluvia
+function createDrop() {
+    return {
+        x: Math.random() * (weatherCanvas.width + 200),
+        y: Math.random() * -100,
+        speed: 15 + Math.random() * 10,  
+        length: 10 + Math.random() * 10, 
+        thickness: 0.5 + Math.random()     
+    };
+}
+
+// Bucle de animación (AHORA RESPETA EL APAGADOR MAESTRO)
+function animateWeather() {
+    if (!wCtx) return;
+
+    // 1. Siempre limpiamos el canvas en cada frame
+    wCtx.clearRect(0, 0, weatherCanvas.width, weatherCanvas.height);
+
+    // ✨ 2. LA LLAVE MAESTRA: Solo dibuja si hay clima Y la animación está permitida
+    if (isRaining && allowWeatherAnimation) {
+        
+        // --- APLICAR ZOOM ---
+        const zoomSlider = document.getElementById('zoom-slider');
+        let zoomScale = 1; 
+        if (zoomSlider) {
+            let val = parseInt(zoomSlider.value);
+            if (val === 0) zoomScale = 0.5;      
+            else if (val === 1) zoomScale = 0.75; 
+            else if (val === 2) zoomScale = 1;    
+            else if (val === 3) zoomScale = 2;    
+            else if (val === 4) zoomScale = 3;    
+        }
+
+        // --- DIBUJAR LLUVIA ---
+        wCtx.strokeStyle = 'rgba(150, 170, 255, 0.6)';
+        wCtx.lineCap = 'round';
+        wCtx.beginPath();
+
+        for (let i = 0; i < rainDrops.length; i++) {
+            let p = rainDrops[i];
+            
+            wCtx.lineWidth = p.thickness * zoomScale;
+            wCtx.moveTo(p.x, p.y);
+            wCtx.lineTo(p.x - (p.speed / 4) * zoomScale, p.y + (p.length * zoomScale)); 
+            
+            p.y += p.speed;
+            p.x -= (p.speed / 4);
+
+            if (p.y > weatherCanvas.height || p.x < 0) {
+                rainDrops[i] = createDrop();
+                rainDrops[i].y = -20;
+            }
+        }
+        wCtx.stroke();
+
+        // --- DIBUJAR RELÁMPAGOS ---
+        if (isThunder) {
+            const mainCanvas = document.getElementById('canvas');
+
+            if (flashSequence.length === 0 && Math.random() < 0.005) {
+                const patterns = [
+                    [0.8, 0.8, 0.0, 0.0, 0.6, 0.6, 0.0, 0.0, 0.0, 0.3, 0.3], 
+                    [0.5, 0.5, 0.0, 0.9, 0.9, 0.2, 0.2, 0.0, 0.0, 0.4, 0.4], 
+                    [0.9, 0.9, 0.7, 0.7, 0.0, 0.0, 0.5, 0.5, 0.0]            
+                ];
+                flashSequence = patterns[Math.floor(Math.random() * patterns.length)].slice();
+            }
+
+            if (flashSequence.length > 0) {
+                let opacity = flashSequence.shift(); 
+                
+                if (mainCanvas) mainCanvas.style.transition = 'none';
+
+                if (opacity > 0) {
+                    wCtx.fillStyle = `rgba(255, 255, 255, ${opacity * 0.15})`; 
+                    wCtx.fillRect(0, 0, weatherCanvas.width, weatherCanvas.height);
+                    
+                    if (mainCanvas) mainCanvas.style.filter = `brightness(${0.66 + (opacity * 0.33)}) saturate(0.9)`;
+                } else {
+                    if (mainCanvas) mainCanvas.style.filter = '';
+                }
+            } else {
+                if (mainCanvas) {
+                    mainCanvas.style.transition = '';
+                    mainCanvas.style.filter = '';
+                }
+            }
+        }
+    }
+
+    requestAnimationFrame(animateWeather);
+}
+
+// 4. Inicializar el canvas al abrir el programa
+if (weatherCanvas) {
+    window.addEventListener('resize', resizeWeatherCanvas);
+    resizeWeatherCanvas();
+    animateWeather();
+}
+
+// Función que "prende" y "apaga" el clima desde el menú
+function setWeatherEffect(weatherType) {
+    const mainCanvas = document.getElementById('canvas'); 
+
+    // Siempre limpiamos los filtros anteriores al cambiar de opción
+    if (mainCanvas) {
+        mainCanvas.classList.remove('canvas-raining', 'canvas-thunder');
+    }
+
+    if (weatherType === 'rain' || weatherType === 'thunder') {
+        if (!isRaining) {
+            isRaining = true;
+            rainDrops = [];
+            for(let i = 0; i < 150; i++) {
+                rainDrops.push(createDrop());
+            }
+            resizeWeatherCanvas();
+        }
+        
+        // ✨ LA REGLA DE ORO: Solo oscurece la pantalla si la opción está activada
+        if (mainCanvas && allowWeatherAnimation) {
+            if (weatherType === 'thunder') {
+                mainCanvas.classList.add('canvas-thunder'); 
+            } else {
+                mainCanvas.classList.add('canvas-raining'); 
+            }
+        }
+        
+        // Determinar si hay relámpagos
+        isThunder = (weatherType === 'thunder');
+        if (!isThunder) flashSequence = [];
+        
+    } else {
+        // Limpiar todo si seleccionan "Clear"
+        isRaining = false; 
+        isThunder = false; 
+        flashSequence = [];
+    }
+}
+
+// 6. Conectar el HTML con el sistema
+const weatherSelect = document.getElementById('gr-weather');
+if (weatherSelect) {
+    weatherSelect.onchange = (e) => setWeatherEffect(e.target.value);
+}
+
+
+let allowWeatherAnimation = true; 
+
+// Función que apaga o prende TODOS los efectos del clima
+function toggleWeatherAnimation(isChecked) {
+    allowWeatherAnimation = isChecked;
+    const mainCanvas = document.getElementById('canvas');
+    const weatherSelect = document.getElementById('gr-weather');
+    const weatherType = weatherSelect ? weatherSelect.value : 'clear';
+    
+    if (!isChecked) {
+        // APAGAR TODO: Limpiamos la pantalla, cancelamos relámpagos y quitamos CSS
+        if (wCtx) wCtx.clearRect(0, 0, weatherCanvas.width, weatherCanvas.height);
+        flashSequence = []; 
+        
+        if (mainCanvas) {
+            mainCanvas.style.transition = '';
+            mainCanvas.style.filter = '';
+            mainCanvas.classList.remove('canvas-raining', 'canvas-thunder');
+        }
+    } else {
+        // PRENDER: Si la activan de nuevo, restauramos el filtro si había un clima seleccionado
+        if (mainCanvas) {
+            if (weatherType === 'thunder') {
+                mainCanvas.classList.add('canvas-thunder');
+            } else if (weatherType === 'rain') {
+                mainCanvas.classList.add('canvas-raining');
+            }
+        }
+    }
+}
+
+
+// ==========================================
+// 🌍 WORLD INFO & METADATA SYNC
+// ==========================================
+
+// 1. Sincronizar el nombre en todas partes
+function updateFilename(newName) {
+    // A) Actualizar el input de la barra superior (Top bar)
+    const topInput = document.getElementById('filename-display');
+    if (topInput && topInput.value !== newName) {
+        topInput.value = newName;
+    }
+    
+    // B) Actualizar el input del panel lateral
+    const sidebarInput = document.getElementById('sidebar-world-name');
+    if (sidebarInput && sidebarInput.value !== newName) {
+        sidebarInput.value = newName;
+    }
+    
+    // C) Actualizar la pestaña activa en world-tabs
+    const activeWorldTab = document.querySelector('#world-tabs .active');
+    if (activeWorldTab) {
+        // Asumiendo que el texto está directo en la pestaña. Si usas un span con clase, cámbialo aquí
+        activeWorldTab.textContent = newName; 
+    }
+    
+    // D) Actualizar la variable interna del mundo (si existe)
+    if (typeof fileInfo !== 'undefined' && fileInfo !== null) {
+        fileInfo.name = newName;
+    }
+}
+
+// 2. Editar la Semilla (Seed) en tiempo real
+function updateSeed(newSeed) {
+    if (typeof fileInfo !== 'undefined' && fileInfo !== null) {
+        fileInfo.seed = newSeed;
+    }
+}
+
+// 3. Abrir/Cerrar el panel de World Info y Empujar el Zoom
+function toggleWorldInfo() {
+    const sidebar = document.getElementById('world-info-sidebar');
+    const zoomControl = document.getElementById('zoom-floating'); // ✨ Buscamos el Zoom
+    
+    if (!sidebar) return;
+    
+    if (sidebar.style.display === 'none' || sidebar.style.display === '') {
+        sidebar.style.display = 'flex';
+        
+        // ✨ Empujamos el zoom a la izquierda (Ancho del panel 250px + Margen original 20px)
+        if (zoomControl) zoomControl.style.right = '270px'; 
+        
+        populateWorldInfo(); 
+    } else {
+        sidebar.style.display = 'none';
+        
+        // ✨ Regresamos el zoom a su posición original
+        if (zoomControl) zoomControl.style.right = '20px'; 
+    }
+}
+
+// 4. Buscar y Llenar los datos del mundo en el Sidebar
+function populateWorldInfo() {
+    // Sincronizar el nombre inicial
+    const topInput = document.getElementById('filename-display');
+    const sidebarInput = document.getElementById('sidebar-world-name');
+    if (topInput && sidebarInput) {
+        sidebarInput.value = topInput.value;
+    }
+    
+    // Leer Versión y Seed desde fileInfo (La estructura que vimos en tu archivo)
+    const versionInput = document.getElementById('sidebar-world-version');
+    const seedInput = document.getElementById('sidebar-world-seed');
+    
+    if (typeof fileInfo !== 'undefined' && fileInfo !== null) {
+        if (versionInput) versionInput.value = fileInfo.version || "Unknown";
+        if (seedInput) seedInput.value = fileInfo.seed || "";
+    } else {
+        if (versionInput) versionInput.value = "No file loaded";
+        if (seedInput) seedInput.value = "";
+    }
+    
+    // Buscar si los Cheats están activados
+    const cheatsDisplay = document.getElementById('sidebar-world-cheats');
+    if (cheatsDisplay) {
+        let areCheatsOn = false;
+        if (typeof cheats !== 'undefined') {
+            areCheatsOn = cheats; // Toma la variable global
+        } else {
+            const cheatsCheckbox = document.getElementById('cheats');
+            if (cheatsCheckbox) areCheatsOn = cheatsCheckbox.checked; // Fallback al checkbox
+        }
+        cheatsDisplay.textContent = areCheatsOn ? "Yes" : "No";
+        cheatsDisplay.style.color = areCheatsOn ? "#2E7D32" : "#C0392B"; // Verde o Rojo
+    }
+    
+    // Buscar si el Enderdragon está derrotado
+    const enderDisplay = document.getElementById('sidebar-world-ender');
+    if (enderDisplay) {
+        let isDefeated = false;
+        if (typeof defeatedEnder !== 'undefined') {
+            isDefeated = defeatedEnder;
+        }
+        enderDisplay.textContent = isDefeated ? "Yes" : "No";
+        enderDisplay.style.color = isDefeated ? "#2E7D32" : "#C0392B";
+    }
+}

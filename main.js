@@ -398,7 +398,6 @@ function drawUI() {
     }
 }
 
-
 function mainLoop() {
     // 1. Primero actualizamos la posición de la cámara
     cameraMovement();
