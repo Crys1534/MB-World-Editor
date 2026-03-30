@@ -85,9 +85,12 @@ const inventoryCategories = {
 			'ccake_1', 'ccake_2', 'ccake_3', 'ccake_4', 'ccake_5', 'ccake_6', 'ccake_7', 
 			'nw', 'nw_2', 'nw_3', 'nw_4', 'nw_5', 'nw_6', 'nw_7', 
 			'seed', 'seed_2', 'seed_3', 'seed_4', 'seed_5', 'seed_6', 'seed_7', 
-			'carrot', 'carrot_2', 'carrot_3', 'carrot_4', 'carrot_5', 'carrot_6', 'carrot_7', 
+			'carrot_1', 'carrot_2', 'carrot_3', 'carrot_4', 'carrot_5', 'carrot_6', 'carrot_7', 
 			'wseed_1', 'wseed_2', 'wseed_3', 'wseed_4', 'wseed_5', 'wseed_6', 'wseed_7',
 			'pseed_2', 'pseed_3', 'pseed_4', 'pseed_5', 'pseed_6', 'pseed_7',
+			'pork', 'cpork', 'bacon', 'cbacon', 'beef', 'cbeef', 'chicken', 'cchicken', 'nugget',
+			'mutton', 'cmutton', 'rabbit', 'crabbit', 'fi', 'cfi', 'salmon', 'csalmon', 'clown', 'puff',
+			'rf', 'bowl', 'soup', 'rabbitsoup', 'beetsoup', 'lade', 'apade', 'orade', 'mbk', 
         ]
     },
     
@@ -99,6 +102,12 @@ const inventoryCategories = {
             'GoldShirt', 'GoldPants', 'GoldShoes', 'DiamondCap', 'DiamondShirt', 'DiamondPants', 'DiamondShoes', 'DragonCap', 'DragonShirt', 
             'DragonPants', 'DragonShoes','SnowCap', 'AfroCap', 'PartyCap', 'ShadesCap', 'MustacheCap',
         ]
+    },
+	
+	// 🧪 Pociones
+    Potions: {
+        icon: 'potion', // Asegúrate de que exista un ícono base
+        items: [] 
     },
 	
 // 📚 Libros Encantados
@@ -186,23 +195,28 @@ document.addEventListener('mousemove', (e) => {
 
 let isBuildingChest = false;
 let customChestInventory = new Array(27).fill(null);
-
+let isCreatingCustomItem = false; // ✨ NUEVA
 
 function toggleInventory() {
     const modal = document.getElementById('inventory-modal');
     const chestPanel = document.getElementById('chest-builder-panel');
+    const customPanel = document.getElementById('custom-item-builder-panel'); // ✨
     const title = document.getElementById('inventory-modal-title');
+    const hotbarContainer = document.getElementById('modal-hotbar-container');
 
     if (modal.style.display === 'block') {
         modal.style.display = 'none';
         heldItem = null; 
         updateFloatingItem();
         isBuildingChest = false; 
+        isCreatingCustomItem = false; // ✨
     } else {
         modal.style.display = 'block';
         
         if (title) title.innerText = "Inventory";
         if (chestPanel) chestPanel.style.display = 'none'; 
+        if (customPanel) customPanel.style.display = 'none'; // ✨
+        if (hotbarContainer) hotbarContainer.style.display = 'grid'; // Mostramos la hotbar
 
         const searchInput = document.getElementById('inventory-search');
         if(searchInput) {
@@ -381,6 +395,87 @@ function populateInventory() {
         return; // Detenemos la función para que no se rompa buscando texturas
     }
 
+// ========================================================
+    // --- LÓGICA ESPECIAL: PESTAÑA POCIONES ---
+    // ========================================================
+    if (activeInventoryTab === 'Potions') {
+        const gamePotions = [
+            // Normales
+            { name: "Water Bottle", nbt: { type: "water", effects: null }, color: "#5555FF" },
+            { name: "Potion of Healing", nbt: { type: "healing", effects: [{level:1, type:"instanthealth"}] }, color: "#F82423" },
+            { name: "Potion of Harming", nbt: { type: "harming", effects: [{level:1, type:"instantdamage"}] }, color: "#430A09" },
+            { name: "Potion of Swiftness", nbt: { type: "swiftness", effects: [{level:1, duration:180, type:"speed"}] }, color: "#7CAFC6" },
+            { name: "Potion of Slowness", nbt: { type: "slowness", effects: [{level:1, duration:90, type:"slowness"}] }, color: "#5A6C81" },
+            { name: "Potion of Poison", nbt: { type: "poison", effects: [{level:1, duration:45, type:"poison"}] }, color: "#4E9331" },
+            { name: "Potion of Regeneration", nbt: { type: "regeneration", effects: [{level:1, duration:45, type:"regeneration"}] }, color: "#CD5CAB" },
+            { name: "Potion of Strength", nbt: { type: "strength", effects: [{level:1, duration:180, type:"strength"}] }, color: "#932423" },
+            { name: "Potion of Weakness", nbt: { type: "weakness", effects: [{level:1, duration:90, type:"weakness"}] }, color: "#484D48" },
+            { name: "Potion of Fire Resistance", nbt: { type: "fireresistance", effects: [{level:1, duration:180, type:"fireresistance"}] }, color: "#E49A3A" },
+            { name: "Potion of Water Breathing", nbt: { type: "waterbreathing", effects: [{level:1, duration:180, type:"waterbreathing"}] }, color: "#2E5299" },
+            { name: "Potion of Leaping", nbt: { type: "leaping", effects: [{level:1, duration:180, type:"jumpboost"}] }, color: "#22FF4C" },
+            { name: "Potion of Invisibility", nbt: { type: "invisibility", effects: [{level:1, duration:180, type:"invisibility"}] }, color: "#7F8392" },
+            { name: "Potion of Night Vision", nbt: { type: "nightvision", effects: [{level:1, duration:180, type:"nightvision"}] }, color: "#1F1FA1" },
+            
+            // Arrojadizas (Splash)
+            { name: "Splash Potion of Healing", nbt: { category: "splash", type: "healing", effects: [{level:1, type:"instanthealth"}] }, color: "#F82423" },
+            { name: "Splash Potion of Harming", nbt: { category: "splash", type: "harming", effects: [{level:1, type:"instantdamage"}] }, color: "#430A09" },
+            { name: "Splash Potion of Swiftness", nbt: { category: "splash", type: "swiftness", effects: [{level:1, duration:180, type:"speed"}] }, color: "#7CAFC6" },
+            { name: "Splash Potion of Slowness", nbt: { category: "splash", type: "slowness", effects: [{level:1, duration:90, type:"slowness"}] }, color: "#5A6C81" },
+            { name: "Splash Potion of Poison", nbt: { category: "splash", type: "poison", effects: [{level:1, duration:45, type:"poison"}] }, color: "#4E9331" },
+            { name: "Splash Potion of Regeneration", nbt: { category: "splash", type: "regeneration", effects: [{level:1, duration:45, type:"regeneration"}] }, color: "#CD5CAB" },
+            { name: "Splash Potion of Strength", nbt: { category: "splash", type: "strength", effects: [{level:1, duration:180, type:"strength"}] }, color: "#932423" },
+            { name: "Splash Potion of Weakness", nbt: { category: "splash", type: "weakness", effects: [{level:1, duration:90, type:"weakness"}] }, color: "#484D48" },
+            { name: "Splash Potion of Fire Resistance", nbt: { category: "splash", type: "fireresistance", effects: [{level:1, duration:180, type:"fireresistance"}] }, color: "#E49A3A" },
+            { name: "Splash Potion of Water Breathing", nbt: { category: "splash", type: "waterbreathing", effects: [{level:1, duration:180, type:"waterbreathing"}] }, color: "#2E5299" },
+            { name: "Splash Potion of Leaping", nbt: { category: "splash", type: "leaping", effects: [{level:1, duration:180, type:"jumpboost"}] }, color: "#22FF4C" },
+            { name: "Splash Potion of Invisibility", nbt: { category: "splash", type: "invisibility", effects: [{level:1, duration:180, type:"invisibility"}] }, color: "#7F8392" },
+            { name: "Splash Potion of Night Vision", nbt: { category: "splash", type: "nightvision", effects: [{level:1, duration:180, type:"nightvision"}] }, color: "#1F1FA1" }
+        ];
+
+        gamePotions.forEach(potionData => {
+            const item = document.createElement('div');
+            item.className = 'inv-item enchanted-slot'; 
+            item.title = ""; 
+            
+            item.dataset.enchantTooltip = `<strong>${potionData.name}</strong><span class="tooltip-enchant" style="color: ${potionData.color}; display: block; line-height: 0.6; margin-top: 2px;">Potion Effect</span>`;
+
+            item.onclick = () => {
+                heldItem = { type: 'potion', count: 1, states1: 0, nbt: potionData.nbt };
+                updateFloatingItem();
+            };
+
+            item.style.width = '64px'; item.style.height = '64px';
+            item.style.minWidth = '64px'; item.style.minHeight = '64px';
+            item.style.flexShrink = '0';
+            item.style.background = '#8B8B8B'; item.style.border = '4px inset #FFF'; 
+            item.style.display = 'flex'; item.style.justifyContent = 'center';
+            item.style.alignItems = 'center'; item.style.boxSizing = 'border-box';
+            item.style.cursor = 'pointer'; item.style.position = 'relative';
+
+            const cvs = document.createElement('canvas');
+            cvs.width = 16; cvs.height = 16;
+            cvs.style.width = '48px'; cvs.style.height = '48px';
+            cvs.style.imageRendering = 'pixelated';
+            const ctx = cvs.getContext('2d');
+            ctx.imageSmoothingEnabled = false;
+
+            let renderObj = typeof getBlockObject === 'function' ? getBlockObject({type: 'potion', nbt: potionData.nbt}) : null;
+            if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
+                ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
+            } else {
+                ctx.fillStyle = "magenta"; ctx.fillRect(4, 4, 8, 8);
+            }
+            item.appendChild(cvs);
+
+            item.onmouseenter = () => { item.style.background = '#A0A0A0'; };
+            item.onmouseleave = () => { item.style.background = '#8B8B8B'; };
+
+            grid.appendChild(item);
+        });
+        
+        return; 
+    }
+	
     // ========================================================
     // --- LÓGICA ESPECIAL: PESTAÑA CUSTOM (LIMPIA) ---
     // ========================================================
@@ -397,8 +492,17 @@ function populateInventory() {
             item.className = 'inv-item';
             
             item.onclick = () => {
-                heldItem = { type: itemID, count: itemCount, states1: itemDamage, nbt: enchantments };
-                updateFloatingItem();
+                // Verificamos si el Creador de Ítems está abierto
+                if (typeof isCreatingCustomItem !== 'undefined' && isCreatingCustomItem) {
+                    // Lo mandamos al panel para editar en lugar de agarrarlo
+                    if (typeof selectCustomItem === 'function') {
+                        selectCustomItem(itemID);
+                    }
+                } else {
+                    // Si el panel NO está abierto, lo agarramos normal (tu drag custom)
+                    heldItem = { type: itemID, count: itemCount, states1: itemDamage, nbt: enchantments };
+                    updateFloatingItem();
+                }
             };
 
             item.oncontextmenu = (e) => {
@@ -416,17 +520,26 @@ function populateInventory() {
             item.style.alignItems = 'center'; item.style.boxSizing = 'border-box';
             item.style.cursor = 'pointer'; item.style.position = 'relative';
 
-            let isEnchanted = enchantments && Object.keys(enchantments).length > 0;
+// 1. Revisamos si tiene magias reales (ignorando el nombre)
+            let isEnchanted = false;
+            if (enchantments) {
+                for (let k in enchantments) {
+                    if (enchantments[k] === "enchant") isEnchanted = true;
+                }
+            }
+
+            // 2. Buscamos si tiene nombre personalizado guardado en el NBT
+            let itemNameStr = (enchantments && enchantments.name) ? enchantments.name : String(itemID).replace(/([A-Z])/g, ' $1').trim();
+
             if (isEnchanted) {
                 item.classList.add('enchanted-slot');
                 item.title = ""; // Ocultamos el título nativo si tiene magia
 
-                // GUARDAMOS EL TEXTO MÁGICO EN EL DATASET
-                let itemNameStr = String(itemID).replace(/([A-Z])/g, ' $1').trim();
                 let enchantTooltipHTML = typeof formatEnchantments === 'function' ? formatEnchantments(enchantments) : "";
                 item.dataset.enchantTooltip = `<strong>${itemNameStr}</strong>${enchantTooltipHTML}`;
             } else {
-                item.title = String(itemID).replace(/([A-Z])/g, ' $1').trim() + " (Custom)";
+                // Si solo le cambiaron el nombre pero no tiene magias, usamos el tooltip normal
+                item.title = itemNameStr + " (Custom)";
             }
 
             const cvs = document.createElement('canvas');
@@ -471,7 +584,14 @@ function populateInventory() {
         item.className = 'inv-item';
         item.title = blockType; 
         
-        item.onclick = () => pickupItemFromInventory(blockType);
+        item.onclick = () => {
+            // Si el creador de items está abierto, manda el bloque para allá
+            if (typeof isCreatingCustomItem !== 'undefined' && isCreatingCustomItem) {
+                if (typeof selectCustomItem === 'function') selectCustomItem(blockType);
+            } else {
+                pickupItemFromInventory(blockType); // Si no, recógelo normal en la mano
+            }
+        };
         
         item.style.width = '64px';
         item.style.height = '64px';
@@ -718,8 +838,8 @@ function renderModalHotbar() {
     hotbar.slots.forEach((slot, index) => {
         const slotDiv = document.createElement('div');
         // --- TAMAÑO DEL SLOT: 64px ---
-        slotDiv.style.width = '64px';
-        slotDiv.style.height = '64px';
+        slotDiv.style.width = '256px';
+        slotDiv.style.height = '256px';
         slotDiv.style.background = '#8B8B8B';
         slotDiv.style.border = '4px inset #FFF';
         slotDiv.style.display = 'flex';
@@ -1102,7 +1222,11 @@ const enchantTranslations = {
     "projectileprotection1": "Projectile Protection I", "projectileprotection2": "Projectile Protection II", "projectileprotection3": "Projectile Protection III", "projectileprotection4": "Projectile Protection IV",
     "respiration1": "Respiration I", "respiration2": "Respiration II", "respiration3": "Respiration III",
     "aquaaffinity1": "Aqua Affinity",
-    "thorns1": "Thorns I", "thorns2": "Thorns II", "thorns3": "Thorns III"
+    "thorns1": "Thorns I", "thorns2": "Thorns II", "thorns3": "Thorns III",
+	
+	// Cañas de pescar
+	"luckofthesea1": "Luck Of The Sea I", "luckofthesea2": "Luck Of The Sea II", "luckofthesea3": "Luck Of The Sea III", 
+	"lure1": "Lure I", "lure2": "Lure II", "lure3": "Lure III", 
 };
 
 // Función auxiliar para formatear el texto
@@ -1996,3 +2120,64 @@ function populateWorldInfo() {
         enderDisplay.style.color = isDefeated ? "#2E7D32" : "#C0392B";
     }
 }
+
+
+// ==========================================
+// ✨ COMPROBADOR DE MUNDO ACTIVO (Habilita/Deshabilita World Info)
+// ==========================================
+setInterval(() => {
+    const infoBtn = document.getElementById('btn-world-info');
+    const sidebar = document.getElementById('world-info-sidebar');
+    
+    // ✨ FIX: Un mundo es válido si el objeto mbwom.world existe y tiene datos (no es un objeto vacío {})
+    const hasWorld = (typeof mbwom !== 'undefined' && mbwom.world && Object.keys(mbwom.world).length > 0);
+    
+    if (hasWorld) {
+        // MODO: MUNDO ABIERTO
+        if (infoBtn) {
+            infoBtn.disabled = false;
+            infoBtn.style.opacity = '1';
+            infoBtn.style.cursor = 'pointer';
+        }
+    } else {
+        // MODO: SIN MUNDO
+        if (infoBtn) {
+            infoBtn.disabled = true;
+            infoBtn.style.opacity = '0.5';
+            infoBtn.style.cursor = 'not-allowed';
+        }
+        // Ocultar la barra lateral si la tenías abierta y cerraste el mundo
+        if (sidebar && sidebar.style.display === 'flex') {
+            toggleWorldInfo();
+        }
+    }
+}, 500);
+
+
+const potionDatabase = {
+    'potion_empty': { type: 'potion', nbt: { type: 'empty', effects: null } },
+    'potion_water': { type: 'potion', nbt: { type: 'water', effects: null } },
+    'potion_healing': { type: 'potion', nbt: { type: 'healing', effects: [{level: 1, type: 'instanthealth'}] } },
+    'potion_harming': { type: 'potion', nbt: { type: 'harming', effects: [{level: 1, type: 'instantdamage'}] } },
+    'potion_swiftness': { type: 'potion', nbt: { type: 'swiftness', effects: [{level: 1, duration: 180, type: 'speed'}] } },
+    'potion_slowness': { type: 'potion', nbt: { type: 'slowness', effects: [{level: 1, duration: 90, type: 'slowness'}] } },
+    'potion_poison': { type: 'potion', nbt: { type: 'poison', effects: [{level: 1, duration: 45, type: 'poison'}] } },
+    'potion_regeneration': { type: 'potion', nbt: { type: 'regeneration', effects: [{level: 1, duration: 45, type: 'regeneration'}] } },
+    'potion_strength': { type: 'potion', nbt: { type: 'strength', effects: [{level: 1, duration: 180, type: 'strength'}] } },
+    'potion_weakness': { type: 'potion', nbt: { type: 'weakness', effects: [{level: 1, duration: 90, type: 'weakness'}] } },
+    'potion_fireresistance': { type: 'potion', nbt: { type: 'fireresistance', effects: [{level: 1, duration: 180, type: 'fireresistance'}] } },
+    'potion_waterbreathing': { type: 'potion', nbt: { type: 'waterbreathing', effects: [{level: 1, duration: 180, type: 'waterbreathing'}] } },
+    'potion_leaping': { type: 'potion', nbt: { type: 'leaping', effects: [{level: 1, duration: 180, type: 'jumpboost'}] } },
+    'potion_invisibility': { type: 'potion', nbt: { type: 'invisibility', effects: [{level: 1, duration: 180, type: 'invisibility'}] } },
+    'potion_nightvision': { type: 'potion', nbt: { type: 'nightvision', effects: [{level: 1, duration: 180, type: 'nightvision'}] } },
+    
+    // Splash Potions (Arrojadizas)
+    'splash_potion_healing': { type: 'potion', nbt: { category: 'splash', type: 'healing', effects: [{level: 1, type: 'instanthealth'}] } },
+    'splash_potion_harming': { type: 'potion', nbt: { category: 'splash', type: 'harming', effects: [{level: 1, type: 'instantdamage'}] } },
+    'splash_potion_swiftness': { type: 'potion', nbt: { category: 'splash', type: 'swiftness', effects: [{level: 1, duration: 180, type: 'speed'}] } },
+    'splash_potion_slowness': { type: 'potion', nbt: { category: 'splash', type: 'slowness', effects: [{level: 1, duration: 90, type: 'slowness'}] } },
+    'splash_potion_poison': { type: 'potion', nbt: { category: 'splash', type: 'poison', effects: [{level: 1, duration: 45, type: 'poison'}] } },
+    'splash_potion_regeneration': { type: 'potion', nbt: { category: 'splash', type: 'regeneration', effects: [{level: 1, duration: 45, type: 'regeneration'}] } },
+    'splash_potion_strength': { type: 'potion', nbt: { category: 'splash', type: 'strength', effects: [{level: 1, duration: 180, type: 'strength'}] } },
+    'splash_potion_weakness': { type: 'potion', nbt: { category: 'splash', type: 'weakness', effects: [{level: 1, duration: 90, type: 'weakness'}] } }
+};

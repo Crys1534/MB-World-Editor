@@ -104,8 +104,15 @@ if (typeof window.texturesMap !== 'undefined') {
         if (key.startsWith('bed2')) return; 
         if (key.startsWith('dr') && key.length > 3 && key.includes('_')) return; 
 
-        // 3. Agregar bloque válido
+        // 3. Agregar bloque exacto
         window.blockData[key] = window.renderers.default;
+
+        // ✨ 4. LA SOLUCIÓN: Crear un "alias" automático para la base del bloque
+        // Esto separa "stairr_1" y registra "stairr" automáticamente
+        let baseName = key.split('_')[0];
+        if (!window.blockData[baseName]) {
+            window.blockData[baseName] = window.renderers.default;
+        }
     });
 } else {
     console.error("ERROR: texturesMap no encontrado. Asegúrate de cargar scripts/textures.js antes.");

@@ -1,138 +1,166 @@
-const customItemDb = {
-    tools: [
-        'WoodenPickaxe', 'StonePickaxe', 'IronPickaxe', 'GoldPickaxe', 'DiamondPickaxe', 'ObsidianPickaxe',
-        'WoodenSword', 'StoneSword', 'IronSword', 'GoldSword', 'DiamondSword',
-        'WoodenAxe', 'StoneAxe', 'IronAxe', 'GoldAxe', 'DiamondAxe',
-        'WoodenShovel', 'StoneShovel', 'IronShovel', 'GoldShovel', 'DiamondShovel',
-        'WoodenHoe', 'StoneHoe', 'IronHoe', 'GoldHoe', 'DiamondHoe', 'bow'
-    ],
-    armor: [
-        'LeatherCap', 'LeatherShirt', 'LeatherPants', 'LeatherShoes', 
-        'IronCap', 'IronShirt', 'IronPants', 'IronShoes', 
-        'GoldCap', 'GoldShirt', 'GoldPants', 'GoldShoes', 
-        'DiamondCap', 'DiamondShirt', 'DiamondPants', 'DiamondShoes',
-		'DragonCap', 'DragonShirt', 'DragonPants', 'DragonShoes'
-    ],
-    books: ['book'] // Usamos el ID estándar del libro
-};
+// ✨ 1. INYECTAMOS TU ESTILO MÁGICO Y PROTECCIONES ANTI-CORTES DESDE JS
+const magicStyles = document.createElement('style');
+magicStyles.innerHTML = `
+/* Tu estilo mágico intacto */
+.enchant-option.active-enchant {
+    background-color: #07104ae0 !important; 
+    border: 2px solid #a200ff !important;   
+    color: #ffaa00 !important;              
+    text-shadow: 1px 1px 0 #000 !important;
+    position: relative !important;
+    overflow: hidden !important;
+    box-shadow: 0 0 6px #a200ff !important;
+}
+.enchant-option.active-enchant::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(
+        110deg,
+        transparent 25%,
+        rgba(255, 255, 255, 0.4) 40%,
+        rgba(255, 255, 255, 0.9) 50%,
+        rgba(224, 102, 255, 0.6) 60%,
+        transparent 75%
+    );
+    background-size: 300% 100%;
+    animation: shine-glint 2s infinite ease-in-out;
+    pointer-events: none;
+    z-index: 5;
+}
 
-// Mapeo inteligente para saber qué magias mostrar
+/* ✨ PROTECCIÓN PARA LA FUENTE PIXELADA Y TEXTOS LARGOS */
+.enchant-option {
+    line-height: 1.3 !important;       
+    white-space: normal !important;    
+    word-wrap: break-word !important;  
+    display: flex !important;          
+    align-items: center !important;
+    min-height: 36px !important;       
+}
+`;
+document.head.appendChild(magicStyles);
+
 const enchantFilters = {
     melee: ["sharpness", "smite", "baneofarthropods", "knockback", "fireaspect", "looting", "unbreaking", "mending"],
     tools: ["efficiency", "silktouch", "fortune", "unbreaking", "mending"],
     bows: ["power", "punch", "flame", "infinity", "unbreaking", "mending"],
-    
-    // --- MAGIAS DE ARMADURA SEPARADAS ---
+    fishingrods: ["lure", "luckofthesea"],
     armor_all: ["protection", "fireprotection", "blastprotection", "projectileprotection", "thorns", "unbreaking", "mending"],
     armor_head: ["respiration", "aquaaffinity"],
     armor_feet: ["featherfalling"]
 };
 
 let currentCiBaseItem = null;
-let currentCiEnchants = {}; // Aquí guardamos las magias activas
+let currentCiEnchants = {};
+let currentCiEditIndex = null;
 
+// ✨ DIBUJA EL CANVAS BASADO EN LA ID REAL
+function updateCiPreviewCanvas() {
+    let ctx = document.getElementById('ci-preview-canvas').getContext('2d');
+    ctx.clearRect(0, 0, 64, 64);
+    ctx.imageSmoothingEnabled = false;
+    
+    // Ahora simplemente dibuja la ID que tengamos, ya que la cambiaremos dinámicamente
+    let renderObj = typeof getBlockObject === 'function' ? getBlockObject({type: currentCiBaseItem}) : null;
+    if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
+        ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 64, 64);
+    }
+}
+
+// ✨ 2. ABRIR EL INVENTARIO EN MODO CREADOR
 function openCustomItemsModal() {
-    openModal('custom-items-modal');
-    renderCustomGrid('tools');
+    if (typeof isBuildingChest !== 'undefined') isBuildingChest = false;
+    isCreatingCustomItem = true;
+    
+    const modal = document.getElementById('inventory-modal');
+    const chestPanel = document.getElementById('chest-builder-panel');
+    const customPanel = document.getElementById('custom-item-builder-panel');
+    const title = document.getElementById('inventory-modal-title');
+    const hotbarContainer = document.getElementById('modal-hotbar-container');
+    
+    modal.style.display = 'block';
+    if (title) title.innerText = "Create Custom Item";
+    if (chestPanel) chestPanel.style.display = 'none';
+    if (customPanel) customPanel.style.display = 'flex';
+    
+    if (hotbarContainer) hotbarContainer.style.display = 'grid'; 
     
     currentCiBaseItem = null;
     currentCiEnchants = {};
-    document.getElementById('ci-preview-title').innerText = "Select an item";
+    currentCiEditIndex = null;
+    
+    let titleEl = document.getElementById('ci-preview-title');
+    if (titleEl) {
+        titleEl.value = "Select an item";
+        titleEl.disabled = true;
+    }
     document.getElementById('save-custom-item').style.display = 'none';
     document.getElementById('ci-enchantments-list').innerHTML = '';
     
     let ctx = document.getElementById('ci-preview-canvas').getContext('2d');
     ctx.clearRect(0, 0, 64, 64);
     document.getElementById('ci-preview-slot').classList.remove('enchanted-slot');
-
-    // --- DIBUJAR LOS ÍCONOS DE LAS PESTAÑAS ---
-    drawCustomTabIcon('ci-icon-tools', 'ObsidianPickaxe');
-    drawCustomTabIcon('ci-icon-armor', 'DragonShirt');
-    drawCustomTabIcon('ci-icon-books', 'book');
-}
-
-function renderCustomGrid(category) {
-    // Actualizar pestañas
-    document.querySelectorAll('#custom-items-modal .struct-tab').forEach(t => t.classList.remove('active'));
-    document.getElementById('tab-ci-' + category).classList.add('active');
-
-    const grid = document.getElementById('custom-items-grid');
-    grid.innerHTML = '';
-
-    customItemDb[category].forEach(itemID => {
-        let btn = document.createElement('div');
-        btn.className = 'inv-item';
-        btn.style.width = '64px'; btn.style.height = '64px';
-        btn.style.background = '#8B8B8B'; btn.style.border = '4px inset #FFF';
-        btn.style.display = 'flex'; btn.style.justifyContent = 'center'; btn.style.alignItems = 'center';
-        
-        let cvs = document.createElement('canvas');
-        cvs.width = 16; cvs.height = 16;
-        cvs.style.width = '48px'; cvs.style.height = '48px';
-        cvs.style.imageRendering = 'pixelated';
-        let ctx = cvs.getContext('2d');
-        ctx.imageSmoothingEnabled = false;
-
-        let renderObj = typeof getBlockObject === 'function' ? getBlockObject({type: itemID}) : null;
-        if (renderObj && window.images.blocks.complete) {
-            ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
-        }
-        
-        btn.appendChild(cvs);
-        btn.onclick = () => selectCustomItem(itemID, category);
-        
-        btn.onmouseenter = () => { btn.style.background = '#A0A0A0'; };
-        btn.onmouseleave = () => { btn.style.background = '#8B8B8B'; };
-        
-        grid.appendChild(btn);
-    });
-}
-
-function selectCustomItem(itemID, category) {
-    currentCiBaseItem = itemID;
-    currentCiEnchants = {}; // Reseteamos al cambiar de ítem
     
-    document.getElementById('ci-preview-title').innerText = String(itemID).replace(/([A-Z])/g, ' $1').trim();
-    document.getElementById('save-custom-item').style.display = 'block';
-    document.getElementById('ci-preview-slot').classList.remove('enchanted-slot');
+    if (typeof renderInventoryTabs === 'function') renderInventoryTabs();
+    if (typeof populateInventory === 'function') populateInventory();
+    
+    if (typeof renderModalHotbar === 'function') renderModalHotbar();
+}
 
-    // Dibujar Preview en grande
-    let ctx = document.getElementById('ci-preview-canvas').getContext('2d');
-    ctx.clearRect(0, 0, 64, 64);
-    ctx.imageSmoothingEnabled = false;
-    let renderObj = typeof getBlockObject === 'function' ? getBlockObject({type: itemID}) : null;
-    if (renderObj && window.images.blocks.complete) {
-        ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 64, 64);
+// ✨ 3. AL SELECCIONAR UN ÍTEM
+function selectCustomItem(itemID, existingNbt = null, editIndex = null) {
+    currentCiBaseItem = itemID;
+    currentCiEditIndex = editIndex; 
+    
+    currentCiEnchants = existingNbt ? JSON.parse(JSON.stringify(existingNbt)) : {};
+    
+    let customName = String(itemID).replace(/([A-Z])/g, ' $1').trim();
+    if (currentCiEnchants.name) {
+        customName = currentCiEnchants.name;
+        delete currentCiEnchants.name; 
+    }
+    
+    let titleEl = document.getElementById('ci-preview-title');
+    if (titleEl) {
+        titleEl.value = customName;
+        titleEl.disabled = false; 
+    }
+    
+    document.getElementById('save-custom-item').style.display = 'block';
+
+    if (Object.keys(currentCiEnchants).length > 0) {
+        document.getElementById('ci-preview-slot').classList.add('enchanted-slot');
+    } else {
+        document.getElementById('ci-preview-slot').classList.remove('enchanted-slot');
     }
 
-// Identificar qué grupo de encantamientos mostrar
+    updateCiPreviewCanvas();
+
     let validEnchants = [];
-    if (category === 'books') {
-        validEnchants = Object.keys(enchantTranslations); // El libro puede tener TODO
-    } else if (category === 'armor') {
-        // Magias que comparten todas las armaduras
+    // ✨ SOPORTE PARA EBOOK: Si editas un ebook ya creado, mostrará todas las magias
+    if (itemID === 'book' || itemID === 'ebook') {
+        validEnchants = Object.keys(enchantTranslations);
+    } else if (itemID.includes('Cap') || itemID.includes('Shirt') || itemID.includes('Pants') || itemID.includes('Shoes')) {
         let armorMagics = [...enchantFilters.armor_all];
-        
-        // Magias exclusivas dependiendo de la pieza
-        if (itemID.includes('Cap')) {
-            armorMagics = armorMagics.concat(enchantFilters.armor_head);
-        } else if (itemID.includes('Shoes')) {
-            armorMagics = armorMagics.concat(enchantFilters.armor_feet);
-        }
-        
+        if (itemID.includes('Cap')) armorMagics = armorMagics.concat(enchantFilters.armor_head);
+        if (itemID.includes('Shoes')) armorMagics = armorMagics.concat(enchantFilters.armor_feet);
         validEnchants = getFilteredEnchants(armorMagics);
     } else if (itemID === 'bow') {
         validEnchants = getFilteredEnchants(enchantFilters.bows);
+    } else if (itemID === 'fr') {
+        validEnchants = getFilteredEnchants(enchantFilters.fishingrods);
     } else if (itemID.includes('Sword') || itemID.includes('Axe')) {
         validEnchants = getFilteredEnchants([...enchantFilters.melee, ...enchantFilters.tools]);
+    } else if (itemID.includes('Pickaxe') || itemID.includes('Shovel') || itemID.includes('Hoe') || itemID === 'Shear') {
+        validEnchants = getFilteredEnchants(enchantFilters.tools);
     } else {
-        validEnchants = getFilteredEnchants(enchantFilters.tools); // Picos, Palas, Azadas
+        validEnchants = getFilteredEnchants(["unbreaking", "mending"]);
     }
 
     renderEnchantmentList(validEnchants);
 }
 
-// Extrae del diccionario global solo los encantamientos que empiecen con los nombres permitidos
 function getFilteredEnchants(allowedPrefixes) {
     let result = [];
     for (let key in enchantTranslations) {
@@ -142,20 +170,36 @@ function getFilteredEnchants(allowedPrefixes) {
     return result;
 }
 
+// ✨ 4. DIBUJAR LA LISTA Y TRANSFORMAR ID
 function renderEnchantmentList(enchantsArray) {
     const list = document.getElementById('ci-enchantments-list');
     list.innerHTML = '';
 
+    enchantsArray.sort((a, b) => {
+        let nameA = enchantTranslations[a];
+        let nameB = enchantTranslations[b];
+        return nameA.localeCompare(nameB);
+    });
+
     enchantsArray.forEach(enchKey => {
         let btn = document.createElement('div');
         btn.className = 'enchant-option';
-        btn.innerText = enchantTranslations[enchKey];
-        btn.dataset.enchKey = enchKey; // Guardamos el ID oculto en el botón
         
-        if (currentCiEnchants[enchKey]) btn.classList.add('active-enchant');
+        btn.style.boxSizing = 'border-box';
+        btn.style.padding = '8px 10px'; 
+        btn.style.fontWeight = 'bold';
+        btn.style.userSelect = 'none';
+
+        btn.innerHTML = `<span style="position: relative; z-index: 10; pointer-events: none; width: 100%;">${enchantTranslations[enchKey]}</span>`;
+        btn.dataset.enchKey = enchKey; 
+        
+        if (currentCiEnchants[enchKey]) {
+            btn.classList.add('active-enchant');
+        }
 
         btn.onclick = () => {
-            // Activar o desactivar
+            if (btn.classList.contains('disabled-enchant')) return;
+
             if (currentCiEnchants[enchKey]) {
                 delete currentCiEnchants[enchKey];
                 btn.classList.remove('active-enchant');
@@ -164,79 +208,90 @@ function renderEnchantmentList(enchantsArray) {
                 btn.classList.add('active-enchant');
             }
             
-            // Actualizar efecto de preview general
-            if (Object.keys(currentCiEnchants).length > 0) {
+            let hasEnchants = Object.keys(currentCiEnchants).length > 0;
+
+            // ✨ TRANSFORMACIÓN DE ID REAL ✨
+            // Sube de nivel a ebook si tiene magias, o lo regresa a book si se las quitas todas
+            if (hasEnchants && currentCiBaseItem === 'book') {
+                currentCiBaseItem = 'ebook';
+            } else if (!hasEnchants && currentCiBaseItem === 'ebook') {
+                currentCiBaseItem = 'book';
+            }
+            
+            if (hasEnchants) {
                 document.getElementById('ci-preview-slot').classList.add('enchanted-slot');
             } else {
                 document.getElementById('ci-preview-slot').classList.remove('enchanted-slot');
             }
-
-            // --- Lógica de bloqueo de niveles múltiples ---
             updateEnchantmentUIState();
+            
+            // Redibuja usando la ID actual
+            updateCiPreviewCanvas();
         };
-
         list.appendChild(btn);
     });
-
-    // Ejecutamos el bloqueo una vez al cargar por si el ítem ya tenía magias
     updateEnchantmentUIState();
 }
 
-// Nueva función que escanea y bloquea los niveles repetidos
 function updateEnchantmentUIState() {
     const buttons = document.querySelectorAll('#ci-enchantments-list .enchant-option');
-    
-    // 1. Extraemos las "raíces" de las magias activas (ej: "sharpness" de "sharpness5")
     let activeBaseNames = {};
     for (let activeKey in currentCiEnchants) {
-        let base = activeKey.replace(/[0-9]/g, ''); // Quita los números
-        activeBaseNames[base] = activeKey; // Guarda qué nivel específico está activo
+        let base = activeKey.replace(/[0-9]/g, ''); 
+        activeBaseNames[base] = activeKey; 
     }
 
-    // 2. Revisamos todos los botones
     buttons.forEach(btn => {
         let enchKey = btn.dataset.enchKey;
-        let baseName = enchKey.replace(/[0-9]/g, ''); // Raíz del botón actual
-
-        // Si la magia raíz está activa, y NO es exactamente este botón... lo bloqueamos
+        let baseName = enchKey.replace(/[0-9]/g, ''); 
+        
         if (activeBaseNames[baseName] && activeBaseNames[baseName] !== enchKey) {
             btn.classList.add('disabled-enchant');
+            btn.style.opacity = '0.4';
+            btn.style.filter = 'grayscale(100%)';
+            btn.style.cursor = 'not-allowed';
         } else {
-            // Si está libre, le quitamos el bloqueo
             btn.classList.remove('disabled-enchant');
+            btn.style.opacity = '1';
+            btn.style.filter = 'none';
+            if (!btn.classList.contains('active-enchant')) {
+                btn.style.cursor = 'pointer';
+            }
         }
     });
 }
 
+// ✨ 5. GUARDAR Y ACTUALIZAR
 function saveCustomItem() {
     if (!currentCiBaseItem) return;
 
-    // Si no le pusieron magias, lo guardamos vacío, de lo contrario clonamos el objeto
     let nbtData = Object.keys(currentCiEnchants).length > 0 ? JSON.parse(JSON.stringify(currentCiEnchants)) : {};
     
-    // Formato de Mine Blocks: ["ItemID", Cantidad, Daño, {NBT}]
+    let titleEl = document.getElementById('ci-preview-title');
+    if (titleEl) {
+        let customName = titleEl.value.trim();
+        let defaultName = String(currentCiBaseItem).replace(/([A-Z])/g, ' $1').trim();
+        
+        // Evitamos guardar nombres como "Ebook" si el jugador no escribió nada
+        if (defaultName === "Ebook" && Object.keys(nbtData).length > 0) defaultName = "Enchanted Book";
+        
+        if (customName !== "" && customName !== defaultName && customName !== "Select an item") {
+            nbtData.name = customName; 
+        }
+    }
+    
+    // Al guardar, utilizará la ID oficial que esté activa ('book' o 'ebook')
     let newItem = [currentCiBaseItem, 1, 0, nbtData];
-
-    // Cargar LocalStorage
     let savedItems = JSON.parse(localStorage.getItem('mbw_custom_items')) || [];
-    savedItems.push(newItem);
+
+    if (currentCiEditIndex !== null && currentCiEditIndex >= 0 && currentCiEditIndex < savedItems.length) {
+        savedItems[currentCiEditIndex] = newItem;
+    } else {
+        savedItems.push(newItem);
+        currentCiEditIndex = savedItems.length - 1; 
+    }
+    
     localStorage.setItem('mbw_custom_items', JSON.stringify(savedItems));
 
-    alert("Item saved to 'Custom' tab in your Inventory (E)!");
-}
-
-
-
-// --- FUNCIÓN PARA DIBUJAR LOS ÍCONOS EN LAS PESTAÑAS ---
-function drawCustomTabIcon(canvasId, itemID) {
-    let cvs = document.getElementById(canvasId);
-    if (!cvs) return;
-    let ctx = cvs.getContext('2d');
-    ctx.imageSmoothingEnabled = false;
-    ctx.clearRect(0, 0, 16, 16);
-
-    let renderObj = typeof getBlockObject === 'function' ? getBlockObject({type: itemID}) : null;
-    if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
-        ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
-    }
+    if (typeof populateInventory === 'function') populateInventory();
 }
