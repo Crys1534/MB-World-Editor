@@ -223,85 +223,93 @@ function drawMobs() {
     if (typeof mbwom === 'undefined' || !mbwom.mobs) return;
     
     for (let key in mbwom.mobs) {
-        const mob = mbwom.mobs[key];
-        if (!mob) continue;
-
-        const mobWorldX = mob.x;
-        const mobWorldY = -mob.y; 
-        
-        const screenX = (mobWorldX - camera.x) * tileSize;
-        const screenY = canvas.height - (mobWorldY - camera.y) * tileSize;
-        
-        if (screenX < -200 || screenX > canvas.width + 200 || screenY < -200 || screenY > canvas.height + 200) {
-            continue;
-        }
-        
-        // Dimensiones base del mob
-        let mobWidth = tileSize * 1;
-        let mobHeight = tileSize * 2;
-        if (mob.type === 'chicken' || mob.type === 'pig' || mob.type === 'spider' || mob.type === 'slime') mobHeight = tileSize * 1;
-        if (mob.type === 'enderdragon') { mobWidth = tileSize * 24; mobHeight = tileSize * 8; }
-		if (mob.type === 'nethereye') { mobWidth = tileSize * 0.75; mobHeight = tileSize * 0.75; }
-		if (mob.type === 'pig') { mobWidth = tileSize * 2; mobHeight = tileSize * 1.2; }
-		if (mob.type === 'enderman') { mobWidth = tileSize * 1.2; mobHeight = tileSize * 3; }
-        
-        let mobImg = window.images[mob.type];
-
-        // ✨ FIX: Agregamos mobImg.naturalWidth > 0 para evitar crasheos si falta el PNG
-        if (mobImg && mobImg.complete && mobImg.naturalWidth > 0) {
-            ctx.save(); 
-            
-            ctx.translate(screenX, screenY);
-            
-            if (mob.direction === 0) {
-                ctx.scale(-1, 1);
+        try {
+            const mob = mbwom.mobs[key];
+            if (!mob || !mob.type) {
+                delete mbwom.mobs[key];
+                continue;
             }
 
-            ctx.imageSmoothingEnabled = false;
+            const mobWorldX = Number(mob.x);
+            const mobWorldY = -Number(mob.y); 
+            
+            const screenX = (mobWorldX - camera.x) * tileSize;
+            const screenY = canvas.height - (mobWorldY - camera.y) * tileSize;
+            
+            if (screenX < -200 || screenX > canvas.width + 200 || screenY < -200 || screenY > canvas.height + 200) {
+                continue;
+            }
+            
+            let mobWidth = tileSize * 1;
+            let mobHeight = tileSize * 2;
+            if (mob.type === 'chicken' || mob.type === 'pig' || mob.type === 'spider' || mob.type === 'slime') mobHeight = tileSize * 1;
+            if (mob.type === 'enderdragon') { mobWidth = tileSize * 24; mobHeight = tileSize * 8; }
+            if (mob.type === 'nethereye') { mobWidth = tileSize * 0.75; mobHeight = tileSize * 0.75; }
+            if (mob.type === 'pig') { mobWidth = tileSize * 2; mobHeight = tileSize * 1.2; }
+            if (mob.type === 'enderman') { mobWidth = tileSize * 1.2; mobHeight = tileSize * 3; }
+            if (mob.type === 'cow') { mobWidth = tileSize * 2.2; mobHeight = tileSize * 2; }
+            
+            let mobImg = window.images[mob.type];
 
-            ctx.drawImage(
-                mobImg, 
-                0, 0, mobImg.naturalWidth, mobImg.naturalHeight, // Usar el tamaño natural
-                -(mobWidth / 2), -mobHeight, mobWidth, mobHeight 
-            );
+            if (mobImg && mobImg.complete && mobImg.naturalWidth > 0) {
+                ctx.save(); 
+                ctx.translate(screenX, screenY);
+                if (mob.direction === 0) ctx.scale(-1, 1);
+                ctx.imageSmoothingEnabled = false;
+                ctx.drawImage(
+                    mobImg, 
+                    0, 0, mobImg.naturalWidth, mobImg.naturalHeight,
+                    -(mobWidth / 2), -mobHeight, mobWidth, mobHeight 
+                );
+                ctx.restore(); 
+            } else {
+                let color = "rgba(255, 0, 0, 0.4)"; 
+                if (mob.type === 'zombie') color = "rgba(46, 125, 50, 0.5)";
+                else if (mob.type === 'skeleton') color = "rgba(224, 224, 224, 0.5)";
+                else if (mob.type === 'enderman') color = "rgba(49, 27, 146, 0.5)";
+                
+                ctx.fillStyle = color;
+                ctx.fillRect(screenX - (mobWidth / 2), screenY - mobHeight, mobWidth, mobHeight);
+            }
+
+            // ✨ EFECTO DE SELECCIÓN ESTILO "ARCHIVO WINDOWS" ✨
+            if (typeof selectedMob !== 'undefined' && mob === selectedMob && typeof currentTool !== 'undefined' && currentTool === 'move') {
+                ctx.fillStyle = "rgba(0, 120, 215, 0.3)"; // Fondo celeste translúcido
+                ctx.fillRect(screenX - (mobWidth / 2), screenY - mobHeight, mobWidth, mobHeight);
+                
+                ctx.strokeStyle = "#0078D7"; // Borde azul sólido
+                ctx.lineWidth = 2;
+                ctx.strokeRect(screenX - (mobWidth / 2), screenY - mobHeight, mobWidth, mobHeight);
+                ctx.lineWidth = 1; 
+            }
             
-            ctx.restore(); 
-        } else {
-            // Si falta la textura, pinta la caja de colisión (Hitbox)
-            let color = "rgba(255, 0, 0, 0.4)"; 
-            if (mob.type === 'zombie') color = "rgba(46, 125, 50, 0.5)";
-            else if (mob.type === 'skeleton') color = "rgba(224, 224, 224, 0.5)";
-            else if (mob.type === 'enderman') color = "rgba(49, 27, 146, 0.5)";
+            // Nombre
+            ctx.fillStyle = "#FFFFFF";
+            ctx.font = "bold 12px Arial";
+            ctx.textAlign = "center";
+            ctx.shadowColor = "black"; ctx.shadowBlur = 4;
+            let displayName = mob.name ? String(mob.name) : String(mob.type).toUpperCase();
+            ctx.fillText(displayName, screenX, screenY - mobHeight - 8);
+            ctx.shadowBlur = 0; 
             
-            ctx.fillStyle = color;
-            ctx.fillRect(screenX - (mobWidth / 2), screenY - mobHeight, mobWidth, mobHeight);
-            ctx.strokeStyle = "#FFFFFF";
-            ctx.strokeRect(screenX - (mobWidth / 2), screenY - mobHeight, mobWidth, mobHeight);
-        }
-        
-        // Texto flotante (Nombre)
-        ctx.fillStyle = "#FFFFFF";
-        ctx.font = "bold 12px Arial";
-        ctx.textAlign = "center";
-        ctx.shadowColor = "black"; ctx.shadowBlur = 4;
-        ctx.fillText(mob.type.toUpperCase(), screenX, screenY - mobHeight - 8);
-        ctx.shadowBlur = 0; 
-        
-        // Barra de Vida
-        if (mob.health !== undefined) {
-            let maxHp = 20;
-            if (mob.type === 'enderdragon') maxHp = 333;
-            if (mob.type === 'enderman') maxHp = 40;
-            let hpPercent = Math.max(0, Math.min(1, mob.health / maxHp)); 
-            
-            ctx.fillStyle = "#FF0000";
-            ctx.fillRect(screenX - (mobWidth/2), screenY - mobHeight - 4, mobWidth, 4);
-            ctx.fillStyle = "#00FF00";
-            ctx.fillRect(screenX - (mobWidth/2), screenY - mobHeight - 4, mobWidth * hpPercent, 4);
+            // Barra de Vida
+            if (mob.health !== undefined) {
+                let maxHp = mob.maxHealth || ((typeof MOBS_DB !== 'undefined' && MOBS_DB[mob.type]) ? MOBS_DB[mob.type].hp : 20);
+                if (mob.type === 'enderdragon' && !mob.maxHealth) maxHp = 333;
+                if (mob.type === 'enderman' && !mob.maxHealth) maxHp = 40;
+                
+                let hpPercent = Math.max(0, Math.min(1, Number(mob.health) / Number(maxHp))); 
+                
+                ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+                ctx.fillRect(screenX - (mobWidth/2), screenY - mobHeight - 4, mobWidth, 4);
+                ctx.fillStyle = hpPercent > 0.3 ? "#00FF00" : "#FF0000";
+                ctx.fillRect(screenX - (mobWidth/2), screenY - mobHeight - 4, mobWidth * hpPercent, 4);
+            }
+        } catch (e) {
+            delete mbwom.mobs[key]; 
         }
     }
 }
-
 function drawUI() {
     const coordsDiv = document.getElementById('coords-overlay');
     if (coordsDiv) {
