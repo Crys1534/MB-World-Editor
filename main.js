@@ -26,7 +26,8 @@ const grid = { width: 60, height: 30 };
 let tileSize = BASE_TILE_SIZE;
 
 // --- IMÁGENES GLOBALES ---
-window.images = { names: ["blocks", "hotbar", "slot"] };
+// Agrega aquí los nombres de los PNGs que vayas metiendo a la carpeta assets/
+window.images = { names: ["blocks", "hotbar", "slot", "zombie", "skeleton", "creeper", "enderman", "nethereye", "enderdragon", "pig", "cow", "chicken"] };
 
 window.images.names.forEach((name) => {
     window.images[name] = new Image();
@@ -213,6 +214,101 @@ function getBlockCache(x, y) {
 function getBlockObject(states) {
     const renderer = blockData[states.type] || renderers.default;
     return renderer(states);
+}
+
+// ==========================================
+// ✨ RENDERIZADO DE ENTIDADES / MOBS ✨
+// ==========================================
+function drawMobs() {
+    if (typeof mbwom === 'undefined' || !mbwom.mobs) return;
+    
+    for (let key in mbwom.mobs) {
+        const mob = mbwom.mobs[key];
+        if (!mob) continue;
+
+        const mobWorldX = mob.x;
+        const mobWorldY = -mob.y; 
+        
+        const screenX = (mobWorldX - camera.x) * tileSize;
+        const screenY = canvas.height - (mobWorldY - camera.y) * tileSize;
+        
+        if (screenX < -200 || screenX > canvas.width + 200 || screenY < -200 || screenY > canvas.height + 200) {
+            continue;
+        }
+        
+        // Dimensiones base del mob
+        let mobWidth = tileSize * 1;
+        let mobHeight = tileSize * 2;
+        if (mob.type === 'chicken' || mob.type === 'pig' || mob.type === 'spider' || mob.type === 'slime') mobHeight = tileSize * 1;
+        if (mob.type === 'enderdragon') { mobWidth = tileSize * 24; mobHeight = tileSize * 8; }
+		if (mob.type === 'nethereye') { mobWidth = tileSize * 0.75; mobHeight = tileSize * 0.75; }
+		if (mob.type === 'pig') { mobWidth = tileSize * 2; mobHeight = tileSize * 1.2; }
+		if (mob.type === 'enderman') { mobWidth = tileSize * 1.2; mobHeight = tileSize * 3; }
+        
+        let mobImg = window.images[mob.type];
+
+        // ✨ FIX: Agregamos mobImg.naturalWidth > 0 para evitar crasheos si falta el PNG
+        if (mobImg && mobImg.complete && mobImg.naturalWidth > 0) {
+            ctx.save(); 
+            
+            ctx.translate(screenX, screenY);
+            
+            if (mob.direction === 0) {
+                ctx.scale(-1, 1);
+            }
+
+            ctx.imageSmoothingEnabled = false;
+
+            ctx.drawImage(
+                mobImg, 
+                0, 0, mobImg.naturalWidth, mobImg.naturalHeight, // Usar el tamaño natural
+                -(mobWidth / 2), -mobHeight, mobWidth, mobHeight 
+            );
+            
+            ctx.restore(); 
+        } else {
+            // Si falta la textura, pinta la caja de colisión (Hitbox)
+            let color = "rgba(255, 0, 0, 0.4)"; 
+            if (mob.type === 'zombie') color = "rgba(46, 125, 50, 0.5)";
+            else if (mob.type === 'skeleton') color = "rgba(224, 224, 224, 0.5)";
+            else if (mob.type === 'enderman') color = "rgba(49, 27, 146, 0.5)";
+            
+            ctx.fillStyle = color;
+            ctx.fillRect(screenX - (mobWidth / 2), screenY - mobHeight, mobWidth, mobHeight);
+            ctx.strokeStyle = "#FFFFFF";
+            ctx.strokeRect(screenX - (mobWidth / 2), screenY - mobHeight, mobWidth, mobHeight);
+        }
+        
+		// ✨ DIBUJAR BORDE DE SELECCIÓN (Solo si está seleccionada la herramienta Move)
+        if (typeof selectedMob !== 'undefined' && mob === selectedMob && typeof currentTool !== 'undefined' && currentTool === 'move') {
+            ctx.strokeStyle = "#FFD700"; // Borde amarillo / dorado estilo Minecraft
+            ctx.lineWidth = 3;
+            // Dibujamos el rectángulo 2 píxeles más grande que el mob para que no tape la textura
+            ctx.strokeRect(screenX - (mobWidth / 2) - 2, screenY - mobHeight - 2, mobWidth + 4, mobHeight + 4);
+            ctx.lineWidth = 1; // Restauramos el grosor de línea normal
+        }
+		
+        // Texto flotante (Nombre)
+        ctx.fillStyle = "#FFFFFF";
+        ctx.font = "bold 12px Arial";
+        ctx.textAlign = "center";
+        ctx.shadowColor = "black"; ctx.shadowBlur = 4;
+        ctx.fillText(mob.type.toUpperCase(), screenX, screenY - mobHeight - 8);
+        ctx.shadowBlur = 0; 
+        
+        // Barra de Vida
+        if (mob.health !== undefined) {
+            let maxHp = 20;
+            if (mob.type === 'enderdragon') maxHp = 333;
+            if (mob.type === 'enderman') maxHp = 40;
+            let hpPercent = Math.max(0, Math.min(1, mob.health / maxHp)); 
+            
+            ctx.fillStyle = "#FF0000";
+            ctx.fillRect(screenX - (mobWidth/2), screenY - mobHeight - 4, mobWidth, 4);
+            ctx.fillStyle = "#00FF00";
+            ctx.fillRect(screenX - (mobWidth/2), screenY - mobHeight - 4, mobWidth * hpPercent, 4);
+        }
+    }
 }
 
 function drawUI() {
@@ -408,6 +504,7 @@ function mainLoop() {
     // 3. Ahora sí, interacciones y dibujo sincronizados
     if (typeof mineAndPlace === 'function') mineAndPlace();
     drawWorld();
+    drawMobs(); // ✨ AÑADIMOS ESTA LÍNEA AQUÍ
     drawUI();
     
     requestAnimationFrame(mainLoop);

@@ -121,7 +121,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="backstage-content">
             <div id="panel-menu" class="backstage-panel active">
                 <h1 style="margin-top: 0; font-size: 36px;">Templates</h1>
-                <p style="opacity: 0.8; font-size: 18px;">Start by loading a world from your project folder.</p>
+
                 
                 <div id="template-grid-container" class="template-grid">
                     </div>

@@ -186,7 +186,7 @@ body {
  display: flex;
  background-color: var(--bg-header);
  padding-top: 5px;
- padding-left: 10px;
+ padding-left: 8px;
 }
 
 /* Ancho dinámico para pestañas */
@@ -605,8 +605,26 @@ canvas {
 }
 
 .save-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
-.btn-confirm-save { background: #4CAF50; color: white; padding: 8px 20px; border: 2px solid #2E7D32; cursor: pointer; }
-.btn-cancel { background: #d32f2f; color: white; padding: 8px 20px; border: 2px solid #b71c1c; cursor: pointer; }
+/* --- BOTÓN VERDE (Guardar / Yes) --- */
+.btn-confirm-save, .btn-yes {
+  background: #4CAF50;
+  color: white;
+  border: 2px solid #2E7D32;
+  cursor: pointer;
+}
+.btn-confirm-save:hover, .btn-yes:hover {
+  background: #66BB6A; /* Un verde un poco más claro al pasar el mouse */
+}
+
+.btn-cancel, .btn-no {
+  background: #d32f2f;
+  color: white;
+  border: 2px solid #b71c1c;
+  cursor: pointer;
+}
+.btn-cancel:hover, .btn-no:hover {
+  background: #e53935; /* Un rojo un poco más claro al pasar el mouse */
+}
 
 /* UI GENERAL */
 select, button, .input-group input {
@@ -679,7 +697,7 @@ button:hover {
 .quick-struct-btn {
     width: 66px;
     height: 66px;
-    padding: 2px;
+    padding: 0px;
     border: 1px solid #555;
     background: #8B8B8B;
     display: flex;
@@ -690,15 +708,15 @@ button:hover {
 
 /* Efecto Hover: Borde blanco */
 .quick-struct-btn:hover {
-    border: 1px solid #555;
+    border: 2px solid lightgray;
     background: #FFF;
 }
 
 /* Efecto Activo (Seleccionado): Hundido y más oscuro */
 .quick-struct-btn.active {
     background: #666; /* Más oscuro */
-    border: 2px inset #FFF; /* Borde hundido */
-    box-shadow: inset 1px 1px 5px rgba(0,0,0,0.5);
+    border: 4px inset #FFF; /* Borde hundido */
+
 }
 
 /* Estilo para slots vacíos */
@@ -717,6 +735,7 @@ button:hover {
 /* --- CORRECCIÓN: ALTURA MODAL CONFIRMACIÓN --- */
 #custom-confirm-modal .modal-content {
     height: auto !important;       /* Permite crecer según el contenido */
+	weight: 350px;
     min-height: 160px;             /* Altura mínima para que no se vea aplastado */
     display: flex;
     flex-direction: column;

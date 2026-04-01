@@ -86,6 +86,19 @@ window.addEventListener("keydown", function (event) {
         }
         return; 
     }
+	
+	if ((event.code === 'Backspace' || event.code === 'Delete') && currentTool === 'move') {
+        if (typeof selectedMobKey !== 'undefined' && selectedMobKey && typeof mbwom !== 'undefined' && mbwom.mobs[selectedMobKey]) {
+            event.preventDefault(); 
+            delete mbwom.mobs[selectedMobKey]; 
+            
+            selectedMob = null;
+            selectedMobKey = null;
+            draggedMob = null;
+            if (typeof worldDirty !== 'undefined') worldDirty = true;
+            return; 
+        }
+    }
 
     if (keys.hasOwnProperty(event.code)) keys[event.code] = true;
 
@@ -163,12 +176,29 @@ window.addEventListener("keyup", function (event) {
     if (keys.hasOwnProperty(event.code)) keys[event.code] = false;
 });
 
+// --- VARIABLES PARA MOVER MOBS ---
+let draggedMob = null;
+let selectedMob = null; // ✨ Guarda quién está seleccionado
+let selectedMobKey = null; // ✨ Guarda su ID para poder borrarlo
+let dragOffset = { x: 0, y: 0 };
+
 canvas.addEventListener("mousemove", (event) => {
     mouse.canvasX = event.offsetX;
     mouse.canvasY = canvas.height - event.offsetY;
     mouse.gridX = Math.floor(mouse.canvasX / tileSize);
     mouse.gridY = Math.floor(mouse.canvasY / tileSize);
     mouse.calculateCoordinates(); 
+
+// ✨ LÓGICA DE ARRASTRE DE MOBS EN TIEMPO REAL (Libre de cuadrícula)
+    if (currentTool === 'move' && draggedMob && mouse.left) {
+        let exactWorldX = camera.x + (mouse.canvasX / tileSize);
+        let exactWorldY = camera.y + (mouse.canvasY / tileSize);
+
+        draggedMob.x = exactWorldX + dragOffset.x;
+        draggedMob.y = -exactWorldY + dragOffset.y; // Mantener el Y en negativo
+        
+        if (typeof worldDirty !== 'undefined') worldDirty = true; 
+    }
 
     if ((currentTool === 'select' || currentTool === 'lasso') && mouse.left) {
         handleSelectionInput('move', mouse.worldX, mouse.worldY);
@@ -187,8 +217,6 @@ const maxDurabilityMap = {
     "WoodenHoe": 60, "StoneHoe": 132, "IronHoe": 251, "GoldHoe": 33, "DiamondHoe": 1562
 };
 
-// --- DIBUJANTE UNIVERSAL DE INVENTARIOS ---
-// Toma los datos de un bloque y los dibuja adentro del contenedor que le pidas
 // --- DIBUJANTE UNIVERSAL DE INVENTARIOS ---
 // Toma los datos de un bloque y los dibuja adentro del contenedor que le pidas
 function renderChestOrOvenUI(blockState, gridContainer) {
@@ -402,11 +430,71 @@ function updateChestTooltip(screenX, screenY) {
     }
 }
 
+
 canvas.addEventListener("mousedown", function (event) {
     if (event.button == 0) mouse.left = true;
     if (event.button == 2) mouse.right = true;
 
-    if ((currentTool === 'select' || currentTool === 'lasso') && mouse.left) {
+// ✨ HERRAMIENTA: SELECCIONAR Y MOVER MOB
+    if (currentTool === 'move' && mouse.left) {
+        if (typeof mbwom !== 'undefined' && mbwom.mobs) {
+            
+            let exactWorldX = camera.x + (mouse.canvasX / tileSize);
+            let exactWorldY = camera.y + (mouse.canvasY / tileSize);
+            let clickedOnMob = false;
+
+            for (let key in mbwom.mobs) {
+                let m = mbwom.mobs[key];
+                
+                if (exactWorldX >= m.x - 0.5 && exactWorldX <= m.x + 0.5 && 
+                    exactWorldY >= -m.y && exactWorldY <= -m.y + 2.0) {
+                    
+                    draggedMob = m;
+                    selectedMob = m;         // ✨ Guardamos el mob seleccionado
+                    selectedMobKey = key;    // ✨ Guardamos su ID exacto
+                    clickedOnMob = true;
+                    
+                    dragOffset.x = m.x - exactWorldX;
+                    dragOffset.y = m.y - (-exactWorldY);
+                    break; 
+                }
+            }
+            
+            // ✨ Si hace clic en el aire, quitamos la selección
+            if (!clickedOnMob) {
+                selectedMob = null;
+                selectedMobKey = null;
+            }
+            if (typeof worldDirty !== 'undefined') worldDirty = true;
+        }
+    }
+// ✨ HERRAMIENTA: PONER UN MOB NUEVO EN EL MUNDO (Libre de cuadrícula)
+    else if (currentTool === 'spawn_mob' && mouse.left) {
+        if (typeof mbwom !== 'undefined') {
+            if (!mbwom.mobs) mbwom.mobs = {};
+            
+            // Calculamos la posición exacta con decimales
+            let exactWorldX = camera.x + (mouse.canvasX / tileSize);
+            let exactWorldY = camera.y + (mouse.canvasY / tileSize);
+            
+            // Crear un ID único para el juego
+            const newId = "mobX" + exactWorldX.toFixed(2) + "Y" + exactWorldY.toFixed(2) + "_" + Date.now();
+            
+            let mobTypeToSpawn = typeof currentMobToSpawn !== 'undefined' ? currentMobToSpawn : 'zombie';
+            let hp = (typeof MOBS_DB !== 'undefined' && MOBS_DB[mobTypeToSpawn]) ? MOBS_DB[mobTypeToSpawn].hp : 20;
+
+            // Inyectar entidad
+            mbwom.mobs[newId] = {
+                type: mobTypeToSpawn,
+                x: exactWorldX,
+                y: -exactWorldY, // Recuerda: MB guarda la Y en negativo
+                health: hp,
+                direction: 1 
+            };
+            if (typeof worldDirty !== 'undefined') worldDirty = true; 
+        }
+    }
+    else if ((currentTool === 'select' || currentTool === 'lasso') && mouse.left) {
         handleSelectionInput('start', mouse.worldX, mouse.worldY);
     } 
     // NUEVO: Evento para la varita mágica
@@ -420,7 +508,7 @@ canvas.addEventListener("mousedown", function (event) {
         if (currentTool === 'bucket' && mouse.left) {
             bucketFill(mouse.worldX, mouse.worldY);
         } else if (currentTool !== 'eyedropper') {
-            historyManager.startAction();
+            if (typeof historyManager !== 'undefined') historyManager.startAction();
         }
     }
 });
@@ -433,16 +521,24 @@ window.addEventListener("mouseup", function (event) {
     if (event.button == 0) mouse.left = false;
     if (event.button == 2) mouse.right = false;
 
-    if (currentTool !== 'eyedropper' && currentTool !== 'bucket' && currentTool !== 'select' && currentTool !== 'lasso' && currentTool !== 'paste') {
-        historyManager.commitAction();
+    // ✨ SOLTAR EL MOB
+    if (currentTool === 'move') {
+        draggedMob = null; 
+    }
+
+    if (currentTool !== 'eyedropper' && currentTool !== 'bucket' && currentTool !== 'select' && currentTool !== 'lasso' && currentTool !== 'paste' && currentTool !== 'move' && currentTool !== 'spawn_mob') {
+        if (typeof historyManager !== 'undefined') historyManager.commitAction();
     }
 });
 
 canvas.addEventListener("mouseleave", function() {
     if (mouse.left || mouse.right) {
-        if (currentTool !== 'select' && currentTool !== 'lasso') historyManager.commitAction();
+        if (currentTool !== 'select' && currentTool !== 'lasso' && currentTool !== 'move' && currentTool !== 'spawn_mob') {
+            if (typeof historyManager !== 'undefined') historyManager.commitAction();
+        }
         mouse.left = false;
         mouse.right = false;
+        draggedMob = null; // Soltar mob si el mouse sale del canvas
     }
 });
 

@@ -224,6 +224,7 @@ function getSelectionBounds() {
 }
 
 function handleSelectionInput(action, x, y) {
+    // --- Lógica de la herramienta Lasso ---
     if (currentTool === 'lasso') {
         if (action === 'start') {
             window.selection.type = 'poly'; 
@@ -237,7 +238,6 @@ function handleSelectionInput(action, x, y) {
             const last = window.selection.path[window.selection.path.length - 1];
             
             if (last.x !== x || last.y !== y) { 
-                // Algoritmo para pintar bloque por bloque sin dejar huecos
                 let dx = Math.abs(x - last.x);
                 let dy = Math.abs(y - last.y);
                 let sx = (last.x < x) ? 1 : -1;
@@ -247,7 +247,6 @@ function handleSelectionInput(action, x, y) {
                 let cy = last.y;
 
                 while (true) {
-                    // Evitamos agregar el mismo bloque dos veces seguidas
                     if (cx !== last.x || cy !== last.y) {
                         window.selection.path.push({x: cx, y: cy});
                     }
@@ -261,8 +260,6 @@ function handleSelectionInput(action, x, y) {
 
         } else if (action === 'end') {
             window.selection.dragging = false; 
-            
-            // Calculamos el tamaño para que se pueda guardar como estructura
             if (window.selection.path.length > 2) {
                 const xs = window.selection.path.map(p => p.x);
                 const ys = window.selection.path.map(p => p.y);
@@ -288,9 +285,38 @@ function handleSelectionInput(action, x, y) {
         updateSelectionInfo(); checkSelectionState(); 
 
     } else if (action === 'move' && window.selection.dragging) {
-        window.selection.p2 = { x, y }; updateSelectionInfo();
+        
+        // ✨ LA MAGIA DEL CUADRADO (Shift presionado) ✨
+        if (isShiftPressed && window.selection.p1) {
+            let dx = x - window.selection.p1.x;
+            let dy = y - window.selection.p1.y;
+            
+            // Tomamos la distancia más larga y obligamos a que el otro lado mida lo mismo
+            let size = Math.max(Math.abs(dx), Math.abs(dy));
+            let signX = dx >= 0 ? 1 : -1;
+            let signY = dy >= 0 ? 1 : -1;
+            
+            x = window.selection.p1.x + (size * signX);
+            y = window.selection.p1.y + (size * signY);
+        }
+
+        window.selection.p2 = { x, y }; 
+        updateSelectionInfo();
+        
     } else if (action === 'end') {
         window.selection.dragging = false;
+        
+        // Si soltó el clic manteniendo Shift, nos aseguramos de que el punto final sea cuadrado
+        if (isShiftPressed && window.selection.p1) {
+            let dx = x - window.selection.p1.x;
+            let dy = y - window.selection.p1.y;
+            let size = Math.max(Math.abs(dx), Math.abs(dy));
+            let signX = dx >= 0 ? 1 : -1;
+            let signY = dy >= 0 ? 1 : -1;
+            x = window.selection.p1.x + (size * signX);
+            y = window.selection.p1.y + (size * signY);
+        }
+
         if (!window.selection.p2 && window.selection.p1) window.selection.p2 = { x, y };
         updateSelectionInfo(); checkSelectionState();
     }
