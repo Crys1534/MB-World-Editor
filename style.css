@@ -186,7 +186,6 @@ body {
  display: flex;
  background-color: var(--bg-header);
  padding-top: 5px;
- padding-left: 8px;
 }
 
 /* Ancho dinámico para pestañas */

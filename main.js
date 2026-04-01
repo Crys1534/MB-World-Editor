@@ -279,15 +279,6 @@ function drawMobs() {
             ctx.strokeRect(screenX - (mobWidth / 2), screenY - mobHeight, mobWidth, mobHeight);
         }
         
-		// ✨ DIBUJAR BORDE DE SELECCIÓN (Solo si está seleccionada la herramienta Move)
-        if (typeof selectedMob !== 'undefined' && mob === selectedMob && typeof currentTool !== 'undefined' && currentTool === 'move') {
-            ctx.strokeStyle = "#FFD700"; // Borde amarillo / dorado estilo Minecraft
-            ctx.lineWidth = 3;
-            // Dibujamos el rectángulo 2 píxeles más grande que el mob para que no tape la textura
-            ctx.strokeRect(screenX - (mobWidth / 2) - 2, screenY - mobHeight - 2, mobWidth + 4, mobHeight + 4);
-            ctx.lineWidth = 1; // Restauramos el grosor de línea normal
-        }
-		
         // Texto flotante (Nombre)
         ctx.fillStyle = "#FFFFFF";
         ctx.font = "bold 12px Arial";
