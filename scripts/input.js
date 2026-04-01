@@ -1,6 +1,7 @@
 // ✨ VARIABLES GLOBALES PARA MOBS ✨
 let selectedMob = null;
 let selectedMobKey = null;
+let mobClipboard = null; // ✨ AQUÍ GUARDAMOS EL CLON EXACTO
 let draggedMob = null;
 let isDraggingMob = false;
 let dragOffset = { x: 0, y: 0 };
@@ -90,7 +91,7 @@ window.addEventListener("keydown", function (event) {
 
     // ✨ BORRAR MOB SELECCIONADO (Delete / Backspace)
     if (event.code === 'Delete' || event.code === 'Backspace') {
-        if (typeof selectedMobKey !== 'undefined' && selectedMobKey && typeof mbwom !== 'undefined' && mbwom.mobs && mbwom.mobs[selectedMobKey]) {
+        if (typeof currentTool !== 'undefined' && currentTool === 'move' && selectedMobKey && typeof mbwom !== 'undefined' && mbwom.mobs && mbwom.mobs[selectedMobKey]) {
             delete mbwom.mobs[selectedMobKey];
             selectedMob = null;
             selectedMobKey = null;
@@ -104,9 +105,49 @@ window.addEventListener("keydown", function (event) {
 
     if (isCtrl && event.code === 'KeyZ') { event.preventDefault(); historyManager.undo(); }
     if (isCtrl && event.code === 'KeyY') { event.preventDefault(); historyManager.redo(); }
-    if (isCtrl && event.code === 'KeyC') { event.preventDefault(); if (typeof copySelection === 'function') copySelection(); }
+    
+    // ==========================================
+    // ✨ LÓGICA INTELIGENTE: COPIAR (Ctrl + C)
+    // ==========================================
+    if (isCtrl && event.code === 'KeyC') { 
+        event.preventDefault(); 
+        if (typeof currentTool !== 'undefined' && currentTool === 'move' && selectedMob) {
+            // Clonación profunda para no perder propiedades de Haxe
+            mobClipboard = JSON.parse(JSON.stringify(selectedMob));
+            console.log("Mob copiado:", mobClipboard.type);
+        } else if (typeof copySelection === 'function') {
+            copySelection(); // Copia bloques
+        }
+    }
+
     if (isCtrl && event.code === 'KeyX') { event.preventDefault(); if (typeof cutSelection === 'function') cutSelection(); }
-    if (isCtrl && event.code === 'KeyV') { event.preventDefault(); if (typeof activatePasteMode === 'function') activatePasteMode(); }
+    
+    // ==========================================
+    // ✨ LÓGICA INTELIGENTE: PEGAR (Ctrl + V)
+    // ==========================================
+    if (isCtrl && event.code === 'KeyV') { 
+        event.preventDefault(); 
+        if (typeof currentTool !== 'undefined' && currentTool === 'move' && mobClipboard) {
+            if (typeof mbwom !== 'undefined') {
+                if (!mbwom.mobs) mbwom.mobs = {};
+                
+                // Generamos un ID interno único y seguro
+                let newId = "mob_copy_" + Date.now();
+                
+                // Creamos el clon exacto y le damos la posición del ratón
+                let newMob = JSON.parse(JSON.stringify(mobClipboard));
+                newMob.x = mouse.worldX;
+                newMob.y = -mouse.worldY; // Y invertida
+                
+                mbwom.mobs[newId] = newMob;
+                
+                if (typeof worldDirty !== 'undefined') worldDirty = true;
+                console.log("¡Mob pegado con éxito!", newId);
+            }
+        } else if (typeof activatePasteMode === 'function') {
+            activatePasteMode(); // Pega bloques
+        }
+    }
 
     if (event.code === 'KeyZ' && !isCtrl) { if (typeof setSelectionPoint === 'function') setSelectionPoint(1, mouse.worldX, mouse.worldY); }
     if (event.code === 'KeyX' && !isCtrl) { if (typeof setSelectionPoint === 'function') setSelectionPoint(2, mouse.worldX, mouse.worldY); }
@@ -207,10 +248,6 @@ function renderChestOrOvenUI(blockState, gridContainer) {
 
                 if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
                     ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
-                    let maxDur = typeof maxDurabilityMap !== 'undefined' ? maxDurabilityMap[itemID] : null;
-                    if (maxDur && typeof drawDurabilityBar === 'function') {
-                        drawDurabilityBar(ctx, 0, 0, 16, 16, itemDamage, maxDur);
-                    }
                 } else {
                     ctx.fillStyle = "magenta"; ctx.fillRect(4, 4, 8, 8);
                 }
@@ -238,6 +275,97 @@ function renderChestOrOvenUI(blockState, gridContainer) {
             }
             gridContainer.appendChild(slot);
         }
+        return true;
+    }
+    else if (blockState.toSmelt) {
+        gridContainer.style.display = 'flex'; 
+        gridContainer.style.alignItems = 'center';
+        gridContainer.style.gap = '0px';
+        gridContainer.style.padding = '0px';
+
+        let ovenData = blockState.toSmelt;
+
+        function buildOvenSlot(itemData, isLarge=false) {
+            let slot = document.createElement('div');
+            let size = isLarge ? '28px' : '20px';
+            slot.style.width = size; slot.style.height = size;
+            slot.style.background = '#8B8B8B'; slot.style.border = '1px inset #FFF';
+            slot.style.position = 'relative'; slot.style.display = 'flex';
+            slot.style.justifyContent = 'center'; slot.style.alignItems = 'center';
+
+            let itemID, itemCount, itemDamage = 0, enchantments = null;
+
+            if (Array.isArray(itemData)) {
+                itemID = itemData[0]; itemCount = itemData[1]; itemDamage = itemData[2] || 0; enchantments = itemData[3];
+            } else if (itemData && typeof itemData === 'object') {
+                itemID = itemData.id || itemData.type; itemCount = itemData.count || 1; itemDamage = itemData.damage || itemData.states1 || 0; enchantments = itemData.nbt;
+            }
+
+            let isEnchanted = enchantments && Object.keys(enchantments).length > 0;
+
+            if (itemID && itemID !== "air" && itemID !== 0 && itemID !== "0") {
+                let cvs = document.createElement('canvas');
+                cvs.width = 16; cvs.height = 16;
+                cvs.style.width = isLarge ? '20px' : '14px'; cvs.style.height = isLarge ? '20px' : '14px';
+                cvs.style.imageRendering = 'pixelated';
+                let ctx = cvs.getContext('2d');
+                ctx.imageSmoothingEnabled = false;
+
+                let tempState = { type: itemID }; 
+                let renderObj = typeof getBlockObject === 'function' ? getBlockObject(tempState) : null;
+
+                if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
+                    ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
+                } else {
+                    ctx.fillStyle = "magenta"; ctx.fillRect(4, 4, 8, 8);
+                }
+                slot.appendChild(cvs);
+
+                if (isEnchanted) {
+                    slot.classList.add('enchanted-slot');
+                    slot.title = ""; 
+                    let itemNameStr = String(itemID).replace(/([A-Z])/g, ' $1').trim();
+                    let enchantTooltipHTML = typeof formatEnchantments === 'function' ? formatEnchantments(enchantments) : "";
+                    slot.dataset.enchantTooltip = `<strong>${itemNameStr}</strong>${enchantTooltipHTML}`;
+                } else {
+                    slot.title = String(itemID).replace(/([A-Z])/g, ' $1').trim();
+                }
+
+                if (itemCount > 1) {
+                    let countTag = document.createElement('span');
+                    countTag.innerText = itemCount;
+                    countTag.style.position = 'absolute'; countTag.style.bottom = '-2px'; countTag.style.right = '0px';
+                    countTag.style.color = 'white'; countTag.style.fontSize = '10px'; countTag.style.fontWeight = 'bold';
+                    countTag.style.textShadow = '1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000';
+                    slot.appendChild(countTag);
+                }
+            }
+            return slot;
+        }
+
+        let leftCol = document.createElement('div');
+        leftCol.style.display = 'flex'; leftCol.style.flexDirection = 'column';
+        leftCol.style.gap = '5px'; leftCol.style.alignItems = 'center';
+
+        leftCol.appendChild(buildOvenSlot(ovenData.input));
+        
+        let fire = document.createElement('div');
+        fire.innerText = ovenData.fuelTimer > 0 ? '🔥' : '♨️';
+        fire.style.fontSize = '10px';
+        leftCol.appendChild(fire);
+        
+        leftCol.appendChild(buildOvenSlot(ovenData.fuel));
+
+        let arrow = document.createElement('div');
+        arrow.innerText = '➡️'; arrow.style.fontSize = '16px';
+
+        let rightCol = document.createElement('div');
+        rightCol.appendChild(buildOvenSlot(ovenData.output, true));
+
+        gridContainer.appendChild(leftCol);
+        gridContainer.appendChild(arrow);
+        gridContainer.appendChild(rightCol);
+
         return true;
     }
     return false;

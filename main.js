@@ -306,10 +306,11 @@ function drawMobs() {
                 ctx.fillRect(screenX - (mobWidth/2), screenY - mobHeight - 4, mobWidth * hpPercent, 4);
             }
         } catch (e) {
-            delete mbwom.mobs[key]; 
+            console.error("Mob inválido saltado");
         }
     }
 }
+
 function drawUI() {
     const coordsDiv = document.getElementById('coords-overlay');
     if (coordsDiv) {
