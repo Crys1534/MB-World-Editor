@@ -27,7 +27,7 @@ let tileSize = BASE_TILE_SIZE;
 
 // --- IMÁGENES GLOBALES ---
 // Agrega aquí los nombres de los PNGs que vayas metiendo a la carpeta assets/
-window.images = { names: ["blocks", "hotbar", "slot", "zombie", "skeleton", "creeper", "enderman", "nethereye", "enderdragon", "pig", "cow", "chicken"] };
+window.images = { names: ["blocks", "hotbar", "slot", "zombie", "skeleton", "creeper", "enderman", "nethereye", "enderdragon", "pig", "cow", "chicken", "player",] };
 
 window.images.names.forEach((name) => {
     window.images[name] = new Image();
@@ -247,7 +247,7 @@ function drawMobs() {
             if (mob.type === 'nethereye') { mobWidth = tileSize * 0.75; mobHeight = tileSize * 0.75; }
             if (mob.type === 'pig') { mobWidth = tileSize * 2; mobHeight = tileSize * 1.2; }
             if (mob.type === 'enderman') { mobWidth = tileSize * 1.2; mobHeight = tileSize * 3; }
-            if (mob.type === 'cow') { mobWidth = tileSize * 2.2; mobHeight = tileSize * 2; }
+            if (mob.type === 'cow') { mobWidth = tileSize * 2.6; mobHeight = tileSize * 2; }
             
             let mobImg = window.images[mob.type];
 
@@ -309,6 +309,68 @@ function drawMobs() {
             console.error("Mob inválido saltado");
         }
     }
+}
+
+// ==========================================
+// ✨ RENDERIZADO DEL JUGADOR ✨
+// ==========================================
+function drawPlayer() {
+    // Verificamos que el mundo exista y tenga coordenadas del jugador
+    if (typeof mbwom === 'undefined' || !mbwom.world) return;
+    if (mbwom.world.worldX === undefined || mbwom.world.worldY === undefined) return;
+
+    // Solo dibujamos al jugador si estamos en la dimensión correcta (Overworld = 1, Nether = 2, End = 3)
+    // El juego nativo guarda la dimensión en la que te quedaste. Si no la tiene, asumimos 1.
+    const playerScene = mbwom.world.scene || 1; 
+    const currentScene = typeof mbwom.currentScene !== 'undefined' ? mbwom.currentScene : 1;
+    if (playerScene !== currentScene) return;
+
+    const playerWorldX = Number(mbwom.world.worldX);
+    const playerWorldY = -Number(mbwom.world.worldY); // Y invertida nativa
+
+    const screenX = (playerWorldX - camera.x) * tileSize;
+    const screenY = canvas.height - (playerWorldY - camera.y) * tileSize;
+
+    // Ignorar si está muy lejos de la pantalla para ahorrar RAM
+    if (screenX < -200 || screenX > canvas.width + 200 || screenY < -200 || screenY > canvas.height + 200) {
+        return;
+    }
+
+    const playerWidth = tileSize * 1.4;
+    const playerHeight = tileSize * 2.0; // Altura de casi 2 bloques
+
+    let playerImg = window.images['player'];
+
+    // Si tienes un archivo 'player.png' en assets, lo dibuja:
+    if (playerImg && playerImg.complete && playerImg.naturalWidth > 0) {
+        ctx.save();
+        ctx.translate(screenX, screenY);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(
+            playerImg, 
+            0, 0, playerImg.naturalWidth, playerImg.naturalHeight,
+            -(playerWidth / 2), -playerHeight, playerWidth, playerHeight 
+        );
+        ctx.restore();
+    } else {
+        // Si no tienes imagen, dibuja un "Holograma de Steve" (Azul y Piel)
+        ctx.fillStyle = "rgba(0, 100, 255, 0.6)"; // Camisa azul celeste
+        ctx.fillRect(screenX - (playerWidth / 2), screenY - playerHeight, playerWidth, playerHeight);
+        
+        ctx.fillStyle = "rgba(255, 200, 150, 0.8)"; // Cabeza color piel
+        ctx.fillRect(screenX - (playerWidth / 2), screenY - playerHeight, playerWidth, playerHeight * 0.3);
+
+        ctx.strokeStyle = "#FFFFFF";
+        ctx.strokeRect(screenX - (playerWidth / 2), screenY - playerHeight, playerWidth, playerHeight);
+    }
+
+    // Texto flotante brillante para no confundirlo con los monstruos
+    ctx.fillStyle = "#00FFFF"; // Cyan neón
+    ctx.font = "bold 14px Arial";
+    ctx.textAlign = "center";
+    ctx.shadowColor = "black"; ctx.shadowBlur = 4;
+    ctx.fillText("PLAYER", screenX, screenY - playerHeight - 8);
+    ctx.shadowBlur = 0;
 }
 
 function drawUI() {
@@ -505,6 +567,7 @@ function mainLoop() {
     if (typeof mineAndPlace === 'function') mineAndPlace();
     drawWorld();
     drawMobs(); // ✨ AÑADIMOS ESTA LÍNEA AQUÍ
+	drawPlayer();
     drawUI();
     
     requestAnimationFrame(mainLoop);

@@ -2182,3 +2182,178 @@ const potionDatabase = {
     'splash_potion_strength': { type: 'potion', nbt: { category: 'splash', type: 'strength', effects: [{level: 1, duration: 180, type: 'strength'}] } },
     'splash_potion_weakness': { type: 'potion', nbt: { category: 'splash', type: 'weakness', effects: [{level: 1, duration: 90, type: 'weakness'}] } }
 };
+
+
+// ==========================================
+// ✨ SISTEMA DE QUICK ACCESS: MOBS
+// ==========================================
+
+// Lista inicial por defecto
+let recentMobsList = ['zombie', 'skeleton', 'creeper']; 
+
+// Lista de todos los mobs soportados
+const ALL_MOBS_DB = [
+    "zombie", "skeleton", "creeper", "spider", "slime", "pig", "cow", "chicken", "sheep",
+    "zombiepigman", "ghast", "blaze", "magmacube", "nethereye", "enderman", "enderdragon", "snowgolem", "bat", "rabbit"
+];
+
+// 1. Dibuja los botones en el menú superior (Estilo Estructuras)
+function renderRecentMobs() {
+    const container = document.getElementById('recent-mobs-ribbon'); 
+    if (!container) return;
+
+    if (recentMobsList.length === 0) {
+        container.innerHTML = '<span style="font-size: 10px; color: #555;">Empty</span>';
+        return;
+    }
+
+    let html = '';
+    
+    recentMobsList.forEach(mob => {
+        let niceName = mob.charAt(0).toUpperCase() + mob.slice(1);
+        
+        // Buscamos la imagen (He notado que tienes algunas en assets/mobs/)
+        let imgSrc = (window.images && window.images[mob] && window.images[mob].src) 
+                     ? window.images[mob].src 
+                     : `assets/mobs/${mob}.png`; 
+
+        // Usamos la misma clase que ya tienes para las estructuras!
+        html += `
+        <button class="quick-struct-btn" onclick="selectMobToSpawn('${mob}')" title="Spawn ${niceName}">
+            <img src="${imgSrc}" alt="${niceName}" style="width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated;" onerror="this.src='assets/${mob}.png'">
+        </button>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+// 2. Al seleccionar un mob, lo pasa al frente de la lista y activa la herramienta
+function selectMobToSpawn(type) {
+    currentMobToSpawn = type;
+    currentTool = 'spawn_mob'; // Forzamos la herramienta
+
+    // Actualizamos la lista de recientes (Lo movemos al inicio)
+    recentMobsList = recentMobsList.filter(m => m !== type);
+    recentMobsList.unshift(type);
+    
+    // Si la lista supera los 3, borramos el más antiguo
+    if (recentMobsList.length > 3) {
+        recentMobsList.pop();
+    }
+
+    renderRecentMobs(); // Re-dibujamos el menú superior
+    
+    // Cerramos el modal por si estaba abierto
+    try { closeModal('mobs-modal'); } catch(e){}
+}
+
+// 3. Abre la ventana modal y carga todos los mobs
+// ==========================================
+// ✨ LÓGICA DEL MOB BROWSER (CON PESTAÑAS)
+// ==========================================
+
+let currentlyPreviewedMob = null;
+let activeMobTab = 'Overworld'; // Dimensión por defecto al abrir
+
+// Base de datos rápida de vida para la previsualización (HP)
+const MOBS_HP_DB = {
+    "chicken": 4, "snowgolem": 4, "bat": 6, "rabbit": 3,
+    "sheep": 8, "pig": 8, "cow": 10, "ghast": 10, "slime": 16, "magmacube": 16,
+    "zombie": 20, "skeleton": 20, "creeper": 20, "spider": 20, "zombiepigman": 20, "blaze": 20,
+    "enderman": 40, "enderdragon": 333, "nethereye": 20
+};
+
+// Mobs organizados por dimensión
+const MOBS_BY_DIMENSION = {
+    "Overworld": ["pig", "cow", "chicken", "sheep", "rabbit", "bat", "snowgolem", "zombie", "skeleton", "creeper", "spider", "slime"],
+    "Nether": ["zombiepigman", "ghast", "blaze", "magmacube", "nethereye"],
+    "End": ["enderman", "enderdragon"]
+};
+
+// Abre la ventana modal
+function openMobModal() {
+    document.getElementById('mobs-modal').style.display = 'block';
+    filterMobs(activeMobTab); // Forzamos a cargar la pestaña activa
+}
+
+// Función que cambia de pestaña y carga los mobs correspondientes
+function filterMobs(dimension) {
+    activeMobTab = dimension;
+    
+    // 1. Actualizar el CSS de las pestañas
+    document.getElementById('tab-mob-overworld').classList.remove('active');
+    document.getElementById('tab-mob-nether').classList.remove('active');
+    document.getElementById('tab-mob-end').classList.remove('active');
+    
+    document.getElementById('tab-mob-' + dimension.toLowerCase()).classList.add('active');
+
+    // 2. Llenar la cuadrícula
+    const container = document.getElementById('mobs-grid');
+    if (!container) return;
+    
+    container.innerHTML = ''; 
+
+    let mobsToShow = MOBS_BY_DIMENSION[dimension] || [];
+    
+    mobsToShow.forEach(mob => {
+        let niceName = mob.charAt(0).toUpperCase() + mob.slice(1);
+        let imgSrc = (window.images && window.images[mob] && window.images[mob].src) 
+                     ? window.images[mob].src 
+                     : `assets/mobs/${mob}.png`;
+
+        // ✨ AQUÍ USAMOS LAS NUEVAS CLASES EXCLUSIVAS 'mob-item' y 'mob-name' ✨
+        container.innerHTML += `
+        <div class="mob-item" onclick="previewMob('${mob}')" title="${niceName}" style="margin: 0; height: 80px; border-bottom: 2px solid #272727; border-right: 2px solid #272727;">
+            <img src="${imgSrc}" style="width: 40px; height: 40px; object-fit: contain; image-rendering: pixelated;" onerror="this.src='assets/${mob}.png'">
+            <span class="mob-name" style="font-size: 11px; margin-top: 5px;">${niceName}</span>
+        </div>
+        `;
+    });
+
+    // 3. Auto-seleccionar el primer mob de la lista
+    if (mobsToShow.length > 0) {
+        previewMob(mobsToShow[0]);
+    }
+}
+
+// Actualiza el panel lateral derecho con el mob seleccionado
+function previewMob(mob) {
+    currentlyPreviewedMob = mob;
+    
+    let niceName = mob.charAt(0).toUpperCase() + mob.slice(1);
+    let imgSrc = (window.images && window.images[mob] && window.images[mob].src) 
+                 ? window.images[mob].src 
+                 : `assets/mobs/${mob}.png`;
+                 
+    // Actualizamos la imagen
+    const imgEl = document.getElementById('mob-preview-image');
+    if (imgEl) {
+        imgEl.src = imgSrc;
+        imgEl.onerror = function() { this.src = `assets/${mob}.png`; }; 
+    }
+    
+    // Actualizamos los textos
+    const titleEl = document.getElementById('mob-info-title');
+    if (titleEl) titleEl.innerText = niceName;
+    
+    const hpEl = document.getElementById('mob-info-hp');
+    if (hpEl) {
+        let hp = MOBS_HP_DB[mob] || 20; 
+        hpEl.innerText = `Health: ${hp} HP`;
+    }
+}
+
+// Se ejecuta al darle al botón verde "Spawn Mob" del panel lateral
+function spawnPreviewedMob() {
+    if (currentlyPreviewedMob) {
+        selectMobToSpawn(currentlyPreviewedMob);
+    }
+}
+
+// Inicializamos la barra al cargar la página
+window.addEventListener('DOMContentLoaded', () => {
+    // Si usas imágenes que cargan después, puedes meterle un ligero timeout para asegurar
+    setTimeout(renderRecentMobs, 500); 
+});
+

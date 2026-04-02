@@ -162,6 +162,33 @@
     .struct-info { width: 100%; text-align: left;}
     .struct-info h3 { margin: 0 0 5px 0; font-size: 18px; color: #000; } 
     .struct-info p { margin: 0; color: #000; font-size: 14px; font-weight: bold; } 
+	/* --- ESTILOS EXCLUSIVOS PARA EL MOB BROWSER --- */
+    .mob-main { flex: 1; display: flex; flex-direction: column; padding: 10px; border-right: 2px solid #555; }
+    .mob-tabs-container {
+        display: flex; justify-content: space-between; align-items: center; 
+        border-bottom: 2px solid #FFF; margin-bottom: 0px; background: #8B8B8B; padding-right: 5px;
+    }
+    .mob-tabs { display: flex; margin-bottom: -2px; }
+    .mob-tab {
+        padding: 8px 15px; background: #8B8B8B; border: 2px solid #373737; border-bottom: 2px solid #FFF;
+        cursor: pointer; font-weight: bold; color: #000; user-select: none;
+    }
+    .mob-tab.active {
+        background: #C6C6C6; border-bottom: none; margin-bottom: 0; z-index: 10;
+        border-top: 2px solid #FFF; border-left: 2px solid #FFF;
+    }
+    .mob-item {
+        background: #555; border: 2px solid #272727; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; cursor: pointer;
+    }
+    .mob-item:hover { background: #666; border-color: #FFF; }
+    .mob-name { 
+        font-size: 14px; text-align: center; color: white; padding: 0 5px; width: 100%; box-sizing: border-box;
+        display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; word-wrap: break-word; 
+}
+    .mob-sidebar { width: 220px; background: #B0B0B0; display: flex; flex-direction: column; padding: 15px; align-items: center; overflow-y: auto; }
+    .mob-info { width: 100%; text-align: center;}
+    .mob-actions-container { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: auto; }
     
     /* BOTONES DE ESTRUCTURA */
     .struct-actions-container { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 10px; }
@@ -409,6 +436,24 @@
 						</button>
 						<div class="ribbon-group-label">Custom Items</div>
 		</div>
+		
+<div class="separator"></div>
+        
+        <div class="ribbon-group">
+            <div class="ribbon-group-content" style="display: flex; flex-direction: row; align-items: center;">
+                
+                <div id="recent-mobs-ribbon" style="display: flex; align-items: center;">
+                    <span style="font-size: 10px; color: #555;">Empty</span>
+                </div>
+                
+                <button class="ribbon-btn-small" onclick="openMobModal()" title="Open Mob Browser" style="margin-left: 1px; height: 66px; width: 20px; background: #999; display: flex; align-items: center; justify-content: center; border: 1px solid #777; cursor: pointer;">
+                    <span style="font-size:14px; font-weight: bold; color: #333;">»</span>
+                </button>
+
+            </div>
+            <div class="ribbon-group-label">Mobs</div>
+        </div>
+		
    </div>
 
     <div id="tab-settings" class="tab-pane">
@@ -980,6 +1025,46 @@
     <span class="lightbox-close" title="Cerrar" style="position:absolute; top:20px; right:30px; font-size:40px; color:white; cursor:pointer;">&times;</span>
     <img id="lightbox-img" src="" style="max-width:90%; max-height:90%;">
 </div>
+
+<div id="mobs-modal" class="modal">
+        <div class="modal-content" style="width: 750px; height: 500px; background: #C6C6C6; border: 2px solid #555; padding: 0; display: flex; flex-direction: row; overflow: hidden;">
+            
+            <div class="mob-main">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 5px;">
+                    <h3 style="margin:0; color:gray; user-select: none;">Mob Browser</h3>
+                    <span class="close-modal" onclick="closeModal('mobs-modal')" style="color:black; cursor:pointer; font-size: 20px; font-weight: bold;">&times;</span>
+                </div>
+                
+                <div class="mob-tabs-container">
+                    <div class="mob-tabs">
+                        <div id="tab-mob-overworld" class="mob-tab active" onclick="filterMobs('Overworld')">Overworld</div>
+                        <div id="tab-mob-nether" class="mob-tab" onclick="filterMobs('Nether')">Nether</div>
+                        <div id="tab-mob-end" class="mob-tab" onclick="filterMobs('End')">End</div>
+                    </div>
+                </div>
+
+                <div id="mobs-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0px; overflow-y: auto; background: #8B8B8B; padding: 0px; border: 2px solid #373737; border-top: none; border-right-color: #FFF; border-bottom-color: #FFF; flex: 1; align-content: start;">
+                    </div>
+            </div>
+
+            <div class="mob-sidebar">
+                
+                <div style="width: 220px; height: 220px; background: #8B8B8B; border: 2px solid #373737; margin-bottom: 15px; display: flex; justify-content: center; align-items: center;">
+                    <img id="mob-preview-image" src="assets/zombie.png" style="width: 220px; max-height: 220px; object-fit: contain; image-rendering: pixelated;" onerror="this.src='assets/zombie.png'">
+                </div>
+                
+                <div class="mob-info">
+                    <h3 id="mob-info-title" style="margin: 0 0 5px 0; font-size: 20px; color: #000;">Zombie</h3>
+                    <p id="mob-info-hp" style="margin: 0; color: #333; font-size: 14px; font-weight: bold;">Health: 20 HP</p>
+                </div>
+
+                <div class="mob-actions-container">
+                    <button class="btn-load-struct" onclick="spawnPreviewedMob()" style="font-size: 18px; padding: 12px 0;">Spawn Mob</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
 
  <script>
     function toggleSpray(btn) {

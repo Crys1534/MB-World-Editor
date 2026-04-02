@@ -1,7 +1,7 @@
 // ✨ VARIABLES GLOBALES PARA MOBS ✨
 let selectedMob = null;
 let selectedMobKey = null;
-let mobClipboard = null; // ✨ AQUÍ GUARDAMOS EL CLON EXACTO
+let mobClipboard = null;
 let draggedMob = null;
 let isDraggingMob = false;
 let dragOffset = { x: 0, y: 0 };
@@ -89,7 +89,6 @@ window.addEventListener("keydown", function (event) {
         event.preventDefault();
     }
 
-    // ✨ BORRAR MOB SELECCIONADO (Delete / Backspace)
     if (event.code === 'Delete' || event.code === 'Backspace') {
         if (typeof currentTool !== 'undefined' && currentTool === 'move' && selectedMobKey && typeof mbwom !== 'undefined' && mbwom.mobs && mbwom.mobs[selectedMobKey]) {
             delete mbwom.mobs[selectedMobKey];
@@ -106,46 +105,37 @@ window.addEventListener("keydown", function (event) {
     if (isCtrl && event.code === 'KeyZ') { event.preventDefault(); historyManager.undo(); }
     if (isCtrl && event.code === 'KeyY') { event.preventDefault(); historyManager.redo(); }
     
-    // ==========================================
-    // ✨ LÓGICA INTELIGENTE: COPIAR (Ctrl + C)
-    // ==========================================
+    // ✨ COPIAR CLON (Ctrl + C)
     if (isCtrl && event.code === 'KeyC') { 
         event.preventDefault(); 
         if (typeof currentTool !== 'undefined' && currentTool === 'move' && selectedMob) {
-            // Clonación profunda para no perder propiedades de Haxe
             mobClipboard = JSON.parse(JSON.stringify(selectedMob));
-            console.log("Mob copiado:", mobClipboard.type);
+            console.log("Mob copiado nativamente:", mobClipboard.type);
         } else if (typeof copySelection === 'function') {
-            copySelection(); // Copia bloques
+            copySelection(); 
         }
     }
 
     if (isCtrl && event.code === 'KeyX') { event.preventDefault(); if (typeof cutSelection === 'function') cutSelection(); }
     
-    // ==========================================
-    // ✨ LÓGICA INTELIGENTE: PEGAR (Ctrl + V)
-    // ==========================================
+    // ✨ PEGAR CLON (Ctrl + V)
     if (isCtrl && event.code === 'KeyV') { 
         event.preventDefault(); 
         if (typeof currentTool !== 'undefined' && currentTool === 'move' && mobClipboard) {
             if (typeof mbwom !== 'undefined') {
                 if (!mbwom.mobs) mbwom.mobs = {};
+                let newId = "mob_copy_" + Date.now() + Math.floor(Math.random() * 1000);
                 
-                // Generamos un ID interno único y seguro
-                let newId = "mob_copy_" + Date.now();
-                
-                // Creamos el clon exacto y le damos la posición del ratón
                 let newMob = JSON.parse(JSON.stringify(mobClipboard));
                 newMob.x = mouse.worldX;
-                newMob.y = -mouse.worldY; // Y invertida
+                newMob.y = -mouse.worldY; 
+                newMob.id = newId;
                 
                 mbwom.mobs[newId] = newMob;
-                
                 if (typeof worldDirty !== 'undefined') worldDirty = true;
-                console.log("¡Mob pegado con éxito!", newId);
             }
         } else if (typeof activatePasteMode === 'function') {
-            activatePasteMode(); // Pega bloques
+            activatePasteMode(); 
         }
     }
 
@@ -176,14 +166,12 @@ canvas.addEventListener("mousemove", (event) => {
     mouse.gridY = Math.floor(mouse.canvasY / tileSize);
     mouse.calculateCoordinates(); 
 
-    // ✨ ACTUALIZAR COORDENADAS AL ARRASTRAR UN MOB
     if (typeof currentTool !== 'undefined' && currentTool === 'move' && isDraggingMob && draggedMob) {
         let exactWorldX = camera.x + (mouse.canvasX / tileSize);
         let exactWorldY = camera.y + (mouse.canvasY / tileSize);
         
         draggedMob.x = exactWorldX + dragOffset.x;
         draggedMob.y = -(exactWorldY + dragOffset.y); 
-        
         if (typeof worldDirty !== 'undefined') worldDirty = true;
     }
 
@@ -438,6 +426,97 @@ canvas.addEventListener("mousedown", function (event) {
             if (typeof worldDirty !== 'undefined') worldDirty = true;
         }
     }
+    // ✨ PONER UN MOB EN EL MUNDO (SPAWN CON LA PLANTILLA PERFECTA DEL CERDO)
+    else if (currentTool === 'spawn_mob' && mouse.left) {
+        if (typeof mbwom !== 'undefined') {
+            if (!mbwom.mobs) mbwom.mobs = {};
+
+            const newId = "mob_spawn_" + Date.now() + Math.floor(Math.random() * 1000);
+
+            let exactWorldX = camera.x + (mouse.canvasX / tileSize);
+            let exactWorldY = camera.y + (mouse.canvasY / tileSize);
+
+            let mobTypeToSpawn = typeof currentMobToSpawn !== 'undefined' ? currentMobToSpawn : 'zombie';
+            let baseType = mobTypeToSpawn;
+            let hp = 20;
+
+            if (mobTypeToSpawn && String(mobTypeToSpawn).startsWith('custom_')) {
+                let parts = String(mobTypeToSpawn).split('_');
+                let idx = parseInt(parts[1]);
+                let customMobs = [];
+                try { customMobs = JSON.parse(localStorage.getItem('mbw_custom_mobs')) || []; } catch(e){}
+                
+                let cMob = customMobs[idx];
+                if (cMob && cMob.baseType) {
+                    baseType = cMob.baseType; 
+                    hp = parseInt(cMob.hp) || 20;
+                } else {
+                    baseType = 'zombie'; 
+                }
+            } else {
+                hp = (typeof MOBS_DB !== 'undefined' && MOBS_DB[mobTypeToSpawn]) ? parseInt(MOBS_DB[mobTypeToSpawn].hp) : 20;
+            }
+
+            // =====================================================================
+            // ✨ PLANTILLA PERFECTA (LA RADIOGRAFÍA DEL CERDO DE TU ARCHIVO) ✨
+            // (Limpiamos la velocidad y cooldowns para que nazca relajado y sano)
+            // =====================================================================
+            const BASE_MOB_TEMPLATE = {
+                "id": newId,
+                "type": String(baseType),
+                "name": "",
+                "x": exactWorldX,
+                "y": -exactWorldY, // Respetamos la Y Invertida
+                "health": hp,
+                "scene": (typeof mbwom.currentScene !== 'undefined' ? mbwom.currentScene : 1),
+                "direction": 0,
+                "speedX": 0,
+                "speedY": 0,
+                "falling": true,
+                "wasFalling": true,
+                "wasFallingSpeed": 0,
+                "air": 11,
+                "airTimer": 60,
+                "startUnderwaterTimer": 0,
+                "animationType": "idle",
+                "animationFrame": 0,
+                "variant": "",
+                "babyTimer": 0,
+                "breedTimer": 0,
+                "aggressiveness": 0,
+                "target": null,
+                "focus": null,
+                "riding": null,
+                "riddenBy": null,
+                "leash": null,
+                "keys": {
+                    "right": false,
+                    "up": false,
+                    "left": false
+                },
+                "inventory": [],
+                "handItems": [],
+                "armor": [],
+                "handDropChances": [0.085, 0.085],
+                "armorDropChances": [0.085, 0.085, 0.085, 0.085],
+                "defaultDrops": true,
+                "effects": {},
+                "attackCooldown": 0,
+                "hitCooldown": 0,
+                "lastDamageType": "",
+                "lastDamageID": "",
+                "ticksSinceLastDamageID": 0,
+                "persists": false,
+                "saddleItem": ["air", 1, 0, {}]
+            };
+
+            // Clonamos la plantilla universal perfecta para inyectarla al nivel
+            mbwom.mobs[newId] = JSON.parse(JSON.stringify(BASE_MOB_TEMPLATE));
+
+            if (typeof worldDirty !== 'undefined') worldDirty = true; 
+            console.log("Mob generado desde Plantilla Perfecta:", baseType);
+        }
+    }
     // HERRAMIENTAS DE BLOQUES
     else if ((currentTool === 'select' || currentTool === 'lasso') && mouse.left) {
         handleSelectionInput('start', mouse.worldX, mouse.worldY);
@@ -459,7 +538,6 @@ canvas.addEventListener("mousedown", function (event) {
 
 // --- SOLTAR CLICS (MOUSEUP) ---
 window.addEventListener("mouseup", function (event) {
-    // ✨ SOLTAR MOB SI ESTABA ARRASTRANDO
     if (typeof isDraggingMob !== 'undefined' && isDraggingMob) {
         isDraggingMob = false;
         draggedMob = null;
@@ -473,7 +551,7 @@ window.addEventListener("mouseup", function (event) {
     if (event.button == 0) mouse.left = false;
     if (event.button == 2) mouse.right = false;
 
-    if (currentTool !== 'eyedropper' && currentTool !== 'bucket' && currentTool !== 'select' && currentTool !== 'lasso' && currentTool !== 'paste' && currentTool !== 'move') {
+    if (currentTool !== 'eyedropper' && currentTool !== 'bucket' && currentTool !== 'select' && currentTool !== 'lasso' && currentTool !== 'paste' && currentTool !== 'move' && currentTool !== 'spawn_mob') {
         historyManager.commitAction();
     }
 });

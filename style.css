@@ -349,29 +349,29 @@ body {
 /* --- SIDEBAR (HERRAMIENTAS FLOTANTE) --- */
 #toolbar-sidebar {
  position: absolute;
- top: 248px; /* Ajustado para estar debajo de la cinta (TopBar + Ribbon ~153px) */
+ top: 218px; /* Ajustado para estar debajo de la cinta (TopBar + Ribbon ~153px) */
  left: 15px; /* Separación del borde izquierdo */
  bottom: auto; /* IMPORTANTE: Ya no se estira hasta abajo */
  height: auto; /* La altura se ajusta al contenido de los botones */
- width: 48px;  /* Ancho compacto */
+ width: 44px;  /* Ancho compacto */
  
  /* Estética Flotante */
  background-color: var(--bg-panel);
  border: 1px solid var(--border);
- border-radius: 12px; /* Bordes redondeados */
+ border-radius: 8px; /* Bordes redondeados */
  box-shadow: 0 4px 15px rgba(0,0,0,0.5); /* Sombra para dar efecto de elevación */
  
  display: flex;
  flex-direction: column; /* Asegura 1 sola columna vertical */
  align-items: center;
- padding: 10px 0; /* Relleno superior e inferior */
+ padding: 4px 0; /* Relleno superior e inferior */
  z-index: 100; /* Asegura que flote sobre el canvas */
 }
 
 /* Ajuste de los botones para que encajen mejor en la barra flotante */
 .tool-btn {
- width: 32px; /* Ligeramente más pequeños para estética compacta */
- height: 32px;
+ width: 36px; /* Ligeramente más pequeños para estética compacta */
+ height: 36px;
  background: transparent;
  border: 1px solid transparent;
  color: var(--text);
@@ -698,7 +698,7 @@ button:hover {
     height: 66px;
     padding: 0px;
     border: 1px solid #555;
-    background: #8B8B8B;
+    background: transparent;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -708,7 +708,7 @@ button:hover {
 /* Efecto Hover: Borde blanco */
 .quick-struct-btn:hover {
     border: 2px solid lightgray;
-    background: #FFF;
+    background: var(--input-hover);
 }
 
 /* Efecto Activo (Seleccionado): Hundido y más oscuro */
@@ -1230,4 +1230,25 @@ button:hover {
 /* El efecto hover SOLO funcionará si el botón NO está deshabilitado */
 #btn-world-info:not(:disabled):hover {
     background-color: var(--bg-panel);
+}
+
+
+/* Botones compactos para el Quick Access de Mobs */
+.quick-mob-btn {
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px;
+    transition: background 0.2s, border 0.2s;
+}
+
+.quick-mob-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.4);
 }
