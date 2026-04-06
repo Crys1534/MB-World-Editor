@@ -33,6 +33,17 @@ body.theme-pastel {
  --input-bg: #fdf6e3;
  --input-hover: #ece6d3;
 }
+/* --- TEMA PASTEL 2 (Cool Pastels: Menta y Lavanda) --- */
+body.theme-pastel2 {
+ --bg-dark: #e0f2f1; /* Azul cielo muy claro */
+ --bg-panel: #e8f5e9; /* Menta muy claro */
+ --bg-header: #d1c4e9; /* Lavanda pastel */
+ --accent: #b39ddb; /* Morado suave */
+ --text: #37474f; /* Gris azulado oscuro para contraste */
+ --border: #b2ebf2; /* Cian pastel */
+ --input-bg: #ffffff;
+ --input-hover: #ede7f6; /* Lavanda ultra claro */
+}
 
 /* --- TEMA DARK BLUE --- */
 body.theme-darkblue {
@@ -68,6 +79,82 @@ body.theme-winxp .icon-btn { color: white; }
 body.theme-winxp .filename-wrapper { background: #ffffff; color: black; }
 body.theme-winxp #filename-display { color: black; }
 body.theme-winxp .ribbon-group-label { color: #000; font-weight: bold; }
+/* --- TEMA WINDOWS 7 (Frutiger Aero Súper Vivo) --- */
+body.theme-win7 {
+ /* Fondo hiper vibrante, estilo Aurora muy saturado */
+ --bg-dark: linear-gradient(135deg, #0055ff 0%, #00aaff 50%, #00d4ff 100%); 
+ --bg-panel: rgba(255, 255, 255, 0.65); /* Cristal claro */
+ --bg-header: rgba(0, 170, 255, 0.4); /* Base celeste brillante */
+ 
+ /* ✨ Este es el botón celeste que te encantó, intacto ✨ */
+ --accent: linear-gradient(to bottom, #66b3ff 0%, #0078d7 49%, #005a9e 50%, #0078d7 100%); 
+ 
+ --text: #001a33; 
+ --border: rgba(255, 255, 255, 0.8); 
+ --input-bg: rgba(255, 255, 255, 0.9);
+ --input-hover: #ffffff;
+}
+
+/* Magia Aero Glass Ultra-Vibrante */
+body.theme-win7 #top-bar, 
+body.theme-win7 #ribbon, 
+body.theme-win7 .tabs, 
+body.theme-win7 .tab-content {
+    background-color: transparent;
+}
+
+body.theme-win7 #top-bar {
+    /* ✨ Reflejos blancos puros arriba, y un celeste cristalino súper vivo abajo ✨ */
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.8) 0%, rgba(170, 225, 255, 0.6) 49%, rgba(0, 170, 255, 0.4) 50%, rgba(100, 200, 255, 0.6) 100%);
+    backdrop-filter: blur(10px); 
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(0, 50, 150, 0.3);
+    box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.9), 0 2px 6px rgba(0, 100, 255, 0.3);
+}
+
+body.theme-win7 #ribbon {
+    /* La cinta un poco más blanca para que los íconos resalten perfecto */
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.4) 100%);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(0, 50, 150, 0.3);
+    box-shadow: inset 0 1px 2px rgba(255, 255, 255, 1), 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* Pestañas cristalinas */
+body.theme-win7 .tab-btn {
+    color: #002244;
+    text-shadow: 0 1px 2px rgba(255,255,255,0.9);
+    font-weight: bold;
+}
+
+body.theme-win7 .tab-btn.active {
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(255, 255, 255, 1);
+    border-bottom: none;
+    box-shadow: inset 0 2px 6px rgba(255,255,255,1);
+}
+
+body.theme-win7 .filename-wrapper {
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(0, 100, 200, 0.3);
+    border-radius: 4px;
+    box-shadow: inset 0 1px 4px rgba(0,0,0,0.1);
+}
+
+/* Efecto Glossy en los botones de herramientas (Sidebar) */
+body.theme-win7 .tool-btn {
+    border: 1px solid transparent;
+}
+
+body.theme-win7 .tool-btn.active {
+    /* Tu botón celeste favorito */
+    background: var(--accent);
+    border: 1px solid #004488; 
+    box-shadow: inset 0 1px 2px rgba(255,255,255,0.9), 0 0 8px rgba(0, 170, 255, 0.8);
+    color: white;
+    text-shadow: 0 -1px 1px rgba(0,0,0,0.5); 
+}
 
 body {
  margin: 0;
@@ -186,6 +273,7 @@ body {
  display: flex;
  background-color: var(--bg-header);
  padding-top: 5px;
+ padding-left: 8px;
 }
 
 /* Ancho dinámico para pestañas */
@@ -449,6 +537,15 @@ canvas {
  width: 120px;
  box-shadow: 0 0 5px rgba(0,0,0,0.8);
  border-radius: 5px;
+ 
+ /* ✨ NUEVO: Dibuja pequeñas líneas verticales perfectas de fondo */
+ background: repeating-linear-gradient(
+    to right,
+    transparent,
+    transparent calc(100% / 7 - 1px),
+    rgba(255, 255, 255, 0.4) calc(100% / 7 - 1px),
+    rgba(255, 255, 255, 0.4) calc(100% / 7)
+ );
 }
 
 /* --- CONSOLA --- */
@@ -1251,4 +1348,77 @@ button:hover {
 .quick-mob-btn:hover {
     background: rgba(255, 255, 255, 0.2);
     border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+
+/* ==========================================
+   ✨ INTERFAZ DE DRAG AND DROP ✨
+   ========================================== */
+#drag-overlay {
+    display: none; /* Permanece oculta hasta que arrastras algo */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.85); /* Fondo negro al 85% */
+    z-index: 999999; /* Por encima de todos los menús y modales */
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    color: white;
+    font-family: Arial, sans-serif;
+    
+    /* IMPORTANTE: Evita que el overlay bloquee el ratón y cause parpadeos */
+    pointer-events: none; 
+    backdrop-filter: blur(5px); /* Efecto de desenfoque del fondo */
+}
+
+.drag-content {
+    border: 4px dashed #4DA6FF; /* Borde punteado celeste */
+    padding: 50px 100px;
+    border-radius: 20px;
+    background-color: rgba(77, 166, 255, 0.1);
+    box-shadow: 0 0 50px rgba(77, 166, 255, 0.3);
+}
+
+
+/* ==========================================
+   ✨ PANTALLA DE CARGA ✨
+   ========================================== */
+#loading-overlay {
+    display: none; /* Oculta por defecto */
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background-color: rgba(0, 0, 0, 0.95);
+    z-index: 9999999; /* Por encima de todo */
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    color: white;
+    font-family: Arial, sans-serif;
+}
+
+.loading-box {
+    text-align: center;
+    width: 400px;
+}
+
+.progress-bar-container {
+    width: 100%;
+    height: 30px;
+    background-color: #222;
+    border: 3px solid #555;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-top: 15px;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+}
+
+.progress-bar-fill {
+    width: 0%;
+    height: 100%;
+    background-color: #4CAF50; /* Verde brillante */
+    transition: width 0.2s ease; /* Animación suave al llenarse */
 }

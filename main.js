@@ -17,8 +17,11 @@ const uiElements = {
     ribbon: document.getElementById('ribbon'),
 };
 
-const ZOOM_LEVELS = [25, 50, 100, 150, 200];
-let currentZoomIndex = 2; 
+// Agregamos el 10, 250 y 300
+const ZOOM_LEVELS = [10, 25, 50, 100, 150, 200, 250, 300];
+
+// El 100% ahora está en la posición 3 (0=10, 1=25, 2=50, 3=100)
+let currentZoomIndex = 3; 
 let currentZoom = 100;
 const BASE_TILE_SIZE = 16;
 let showGrid = false;
@@ -27,7 +30,7 @@ let tileSize = BASE_TILE_SIZE;
 
 // --- IMÁGENES GLOBALES ---
 // Agrega aquí los nombres de los PNGs que vayas metiendo a la carpeta assets/
-window.images = { names: ["blocks", "hotbar", "slot", "zombie", "skeleton", "creeper", "enderman", "nethereye", "enderdragon", "pig", "cow", "chicken", "player",] };
+window.images = { names: ["blocks", "hotbar", "slot", "zombie", "skeleton", "creeper", "enderman", "nethereye", "enderdragon", "pig", "cow", "chicken", "spider", "player",] };
 
 window.images.names.forEach((name) => {
     window.images[name] = new Image();
@@ -41,6 +44,12 @@ window.images.names.forEach((name) => {
         }
     };
 });
+
+// ✨ AÑADE ESTO JUSTO AQUÍ DEBAJO:
+// Excepción para cargar al Player desde su ruta y con mayúscula
+window.images['player'] = new Image();
+window.images['player'].src = 'assets/mobs/Player.png';
+window.images['player'].onload = () => { worldDirty = true; };
 
 // Velocidad fija en 1
 const camera = { x: 0, y: 148, speed: 1 }
@@ -554,6 +563,46 @@ function drawUI() {
         
         ctx.stroke();
     }
+	
+	// ==========================================
+    // ✨ PREVISUALIZACIÓN FANTASMA DEL MOB ✨
+    // ==========================================
+    if (typeof currentTool !== 'undefined' && currentTool === 'spawn_mob' && typeof currentMobToSpawn !== 'undefined' && currentMobToSpawn) {
+        let mobImg = window.images[currentMobToSpawn];
+        
+        if (mobImg && mobImg.complete && mobImg.naturalWidth > 0) {
+            ctx.save();
+            ctx.globalAlpha = 0.6; // 👻 60% de transparencia
+            ctx.imageSmoothingEnabled = false; // Mantiene el Pixel Art nítido
+            
+            // Calculamos el tamaño base usando tu tileSize
+            let tSize = typeof tileSize !== 'undefined' ? tileSize : 16;
+            let drawWidth = tSize * 1.2; 
+            
+            // Ajustes para monstruos de proporciones diferentes
+            if (currentMobToSpawn === 'enderdragon') drawWidth = tSize * 6;
+            if (currentMobToSpawn === 'ghast' || currentMobToSpawn === 'slime' || currentMobToSpawn === 'magmacube') drawWidth = tSize * 2.5;
+            if (currentMobToSpawn === 'spider') drawWidth = tSize * 1.5;
+
+            // Calculamos la altura para no deformar el sprite original
+            let ratio = mobImg.naturalHeight / mobImg.naturalWidth;
+            let drawHeight = drawWidth * ratio; 
+            
+            // Convertimos las coordenadas de tu ratón para que coincidan con la pantalla
+            // (Tu mouse.canvasY está invertido, así que lo revertimos para dibujar)
+            let screenX = mouse.canvasX;
+            let screenY = canvas.height - mouse.canvasY;
+
+            // Dibujamos el mob centrado horizontalmente y con los pies tocando la punta de tu cursor
+            ctx.drawImage(
+                mobImg, 
+                0, 0, mobImg.naturalWidth, mobImg.naturalHeight,
+                screenX - (drawWidth / 2), screenY - drawHeight, drawWidth, drawHeight
+            );
+            
+            ctx.restore();
+        }
+    }
 }
 
 function mainLoop() {
@@ -586,7 +635,7 @@ function changeDimension(sceneIndex) {
             if (iconElement) {
                 switch(sceneIndex) {
                     case 1:
-                        iconElement.src = "assets/Underworld icon.png";
+                        iconElement.src = "assets/Overworld icon.png";
                         break;
                     case 2:
                         iconElement.src = "assets/Nether icon.png";

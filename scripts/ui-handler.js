@@ -23,7 +23,7 @@ const inventoryCategories = {
 'ms', 'sb', 'clore', 'in', 'gd', 'dmore', 'rs', 'os', 'lap',
 'to', 'egem', 'wd1', 'wd_1', 'wd_2', 'wp', 'bbb', 'top', 'ib',
 'gb', 'db', 'lapb', 'clb', 'sd', 'ss', 'cy1', 'bricks', 'books',
-'b', 'j', 'snowblock', 'ice', 'fice', 'fice_1', 'fice_2', 'fice_3', 'fice_4', 
+'b', 'magma', 'j', 'snowblock', 'ice', 'fice', 'fice_1', 'fice_2', 'fice_3', 'fice_4', 
 'gv', 'cloth_white', 'cloth_lightgray', 'cloth_gray', 'cloth_black', 'cloth_brown', 'cloth_purple', 'cloth_magenta', 'cloth_red', 
 'cloth_orange', 'cloth_pink', 'cloth_yellow', 'cloth_lightgreen', 'cloth_green', 'cloth_cyan', 'cloth_lightblue', 'cloth_blue', 'cloth_rainbow', 
 'gs', 'gs_white', 'gs_lightgray', 'gs_gray', 'gs_black', 'gs_brown', 'gs_purple', 'gs_magenta', 'gs_redg', 
@@ -163,10 +163,17 @@ function toggleAchievements(checked) {
 // --- GESTIÓN DE TEMAS ---
 function setTheme(themeName) {
     const body = document.body;
-    body.classList.remove('theme-white', 'theme-pastel', 'theme-darkblue', 'theme-winxp');
+    
+    // 1. Magia: Encontramos y borramos TODAS las clases que empiecen con "theme-"
+    const classesToRemove = Array.from(body.classList).filter(c => c.startsWith('theme-'));
+    classesToRemove.forEach(c => body.classList.remove(c));
+
+    // 2. Aplicamos el nuevo tema seleccionado (si no es el 'dark' por defecto)
     if (themeName !== 'dark') {
         body.classList.add('theme-' + themeName);
     }
+    
+    // 3. Guardamos en memoria y actualizamos la lista desplegable
     localStorage.setItem('mbw_theme', themeName);
     const select = document.getElementById('theme-select');
     if (select) select.value = themeName;
@@ -1862,11 +1869,14 @@ function animateWeather() {
         let zoomScale = 1; 
         if (zoomSlider) {
             let val = parseInt(zoomSlider.value);
-            if (val === 0) zoomScale = 0.5;      
-            else if (val === 1) zoomScale = 0.75; 
-            else if (val === 2) zoomScale = 1;    
-            else if (val === 3) zoomScale = 2;    
-            else if (val === 4) zoomScale = 3;    
+            if (val === 0) zoomScale = 0.1;       // 10%
+            else if (val === 1) zoomScale = 0.25; // 25%
+            else if (val === 2) zoomScale = 0.5;  // 50%
+            else if (val === 3) zoomScale = 1;    // 100%
+            else if (val === 4) zoomScale = 1.5;  // 150%
+            else if (val === 5) zoomScale = 2;    // 200%
+            else if (val === 6) zoomScale = 2.5;  // 250%
+            else if (val === 7) zoomScale = 3;    // 300%
         }
 
         // --- DIBUJAR LLUVIA ---
@@ -2220,7 +2230,7 @@ function renderRecentMobs() {
         // Usamos la misma clase que ya tienes para las estructuras!
         html += `
         <button class="quick-struct-btn" onclick="selectMobToSpawn('${mob}')" title="Spawn ${niceName}">
-            <img src="${imgSrc}" alt="${niceName}" style="width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated;" onerror="this.src='assets/${mob}.png'">
+            <img src="${imgSrc}" alt="${niceName}" style="width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated;" onerror="this.onerror=null; this.src='assets/${mob}.png'">
         </button>
         `;
     });
@@ -2266,7 +2276,8 @@ const MOBS_HP_DB = {
 
 // Mobs organizados por dimensión
 const MOBS_BY_DIMENSION = {
-    "Overworld": ["pig", "cow", "chicken", "sheep", "rabbit", "bat", "snowgolem", "zombie", "skeleton", "creeper", "spider", "slime"],
+	"Animals": ["pig", "cow", "chicken", "sheep", "rabbit", "bat"],
+    "Overworld": ["zombie", "skeleton", "creeper", "spider", "slime", "snowgolem"],
     "Nether": ["zombiepigman", "ghast", "blaze", "magmacube", "nethereye"],
     "End": ["enderman", "enderdragon"]
 };
@@ -2282,6 +2293,7 @@ function filterMobs(dimension) {
     activeMobTab = dimension;
     
     // 1. Actualizar el CSS de las pestañas
+	document.getElementById('tab-mob-animals').classList.remove('active');
     document.getElementById('tab-mob-overworld').classList.remove('active');
     document.getElementById('tab-mob-nether').classList.remove('active');
     document.getElementById('tab-mob-end').classList.remove('active');
@@ -2304,8 +2316,8 @@ function filterMobs(dimension) {
 
         // ✨ AQUÍ USAMOS LAS NUEVAS CLASES EXCLUSIVAS 'mob-item' y 'mob-name' ✨
         container.innerHTML += `
-        <div class="mob-item" onclick="previewMob('${mob}')" title="${niceName}" style="margin: 0; height: 80px; border-bottom: 2px solid #272727; border-right: 2px solid #272727;">
-            <img src="${imgSrc}" style="width: 40px; height: 40px; object-fit: contain; image-rendering: pixelated;" onerror="this.src='assets/${mob}.png'">
+        <div class="mob-item" onclick="previewMob('${mob}')" title="${niceName}" style="margin: 0; height: 156px; border-bottom: 2px solid #272727; border-right: 2px solid #272727;">
+            <img src="${imgSrc}" style="width: 90%; height: 90%; object-fit: contain; image-rendering: pixelated;" onerror="this.onerror=null; this.src='assets/${mob}.png'">
             <span class="mob-name" style="font-size: 11px; margin-top: 5px;">${niceName}</span>
         </div>
         `;
@@ -2320,6 +2332,11 @@ function filterMobs(dimension) {
 // Actualiza el panel lateral derecho con el mob seleccionado
 function previewMob(mob) {
     currentlyPreviewedMob = mob;
+	
+	// ✨ NUEVO: Reproducir el rugido del monstruo al instante
+    if (typeof audioManager !== 'undefined') {
+        audioManager.playMobSound(mob);
+    }
     
     let niceName = mob.charAt(0).toUpperCase() + mob.slice(1);
     let imgSrc = (window.images && window.images[mob] && window.images[mob].src) 
@@ -2357,3 +2374,116 @@ window.addEventListener('DOMContentLoaded', () => {
     setTimeout(renderRecentMobs, 500); 
 });
 
+
+// ==========================================
+// ✨ LIVE TIME + CLIMA + CULTIVOS (Random Ticks) ✨
+// ==========================================
+let liveTimeEngine = null;
+let weatherEngine = null;
+let weatherTimeout = null;
+let cropEngine = null; // ✨ NUEVO: El motor de las plantas
+
+function toggleLiveTime(checkbox) {
+    if (checkbox.checked) {
+        
+        // --- 1. MOTOR DE TIEMPO (Escala 0-99) ---
+        const velocidad = 1000; 
+
+        liveTimeEngine = setInterval(() => {
+            if (mbwom && mbwom.world && mbwom.world.tim !== undefined) {
+                mbwom.world.tim = Number(mbwom.world.tim) + 1;
+
+                if (mbwom.world.tim >= 100) {
+                    mbwom.world.tim = 0; 
+                    mbwom.world.day = Number(mbwom.world.day || 1) + 1; 
+                    
+                    const dayEl = document.getElementById("gr-day");
+                    if (dayEl) dayEl.value = mbwom.world.day;
+                }
+
+                const timeEl = document.getElementById("gr-time");
+                if (timeEl) timeEl.value = mbwom.world.tim;
+            }
+        }, velocidad);
+
+        // --- 2. MOTOR DE CLIMA DINÁMICO ---
+        const HORA_EN_MS = 60 * 60 * 1000; 
+
+        weatherEngine = setInterval(() => {
+            const weatherEl = document.getElementById("gr-weather");
+            if (weatherEl && weatherEl.value === "clear") {
+                if (Math.random() <= 0.20) {
+                    let nuevoClima = Math.random() < 0.5 ? "rain" : "thunder";
+                    weatherEl.value = nuevoClima;
+                    weatherEl.dispatchEvent(new Event('change'));
+
+                    const MIN_MS = 5 * 60 * 1000;
+                    const MAX_MS = 10 * 60 * 1000;
+                    const duracionTormenta = Math.floor(Math.random() * (MAX_MS - MIN_MS + 1)) + MIN_MS;
+
+                    if (weatherTimeout) clearTimeout(weatherTimeout);
+                    weatherTimeout = setTimeout(() => {
+                        if (weatherEl.value !== "clear") {
+                            weatherEl.value = "clear";
+                            weatherEl.dispatchEvent(new Event('change'));
+                        }
+                    }, duracionTormenta);
+                }
+            }
+        }, HORA_EN_MS);
+
+        // --- 3. ✨ MOTOR DE CRECIMIENTO EXACTO (Sin Suerte) ✨ ---
+        // Usamos la misma 'velocidad' que el Motor de Tiempo (ej. 1000ms)
+        cropEngine = setInterval(() => {
+            if (mbwom && mbwom.world && mbwom.world.blocks) {
+                let cultivCrecio = false;
+                const crops = ["nw", "seed", "carrot", "wseed", "pseed", "potato", "bseed"];
+
+                // Escaneamos TODOS los bloques del mundo buscando cultivos
+                for (let key in mbwom.world.blocks) {
+                    const block = mbwom.world.blocks[key];
+                    
+                    if (block && crops.includes(block.type)) {
+                        // 1. Aseguramos que la semilla tenga nivel inicial y su propio cronómetro
+                        if (block.wheat === undefined || isNaN(block.wheat)) block.wheat = 1;
+                        if (block.growthTimer === undefined) block.growthTimer = 0;
+
+                        // 2. Si aún no llega al nivel 7 (máximo)
+                        if (block.wheat < 7) {
+                            // Le sumamos 1 unidad de tiempo a esta planta
+                            block.growthTimer++;
+
+                            // 3. Cuando junta 29 unidades de tiempo (Aprox 1.75 días en total para crecer por completo)
+                            if (block.growthTimer >= 29) {
+                                block.wheat++; // Sube a la siguiente fase (ej. _3 a _4)
+                                block.growthTimer = 0; // Reinicia su cronómetro para la próxima fase
+                                cultivCrecio = true;
+                            }
+                        }
+                    }
+                }
+
+                // Si algún cultivo cambió de fase, repintamos el mapa
+                if (cultivCrecio && typeof worldDirty !== 'undefined') {
+                    worldDirty = true;
+                }
+            }
+        }, 1000); // Se ejecuta al mismo ritmo que el reloj del juego
+        
+        console.log("⏱️ Live Time + Clima + Cultivos: ACTIVADOS");
+
+    } else {
+        // --- 4. APAGADO SEGURO ---
+        if (liveTimeEngine) clearInterval(liveTimeEngine);
+        if (weatherEngine) clearInterval(weatherEngine);
+        if (weatherTimeout) clearTimeout(weatherTimeout);
+        if (cropEngine) clearInterval(cropEngine); // ✨ Apagamos el motor de cultivos
+        
+        liveTimeEngine = null;
+        weatherEngine = null;
+        weatherTimeout = null;
+        cropEngine = null;
+        
+        console.log("⏸️ Live Time: PAUSADO");
+    }
+}

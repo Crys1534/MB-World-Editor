@@ -377,19 +377,80 @@ function deleteSelection() {
 
     historyManager.startAction();
     let changed = false;
-    for (let x = bounds.minX; x <= bounds.maxX; x++) {
-        for (let y = bounds.minY; y <= bounds.maxY; y++) {
-            
-            if (!isPointSelected(x, y)) continue;
 
-            if (mbwom.scene[x] && mbwom.scene[x][y]) {
-                historyManager.recordChange(x, y, mbwom.scene[x][y], null);
-                delete mbwom.scene[x][y];
-                renderBlock(x, y);
-                changed = true;
+    // ✨ DIVISIÓN DE HERRAMIENTAS ✨
+
+    if (window.selection.type === 'poly') {
+        // ==========================================
+        // 🤠 MODO LASSO: SOLO ELIMINA MOBS
+        // ==========================================
+        if (typeof mbwom !== 'undefined' && mbwom.mobs) {
+            for (let key in mbwom.mobs) {
+                let m = mbwom.mobs[key];
+                if (!m) continue;
+                
+                let mobWorldX = Math.round(Number(m.x));
+                let mobWorldY = Math.round(-Number(m.y)); 
+                
+                if (isPointSelected(mobWorldX, mobWorldY)) {
+                    delete mbwom.mobs[key]; // ¡Mob destruido!
+                    changed = true;
+                }
             }
         }
+        if (changed && typeof worldDirty !== 'undefined') worldDirty = true;
+        console.log("🤠 Lasso: Se atraparon y eliminaron los mobs.");
+
+    } else {
+        // ==========================================
+        // 🧱 MODO SELECT / MAGIC: SOLO ELIMINA BLOQUES
+        // ==========================================
+        
+        // 1. Borramos los bloques visuales
+        for (let x = bounds.minX; x <= bounds.maxX; x++) {
+            for (let y = bounds.minY; y <= bounds.maxY; y++) {
+                if (!isPointSelected(x, y)) continue;
+
+                changed = true; 
+
+                if (mbwom.scene[x] && mbwom.scene[x][y]) {
+                    historyManager.recordChange(x, y, mbwom.scene[x][y], null);
+                    delete mbwom.scene[x][y];
+                    renderBlock(x, y);
+                }
+            }
+        }
+
+        // 2. Recortamos las columnas para bajar el peso del archivo
+        if (changed && typeof mbwom !== 'undefined' && mbwom.scene) {
+            for (let x = bounds.minX; x <= bounds.maxX; x++) {
+                let col = mbwom.scene[x];
+                if (!col || !Array.isArray(col)) continue;
+
+                for (let y = bounds.minY; y <= bounds.maxY; y++) {
+                    if (isPointSelected(x, y)) {
+                        let b = col[y];
+                        if (b && (b.type === "air" || b.type === 0 || b.type === "0" || b.type === "")) {
+                            col[y] = null; 
+                        }
+                    }
+                }
+
+                while (col.length > 0) {
+                    let ultimoBloque = col[col.length - 1];
+                    if (!ultimoBloque || ultimoBloque === null || ultimoBloque.type === null || ultimoBloque.type === "air" || ultimoBloque.type === 0 || ultimoBloque.type === "0" || ultimoBloque.type === "") {
+                        col.pop(); 
+                    } else {
+                        break; 
+                    }
+                }
+            }
+            if (typeof worldDirty !== 'undefined') worldDirty = true;
+        }
+        console.log("🧱 Selección: Se eliminaron los bloques y se purgaron los huecos.");
     }
+
+    // LIMPIEZA FINAL DE LA INTERFAZ
     historyManager.commitAction();
     const overlay = document.getElementById('selection-overlay');
     if (overlay) overlay.style.display = 'none';
@@ -559,7 +620,7 @@ function magicWandSelect(startX, startY) {
         if (visited.has(key)) continue; 
         visited.add(key);
         
-        if (x < -1000 || x > 1000 || y < 0 || y > 500) continue; 
+        if (x < -5000 || x > 5000 || y < 0 || y > 500) continue; 
 
         const currentBlock = mbwom.getBlockState(x, y);
         const currentType = currentBlock ? currentBlock.type : null;

@@ -144,6 +144,7 @@ window.addEventListener("keydown", function (event) {
     if (event.code === 'KeyC' && !isCtrl) { if (typeof eyedropper === 'function') eyedropper(mouse.worldX, mouse.worldY); }
     if (event.code === 'KeyE' && !isCtrl) { event.preventDefault(); try { toggleInventory(); } catch(e) { } }
     if (event.code === 'KeyR' && !isCtrl) { event.preventDefault(); try { openStructuresModal(); } catch(e) { } }
+	if (event.code === 'KeyM' && !isCtrl) { event.preventDefault(); try { openMobModal(); } catch(e) { } }
 
     if (event.code.startsWith('Digit')) {
         let num = parseInt(event.code.charAt(5));

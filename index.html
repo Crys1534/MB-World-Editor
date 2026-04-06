@@ -186,7 +186,7 @@
         font-size: 14px; text-align: center; color: white; padding: 0 5px; width: 100%; box-sizing: border-box;
         display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; word-wrap: break-word; 
 }
-    .mob-sidebar { width: 220px; background: #B0B0B0; display: flex; flex-direction: column; padding: 15px; align-items: center; overflow-y: auto; }
+    .mob-sidebar { width: 224px; background: #B0B0B0; display: flex; flex-direction: column; padding: 15px; align-items: center; overflow-y: auto; }
     .mob-info { width: 100%; text-align: center;}
     .mob-actions-container { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: auto; }
     
@@ -233,9 +233,25 @@
         margin-bottom: 5px;
     }
 
-    .mbw-modal-header h3 { margin: 0; color: #FFF; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 0 #000; }
-    .mbw-close-btn { cursor: pointer; font-weight: bold; color: #FFF; font-size: 16px; line-height: 1; }
-    .mbw-close-btn:hover { color: #FFD700; }
+    .mbw-modal-header h3 { margin: 0; color: #FFF; font-size: 18px; font-weight: bold; text-shadow: 1px 1px 0 #000; }
+    /* --- Botón de Cerrar (Estilo Windows) --- */
+    .mbw-close-btn { 
+        cursor: pointer; 
+        font-weight: bold; 
+        color: #FFF; 
+        font-size: 18px; 
+        line-height: 1; 
+        padding: 2px 8px; /* Le da forma rectangular al botón */
+        border-radius: 3px; /* Bordes ligeramente suaves */
+        margin-right: -4px; /* Ajuste para que no empuje el título hacia la izquierda */
+        transition: background-color 0.1s ease-in-out; 
+    }
+    
+    .mbw-close-btn:hover { 
+        background-color: #E81123; /* El color rojo exacto del botón de cerrar de Windows */
+        color: #FFF; 
+        box-shadow: inset 1px 1px 3px rgba(0,0,0,0.4); /* Pequeña sombra interior para darle relieve */
+    }
     .mbw-modal-body { padding: 10px; flex: 1; overflow-y: auto; }
 
     /* Ajuste Modal Edit Info */
@@ -312,7 +328,21 @@
  </style>
 </head>
 <body>
- 
+ <div id="drag-overlay">
+        <div class="drag-content">
+            <h1 style="font-size: 3rem; margin: 0;">📁 Drop your world file here!</h1>
+            <p style="font-size: 1.5rem; color: #ccc;">Drop the .mbw file anywhere</p>
+        </div>
+    </div>
+	<div id="loading-overlay">
+        <div class="loading-box">
+            <h2 id="loading-text">Loading World...</h2>
+            <div class="progress-bar-container">
+                <div id="loading-progress" class="progress-bar-fill"></div>
+            </div>
+        </div>
+    </div>
+	
 <div id="top-bar" style="display: flex; justify-content: space-between; align-items: center;">
   <div class="left-group">
    <img src="favicon.ico" class="app-icon" alt="App Icon">
@@ -342,6 +372,7 @@
 <div class="tabs" style="display: flex; width: 100%;">
     <button class="tab-btn active" onclick="openTab('insert')">Insert</button>
     <button class="tab-btn" onclick="openTab('settings')">World Settings</button>
+	<button class="tab-btn" onclick="openTab('create')">Create</button>
     <button class="tab-btn" onclick="openTab('view')">View</button>
     
 <button id="btn-world-info" class="tab-btn" onclick="toggleWorldInfo()" disabled style="margin-left: auto; margin-right: 16px; margin-bottom: 4px; color: var(--text); font-weight: bold; opacity: 0.5; cursor: not-allowed; transition: background-color 0.2s ease;">
@@ -394,9 +425,9 @@
             <div class="ribbon-group-content">
                 <div id="hotbar-container">
 				
-				<button class="ribbon-btn-small" onclick="toggleInventory()" title="Open Inventory (E)" style="margin-left: 1px; height: 34px; width: 20px; background: #999; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; border: 2px outset #FFF; padding: 0; box-sizing: border-box; vertical-align: top;">
-    <span style="font-size:14px; font-weight: bold; color: #333;">»</span>
-</button>
+				<button class="ribbon-btn-small" onclick="toggleInventory()" title="Open Inventory (E)" style="margin-left: 1px; height: 34px; width: 20px; background: #999; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; box-sizing: border-box; vertical-align: top;">
+					<span style="font-size:14px; font-weight: bold; color: #333;">»</span>
+				</button>
 
 </div>
             </div>
@@ -412,8 +443,8 @@
                 </button>
                 <div id="recent-structures-ribbon" style="display: flex; align-items: center;"><span style="font-size: 10px; color: #555;">Empty</span></div>
                 <button class="ribbon-btn-small" onclick="openStructuresModal()" title="Open Library / See All" style="margin-left: 1px; height: 66px; width: 20px; background: #999; display: flex; align-items: center; justify-content: center;">
-                    <span style="font-size:14px; font-weight: bold; color: #333;">»</span>
-                </button>
+					<span style="font-size:14px; font-weight: bold; color: #333;">»</span>
+				</button>
             </div>
             <div class="ribbon-group-label">Structures (R)</div>
         </div>
@@ -446,12 +477,12 @@
                     <span style="font-size: 10px; color: #555;">Empty</span>
                 </div>
                 
-                <button class="ribbon-btn-small" onclick="openMobModal()" title="Open Mob Browser" style="margin-left: 1px; height: 66px; width: 20px; background: #999; display: flex; align-items: center; justify-content: center; border: 1px solid #777; cursor: pointer;">
-                    <span style="font-size:14px; font-weight: bold; color: #333;">»</span>
-                </button>
+                <button class="ribbon-btn-small" onclick="openMobModal()" title="Open Mob Browser" style="margin-left: 1px; height: 66px; width: 20px; background: #999; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+					<span style="font-size:14px; font-weight: bold; color: #333;">»</span>
+				</button>
 
             </div>
-            <div class="ribbon-group-label">Mobs</div>
+            <div class="ribbon-group-label">Mobs (M)</div>
         </div>
 		
    </div>
@@ -492,6 +523,9 @@
                     <div style="display: flex; justify-content: space-between; align-items: center; gap: 5px;">
                         <label style="font-size: 12px;">Time:</label>
                         <input type="number" id="gr-time" min="0" max="99" value="0" style="width: 40px; font-size: 11px; padding: 1px; text-align: center;">
+		<label style="cursor: pointer; color: var(--accent); font-weight: bold;">
+			<input type="checkbox" id="live-time-toggle" onchange="toggleLiveTime(this)"> ⏱️ Live
+		</label>
                     </div>
                     <div style="display: flex; justify-content: space-between; align-items: center; gap: 5px;">
                         <label style="font-size: 12px;">Weather:</label>
@@ -588,7 +622,7 @@
         <div class="ribbon-group">
             <div class="ribbon-group-content">
                 <button class="ribbon-btn-large" onclick="openModal('dimensions-modal')">
-                    <img id="current-dim-icon" src="assets/Underworld icon.png" class="icon-img" alt="Dim">
+                    <img id="current-dim-icon" src="assets/Overworld icon.png" class="icon-img" alt="Dim">
                     <span class="text">Change</br>Dimension</span>
                 </button>
             </div>
@@ -634,9 +668,22 @@
       <div id="chest-tooltip-grid"></div>
   </div>
   
-  <div id="zoom-floating">
+<div id="zoom-floating">
     <label for="zoom-slider">Zoom</label>
-    <input type="range" id="zoom-slider" min="0" max="4" step="1" value="2" oninput="updateZoomSlider(this.value)">
+    
+    <input type="range" id="zoom-slider" min="0" max="7" step="1" value="3" list="zoom-ticks" oninput="updateZoomSlider(this.value)">
+    
+    <datalist id="zoom-ticks">
+        <option value="0"></option>
+        <option value="1"></option>
+        <option value="2"></option>
+        <option value="3"></option>
+        <option value="4"></option>
+        <option value="5"></option>
+        <option value="6"></option>
+        <option value="7"></option>
+    </datalist>
+    
     <span id="zoom-value">100%</span>
   </div>
 <div id="console-overlay">
@@ -687,8 +734,11 @@
                     <option value="dark">⚫ Dark (Default)</option>
                     <option value="white">⚪ White</option>
                     <option value="pastel">🌸 Pastel</option>
+					<option value="pastel2">🌸 Pastel 2 (Cool)</option>
                     <option value="darkblue">🔵 Dark Blue</option>
-					<option value="winxp">🪟 Windows XP</option></select>
+					<option value="winxp">🪟 Windows XP</option>
+					<option value="win7">✨ Windows 7 (Aero)</option>
+					</select>
             </div>
         </div>
     </div>
@@ -698,11 +748,11 @@
         
         <div id="inventory-modal-content" class="modal-content" style="margin: 5% auto; width: max-content; bla: #373737; border: 4px solid #555; color: #FFF; display: flex; flex-direction: column;">
             
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #c6c6c6;">
-                <h3 style="margin: 0; color: #333" id="inventory-modal-title">Inventory</h3>
+            <div class="mbw-modal-header">
+                <h3 id="inventory-modal-title">Inventory</h3>
                 <div style="display: flex; gap: 10px; align-items: center;">
-                    <input type="text" id="inventory-search" placeholder="Search..." onkeyup="filterInventory(this.value)" style="padding: 5px; background: #111; color: #FFF; border: 1px solid #555;">
-                    <span onclick="toggleInventory()" style="cursor: pointer; font-size: 20px; font-weight: bold;">&times;</span>
+                    <input type="text" id="inventory-search" placeholder="Search..." onkeyup="filterInventory(this.value)" style="padding: 2px 5px; background: #111; color: #FFF; border: 1px solid #555; height: 20px;">
+                    <span class="mbw-close-btn" onclick="toggleInventory()">&times;</span>
                 </div>
             </div>
             
@@ -760,64 +810,66 @@
             </div>
         </div>
     </div>	
- <div id="structures-modal" class="modal">
-    <div class="modal-content">
-        <div class="struct-main">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 5px;">
-                <h3 style="margin:0; color:gray; user-select: none;">Structures Browser</h3>
-                <span class="close-modal" onclick="closeModal('structures-modal')" style="color:black;">&times;</span>
+<div id="structures-modal" class="modal">
+    <div class="modal-content mbw-standard-modal" style="flex-direction: column;">
+        
+        <div class="mbw-modal-header">
+            <h3>Structures Browser</h3>
+            <span class="mbw-close-btn" onclick="closeModal('structures-modal')">&times;</span>
+        </div>
+        
+        <div style="display: flex; flex-direction: row; flex: 1; overflow: hidden;">
+            <div class="struct-main">
+                <div class="struct-tabs-container">
+                    <div class="struct-tabs">
+                        <div id="tab-struct-favs" class="struct-tab" onclick="filterStructures('favs')">⭐</div>
+                        <div id="tab-struct-saved" class="struct-tab" onclick="filterStructures('saved')">Saved</div>
+                        <div id="tab-struct-vanilla" class="struct-tab active" onclick="filterStructures('vanilla')">Vanilla</div>
+                        <div id="tab-struct-community" class="struct-tab" onclick="filterStructures('community')">Community</div>
+                    </div>
+                    <div id="struct-saved-actions" style="display: none; gap: 5px;">
+                        <button class="mini-btn btn-import" onclick="importStructures()" title="Import JSON">📥 Import</button>
+                        <button class="mini-btn btn-export" onclick="exportSavedStructures()" title="Export JSON">💾 Export</button>
+                        <button class="mini-btn btn-reset" onclick="resetSavedStructures()" title="Delete All Saved">⚠️ Reset</button>
+                    </div>
+                </div>
+
+                <div id="struct-subtabs" style="display: none; justify-content: space-between; align-items: center; margin-top: 10px; margin-bottom: 10px; width: 100%;">
+                    <select id="struct-subcategory-select" onchange="filterSubCategory(this.value)" style="padding: 5px; border-radius: 4px; background: #FFF; color: #000; border: 1px solid #555;">
+                        <option value="all">All</option>
+                        <option value="Structure">Structures</option>
+                        <option value="Chests">Chests</option>
+                        <option value="Houses">Houses</option>
+                        <option value="PixelArt">Pixel Art</option>
+                        <option value="Other">Other</option>
+                    </select>
+
+                    <button id="btn-generate-chest" onclick="generateRandomLootChest()" style="padding: 5px 10px; cursor: pointer; border-radius: 4px; background: #FFF; color: #000; border: 1px solid #555; display: flex; align-items: center; gap: 6px; font-family: inherit;">
+                        <img src="assets/Create Loot Chest.png" style="width: 16px; height: 16px; image-rendering: pixelated; object-fit: contain;">
+                        Generate Chest
+                    </button>
+                </div>
+
+                <div id="structures-grid"></div>
             </div>
             
-            <div class="struct-tabs-container">
-<div class="struct-tabs">
-                    <div id="tab-struct-favs" class="struct-tab" onclick="filterStructures('favs')">⭐</div>
-                    <div id="tab-struct-saved" class="struct-tab" onclick="filterStructures('saved')">Saved</div>
-                    <div id="tab-struct-vanilla" class="struct-tab active" onclick="filterStructures('vanilla')">Vanilla</div>
-                    <div id="tab-struct-community" class="struct-tab" onclick="filterStructures('community')">Community</div>
+            <div class="struct-sidebar">
+                <canvas id="struct-preview-canvas" width="96" height="96"></canvas>
+                
+                <div id="struct-chest-preview" style="display: none; justify-content: center; width: 100%; margin-bottom: 15px; transform: scale(0.9);"></div>
+                
+                <div class="struct-info">
+                    <h3 id="struct-info-title">Select an item</h3>
+                    <p id="struct-author-row">Author: <span id="struct-info-author" style="font-weight:normal;">-</span></p>
+                    <p>Category: <span id="struct-info-sub" style="font-weight:normal;">-</span></p>
                 </div>
-                <div id="struct-saved-actions" style="display: none; gap: 5px;">
-                    <button class="mini-btn btn-import" onclick="importStructures()" title="Import JSON">📥 Import</button>
-                    <button class="mini-btn btn-export" onclick="exportSavedStructures()" title="Export JSON">💾 Export</button>
-                    <button class="mini-btn btn-reset" onclick="resetSavedStructures()" title="Delete All Saved">⚠️ Reset</button>
-                </div>
-            </div>
 
-<div id="struct-subtabs" style="display: none; justify-content: space-between; align-items: center; margin-top: 10px; margin-bottom: 10px; width: 100%;">
-    
-<select id="struct-subcategory-select" onchange="filterSubCategory(this.value)" style="padding: 5px; border-radius: 4px; background: #FFF; color: #000; border: 1px solid #555;">
-        <option value="all">All</option>
-        <option value="Structure">Structures</option>
-        <option value="Chests">Chests</option>
-        <option value="Houses">Houses</option>
-        <option value="PixelArt">Pixel Art</option>
-        <option value="Other">Other</option>
-    </select>
-
-
-	<button id="btn-generate-chest" onclick="generateRandomLootChest()" style="padding: 5px 10px; cursor: pointer; border-radius: 4px; background: #FFF; color: #000; border: 1px solid #555; display: flex; align-items: center; gap: 6px; font-family: inherit;">
-        <img src="assets/Create Loot Chest.png" style="width: 16px; height: 16px; image-rendering: pixelated; object-fit: contain;">
-        Generate Chest
-    </button>
-</div>
-
-            <div id="structures-grid"></div>
-        </div>
-<div class="struct-sidebar">
-            <canvas id="struct-preview-canvas" width="96" height="96"></canvas>
-			
-            <div id="struct-chest-preview" style="display: none; justify-content: center; width: 100%; margin-bottom: 15px; transform: scale(0.9);"></div>
-			
-			<div class="struct-info">
-                <h3 id="struct-info-title">Select an item</h3>
-                <p id="struct-author-row">Author: <span id="struct-info-author" style="font-weight:normal;">-</span></p>
-                <p>Category: <span id="struct-info-sub" style="font-weight:normal;">-</span></p>
-            </div>
-
-            <div class="struct-actions-container">
-                <button class="btn-load-struct" onclick="loadStructureToClipboard()">Load Structure</button>
-                <div id="struct-edit-actions" class="struct-actions-row">
-                    <button class="btn-action-text btn-edit-action" onclick="openEditInfoModal()" title="Edit Info"><span>✏️</span> Edit</button>
-                    <button class="btn-action-text btn-delete-action" onclick="deleteSavedStructure()" title="Delete"><span>🗑️</span> Delete</button>
+                <div class="struct-actions-container">
+                    <button class="btn-load-struct" onclick="loadStructureToClipboard()">Load Structure</button>
+                    <div id="struct-edit-actions" class="struct-actions-row">
+                        <button class="btn-action-text btn-edit-action" onclick="openEditInfoModal()" title="Edit Info"><span>✏️</span> Edit</button>
+                        <button class="btn-action-text btn-delete-action" onclick="deleteSavedStructure()" title="Delete"><span>🗑️</span> Delete</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -825,38 +877,40 @@
  </div>
 
 <div id="save-structure-modal" class="modal">
-    <div class="modal-content">
-        <div style="display: flex; justify-content: center; align-items: center; position: relative; margin-bottom: 5px;">
-            <h3 style="margin: 0; text-align: center; color: black;">Save New Structure</h3>
-            <span class="close-modal" onclick="closeModal('save-structure-modal')" style="position: absolute; right: 0; top: -2px; cursor:pointer; font-weight:bold; color:black; font-size: 20px; line-height: 1;">&times;</span>
+    <div class="modal-content mbw-standard-modal" style="width: 500px; height: auto;">
+        <div class="mbw-modal-header">
+            <h3>Save New Structure</h3>
+            <span class="mbw-close-btn" onclick="closeModal('save-structure-modal')">&times;</span>
         </div>
-        <canvas id="struct-save-preview" width="460" height="295"></canvas>
-        <div class="save-form-row">
-            <label>Title</label>
-            <input type="text" id="input-struct-title" placeholder="Text">
-        </div>
-        <div class="save-form-row">
-            <label>Author</label>
-            <input type="text" id="input-struct-author" placeholder="Username">
-        </div>
-        <div class="save-form-row" style="display: none;">
-            <label>Category</label>
-            <input type="text" id="input-struct-category" value="saved" readonly>
-        </div>
-        <div class="save-form-row">
-            <label>Tag</label>
-            <select id="input-struct-subcategory">
-                <option value="Structure">Structure</option>
-                <option value="House">House</option>
-                <option value="Chests">Chests</option>
-                <option value="PixelArt">Pixel Art</option>
-                <option value="Vehicle">Vehicle</option>
-                <option value="Other" selected>Other</option>
-            </select>
-        </div>
-        <div class="save-actions">
-            <button class="btn-cancel" onclick="closeModal('save-structure-modal')">Cancel</button>
-            <button class="btn-confirm-save" onclick="saveNewStructure()">Save</button>
+        <div class="mbw-modal-body" style="display: flex; flex-direction: column; gap: 10px;">
+            <canvas id="struct-save-preview" width="460" height="295"></canvas>
+            <div class="save-form-row">
+                <label>Title</label>
+                <input type="text" id="input-struct-title" placeholder="Text">
+            </div>
+            <div class="save-form-row">
+                <label>Author</label>
+                <input type="text" id="input-struct-author" placeholder="Username">
+            </div>
+            <div class="save-form-row" style="display: none;">
+                <label>Category</label>
+                <input type="text" id="input-struct-category" value="saved" readonly>
+            </div>
+            <div class="save-form-row">
+                <label>Tag</label>
+                <select id="input-struct-subcategory">
+                    <option value="Structure">Structure</option>
+                    <option value="House">House</option>
+                    <option value="Chests">Chests</option>
+                    <option value="PixelArt">Pixel Art</option>
+                    <option value="Vehicle">Vehicle</option>
+                    <option value="Other" selected>Other</option>
+                </select>
+            </div>
+            <div class="save-actions">
+                <button class="btn-cancel" onclick="closeModal('save-structure-modal')">Cancel</button>
+                <button class="btn-confirm-save" onclick="saveNewStructure()">Save</button>
+            </div>
         </div>
     </div>
  </div>
@@ -924,19 +978,23 @@
   </div>
  </div>
  
- <div id="dimensions-modal" class="modal">
-    <div class="modal-content" style="width: 550px; height: auto;">
-        <span class="close-modal" onclick="closeModal('dimensions-modal')">&times;</span>
-        <h3 style="color:gray; margin-top: 0;">Select Dimension</h3>
-        <div class="dimensions-grid">
-            <div class="dim-item" onclick="changeDimension(1)">
-                <img src="assets/underworld icon.png" class="dim-preview"><span class="dim-name">Overworld</span> 
-            </div>
-            <div class="dim-item" onclick="changeDimension(2)">
-                <img src="assets/nether icon.png" class="dim-preview"><span class="dim-name">Nether</span>
-            </div>
-            <div class="dim-item" onclick="changeDimension(3)">
-                <img src="assets/end icon.png" class="dim-preview"><span class="dim-name">End</span>
+<div id="dimensions-modal" class="modal">
+    <div class="modal-content mbw-standard-modal" style="width: 550px; height: auto;">
+        <div class="mbw-modal-header">
+            <h3>Select Dimension</h3>
+            <span class="mbw-close-btn" onclick="closeModal('dimensions-modal')">&times;</span>
+        </div>
+        <div class="mbw-modal-body">
+            <div class="dimensions-grid">
+                <div class="dim-item" onclick="changeDimension(1)">
+                    <img src="assets/underworld icon.png" class="dim-preview"><span class="dim-name">Overworld</span> 
+                </div>
+                <div class="dim-item" onclick="changeDimension(2)">
+                    <img src="assets/nether icon.png" class="dim-preview"><span class="dim-name">Nether</span>
+                </div>
+                <div class="dim-item" onclick="changeDimension(3)">
+                    <img src="assets/end icon.png" class="dim-preview"><span class="dim-name">End</span>
+                </div>
             </div>
         </div>
     </div>
@@ -1027,16 +1085,18 @@
 </div>
 
 <div id="mobs-modal" class="modal">
-        <div class="modal-content" style="width: 750px; height: 500px; background: #C6C6C6; border: 2px solid #555; padding: 0; display: flex; flex-direction: row; overflow: hidden;">
-            
+    <div class="modal-content mbw-standard-modal" style="width: 750px; height: 576px; flex-direction: column;">
+        
+        <div class="mbw-modal-header">
+            <h3>Mob Browser</h3>
+            <span class="mbw-close-btn" onclick="closeModal('mobs-modal')">&times;</span>
+        </div>
+        
+        <div style="display: flex; flex-direction: row; flex: 1; overflow: hidden;">
             <div class="mob-main">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 5px;">
-                    <h3 style="margin:0; color:gray; user-select: none;">Mob Browser</h3>
-                    <span class="close-modal" onclick="closeModal('mobs-modal')" style="color:black; cursor:pointer; font-size: 20px; font-weight: bold;">&times;</span>
-                </div>
-                
                 <div class="mob-tabs-container">
                     <div class="mob-tabs">
+                        <div id="tab-mob-animals" class="mob-tab" onclick="filterMobs('Animals')">Animals</div>
                         <div id="tab-mob-overworld" class="mob-tab active" onclick="filterMobs('Overworld')">Overworld</div>
                         <div id="tab-mob-nether" class="mob-tab" onclick="filterMobs('Nether')">Nether</div>
                         <div id="tab-mob-end" class="mob-tab" onclick="filterMobs('End')">End</div>
@@ -1044,13 +1104,12 @@
                 </div>
 
                 <div id="mobs-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0px; overflow-y: auto; background: #8B8B8B; padding: 0px; border: 2px solid #373737; border-top: none; border-right-color: #FFF; border-bottom-color: #FFF; flex: 1; align-content: start;">
-                    </div>
+                </div>
             </div>
 
             <div class="mob-sidebar">
-                
                 <div style="width: 220px; height: 220px; background: #8B8B8B; border: 2px solid #373737; margin-bottom: 15px; display: flex; justify-content: center; align-items: center;">
-                    <img id="mob-preview-image" src="assets/zombie.png" style="width: 220px; max-height: 220px; object-fit: contain; image-rendering: pixelated;" onerror="this.src='assets/zombie.png'">
+                    <img id="mob-preview-image" src="assets/zombie.png" style="width: 220px; max-height: 220px; object-fit: contain; image-rendering: pixelated;" onerror="this.onerror=null; this.src='assets/zombie.png'">
                 </div>
                 
                 <div class="mob-info">
@@ -1062,9 +1121,9 @@
                     <button class="btn-load-struct" onclick="spawnPreviewedMob()" style="font-size: 18px; padding: 12px 0;">Spawn Mob</button>
                 </div>
             </div>
-
         </div>
     </div>
+</div>
 
  <script>
     function toggleSpray(btn) {
