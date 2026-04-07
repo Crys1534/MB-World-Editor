@@ -332,23 +332,45 @@
         <input type="checkbox" id="autosave-toggle" onchange="toggleAutoSave()">
         <span class="ms-slider"></span>
     </label>
-</div>
-
-   <button class="icon-btn" onclick="openModal('settings-modal')">⚙️ Configuration</button>
+   </div>
+   
+   <button class="icon-btn" onclick="openModal('settings-modal')" title="Configuration">Configuration</button>
+   
    <div class="separator"></div>
    <button class="icon-btn" onclick="historyManager.undo()" title="Undo (Ctrl+Z)">↶</button>
    <button class="icon-btn" onclick="historyManager.redo()" title="Redo (Ctrl+Y)">↷</button>
    <div class="separator"></div>
+   
    <div class="filename-wrapper">
     <input type="text" id="filename-display" value="world" oninput="updateFilename(this.value)">
     <span class="extension">.mbw</span>
    </div>
   </div>
   
-	<button class="menu-btn" onclick="fileManager.export()">💾 Export</button>
-	<button class="icon-btn" id="news-btn" onclick="openNewsModal()" title="Updates & Changelog" style="font-size: 14px; font-weight: bold;">📰 News</button>
- </div>
+  <div class="right-group" style="display: flex; align-items: center; gap: 8px; margin-right: 15px; position: relative;">
+        
+    <button id="profile-btn" onclick="toggleProfilePopup()" style="width: 28px; height: 28px; border-radius: 50%; padding: 0; cursor: pointer; overflow: hidden; background: var(--input-bg); flex-shrink: 0; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+        <img id="top-profile-img" src="assets/default pfp.png" style="width: 100%; height: 100%; object-fit: cover; image-rendering: auto;">
+    </button>
 
+    <div id="profile-popup" style="display: none; position: absolute; top: 40px; right: 80px; background: var(--bg-panel); border-radius: 6px; padding: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); z-index: 1000; flex-direction: row; align-items: center; gap: 12px; width: 200px; cursor: default;">
+        
+        <div class="profile-pic-container" onclick="document.getElementById('profile-upload').click()" style="position: relative; width: 50px; height: 50px; border-radius: 50%; overflow: hidden; cursor: pointer; flex-shrink: 0;">
+            <img id="popup-profile-img" src="assets/default pfp.png" style="width: 100%; height: 100%; object-fit: cover; image-rendering: auto;">
+            <div class="profile-pic-overlay">✏️</div>
+        </div>
+        <input type="file" id="profile-upload" accept="image/*" style="display: none;" onchange="handleProfileUpload(event)">
+        
+        <div style="flex-grow: 1; display: flex; flex-direction: column; overflow: hidden;">
+            <span style="font-size: 10px; color: var(--text); opacity: 0.6; font-weight: bold; text-transform: uppercase;">Username</span>
+            <input type="text" id="profile-username" value="" onkeydown="handleUsernameEnter(event)" onblur="saveUsername()" autocomplete="off" spellcheck="false" title="Press Enter to save">
+        </div>
+
+    </div>
+
+    <button class="icon-btn" id="news-btn" onclick="openNewsModal()" title="Updates & Changelog" style="font-size: 14px; font-weight: bold;">📰 News</button>
+  </div>
+</div>
  <div id="ui-collapse-wrapper" class="collapsible-wrapper">
   <div class="ui-collapse-inner">
       
@@ -356,14 +378,18 @@
 
       <div id="ribbon">
 <div class="tabs" style="display: flex; width: 100%;">
-    <button class="tab-btn active" onclick="openTab('insert')">Insert</button>
-    <button class="tab-btn" onclick="openTab('settings')">World Settings</button>
-	<button class="tab-btn" onclick="openTab('create')">Create</button>
-    <button class="tab-btn" onclick="openTab('view')">View</button>
+    <button class="tab-btn active" onclick="openTab('insert')" data-text="Insert">Insert</button>
+    <button class="tab-btn" onclick="openTab('settings')" data-text="World Settings">World Settings</button>
+    <button class="tab-btn" onclick="openTab('create')" data-text="Create">Create</button>
+    <button class="tab-btn" onclick="openTab('view')" data-text="View">View</button>
     
-<button id="btn-world-info" class="tab-btn" onclick="toggleWorldInfo()" disabled style="margin-left: auto; margin-right: 16px; margin-bottom: 4px; color: var(--text); font-weight: bold; opacity: 0.5; cursor: not-allowed; transition: background-color 0.2s ease;">
-    ℹ️ World Info
-</button>
+	<button onclick="fileManager.export()" onmouseover="this.style.background='var(--input-hover)'" onmouseout="this.style.background='var(--input-bg)'" style="margin-left: auto; margin-bottom: 4px; align-self: flex-end; background: var(--input-bg); color: var(--text); border: 1px solid var(--border); padding: 4px 12px; font-weight: bold; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: background 0.2s;">
+        💾 Export
+    </button>
+
+    <button id="btn-world-info" class="tab-btn" onclick="toggleWorldInfo()" disabled style="margin-left: 10px; margin-right: 16px; color: var(--text); opacity: 0.5; cursor: not-allowed; transition: background-color 0.2s ease;">
+        ℹ️ World Info
+    </button>
   </div>
 
   <div class="tab-content">
@@ -434,25 +460,6 @@
             </div>
             <div class="ribbon-group-label">Structures (R)</div>
         </div>
-		<div class="separator"></div>
-		
-		<div class="ribbon-group">
-						<button class="ribbon-btn-large" onclick="openCreateChestModal()">
-							<img src="assets/Create Loot Chest.png" alt="Loot Chest" style="width: 32px; height: 32px; object-fit: contain; margin-bottom: 0px; image-rendering: pixelated;">
-							<span>Create<br>Loot Chest</span>
-						</button>
-                        <div class="ribbon-group-label">Chests</div>
-		</div>
-					
-		<div class="separator"></div>
-		
-		<div class="ribbon-group">
-						<button class="ribbon-btn-large" onclick="openCustomItemsModal()">
-							<img src="assets/Create Item.png" alt="Create Item" style="width: 32px; height: 32px; object-fit: contain; margin-bottom: 0px; image-rendering: pixelated;">
-							<span>Create<br>Item</span>
-						</button>
-						<div class="ribbon-group-label">Custom Items</div>
-		</div>
 		
 <div class="separator"></div>
         
@@ -591,7 +598,29 @@
 
     </div>
 
+<div id="tab-create" class="tab-pane">
+        
+        <div class="ribbon-group">
+            <button class="ribbon-btn-large" onclick="openCreateChestModal()">
+                <img src="assets/Create Loot Chest.png" alt="Loot Chest" style="width: 32px; height: 32px; object-fit: contain; margin-bottom: 0px; image-rendering: pixelated;">
+                <span>Create<br>Loot Chest</span>
+            </button>
+            <div class="ribbon-group-label">Chests</div>
+        </div>
+        
+        <div class="separator"></div>
+        
+        <div class="ribbon-group">
+            <button class="ribbon-btn-large" onclick="openCustomItemsModal()">
+                <img src="assets/Create Item.png" alt="Create Item" style="width: 32px; height: 32px; object-fit: contain; margin-bottom: 0px; image-rendering: pixelated;">
+                <span>Create<br>Item</span>
+            </button>
+            <div class="ribbon-group-label">Custom Items</div>
+        </div>
 
+    </div>
+    
+	
     <div id="tab-view" class="tab-pane">
 <div class="ribbon-group">
             <label class="ribbon-group-content" style="flex-direction: column; justify-content: center; gap: 2px; cursor: pointer; display: flex;">
@@ -692,6 +721,8 @@
      <div style="display: flex; flex-direction: column; gap: 10px; font-size: 12px;">
          <label style="font-weight: bold; margin-bottom: -5px;">World Name:</label>
          <input type="text" id="sidebar-world-name" oninput="updateFilename(this.value)" style="padding: 4px; background-color: var(--input-bg); color: var(--text); font-weight: bold; border: 1px solid var(--border); border-radius: 3px; outline: none;">
+		 <label style="font-weight: bold; margin-bottom: -5px;">Author:</label>
+				<input type="text" id="sidebar-world-author" placeholder="" style="padding: 4px; background-color: var(--input-bg); color: var(--text); font-weight: bold; border: 1px solid var(--border); border-radius: 3px; outline: none;">
          <label style="font-weight: bold; margin-bottom: -5px;">Version:</label>
          <input type="text" id="sidebar-world-version" disabled style="padding: 4px; background-color: var(--bg-dark); color: var(--text); border: 1px solid var(--border); border-radius: 3px; cursor: not-allowed; opacity: 0.8;">
          <label style="font-weight: bold; margin-bottom: -5px;">Seed:</label>
@@ -704,7 +735,7 @@
              <label style="font-weight: bold; margin: 0;">Defeated Enderdragon:</label>
              <span id="sidebar-world-ender" style="font-weight: bold;">-</span>
          </div>
-		 <p>File Size: <span id="world-info-size" style="font-weight: normal;">-</span></p>
+		 <p><b>File Size: </b><span id="world-info-size" style="font-weight: normal;">-</span></p>
      </div>
  </div>
 
@@ -726,14 +757,23 @@
 					<option value="winxp">🪟 Windows XP</option>
 					<option value="win7">✨ Windows 7 (Aero)</option>
 					</select>
+<br>
 				<label>Auto-Save Interval</label>
-				<select id="autosave-interval" onchange="applyAutoSaveSettings()" style="padding: 2px 5px; background: #111; color: #FFF; border: 1px solid #555;">
-					<option value="0">Off (Desactivado)</option>
+				<select id="autosave-interval" onchange="applyAutoSaveSettings()" style="padding: 2px 5px; border: 1px solid #555;">
+					<option value="0">Off (Disabled)</option>
 					<option value="1">Every 1 minute</option>
 					<option value="5">Every 5 minutes</option>
 					<option value="10">Every 10 minutes</option>
 				</select>
-            </div>
+<br>
+		  		<label style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 5px;">
+					<span>🔊 Master Volume</span>
+					<span id="volume-display">100%</span>
+				</label>
+            <input type="range" id="volume-slider" min="0" max="100" value="100" oninput="changeVolume(this.value)" style="width: 100%; cursor: pointer;">
+            
+			
+			</div>
         </div>
     </div>
  </div>
@@ -1166,6 +1206,102 @@
         </div>
     </div>
 </div>
+
+
+<script>
+    // Mostrar/Ocultar el menú del perfil
+    function toggleProfilePopup() {
+        const popup = document.getElementById('profile-popup');
+        popup.style.display = (popup.style.display === 'none' || popup.style.display === '') ? 'flex' : 'none';
+    }
+
+    // Cerrar el menú si haces clic afuera
+    document.addEventListener('click', function(event) {
+        const popup = document.getElementById('profile-popup');
+        const btn = document.getElementById('profile-btn');
+        if (popup && popup.style.display === 'flex') {
+            if (!popup.contains(event.target) && !btn.contains(event.target)) {
+                popup.style.display = 'none';
+            }
+        }
+    });
+
+    // Subir la imagen de perfil y convertirla a Base64 para guardarla en el navegador
+    function handleProfileUpload(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const base64Img = e.target.result;
+                document.getElementById('top-profile-img').src = base64Img;
+                document.getElementById('popup-profile-img').src = base64Img;
+                localStorage.setItem('mbw_profile_pic', base64Img); // Guarda la foto
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    // Guardar el nombre al dar Enter
+    function handleUsernameEnter(event) {
+        if (event.key === 'Enter') {
+            event.target.blur(); // Quita el foco, lo que activa onblur="saveUsername()"
+        }
+    }
+
+    // Guardar el nombre en el navegador
+    function saveUsername() {
+        const input = document.getElementById('profile-username');
+        let username = input.value.trim();
+        if (username === '') username = 'Username'; // Valor por defecto si lo dejan vacío
+        
+        localStorage.setItem('mbw_username', username);
+        input.value = username;
+    }
+
+    // Cargar los datos automáticamente al abrir el editor
+    window.addEventListener('DOMContentLoaded', () => {
+        const savedPic = localStorage.getItem('mbw_profile_pic');
+        if (savedPic) {
+            document.getElementById('top-profile-img').src = savedPic;
+            document.getElementById('popup-profile-img').src = savedPic;
+        }
+        const savedName = localStorage.getItem('mbw_username');
+        if (savedName) {
+            document.getElementById('profile-username').value = savedName;
+        }
+    });
+	
+	
+		// ==========================================
+    // ✨ SISTEMA DE VOLUMEN GLOBAL
+    // ==========================================
+    window.masterVolume = 1.0; // Variable global (de 0.0 a 1.0) para usar en tus audios
+
+    function changeVolume(val) {
+        // Actualiza el texto en la interfaz
+        document.getElementById('volume-display').innerText = val + "%";
+        
+        // Convierte de 0-100 a 0.0-1.0 para el código de audio
+        window.masterVolume = val / 100;
+        
+        // Lo guarda en el navegador
+        localStorage.setItem('mbw_volume', val);
+    }
+
+    // Enganchamos la carga del volumen guardado al evento DOMContentLoaded que ya teníamos
+    window.addEventListener('DOMContentLoaded', () => {
+        let savedVol = localStorage.getItem('mbw_volume');
+        if (savedVol !== null) {
+            const slider = document.getElementById('volume-slider');
+            if (slider) {
+                slider.value = savedVol;
+                changeVolume(savedVol);
+            }
+        }
+    });
+</script>
+
+
 
  <script src="scripts/ui-handler.js"></script>
  <script src="scripts/mbwom.js"></script>

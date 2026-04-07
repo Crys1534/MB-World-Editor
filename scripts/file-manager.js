@@ -41,15 +41,15 @@ const fileManager = {
  
  load: function (event) {
   try {
-   updateLoadingBar(30, "Decodificando archivo...");
+   updateLoadingBar(30, "Decoding world...");
 
    setTimeout(() => {
        const jsonString = mbwAlgorithm.decode(event.target.result);
-       updateLoadingBar(60, "Analizando terreno...");
+       updateLoadingBar(60, "Analyzing terrain...");
 
        setTimeout(() => {
            const parsedWorld = JSON.parse(jsonString);
-           updateLoadingBar(85, "Cargando entidades y ajustes...");
+           updateLoadingBar(85, "Loading entities and settings...");
 
            setTimeout(() => {
                
@@ -82,8 +82,11 @@ const fileManager = {
                    }
                }
 
-               window.fileInfo = mbwom.world.fileInfo || { version: "Unknown", seed: "" };
+               window.fileInfo = mbwom.world.fileInfo || { version: "", seed: "", author: "" };
                window.cheats = mbwom.world.cheats || false;
+               
+               const authorEl = document.getElementById("sidebar-world-author");
+               if (authorEl) authorEl.value = window.fileInfo.author || "";
                window.defeatedEnder = mbwom.world.defeatedEnder || false;
                
                if (typeof populateWorldInfo === 'function') populateWorldInfo();
@@ -158,9 +161,9 @@ const fileManager = {
                const forceWeatherEl = document.getElementById("gr-weather");
                if (forceWeatherEl) forceWeatherEl.dispatchEvent(new Event('change'));
 
-               console.log("Mundo cargado exitosamente.");
+               console.log("World loaded succesfully.");
 
-               updateLoadingBar(100, "¡Mundo Cargado!");
+               updateLoadingBar(100, "World Ready!");
                setTimeout(() => {
                    const overlay = document.getElementById('loading-overlay');
                    if (overlay) overlay.style.display = 'none';
@@ -245,10 +248,25 @@ const fileManager = {
         baseName = filenameInput.value.trim();
     }
 
-    if (window.fileInfo) {
-        window.fileInfo.name = baseName;
-        mbwom.world.fileInfo = window.fileInfo;
+    if (!window.fileInfo) window.fileInfo = { version: "", seed: "", author: "" };
+    window.fileInfo.name = baseName;
+    const authorInput = document.getElementById("sidebar-world-author");
+    
+    // ✨ MAGIA DE AUTORÍA: 
+    // Intenta usar el autor escrito en el Sidebar. Si está vacío, usa el nombre del Perfil Global.
+    let finalAuthor = "";
+    if (authorInput && authorInput.value.trim() !== "") {
+        finalAuthor = authorInput.value.trim();
+    } else {
+        const profileName = localStorage.getItem('mbw_username');
+        if (profileName && profileName !== "Username") {
+            finalAuthor = profileName; // Asigna el nombre si no es el default "Username"
+        }
     }
+    
+    window.fileInfo.author = finalAuthor;
+    mbwom.world.fileInfo = window.fileInfo;
+
     if (typeof window.defeatedEnder !== 'undefined') mbwom.world.defeatedEnder = window.defeatedEnder;
 
     const knownMobs = [
@@ -325,8 +343,8 @@ saveLocal: async function(isAutoSave = false) {
         console.warn("El navegador bloqueó la foto por seguridad (CORS). Se guardará sin miniatura.");
     }
     
-    // Guardamos el nombre, el código del mundo, y la foto (si se pudo tomar)
-    await localDB.saveWorld(data.name, data.textData, thumbnailBase64);
+    // Guardamos el nombre, el código, la foto y la info del mundo
+    await localDB.saveWorld(data.name, data.textData, thumbnailBase64, window.fileInfo);
     
     if (!isAutoSave) {
         alert(`¡Mundo "${data.name}" guardado exitosamente en tu navegador!`);
@@ -345,7 +363,7 @@ if (fileManager.input) {
     fileManager.input.addEventListener("change", function (event) {
      fileManager.file = event.target.files[0];
      if (fileManager.file) {
-      updateLoadingBar(10, "Leyendo archivo...");
+      updateLoadingBar(10, "Reading file...");
       const reader = new FileReader();
       reader.onload = fileManager.load;
       reader.readAsText(fileManager.file);
@@ -413,12 +431,12 @@ dropZone.addEventListener('drop', (e) => {
         fileManager.file = e.dataTransfer.files[0];
         
         if (fileManager.file.name.toLowerCase().endsWith('.mbw')) {
-            updateLoadingBar(10, "Leyendo archivo...");
+            updateLoadingBar(10, "Reading file...");
             const reader = new FileReader();
             reader.onload = fileManager.load;
             reader.readAsText(fileManager.file);
         } else {
-            alert("⚠️ Por favor, suelta un archivo válido de Mine Blocks (.mbw)");
+            alert("⚠️ Please, drop a valid Mine Blocks file (.mbw)");
         }
     }
 });
@@ -443,12 +461,11 @@ const localDB = {
             request.onerror = (e) => reject(e.target.error);
         });
     },
-    saveWorld: async function(name, dataString, thumbnail = "") {
+    saveWorld: async function(name, dataString, thumbnail = "", fileInfo = {}) {
         let db = await this.init();
         let transaction = db.transaction(this.storeName, "readwrite");
         let store = transaction.objectStore(this.storeName);
-        // ✨ Agregamos la propiedad 'thumb' a la base de datos
-        store.put({ name: name, data: dataString, date: Date.now(), thumb: thumbnail });
+        store.put({ name: name, data: dataString, date: Date.now(), thumb: thumbnail, fileInfo: fileInfo });
     },
     getWorlds: async function() {
         let db = await this.init();
@@ -530,11 +547,11 @@ async function loadMyWorldsList() {
     const listDiv = document.getElementById("local-worlds-list");
     if(!listDiv) return;
 
-    listDiv.innerHTML = "<p style='color:#333; text-align:center;'>Cargando mundos...</p>";
+    listDiv.innerHTML = "<p style='color:#333; text-align:center;'>Loading world...</p>";
     const worlds = await localDB.getWorlds();
     
     if(worlds.length === 0) {
-        listDiv.innerHTML = "<p style='color:#333; font-weight:bold; text-align:center; padding: 20px;'>No tienes mundos guardados.<br>¡Guarda manualmente con el disquete de la barra!</p>";
+        listDiv.innerHTML = "<p style='color:#333; font-weight:bold; text-align:center; padding: 20px;'>There's not saved worlds.<br>Save manually with the 💾 icon!</p>";
         return;
     }
 
@@ -552,7 +569,7 @@ async function loadMyWorldsList() {
         div.innerHTML = `
             <div>
                 <h4 style="margin:0; font-size:18px; color:#000;">${w.name}</h4>
-                <small style="color:#222; font-weight:bold;">Guardado: ${date} • ${sizeText}</small>
+                <small style="color:#222; font-weight:bold;">Saved: ${date} • ${sizeText}</small>
             </div>
             <div style="display:flex; gap:5px;">
                 <button class="btn-load-struct" onclick="loadSavedLocalWorld('${w.name}')" style="padding: 5px 15px; font-size: 14px;">Load</button>
@@ -565,13 +582,13 @@ async function loadMyWorldsList() {
 
 async function loadSavedLocalWorld(name) {
     const textData = await localDB.loadWorld(name);
-    if(!textData) { alert("Error al leer el archivo."); return; }
+    if(!textData) { alert("Error while reading the file."); return; }
     
     if (typeof closeModal === 'function') closeModal('file-modal');
     else document.getElementById('file-modal').style.display = 'none';
 
     fileManager.file = { name: name + ".mbw", size: new Blob([textData]).size };
-    updateLoadingBar(10, "Cargando desde el navegador...");
+    updateLoadingBar(10, "Loading from the browser...");
     
     setTimeout(() => {
         fileManager.load({ target: { result: textData } });
@@ -579,33 +596,65 @@ async function loadSavedLocalWorld(name) {
 }
 
 async function deleteSavedLocalWorld(name) {
-    if(confirm(`¿Estás seguro de que quieres ELIMINAR "${name}" permanentemente?`)) {
+    if(confirm(`¿Are you sure to DELETE "${name}" ?`)) {
         await localDB.deleteWorld(name);
         loadMyWorldsList(); 
     }
 }
 
 // ==============================================================
-// ✨ LÓGICA DEL SWITCH "AUTOSAVE"
+// ✨ LÓGICA SINCRONIZADA DEL AUTOGUARDADO
 // ==============================================================
 let autoSaveIntervalId = null;
 
-function toggleAutoSave() {
-    const isChecked = document.getElementById('autosave-toggle').checked;
+// 1. Se llama cuando haces clic en el switch de la barra superior
+window.toggleAutoSave = function() {
+    const toggle = document.getElementById('autosave-toggle');
+    const select = document.getElementById('autosave-interval');
+    
+    if (toggle && toggle.checked) {
+        if (select) select.value = "1"; // Lo ajusta a 1 minuto visualmente en Settings
+        startAutoSaveInterval(1);
+    } else {
+        if (select) select.value = "0"; // Lo apaga visualmente en Settings
+        stopAutoSaveInterval();
+    }
+}
 
-    if(autoSaveIntervalId) {
+// 2. Se llama cuando cambias la lista desplegable en la ventana Settings
+window.applyAutoSaveSettings = function() {
+    const toggle = document.getElementById('autosave-toggle');
+    const select = document.getElementById('autosave-interval');
+    
+    if (!select) return;
+    const minutes = parseInt(select.value);
+    
+    if (minutes > 0) {
+        if (toggle) toggle.checked = true; // Prende el switch de arriba
+        startAutoSaveInterval(minutes);
+    } else {
+        if (toggle) toggle.checked = false; // Apaga el switch de arriba
+        stopAutoSaveInterval();
+    }
+}
+
+// 3. El motor real que cuenta el tiempo
+function startAutoSaveInterval(minutes) {
+    stopAutoSaveInterval(); // Limpia cualquier reloj anterior para evitar dobles guardados
+    
+    autoSaveIntervalId = setInterval(() => {
+        if (typeof mbwom !== 'undefined' && mbwom.world) {
+            fileManager.saveLocal(true); // true = Guardado silencioso
+        }
+    }, minutes * 60 * 1000); 
+    
+    console.log(`⏱️ Auto save ON (Every ${minutes} mins).`);
+}
+
+function stopAutoSaveInterval() {
+    if (autoSaveIntervalId) {
         clearInterval(autoSaveIntervalId);
         autoSaveIntervalId = null;
     }
-
-    if(isChecked) {
-        autoSaveIntervalId = setInterval(() => {
-            if(typeof mbwom !== 'undefined' && mbwom.world) {
-                fileManager.saveLocal(true); 
-            }
-        }, 5 * 60 * 1000); 
-        console.log("⏱️ AutoSave activado (Cada 5 min).");
-    } else {
-        console.log("⏱️ AutoSave desactivado.");
-    }
+    console.log("⏱️ Auto save disabled.");
 }

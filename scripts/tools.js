@@ -114,9 +114,31 @@ window.addEventListener('keydown', function(e) {
     // LÍNEAS DE Ctrl+X, Ctrl+C y Ctrl+V FUERON ELIMINADAS AQUÍ.
 });
 
-function takeScreenshot() {
-    alert("📸 To take a screenshot:\n\n1. Hold 'Shift'.\n2. Right-clic on the map.\n3. Select 'Save image as...' or 'Open image in a new tab'.");
-}
+window.takeScreenshot = function() {
+    const canvas = document.getElementById("canvas");
+    if (!canvas) {
+        console.error("No se encontró el canvas para tomar la foto.");
+        return;
+    }
+
+    // ✨ LA MAGIA: Tomamos la foto EXACTA de lo que tu pantalla muestra ahora mismo
+    const imageBase64 = canvas.toDataURL("image/png");
+
+    // Generamos un nombre automático con la fecha y hora (Ej: Screenshot_20260407_143000.png)
+    const date = new Date();
+    const pad = (num) => num.toString().padStart(2, '0');
+    const filename = `Screenshot_${date.getFullYear()}${pad(date.getMonth()+1)}${pad(date.getDate())}_${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}.png`;
+
+    // Creamos un enlace invisible para forzar la descarga en tu navegador
+    const link = document.createElement("a");
+    link.href = imageBase64;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    console.log("¡Screenshot guardado con éxito!");
+};
 
 function toggleConsole() {
     const consoleDiv = document.getElementById('console-overlay');

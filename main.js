@@ -190,6 +190,7 @@ function renderWorldToBuffer() {
     }
 }
 
+
 function drawWorld() {
     // Optimización: Aplicar Math.floor para redibujar el buffer solo al cruzar enteros
     const camX = Math.floor(camera.x);
