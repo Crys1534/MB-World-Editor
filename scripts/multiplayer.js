@@ -81,24 +81,75 @@ window.enviarMensajeEnRed = function(datos) {
 }
 
 function recibirMensajeDeRed(datos) {
+    console.log("📥 DATO RECIBIDO DE LA RED:", datos);
+
+    // 1. Mensajes de prueba o chat
     if (datos.tipo === "chat") {
-        console.log("Amigo dice:", datos.texto);
+        console.log("💬 Mensaje de tu amigo:", datos.texto);
+        // Opcional: puedes añadir un alert o notificación en pantalla aquí
     }
     
-    // ✨ MAGIA: El amigo interactuó con un bloque
+    // 2. Sincronización total (Cuando el host presiona "Send World")
+    if (datos.tipo === "sync_mundo") {
+        console.log("🌍 ¡Recibiendo mapa completo del anfitrión!");
+        
+        // Sobreescribimos el objeto del mundo con los datos recibidos
+        mbwom.world = datos.mundo;
+        
+        // Actualizamos el nombre del archivo en la barra superior
+        const filenameDisplay = document.getElementById("filename-display");
+        if (filenameDisplay && mbwom.world.fileInfo) {
+            filenameDisplay.value = mbwom.world.fileInfo.name || "Multiplayer World";
+        }
+        
+        // Forzamos el redibujado completo del canvas para mostrar el nuevo mapa
+        if (typeof drawWorld === 'function') {
+            drawWorld();
+        }
+        
+        alert("¡Mundo recibido y sincronizado correctamente!");
+    }
+
+    // 3. Actualización de bloques en tiempo real (Lápiz, Borrador, Pincel)
     if (datos.tipo === "actualizar_bloque") {
+        // Verificamos que el motor MBWOM esté listo
         if (typeof mbwom !== 'undefined' && mbwom.scene) {
             
             if (datos.estado === null) {
-                // Si el estado es null, significa que el amigo usó el Borrador
-                if (mbwom.scene[datos.x]) delete mbwom.scene[datos.x][datos.y];
+                // Caso Borrador: Si el estado es null, eliminamos el bloque de la escena
+                if (mbwom.scene[datos.x]) {
+                    delete mbwom.scene[datos.x][datos.y];
+                }
             } else {
-                // Si hay datos, significa que el amigo usó el Lápiz / Pincel
+                // Caso Lápiz/Pincel: Aplicamos el estado completo del bloque
                 mbwom.setBlockState(datos.x, datos.y, datos.estado);
             }
             
-            // Dibujamos el cambio instantáneamente en nuestra pantalla
-            if (typeof renderBlock === 'function') renderBlock(datos.x, datos.y);
+            // Renderizamos únicamente el bloque afectado para mantener el rendimiento
+            if (typeof renderBlock === 'function') {
+                renderBlock(datos.x, datos.y);
+            }
         }
     }
 }
+
+// ✨ ENVIAR EL MUNDO COMPLETO AL AMIGO
+window.compartirMundoActual = function() {
+    if (!isMultiplayer) {
+        alert("¡Aún no estás conectado con nadie!");
+        return;
+    }
+    if (!mbwom || !mbwom.world) {
+        alert("¡Primero abre un mundo para poder compartirlo!");
+        return;
+    }
+
+    // Le enviamos una copia exacta de tu mundo a través de la red
+    enviarMensajeEnRed({
+        tipo: "sync_mundo",
+        mundo: mbwom.world
+    });
+    
+    console.log("¡Mundo enviado con éxito!");
+    alert("Mundo enviado al otro jugador 🚀");
+};
