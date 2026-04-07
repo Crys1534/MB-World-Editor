@@ -553,6 +553,7 @@ function eyedropper(x, y) {
      selectTool('pencil'); mouse.left = false; 
  }
 }
+// === HERRAMIENTA BORRADOR (ACTUALIZADA PARA MULTIJUGADOR) ===
 function eraser(cx, cy) {
     const range = toolSize - 1;
     if (toolSize > 1) historyManager.startAction();
@@ -563,13 +564,18 @@ function eraser(cx, cy) {
                 historyManager.recordChange(x, y, mbwom.scene[x][y], null);
                 delete mbwom.scene[x][y];
                 renderBlock(x, y);
+                
+                // ✨ MULTIPLAYER: Avisamos que rompimos este bloque
+                if (typeof enviarMensajeEnRed === 'function') {
+                    enviarMensajeEnRed({ tipo: "actualizar_bloque", x: x, y: y, estado: null });
+                }
             }
         }
     }
     if (toolSize > 1) historyManager.commitAction();
 }
 
-// === FUNCIÓN BRUSH ACTUALIZADA CON SPRAY ===
+// === HERRAMIENTA PINCEL (ACTUALIZADA PARA MULTIJUGADOR) ===
 function brush(cx, cy) {
     const target = hotbar.slots[slotIndex];
     const range = toolSize - 1;
@@ -582,10 +588,17 @@ function brush(cx, cy) {
          historyManager.recordChange(cx, cy, current, target);
          mbwom.setBlockState(cx, cy, target);
          renderBlock(cx, cy);
+         
+         // ✨ MULTIPLAYER: Avisamos que pusimos este bloque
+         if (typeof enviarMensajeEnRed === 'function') {
+             enviarMensajeEnRed({ tipo: "actualizar_bloque", x: cx, y: cy, estado: target });
+         }
+         
          if (toolSize > 1) historyManager.commitAction();
          return;
     }
 
+    // Para pinceles grandes
     for (let x = cx - range; x <= cx + range; x++) {
         for (let y = cy - range; y <= cy + range; y++) {
             
@@ -595,8 +608,7 @@ function brush(cx, cy) {
                 if ((dx*dx + dy*dy) > (range * range + 0.1)) continue; 
             }
 
-            // 2. Lógica Spray (NUEVO)
-            // Si está activado, solo pintamos el 10% de los bloques por frame
+            // 2. Lógica Spray 
             if (toolSpray && Math.random() > 0.1) continue;
 
             const current = mbwom.getBlockState(x, y);
@@ -605,6 +617,11 @@ function brush(cx, cy) {
             historyManager.recordChange(x, y, current, target);
             mbwom.setBlockState(x, y, target);
             renderBlock(x, y);
+            
+            // ✨ MULTIPLAYER: Avisamos que pusimos este bloque
+            if (typeof enviarMensajeEnRed === 'function') {
+                enviarMensajeEnRed({ tipo: "actualizar_bloque", x: x, y: y, estado: target });
+            }
         }
     }
     if (toolSize > 1) historyManager.commitAction();

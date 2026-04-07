@@ -81,12 +81,24 @@ window.enviarMensajeEnRed = function(datos) {
 }
 
 function recibirMensajeDeRed(datos) {
-    console.log("📥 DATO RECIBIDO DE LA RED:", datos);
-
-    // Si es un mensaje de prueba, lo mostramos
     if (datos.tipo === "chat") {
-        alert("Tu amigo dice: " + datos.texto);
+        console.log("Amigo dice:", datos.texto);
     }
     
-    // (AQUÍ ES DONDE PONDREMOS LA LÓGICA DE PONER/ROMPER BLOQUES MÁS ADELANTE)
+    // ✨ MAGIA: El amigo interactuó con un bloque
+    if (datos.tipo === "actualizar_bloque") {
+        if (typeof mbwom !== 'undefined' && mbwom.scene) {
+            
+            if (datos.estado === null) {
+                // Si el estado es null, significa que el amigo usó el Borrador
+                if (mbwom.scene[datos.x]) delete mbwom.scene[datos.x][datos.y];
+            } else {
+                // Si hay datos, significa que el amigo usó el Lápiz / Pincel
+                mbwom.setBlockState(datos.x, datos.y, datos.estado);
+            }
+            
+            // Dibujamos el cambio instantáneamente en nuestra pantalla
+            if (typeof renderBlock === 'function') renderBlock(datos.x, datos.y);
+        }
+    }
 }
