@@ -80,17 +80,22 @@ window.enviarMensajeEnRed = function(datos) {
     }
 }
 
-// 2. Sincronización total (Cuando el host presiona "Send World")
+// 5. PROCESAR MENSAJES RECIBIDOS
+function recibirMensajeDeRed(datos) {
+    console.log("📥 DATO RECIBIDO:", datos);
+
+    // A. Chat o mensajes de prueba
+    if (datos.tipo === "chat") {
+        console.log("💬 Mensaje de amigo:", datos.texto);
+    }
+
+    // B. Sincronización total (Cuando el host presiona "Send World")
     if (datos.tipo === "sync_mundo") {
-        console.log("🌍 ¡Recibiendo mapa completo del anfitrión!");
-        
-        // Guardamos los datos del mundo en el motor lógico
+        console.log("🌍 ¡Recibiendo mapa completo!");
         mbwom.world = datos.mundo;
         
-        // ✨ PASO A: Cargamos la escena para que las coordenadas funcionen
         if (typeof mbwom.loadScene === 'function') mbwom.loadScene(1);
 
-        // ✨ PASO B: Desempaquetamos los Mobs (Animales/Monstruos)
         mbwom.mobs = {};
         for (let sceneId = 1; sceneId <= 3; sceneId++) {
             let sceneMobs = mbwom.world["mobs" + sceneId];
@@ -106,44 +111,30 @@ window.enviarMensajeEnRed = function(datos) {
             }
         }
 
-        // ✨ PASO C: Creamos el caché visual (Esto quita el fondo gris)
         if (typeof initializeWorldCache === 'function') initializeWorldCache();
-
-        // ✨ PASO D: Forzamos al canvas a dibujar y encendemos el movimiento
         if (typeof worldDirty !== 'undefined') worldDirty = true;
+        
         if (!window.isMainLoopRunning && typeof mainLoop === 'function') {
-            mainLoop(); // Arranca el ciclo de juego
+            mainLoop();
             window.isMainLoopRunning = true;
         }
 
-        // Actualizamos el nombre del mundo en la barra superior
         const filenameDisplay = document.getElementById("filename-display");
         if (filenameDisplay && mbwom.world.fileInfo) {
             filenameDisplay.value = mbwom.world.fileInfo.name || "Multiplayer World";
         }
-        
-        alert("¡Mundo recibido! Ya deberías ver los bloques y poder moverte.");
+        alert("¡Mundo recibido! Ya puedes moverte.");
     }
 
-    // 3. Actualización de bloques en tiempo real (Lápiz, Borrador, Pincel)
+    // C. Actualización de bloques en tiempo real
     if (datos.tipo === "actualizar_bloque") {
-        // Verificamos que el motor MBWOM esté listo
         if (typeof mbwom !== 'undefined' && mbwom.scene) {
-            
             if (datos.estado === null) {
-                // Caso Borrador: Si el estado es null, eliminamos el bloque de la escena
-                if (mbwom.scene[datos.x]) {
-                    delete mbwom.scene[datos.x][datos.y];
-                }
+                if (mbwom.scene[datos.x]) delete mbwom.scene[datos.x][datos.y];
             } else {
-                // Caso Lápiz/Pincel: Aplicamos el estado completo del bloque
                 mbwom.setBlockState(datos.x, datos.y, datos.estado);
             }
-            
-            // Renderizamos únicamente el bloque afectado para mantener el rendimiento
-            if (typeof renderBlock === 'function') {
-                renderBlock(datos.x, datos.y);
-            }
+            if (typeof renderBlock === 'function') renderBlock(datos.x, datos.y);
         }
     }
 }
@@ -159,12 +150,11 @@ window.compartirMundoActual = function() {
         return;
     }
 
-    // Le enviamos una copia exacta de tu mundo a través de la red
     enviarMensajeEnRed({
         tipo: "sync_mundo",
         mundo: mbwom.world
     });
     
-    console.log("¡Mundo enviado con éxito!");
+    console.log("¡Mundo enviado!");
     alert("Mundo enviado al otro jugador 🚀");
 };
