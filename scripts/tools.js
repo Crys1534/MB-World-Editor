@@ -604,7 +604,7 @@ function magicWandSelect(startX, startY) {
     const startBlock = mbwom.getBlockState(startX, startY);
     const startType = startBlock ? startBlock.type : null;
     
-    const maxPixels = 3000; 
+    const maxPixels = 50000; 
     let pixelsChanged = 0;
     
     const queue = [[startX, startY]]; 
@@ -620,7 +620,7 @@ function magicWandSelect(startX, startY) {
         if (visited.has(key)) continue; 
         visited.add(key);
         
-        if (x < -5000 || x > 5000 || y < 0 || y > 500) continue; 
+        if (x < 0 || x > 6000 || y < 0 || y > 500) continue; 
 
         const currentBlock = mbwom.getBlockState(x, y);
         const currentType = currentBlock ? currentBlock.type : null;

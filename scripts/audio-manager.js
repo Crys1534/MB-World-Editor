@@ -66,20 +66,6 @@ const audioManager = {
         noise.start();
     },
 
-// --- REPRODUCTOR DE MP3 EXTERNOS ---
-    sfxPlayer: new Audio(), // Usamos un solo reproductor para no encimar los rugidos
-
-    playMobSound: function(mobName) {
-        if (!this.enabled) return;
-        
-        // Asignamos la ruta del archivo (ej. assets/sfx/zombie.mp3)
-        this.sfxPlayer.src = `assets/sfx/${mobName}.mp3`;
-        this.sfxPlayer.volume = this.masterVolume;
-        
-        // Intentamos reproducirlo. El catch evita errores en consola si te falta algún mp3
-        this.sfxPlayer.play().catch(e => console.warn(`Falta el sonido: assets/sfx/${mobName}.mp3`));
-    },
-	
     // --- EFECTOS ESPECÍFICOS ---
 
     playSound: function(name) {

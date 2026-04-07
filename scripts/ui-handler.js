@@ -2130,6 +2130,26 @@ function populateWorldInfo() {
         enderDisplay.textContent = isDefeated ? "Yes" : "No";
         enderDisplay.style.color = isDefeated ? "#2E7D32" : "#C0392B";
     }
+	
+	// ==========================================
+    // ✨ CALCULAR Y MOSTRAR EL PESO DEL ARCHIVO
+    // ==========================================
+    const sizeSpan = document.getElementById('world-info-size');
+    if (sizeSpan && typeof fileManager !== 'undefined' && fileManager.file) {
+        const bytes = fileManager.file.size; // Peso real del archivo cargado
+        let sizeText = bytes + " B";
+        
+        // Lo convertimos a KB o MB para que sea fácil de leer
+        if (bytes >= 1048576) {
+            sizeText = (bytes / 1048576).toFixed(2) + " MB";
+        } else if (bytes >= 1024) {
+            sizeText = (bytes / 1024).toFixed(2) + " KB";
+        }
+        
+        sizeSpan.innerText = sizeText;
+    } else if (sizeSpan) {
+        sizeSpan.innerText = "Unknown";
+    }
 }
 
 
@@ -2332,11 +2352,6 @@ function filterMobs(dimension) {
 // Actualiza el panel lateral derecho con el mob seleccionado
 function previewMob(mob) {
     currentlyPreviewedMob = mob;
-	
-	// ✨ NUEVO: Reproducir el rugido del monstruo al instante
-    if (typeof audioManager !== 'undefined') {
-        audioManager.playMobSound(mob);
-    }
     
     let niceName = mob.charAt(0).toUpperCase() + mob.slice(1);
     let imgSrc = (window.images && window.images[mob] && window.images[mob].src) 

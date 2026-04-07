@@ -30,7 +30,7 @@ let tileSize = BASE_TILE_SIZE;
 
 // --- IMÁGENES GLOBALES ---
 // Agrega aquí los nombres de los PNGs que vayas metiendo a la carpeta assets/
-window.images = { names: ["blocks", "hotbar", "slot", "zombie", "skeleton", "creeper", "enderman", "nethereye", "enderdragon", "pig", "cow", "chicken", "spider", "player",] };
+window.images = { names: ["blocks", "hotbar", "slot", "zombie", "skeleton", "creeper", "enderman", "nethereye", "enderdragon", "pig", "cow", "chicken", "player",] };
 
 window.images.names.forEach((name) => {
     window.images[name] = new Image();
@@ -44,12 +44,6 @@ window.images.names.forEach((name) => {
         }
     };
 });
-
-// ✨ AÑADE ESTO JUSTO AQUÍ DEBAJO:
-// Excepción para cargar al Player desde su ruta y con mayúscula
-window.images['player'] = new Image();
-window.images['player'].src = 'assets/mobs/Player.png';
-window.images['player'].onload = () => { worldDirty = true; };
 
 // Velocidad fija en 1
 const camera = { x: 0, y: 148, speed: 1 }
@@ -263,7 +257,7 @@ function drawMobs() {
             if (mobImg && mobImg.complete && mobImg.naturalWidth > 0) {
                 ctx.save(); 
                 ctx.translate(screenX, screenY);
-                if (mob.direction === 0) ctx.scale(-1, 1);
+                if (mob.direction === 1) ctx.scale(-1, 1);
                 ctx.imageSmoothingEnabled = false;
                 ctx.drawImage(
                     mobImg, 
@@ -635,7 +629,7 @@ function changeDimension(sceneIndex) {
             if (iconElement) {
                 switch(sceneIndex) {
                     case 1:
-                        iconElement.src = "assets/Overworld icon.png";
+                        iconElement.src = "assets/Underworld icon.png";
                         break;
                     case 2:
                         iconElement.src = "assets/Nether icon.png";
