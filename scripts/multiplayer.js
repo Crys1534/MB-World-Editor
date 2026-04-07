@@ -87,7 +87,10 @@ window.enviarMensajeEnRed = function(datos) {
         // 1. Sobreescribimos el objeto del mundo
         mbwom.world = datos.mundo;
         
-        // ✨ 2. FIX: Desempaquetar los Mobs correctamente para que no se congele la pantalla
+        // ✨ FIX 1: Cargar la dimensión actual en memoria para evitar que el loop crashee
+        if (typeof mbwom.loadScene === 'function') mbwom.loadScene(1);
+
+        // ✨ FIX 2: Desempaquetar los Mobs correctamente para que no se congele la pantalla
         mbwom.mobs = {};
         for (let sceneId = 1; sceneId <= 3; sceneId++) {
             let sceneMobs = mbwom.world["mobs" + sceneId];
@@ -103,19 +106,16 @@ window.enviarMensajeEnRed = function(datos) {
             }
         }
 
-        // ✨ 3. FIX: Cargar la dimensión actual en memoria
-        if (typeof mbwom.loadScene === 'function') mbwom.loadScene(1);
-
-        // ✨ 4. FIX: Reconstruir los bloques visuales
+        // ✨ FIX 3: Reconstruir los bloques visuales (Quita el fondo gris)
         if (typeof initializeWorldCache === 'function') initializeWorldCache();
 
-        // ✨ 5. FIX CRÍTICO: ¡Encender el motor de movimiento y dibujado!
+        // ✨ FIX 4: ¡Darle arranque al motor de movimiento si estaba apagado!
         if (!window.isMainLoopRunning && typeof mainLoop === 'function') {
             mainLoop();
             window.isMainLoopRunning = true;
         }
 
-        // 6. Actualizar el nombre en la barra superior
+        // Actualizar el nombre en la barra superior
         const filenameDisplay = document.getElementById("filename-display");
         if (filenameDisplay && mbwom.world.fileInfo) {
             filenameDisplay.value = mbwom.world.fileInfo.name || "Multiplayer World";
