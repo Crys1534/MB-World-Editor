@@ -84,13 +84,13 @@ window.enviarMensajeEnRed = function(datos) {
     if (datos.tipo === "sync_mundo") {
         console.log("🌍 ¡Recibiendo mapa completo del anfitrión!");
         
-        // 1. Sobreescribimos el objeto del mundo
+        // Guardamos los datos del mundo en el motor lógico
         mbwom.world = datos.mundo;
         
-        // ✨ FIX 1: Cargar la dimensión actual en memoria para evitar que el loop crashee
+        // ✨ PASO A: Cargamos la escena para que las coordenadas funcionen
         if (typeof mbwom.loadScene === 'function') mbwom.loadScene(1);
 
-        // ✨ FIX 2: Desempaquetar los Mobs correctamente para que no se congele la pantalla
+        // ✨ PASO B: Desempaquetamos los Mobs (Animales/Monstruos)
         mbwom.mobs = {};
         for (let sceneId = 1; sceneId <= 3; sceneId++) {
             let sceneMobs = mbwom.world["mobs" + sceneId];
@@ -106,22 +106,23 @@ window.enviarMensajeEnRed = function(datos) {
             }
         }
 
-        // ✨ FIX 3: Reconstruir los bloques visuales (Quita el fondo gris)
+        // ✨ PASO C: Creamos el caché visual (Esto quita el fondo gris)
         if (typeof initializeWorldCache === 'function') initializeWorldCache();
 
-        // ✨ FIX 4: ¡Darle arranque al motor de movimiento si estaba apagado!
+        // ✨ PASO D: Forzamos al canvas a dibujar y encendemos el movimiento
+        if (typeof worldDirty !== 'undefined') worldDirty = true;
         if (!window.isMainLoopRunning && typeof mainLoop === 'function') {
-            mainLoop();
+            mainLoop(); // Arranca el ciclo de juego
             window.isMainLoopRunning = true;
         }
 
-        // Actualizar el nombre en la barra superior
+        // Actualizamos el nombre del mundo en la barra superior
         const filenameDisplay = document.getElementById("filename-display");
         if (filenameDisplay && mbwom.world.fileInfo) {
             filenameDisplay.value = mbwom.world.fileInfo.name || "Multiplayer World";
         }
         
-        alert("¡Mundo recibido y sincronizado! Ya puedes moverte.");
+        alert("¡Mundo recibido! Ya deberías ver los bloques y poder moverte.");
     }
 
     // 3. Actualización de bloques en tiempo real (Lápiz, Borrador, Pincel)
