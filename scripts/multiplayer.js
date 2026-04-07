@@ -84,9 +84,19 @@ window.enviarMensajeEnRed = function(datos) {
 function recibirMensajeDeRed(datos) {
     console.log("📥 DATO RECIBIDO:", datos);
 
-    // A. Chat o mensajes de prueba
+    // A. Chat
     if (datos.tipo === "chat") {
-        console.log("💬 Mensaje de amigo:", datos.texto);
+        console.log("💬 " + (datos.autor || "Amigo") + ": " + datos.texto);
+        
+        // ✨ Agregamos el mensaje a la interfaz
+        if (typeof addMessageToChat === 'function') {
+            addMessageToChat(datos.autor || "Amigo", datos.texto);
+        }
+        
+        // ✨ Reproducimos un sonido tipo 8-bits al recibir mensaje
+        if (typeof audioManager !== 'undefined') {
+            audioManager.playTone(800, 'sine', 0.1, 0.2); 
+        }
     }
 
     // B. Sincronización total (Cuando el host presiona "Send World")
@@ -158,3 +168,44 @@ window.compartirMundoActual = function() {
     console.log("¡Mundo enviado!");
     alert("Mundo enviado al otro jugador 🚀");
 };
+
+
+// ==========================================
+// ✨ SISTEMA DE CHAT
+// ==========================================
+
+function addMessageToChat(autor, texto, color = "white") {
+    const chatMessages = document.getElementById('chat-messages');
+    if (!chatMessages) return;
+
+    const msgDiv = document.createElement('div');
+    msgDiv.innerHTML = `<span style="color: #4DA6FF;">[${autor}]:</span> <span style="color: ${color};">${texto}</span>`;
+    chatMessages.appendChild(msgDiv);
+    
+    // Auto-scroll para ver siempre el mensaje más reciente
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// Escuchar la tecla Enter en la caja de texto
+window.addEventListener('DOMContentLoaded', () => {
+    const chatInput = document.getElementById('chat-input');
+    if (chatInput) {
+        chatInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && this.value.trim() !== "") {
+                const mensaje = this.value.trim();
+                
+                // Usamos el nombre de tu perfil global (o "Player" si no hay uno)
+                const miNombre = localStorage.getItem('mbw_username') || "Player";
+                
+                // 1. Lo mostramos en nuestra propia pantalla (en color verde claro)
+                addMessageToChat(miNombre, mensaje, "#a2ff00");
+                
+                // 2. Se lo enviamos al amigo por la red
+                enviarMensajeEnRed({ tipo: "chat", autor: miNombre, texto: mensaje });
+                
+                // Limpiamos la caja
+                this.value = ""; 
+            }
+        });
+    }
+});
