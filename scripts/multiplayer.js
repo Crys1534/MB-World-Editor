@@ -93,18 +93,19 @@ function recibirMensajeDeRed(datos) {
     if (datos.tipo === "sync_mundo") {
         console.log("🌍 ¡Recibiendo mapa completo del anfitrión!");
         
-        // Sobreescribimos el objeto del mundo con los datos recibidos
+        // 1. Sobreescribimos la base de datos maestra
         mbwom.world = datos.mundo;
         
-        // Actualizamos el nombre del archivo en la barra superior
+        // ✨ 2. FIX CRÍTICO: Reenganchar los punteros de la memoria RAM a la escena actual
+        let currentDim = typeof mbwom.currentScene !== 'undefined' ? mbwom.currentScene : 1;
+        if (typeof mbwom.loadScene === 'function') mbwom.loadScene(currentDim);
+        
+        // ✨ 3. FIX CRÍTICO: Purgar y reconstruir el caché de renderizado
+        if (typeof initializeWorldCache === 'function') initializeWorldCache();
+        
         const filenameDisplay = document.getElementById("filename-display");
         if (filenameDisplay && mbwom.world.fileInfo) {
             filenameDisplay.value = mbwom.world.fileInfo.name || "Multiplayer World";
-        }
-        
-        // Forzamos el redibujado completo del canvas para mostrar el nuevo mapa
-        if (typeof drawWorld === 'function') {
-            drawWorld();
         }
         
         alert("¡Mundo recibido y sincronizado correctamente!");
