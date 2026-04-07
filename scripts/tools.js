@@ -391,88 +391,95 @@ function cutSelection() {
     deleteSelection();
 }
 
-function deleteSelection() {
-    const bounds = getSelectionBounds();
-    if (!bounds) return;
+function deleteSelection(isFromNetwork = false, networkDeletedBlocks = [], networkDeletedMobs = []) {
+    // Si la orden viene de internet, solo borramos lo que nos indica el amigo
+    if (isFromNetwork) {
+        if (typeof mbwom !== 'undefined' && mbwom.scene) {
+            networkDeletedBlocks.forEach(pos => {
+                if (mbwom.scene[pos.x] && mbwom.scene[pos.x][pos.y]) {
+                    delete mbwom.scene[pos.x][pos.y];
+                    if (typeof renderBlock === 'function') renderBlock(pos.x, pos.y);
+                }
+            });
+            networkDeletedMobs.forEach(key => { delete mbwom.mobs[key]; });
+            if (typeof worldDirty !== 'undefined') worldDirty = true;
+        }
+        return;
+    }
 
-    if (window.selection.type === 'poly' && window.selection.path.length < 3) return; 
+    const bounds = getSelectionBounds();
+    if (!bounds && window.selection.type !== 'poly') return;
 
     historyManager.startAction();
     let changed = false;
-
-    // ✨ DIVISIÓN DE HERRAMIENTAS ✨
+    let deletedBlocksToSync = [];
+    let deletedMobsToSync = [];
 
     if (window.selection.type === 'poly') {
-        // ==========================================
-        // 🤠 MODO LASSO: SOLO ELIMINA MOBS
-        // ==========================================
+        // MODO LASSO: SOLO ELIMINA MOBS
         if (typeof mbwom !== 'undefined' && mbwom.mobs) {
             for (let key in mbwom.mobs) {
                 let m = mbwom.mobs[key];
                 if (!m) continue;
-                
                 let mobWorldX = Math.round(Number(m.x));
                 let mobWorldY = Math.round(-Number(m.y)); 
-                
                 if (isPointSelected(mobWorldX, mobWorldY)) {
-                    delete mbwom.mobs[key]; // ¡Mob destruido!
+                    delete mbwom.mobs[key]; 
                     changed = true;
+                    deletedMobsToSync.push(key);
                 }
             }
         }
         if (changed && typeof worldDirty !== 'undefined') worldDirty = true;
-        console.log("🤠 Lasso: Se atraparon y eliminaron los mobs.");
 
     } else {
-        // ==========================================
-        // 🧱 MODO SELECT / MAGIC: SOLO ELIMINA BLOQUES
-        // ==========================================
-        
-        // 1. Borramos los bloques visuales
+        // MODO SELECT / MAGIC: SOLO ELIMINA BLOQUES
         for (let x = bounds.minX; x <= bounds.maxX; x++) {
             for (let y = bounds.minY; y <= bounds.maxY; y++) {
                 if (!isPointSelected(x, y)) continue;
-
                 changed = true; 
-
                 if (mbwom.scene[x] && mbwom.scene[x][y]) {
                     historyManager.recordChange(x, y, mbwom.scene[x][y], null);
                     delete mbwom.scene[x][y];
                     renderBlock(x, y);
+                    deletedBlocksToSync.push({x: x, y: y}); // Recolectamos para la red
                 }
             }
         }
 
-        // 2. Recortamos las columnas para bajar el peso del archivo
+        // Recortamos las columnas
         if (changed && typeof mbwom !== 'undefined' && mbwom.scene) {
             for (let x = bounds.minX; x <= bounds.maxX; x++) {
                 let col = mbwom.scene[x];
                 if (!col || !Array.isArray(col)) continue;
-
                 for (let y = bounds.minY; y <= bounds.maxY; y++) {
                     if (isPointSelected(x, y)) {
                         let b = col[y];
-                        if (b && (b.type === "air" || b.type === 0 || b.type === "0" || b.type === "")) {
-                            col[y] = null; 
-                        }
+                        if (b && (b.type === "air" || b.type === 0 || b.type === "0" || b.type === "")) col[y] = null; 
                     }
                 }
-
                 while (col.length > 0) {
                     let ultimoBloque = col[col.length - 1];
-                    if (!ultimoBloque || ultimoBloque === null || ultimoBloque.type === null || ultimoBloque.type === "air" || ultimoBloque.type === 0 || ultimoBloque.type === "0" || ultimoBloque.type === "") {
+                    if (!ultimoBloque || ultimoBloque.type === null || ultimoBloque.type === "air" || ultimoBloque.type === 0 || ultimoBloque.type === "") {
                         col.pop(); 
-                    } else {
-                        break; 
-                    }
+                    } else break; 
                 }
             }
             if (typeof worldDirty !== 'undefined') worldDirty = true;
         }
-        console.log("🧱 Selección: Se eliminaron los bloques y se purgaron los huecos.");
     }
 
-    // LIMPIEZA FINAL DE LA INTERFAZ
+    // ✨ MULTIPLAYER: Avisar a la red lo que borramos
+    if (typeof enviarMensajeEnRed === 'function') {
+        if (deletedBlocksToSync.length > 0 || deletedMobsToSync.length > 0) {
+            enviarMensajeEnRed({ 
+                tipo: "accion_borrar_seleccion", 
+                bloques: deletedBlocksToSync, 
+                mobs: deletedMobsToSync 
+            });
+        }
+    }
+
     historyManager.commitAction();
     const overlay = document.getElementById('selection-overlay');
     if (overlay) overlay.style.display = 'none';
@@ -484,30 +491,27 @@ function activatePasteMode() {
     if (!window.clipboard) { alert("Clipboard empty."); return; }
     selectTool('paste');
 }
-function performPaste(targetX, targetY, replaceAir = false) {
-    if (!window.clipboard) return;
+function performPaste(targetX, targetY, replaceAir = false, isFromNetwork = false, networkClipboard = null) {
+    // Si viene de la red, usamos la estructura que mandó el amigo, sino, usamos nuestro portapapeles
+    const currentClipboard = isFromNetwork ? networkClipboard : window.clipboard;
+    if (!currentClipboard) return;
     historyManager.startAction();
 
     // 1. SI SHIFT ESTÁ PRESIONADO: Limpiamos toda el área primero
     if (replaceAir) {
         let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-        
-        // Calculamos la caja exacta que ocupa la estructura
-        window.clipboard.data.forEach(blockData => {
+        currentClipboard.data.forEach(blockData => {
             if (blockData.dx < minX) minX = blockData.dx;
             if (blockData.dx > maxX) maxX = blockData.dx;
             if (blockData.dy < minY) minY = blockData.dy;
             if (blockData.dy > maxY) maxY = blockData.dy;
         });
 
-        // Recorremos esa caja y borramos todo (lo llenamos de aire)
         for (let x = minX; x <= maxX; x++) {
             for (let y = minY; y <= maxY; y++) {
                 const absX = targetX + x;
                 const absY = targetY + y;
                 const oldState = mbwom.getBlockState(absX, absY);
-                
-                // Si había un bloque ahí, lo borramos y lo guardamos en el historial
                 if (oldState) {
                     historyManager.recordChange(absX, absY, oldState, null);
                     if (mbwom.scene[absX]) delete mbwom.scene[absX][absY];
@@ -517,12 +521,9 @@ function performPaste(targetX, targetY, replaceAir = false) {
         }
     }
 
-    // 2. PEGAMOS LA ESTRUCTURA NORMALMENTE
-    window.clipboard.data.forEach(blockData => {
-        // Si NO estamos usando Shift y el bloque de la estructura es aire, lo ignoramos para no borrar el fondo
-        if (!replaceAir && (!blockData.state || blockData.state.type === "air" || blockData.state.type === "0" || blockData.state.type === 0)) {
-            return;
-        }
+    // 2. PEGAMOS LA ESTRUCTURA
+    currentClipboard.data.forEach(blockData => {
+        if (!replaceAir && (!blockData.state || blockData.state.type === "air" || blockData.state.type === "0" || blockData.state.type === 0)) return;
 
         const absX = targetX + blockData.dx; 
         const absY = targetY + blockData.dy;
@@ -532,13 +533,22 @@ function performPaste(targetX, targetY, replaceAir = false) {
         
         historyManager.recordChange(absX, absY, oldState, blockData.state);
         
-        if (blockData.state) {
-            mbwom.setBlockState(absX, absY, blockData.state);
-        } else { 
-            if (mbwom.scene[absX]) delete mbwom.scene[absX][absY]; 
-        }
+        if (blockData.state) mbwom.setBlockState(absX, absY, blockData.state);
+        else if (mbwom.scene[absX]) delete mbwom.scene[absX][absY]; 
+        
         renderBlock(absX, absY);
     });
+    
+    // ✨ MULTIPLAYER: Mandamos la estructura entera al amigo
+    if (!isFromNetwork && typeof enviarMensajeEnRed === 'function') {
+        enviarMensajeEnRed({ 
+            tipo: "accion_pegar", 
+            x: targetX, 
+            y: targetY, 
+            replaceAir: replaceAir, 
+            clipboard: currentClipboard 
+        });
+    }
     
     historyManager.commitAction();
 }
@@ -694,14 +704,17 @@ function magicWandSelect(startX, startY) {
     checkSelectionState();
 }
 
-function bucketFill(startX, startY) {
-    const targetState = hotbar.slots[slotIndex];
+function bucketFill(startX, startY, isFromNetwork = false, networkState = null) {
+    // Si viene de la red, usa la pintura del amigo, si no, usa nuestra hotbar
+    const targetState = isFromNetwork ? networkState : hotbar.slots[slotIndex];
     const startBlock = mbwom.getBlockState(startX, startY);
     const startType = startBlock ? startBlock.type : null;
     if (targetState.type === startType) return;
+    
     historyManager.startAction();
     const maxPixels = 2000; let pixelsChanged = 0;
     const queue = [[startX, startY]]; const visited = new Set();
+    
     while(queue.length > 0) {
         if (pixelsChanged > maxPixels) break;
         const [x, y] = queue.shift();
@@ -719,7 +732,13 @@ function bucketFill(startX, startY) {
         }
     }
     historyManager.commitAction();
+
+    // ✨ MULTIPLAYER: Avisar a la red para que el amigo ejecute el balde
+    if (!isFromNetwork && typeof enviarMensajeEnRed === 'function') {
+        enviarMensajeEnRed({ tipo: "accion_balde", x: startX, y: startY, estado: targetState });
+    }
 }
+
 function mineAndPlace() {
     if (currentTool === 'pencil') { if (mouse.left) eraser(mouse.worldX, mouse.worldY); if (mouse.right) brush(mouse.worldX, mouse.worldY); } 
     else if (currentTool === 'eraser') { if (mouse.left || mouse.right) eraser(mouse.worldX, mouse.worldY); }

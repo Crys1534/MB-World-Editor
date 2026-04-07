@@ -71,10 +71,13 @@ const historyManager = {
         if (state) {
             mbwom.setBlockState(x, y, state);
         } else {
-            // Si el estado es null, borramos el bloque
             if (mbwom.scene[x]) delete mbwom.scene[x][y];
         }
-        // Renderizamos solo este bloque (instantáneo)
         renderBlock(x, y);
+
+        // ✨ MULTIPLAYER: Avisar a la red del deshacer/rehacer
+        if (typeof enviarMensajeEnRed === 'function') {
+            enviarMensajeEnRed({ tipo: "actualizar_bloque", x: x, y: y, estado: state });
+        }
     }
 };

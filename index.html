@@ -1151,39 +1151,73 @@
         </div>
     </div>
 
-<div id="multiplayer-modal" class="modal" style="z-index: 3500;">
-    <div class="modal-content mbw-standard-modal" style="width: 400px; height: auto;">
-        <div class="mbw-modal-header">
-            <h3>🌐 Multiplayer (PeerJS)</h3>
-            <span class="mbw-close-btn" onclick="closeModal('multiplayer-modal')">&times;</span>
+<div id="multiplayer-modal" class="modal" style="display: none; font-family: 'Pixeltype', sans-serif;">
+    <div class="modal-content" style="width: 450px; text-align: center; background: #2c3e50; color: white; border: 4px solid #34495e;">
+        
+        <span class="close-modal" onclick="closeModal('multiplayer-modal'); setMpView('home');" style="color: white; float: right; cursor: pointer; font-size: 28px;">&times;</span>
+        
+        <h2 id="mp-modal-title" style="margin-top: 0; color: #f1c40f;">🌐 Multiplayer</h2>
+
+        <div id="mp-view-home" style="display: flex; gap: 15px; margin-top: 30px;">
+            <button class="menu-btn" style="flex: 1; background: #2ecc71; border: 2px solid #27ae60; font-size: 24px; padding: 15px;" onclick="setMpView('create-1')">Create Server</button>
+            <button class="menu-btn" style="flex: 1; background: #3498db; border: 2px solid #2980b9; font-size: 24px; padding: 15px;" onclick="setMpView('join')">Join Server</button>
         </div>
-        <div class="mbw-modal-body" style="display: flex; flex-direction: column; gap: 15px; text-align: center; padding: 20px;">
-            
-            <div style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 5px; border: 1px solid var(--border);">
-                <h4 style="margin: 0 0 10px 0;">Host a Session</h4>
-                <button class="btn-confirm-save" onclick="hostMultiplayerSession()" style="width: 100%; padding: 10px; font-size: 16px;">Create Server</button>
+
+        <div id="mp-shared-profile" style="display: none; margin-top: 15px; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px;">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 15px;">
+                <div id="mp-pfp-preview" onclick="document.getElementById('mp-pfp-upload').click()" title="Click to change profile picture" style="width: 60px; height: 60px; border: 2px dashed #bdc3c7; background-color: #34495e; cursor: pointer; background-size: cover; background-position: center; border-radius: 5px;"></div>
+                <input type="file" id="mp-pfp-upload" style="display: none;" accept="image/*" onchange="updateMpProfilePic(this)">
                 
-                <button onclick="compartirMundoActual()" style="width: 100%; padding: 8px; margin-top: 10px; background: #9b59b6; color: white; border: 1px solid #8e44ad; border-radius: 4px; font-weight: bold; cursor: pointer;">
-                    🚀 Send World to Players
-                </button>
-
-                <p style="margin: 10px 0 5px 0; font-size: 12px; color: var(--text);">Your Room ID (Share this):</p>
-                <input type="text" id="my-peer-id" readonly placeholder="Waiting for ID..." style="width: 100%; text-align: center; font-weight: bold; font-family: monospace; background: var(--bg-dark); color: #4DA6FF; padding: 8px; box-sizing: border-box;">
+                <input type="text" id="mp-username-input" placeholder="Your Username" onkeyup="saveMpUsername()" style="font-family: 'Pixeltype', sans-serif; font-size: 24px; padding: 8px; width: 60%; background: #ecf0f1; border: none; border-radius: 4px; outline: none; text-align: center;">
             </div>
-
-            <hr style="border-color: var(--border); width: 100%;">
-
-            <div style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 5px; border: 1px solid var(--border);">
-                <h4 style="margin: 0 0 10px 0;">Join a Session</h4>
-                <input type="text" id="join-peer-id" placeholder="Paste Room ID here..." style="width: 100%; text-align: center; font-family: monospace; padding: 8px; margin-bottom: 10px; box-sizing: border-box;">
-                <button class="btn-edit-action" onclick="joinMultiplayerSession()" style="width: 100%; padding: 10px; font-size: 16px;">Connect</button>
-            </div>
-
-            <div id="multiplayer-status" style="font-weight: bold; color: #f1c40f;">Status: Disconnected</div>
-
         </div>
+
+        <div id="mp-view-create-1" style="display: none; margin-top: 20px;">
+            <h3 style="margin-bottom: 10px; color: #bdc3c7;">Players Limit:</h3>
+            <div id="mp-player-buttons" style="display: flex; justify-content: space-between; margin-bottom: 25px;">
+                <button class="mp-limit-btn" onclick="setMpLimit(1)">1</button>
+                <button class="mp-limit-btn selected-limit" onclick="setMpLimit(2)">2</button>
+                <button class="mp-limit-btn" onclick="setMpLimit(3)">3</button>
+                <button class="mp-limit-btn" onclick="setMpLimit(4)">4</button>
+                <button class="mp-limit-btn" onclick="setMpLimit(5)">5</button>
+                <button class="mp-limit-btn" onclick="setMpLimit(6)">6</button>
+            </div>
+            <button class="menu-btn" style="background: #2ecc71; border: 2px solid #27ae60; width: 100%; font-size: 22px;" onclick="setMpView('create-2')">Create Server</button>
+        </div>
+
+        <div id="mp-view-create-2" style="display: none; margin-top: 20px;">
+            <button class="menu-btn" style="background: #e67e22; border: 2px solid #d35400; width: 100%; margin-bottom: 15px; font-size: 22px;" onclick="hostMultiplayerSession()">Generate ID</button>
+            
+            <p style="margin-bottom: 5px; color: #bdc3c7; font-size: 20px;">Your Room ID (Share this):</p>
+            <input type="text" id="my-peer-id" readonly onclick="copyRoomId()" title="Click to copy!" placeholder="ID will appear here..." style="width: 100%; text-align: center; font-size: 24px; cursor: pointer; background: #ecf0f1; border: none; padding: 10px; border-radius: 4px; box-sizing: border-box; outline: none; color: #333;">
+            <p id="copy-hint" style="color: #2ecc71; font-size: 16px; margin-top: 5px; height: 16px; visibility: hidden;">Copied to clipboard!</p>
+            
+            <button class="menu-btn" style="background: #9b59b6; border: 2px solid #8e44ad; width: 100%; margin-top: 10px; font-size: 22px;" onclick="compartirMundoActual()">Share World to Players</button>
+        </div>
+
+        <div id="mp-view-join" style="display: none; margin-top: 20px;">
+            <p style="margin-bottom: 5px; color: #bdc3c7; font-size: 20px;">Room ID:</p>
+            <input type="text" id="join-peer-id" placeholder="Paste Room ID here..." style="width: 100%; font-size: 24px; padding: 10px; margin-bottom: 20px; text-align: center; box-sizing: border-box; background: #ecf0f1; border: none; border-radius: 4px; outline: none; color: #333;">
+            
+            <button class="menu-btn" style="background: #3498db; border: 2px solid #2980b9; width: 100%; font-size: 22px;" onclick="joinMultiplayerSession()">Connect</button>
+        </div>
+
+        <p id="multiplayer-status" style="display: none; margin-top: 25px; font-weight: bold; font-size: 24px; color: #bdc3c7;">Status: Not Connected</p>
+
     </div>
- </div>
+</div>
+
+<style>
+    .mp-limit-btn {
+        width: 45px; height: 45px;
+        background: #34495e; color: white;
+        border: 2px solid #7f8c8d; border-radius: 5px;
+        font-family: 'Pixeltype', sans-serif; font-size: 24px;
+        cursor: pointer; transition: 0.2s;
+    }
+    .mp-limit-btn:hover { background: #7f8c8d; }
+    .selected-limit { background: #f1c40f !important; color: black; border-color: #f39c12; transform: scale(1.1); }
+</style>
  
  <script>
     function toggleSpray(btn) {
@@ -1239,6 +1273,13 @@
             </div>
         </div>
     </div>
+</div>
+
+
+<div id="chat-container" style="display: none; position: absolute; bottom: 48px; left: 64px; width: 300px; z-index: 5000; font-family: 'Pixeltype', sans-serif;">
+    <div id="chat-messages" style="height: 150px; overflow-y: auto; background: rgba(0,0,0,0.6); color: white; padding: 10px; border-radius: 5px 5px 0 0; font-size: 20px; display: flex; flex-direction: column; gap: 4px; text-shadow: 1px 1px 0 #000; pointer-events: auto;">
+        </div>
+    <input type="text" id="chat-input" placeholder="Press Enter to chat..." style="width: 284px; padding: 8px; border: none; background: rgba(255,255,255,0.9); border-radius: 0 0 5px 5px; outline: none; font-size: 18px; pointer-events: auto;">
 </div>
 
 
@@ -1334,13 +1375,6 @@
         }
     });
 </script>
-
-
-<div id="chat-container" style="display: none; position: absolute; bottom: 60px; left: 10px; width: 300px; z-index: 5000; font-family: 'Pixeltype', sans-serif;">
-    <div id="chat-messages" style="height: 150px; overflow-y: auto; background: rgba(0,0,0,0.6); color: white; padding: 10px; border-radius: 5px 5px 0 0; font-size: 20px; display: flex; flex-direction: column; gap: 4px; text-shadow: 1px 1px 0 #000; pointer-events: auto;">
-        </div>
-    <input type="text" id="chat-input" placeholder="Press Enter to chat..." style="width: 100%; padding: 8px; border: none; background: rgba(255,255,255,0.9); border-radius: 0 0 5px 5px; outline: none; font-size: 18px; pointer-events: auto;">
-</div>
 
 
  <script src="scripts/ui-handler.js"></script>

@@ -614,6 +614,33 @@ function mainLoop() {
 	drawPlayer();
     drawUI();
     
+	// ✨ DIBUJAR CURSORES MULTIJUGADOR
+    if (typeof isMultiplayer !== 'undefined' && isMultiplayer && window.networkCursors) {
+        let ahora = Date.now();
+        for (let autor in window.networkCursors) {
+            let cursor = window.networkCursors[autor];
+            
+            // Si el amigo no ha movido el ratón en 5 segundos, ocultamos su cursor
+            if (ahora - cursor.lastUpdate > 5000) continue; 
+
+            // Convertimos sus coordenadas del mundo a las coordenadas de nuestra pantalla
+            let screenX = (cursor.x - camera.x) * tileSize;
+            let screenY = canvas.height - ((cursor.y - camera.y) * tileSize) - tileSize;
+
+            // Dibujamos el recuadro transparente en la cuadrícula
+            ctx.fillStyle = "rgba(77, 166, 255, 0.4)"; // Azul semitransparente
+            ctx.fillRect(screenX, screenY, tileSize, tileSize);
+            ctx.strokeStyle = "#4DA6FF";
+            ctx.strokeRect(screenX, screenY, tileSize, tileSize);
+
+            // Dibujamos su nombre flotando arribita del recuadro
+            ctx.fillStyle = "white";
+            ctx.font = "14px 'Pixeltype', sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText(autor, screenX + (tileSize/2), screenY - 5);
+        }
+    }
+	
     requestAnimationFrame(mainLoop);
 }
 
@@ -645,5 +672,151 @@ function changeDimension(sceneIndex) {
         } else {
             alert("This dimension is not generated in the current world.");
         }
+    }
+}
+
+
+// ==========================================
+// ✨ LÓGICA DEL MODAL MULTIJUGADOR (WIZARD)
+// ==========================================
+
+let multiplayerPlayerLimit = 2; // Por defecto
+
+function setMpView(viewName) {
+    // 1. Ocultar todas las vistas
+    document.getElementById('mp-view-home').style.display = 'none';
+    document.getElementById('mp-view-create-1').style.display = 'none';
+    document.getElementById('mp-view-create-2').style.display = 'none';
+    document.getElementById('mp-view-join').style.display = 'none';
+    
+    // Ocultar Status y Perfil por defecto
+    document.getElementById('multiplayer-status').style.display = 'none';
+    document.getElementById('mp-shared-profile').style.display = 'none';
+
+    // 2. Mostrar la vista solicitada y cambiar el título
+    const title = document.getElementById('mp-modal-title');
+    
+    if (viewName === 'home') {
+        title.innerText = "🌐 Multiplayer";
+        document.getElementById('mp-view-home').style.display = 'flex';
+    } 
+    else if (viewName === 'create-1') {
+        title.innerText = "Create Server";
+        document.getElementById('mp-shared-profile').style.display = 'flex';
+        document.getElementById('mp-view-create-1').style.display = 'block';
+        loadMpProfile(); // Cargar datos guardados
+    }
+    else if (viewName === 'create-2') {
+        title.innerText = "Server Active";
+        document.getElementById('mp-view-create-2').style.display = 'block';
+        document.getElementById('multiplayer-status').style.display = 'block'; // Mostrar status
+    }
+    else if (viewName === 'join') {
+        title.innerText = "Join Server";
+        document.getElementById('mp-shared-profile').style.display = 'flex';
+        document.getElementById('mp-view-join').style.display = 'block';
+        document.getElementById('multiplayer-status').style.display = 'block'; // Mostrar status
+        loadMpProfile(); // Cargar datos guardados
+    }
+}
+
+// Controlar los botones de Límite de Jugadores (1 al 6)
+function setMpLimit(limit) {
+    multiplayerPlayerLimit = limit;
+    
+    // Quitar la clase dorada a todos
+    const btns = document.querySelectorAll('.mp-limit-btn');
+    btns.forEach(btn => btn.classList.remove('selected-limit'));
+    
+    // Ponérsela solo al presionado
+    btns[limit - 1].classList.add('selected-limit');
+}
+
+// Copiar el ID al dar clic
+function copyRoomId() {
+    const idInput = document.getElementById('my-peer-id');
+    if (idInput.value.trim() !== "") {
+        navigator.clipboard.writeText(idInput.value).then(() => {
+            const hint = document.getElementById('copy-hint');
+            hint.style.visibility = 'visible';
+            setTimeout(() => { hint.style.visibility = 'hidden'; }, 2000);
+        });
+    }
+}
+
+// ==========================================
+// ✨ GUARDADO DE PERFIL (Sincronizado con profile-btn)
+// ==========================================
+
+function loadMpProfile() {
+    let finalName = localStorage.getItem('mbw_username');
+    let finalPfp = localStorage.getItem('mbw_pfp');
+
+    // 1. 🕵️‍♂️ Intentar clonar la info visual del botón global (#profile-btn)
+    const profileBtn = document.getElementById('profile-btn');
+    if (profileBtn) {
+        // A. Sacar el nombre (ignora las imágenes de adentro y toma solo el texto)
+        const textoBoton = profileBtn.innerText.trim();
+        if (textoBoton && textoBoton !== "") {
+            finalName = textoBoton;
+        }
+
+        // B. Sacar la imagen (busca si tiene una etiqueta <img> adentro)
+        const imgTag = profileBtn.querySelector('img');
+        if (imgTag && imgTag.src) {
+            finalPfp = imgTag.src;
+        } else {
+            // Si no usa <img>, tal vez usa background-image en CSS
+            const bg = window.getComputedStyle(profileBtn).backgroundImage;
+            if (bg && bg !== 'none') {
+                finalPfp = bg.slice(4, -1).replace(/"/g, ""); // Limpia el formato url("...")
+            }
+        }
+    }
+
+    // 2. 🎨 Aplicar a nuestro Modal Multijugador
+    if (finalName) {
+        document.getElementById('mp-username-input').value = finalName;
+        localStorage.setItem('mbw_username', finalName); // Guardar en memoria para la red
+    }
+    if (finalPfp) {
+        document.getElementById('mp-pfp-preview').style.backgroundImage = `url(${finalPfp})`;
+        localStorage.setItem('mbw_pfp', finalPfp);
+    }
+}
+
+function saveMpUsername() {
+    const name = document.getElementById('mp-username-input').value.trim();
+    localStorage.setItem('mbw_username', name || "Player");
+    
+    // ✨ Reflejar el cambio de vuelta en el botón global (si solo usa texto)
+    const profileBtn = document.getElementById('profile-btn');
+    if (profileBtn && !profileBtn.querySelector('img')) {
+        profileBtn.innerText = name || "Player";
+    }
+}
+
+function updateMpProfilePic(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const imageData = e.target.result;
+            
+            // 1. Actualizar el cuadro del Multijugador
+            document.getElementById('mp-pfp-preview').style.backgroundImage = `url(${imageData})`;
+            localStorage.setItem('mbw_pfp', imageData);
+            
+            // 2. ✨ Reflejar el cambio automáticamente en el #profile-btn global
+            const profileBtn = document.getElementById('profile-btn');
+            if (profileBtn) {
+                const imgTag = profileBtn.querySelector('img');
+                if (imgTag) {
+                    imgTag.src = imageData; // Si usa etiqueta de imagen
+                } else {
+                    profileBtn.style.backgroundImage = `url(${imageData})`; // Si usa fondo CSS
+                }
+            }
+        }
+        reader.readAsDataURL(input.files[0]);
     }
 }

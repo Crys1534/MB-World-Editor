@@ -91,6 +91,14 @@ window.addEventListener("keydown", function (event) {
 
     if (event.code === 'Delete' || event.code === 'Backspace') {
         if (typeof currentTool !== 'undefined' && currentTool === 'move' && selectedMobKey && typeof mbwom !== 'undefined' && mbwom.mobs && mbwom.mobs[selectedMobKey]) {
+            
+            // ==========================================
+            // ✨ MULTIPLAYER C: Avisar que borramos el Mob
+            // ==========================================
+            if (typeof enviarMensajeEnRed === 'function') {
+                enviarMensajeEnRed({ tipo: "accion_eliminar_mob", id: selectedMobKey });
+            }
+            
             delete mbwom.mobs[selectedMobKey];
             selectedMob = null;
             selectedMobKey = null;
@@ -144,7 +152,7 @@ window.addEventListener("keydown", function (event) {
     if (event.code === 'KeyC' && !isCtrl) { if (typeof eyedropper === 'function') eyedropper(mouse.worldX, mouse.worldY); }
     if (event.code === 'KeyE' && !isCtrl) { event.preventDefault(); try { toggleInventory(); } catch(e) { } }
     if (event.code === 'KeyR' && !isCtrl) { event.preventDefault(); try { openStructuresModal(); } catch(e) { } }
-	if (event.code === 'KeyM' && !isCtrl) { event.preventDefault(); try { openMobModal(); } catch(e) { } }
+    if (event.code === 'KeyM' && !isCtrl) { event.preventDefault(); try { openMobModal(); } catch(e) { } }
 
     if (event.code.startsWith('Digit')) {
         let num = parseInt(event.code.charAt(5));
@@ -166,7 +174,15 @@ canvas.addEventListener("mousemove", (event) => {
     mouse.gridX = Math.floor(mouse.canvasX / tileSize);
     mouse.gridY = Math.floor(mouse.canvasY / tileSize);
     mouse.calculateCoordinates(); 
-
+// ✨ MULTIPLAYER: Enviar posición del cursor (Máximo 20 veces por segundo para no dar lag)
+    if (typeof isMultiplayer !== 'undefined' && isMultiplayer) {
+        if (!window.lastCursorSend) window.lastCursorSend = 0;
+        if (Date.now() - window.lastCursorSend > 16) { 
+            let miNombre = localStorage.getItem('mbw_username') || "Player";
+            enviarMensajeEnRed({ tipo: "cursor", autor: miNombre, x: mouse.worldX, y: mouse.worldY });
+            window.lastCursorSend = Date.now();
+        }
+    }
     if (typeof currentTool !== 'undefined' && currentTool === 'move' && isDraggingMob && draggedMob) {
         let exactWorldX = camera.x + (mouse.canvasX / tileSize);
         let exactWorldY = camera.y + (mouse.canvasY / tileSize);
@@ -516,6 +532,13 @@ canvas.addEventListener("mousedown", function (event) {
 
             if (typeof worldDirty !== 'undefined') worldDirty = true; 
             console.log("Mob generado desde Plantilla Perfecta:", baseType);
+
+            // ==========================================
+            // ✨ MULTIPLAYER A: Avisar que creamos un Mob
+            // ==========================================
+            if (typeof enviarMensajeEnRed === 'function') {
+                enviarMensajeEnRed({ tipo: "accion_spawn_mob", id: newId, mob: mbwom.mobs[newId] });
+            }
         }
     }
     // HERRAMIENTAS DE BLOQUES
@@ -540,6 +563,19 @@ canvas.addEventListener("mousedown", function (event) {
 // --- SOLTAR CLICS (MOUSEUP) ---
 window.addEventListener("mouseup", function (event) {
     if (typeof isDraggingMob !== 'undefined' && isDraggingMob) {
+        
+        // ==========================================
+        // ✨ MULTIPLAYER B: Avisar posición final del Mob
+        // ==========================================
+        if (typeof enviarMensajeEnRed === 'function' && selectedMobKey && mbwom.mobs[selectedMobKey]) {
+            enviarMensajeEnRed({ 
+                tipo: "accion_mover_mob", 
+                id: selectedMobKey, 
+                x: mbwom.mobs[selectedMobKey].x, 
+                y: mbwom.mobs[selectedMobKey].y 
+            });
+        }
+        
         isDraggingMob = false;
         draggedMob = null;
         if (typeof worldDirty !== 'undefined') worldDirty = true;
