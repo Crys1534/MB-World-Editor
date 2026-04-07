@@ -80,35 +80,48 @@ window.enviarMensajeEnRed = function(datos) {
     }
 }
 
-function recibirMensajeDeRed(datos) {
-    console.log("📥 DATO RECIBIDO DE LA RED:", datos);
-
-    // 1. Mensajes de prueba o chat
-    if (datos.tipo === "chat") {
-        console.log("💬 Mensaje de tu amigo:", datos.texto);
-        // Opcional: puedes añadir un alert o notificación en pantalla aquí
-    }
-    
-    // 2. Sincronización total (Cuando el host presiona "Send World")
+// 2. Sincronización total (Cuando el host presiona "Send World")
     if (datos.tipo === "sync_mundo") {
         console.log("🌍 ¡Recibiendo mapa completo del anfitrión!");
         
-        // 1. Sobreescribimos la base de datos maestra
+        // 1. Sobreescribimos el objeto del mundo
         mbwom.world = datos.mundo;
         
-        // ✨ 2. FIX CRÍTICO: Reenganchar los punteros de la memoria RAM a la escena actual
-        let currentDim = typeof mbwom.currentScene !== 'undefined' ? mbwom.currentScene : 1;
-        if (typeof mbwom.loadScene === 'function') mbwom.loadScene(currentDim);
-        
-        // ✨ 3. FIX CRÍTICO: Purgar y reconstruir el caché de renderizado
+        // ✨ 2. FIX: Desempaquetar los Mobs correctamente para que no se congele la pantalla
+        mbwom.mobs = {};
+        for (let sceneId = 1; sceneId <= 3; sceneId++) {
+            let sceneMobs = mbwom.world["mobs" + sceneId];
+            if (sceneMobs) {
+                for (let mobKey in sceneMobs) {
+                    let m = sceneMobs[mobKey];
+                    let mId = mobKey + "_scene" + sceneId;
+                    mbwom.mobs[mId] = m;
+                    mbwom.mobs[mId].x = Number(m.x) || 0;
+                    mbwom.mobs[mId].y = Number(m.y) || 0;
+                    mbwom.mobs[mId].scene = sceneId;
+                }
+            }
+        }
+
+        // ✨ 3. FIX: Cargar la dimensión actual en memoria
+        if (typeof mbwom.loadScene === 'function') mbwom.loadScene(1);
+
+        // ✨ 4. FIX: Reconstruir los bloques visuales
         if (typeof initializeWorldCache === 'function') initializeWorldCache();
-        
+
+        // ✨ 5. FIX CRÍTICO: ¡Encender el motor de movimiento y dibujado!
+        if (!window.isMainLoopRunning && typeof mainLoop === 'function') {
+            mainLoop();
+            window.isMainLoopRunning = true;
+        }
+
+        // 6. Actualizar el nombre en la barra superior
         const filenameDisplay = document.getElementById("filename-display");
         if (filenameDisplay && mbwom.world.fileInfo) {
             filenameDisplay.value = mbwom.world.fileInfo.name || "Multiplayer World";
         }
         
-        alert("¡Mundo recibido y sincronizado correctamente!");
+        alert("¡Mundo recibido y sincronizado! Ya puedes moverte.");
     }
 
     // 3. Actualización de bloques en tiempo real (Lápiz, Borrador, Pincel)
