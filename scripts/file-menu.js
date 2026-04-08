@@ -126,14 +126,22 @@ function initBackstageMenu() {
                     👥
                     <span id="badge-friends" style="display: none; position: absolute; top: -5px; right: -10px; background: #e74c3c; color: white; font-size: 14px; font-weight: bold; font-family: Arial; padding: 2px 6px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">0</span>
                 </div>
+                <div style="position: relative; cursor: pointer; font-size: 28px;" onclick="openMpSidebar('invites')">
+                    🔔
+                    <span id="badge-invites" style="display: none; position: absolute; top: -5px; right: -10px; background: #e74c3c; color: white; font-size: 14px; font-weight: bold; font-family: Arial; padding: 2px 6px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">0</span>
+                </div>
                 <div id="mp-pfp-preview" onclick="document.getElementById('profile-upload').click()" title="Click to change picture" style="width: 45px; height: 45px; border-radius: 50%; background-size: cover; background-position: center; border: 2px solid var(--border); cursor: pointer; background-color: var(--input-bg); transition: 0.2s;" onmouseover="this.style.borderColor='#4DA6FF'" onmouseout="this.style.borderColor='var(--border)'"></div>
             </div>
 
             <div id="panel-my-worlds" class="backstage-panel active">
+                <h1 style="margin-top: 0; font-size: 42px; border-bottom: 2px solid var(--border); padding-bottom: 15px; color: var(--text);">My Worlds</h1>
+                <p style="color: var(--text); opacity: 0.7; margin-bottom: 30px; font-size: 16px;">Worlds saved securely in your browser's local storage.</p>
                 <div id="fs-local-worlds-list" style="display: flex; flex-direction: column; max-width: 900px;"></div>
             </div>
             
             <div id="panel-templates" class="backstage-panel">
+                <h1 style="margin-top: 0; font-size: 42px; border-bottom: 2px solid var(--border); padding-bottom: 15px; color: var(--text);">Templates</h1>
+                <p style="color: var(--text); opacity: 0.7; margin-bottom: 30px; font-size: 16px;">Start a new project from a blank canvas or a pre-built structure.</p>
                 <div id="template-grid-container" class="template-grid"></div>
             </div>
 
@@ -142,7 +150,7 @@ function initBackstageMenu() {
                     
                     <div style="flex: 1; display: flex; flex-direction: row; padding: 20px; gap: 20px;">
                         <div id="mp-main-wizard" style="flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; color: white; font-family: 'Pixeltype', sans-serif;">
-                            <h2 id="mp-modal-title" style="margin-top: 0; color: #f1c40f; font-size: 48px; text-shadow: 2px 2px 0 #000;">🌐 Servidores</h2>
+                            <h2 id="mp-modal-title" style="margin: 0px; color: #f1c40f; font-size: 48px; text-shadow: 2px 2px 0 #000;">🌐 Servers</h2>
                             
                             <div id="mp-view-home" style="display: flex; gap: 15px; width: 100%; max-width: 450px; margin-top: 20px;">
                                 <button class="menu-btn" style="flex: 1; background: #2ecc71; border: 2px solid #27ae60; font-size: 28px; padding: 15px; color: white; cursor: pointer; border-radius: 5px;" onclick="setMpView('create-1')">Create Server</button>
@@ -151,7 +159,7 @@ function initBackstageMenu() {
 
                             <div id="mp-view-create-1" style="display: none; width: 100%; max-width: 450px; margin-top: 20px;">
                                 <h3 style="margin-bottom: 10px; color: #bdc3c7; font-size: 28px;">Players Limit:</h3>
-                                <div id="mp-player-buttons" style="display: flex; justify-content: space-between; margin-bottom: 25px;">
+                                <div id="mp-player-buttons" style="display: flex; justify-content: space-between; margin-bottom: 20px;">
                                     <button class="mp-limit-btn" onclick="setMpLimit(1)">1</button>
                                     <button class="mp-limit-btn selected-limit" onclick="setMpLimit(2)">2</button>
                                     <button class="mp-limit-btn" onclick="setMpLimit(3)">3</button>
@@ -159,16 +167,33 @@ function initBackstageMenu() {
                                     <button class="mp-limit-btn" onclick="setMpLimit(5)">5</button>
                                     <button class="mp-limit-btn" onclick="setMpLimit(6)">6</button>
                                 </div>
-                                <button class="menu-btn" style="background: #2ecc71; border: 2px solid #27ae60; width: 100%; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px; margin-bottom: 10px;" onclick="setMpView('create-2')">Next ➡️</button>
+                                
+                                <div style="margin-bottom: 25px; display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.2); padding: 10px 15px; border-radius: 6px; border: 1px solid #34495e;">
+                                    <div style="color: #bdc3c7; font-size: 26px;">Access: <span id="mp-access-label" style="color: #2ecc71; font-weight: bold;">Public</span></div>
+                                    <label class="ms-switch">
+                                        <input type="checkbox" id="mp-access-toggle" onchange="toggleMpAccess(this)">
+                                        <span class="ms-slider"></span>
+                                    </label>
+                                </div>
+
+                                <button class="menu-btn" style="background: #2ecc71; border: 2px solid #27ae60; width: 100%; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px; margin-bottom: 10px;" onclick="setMpView('create-map')">Next ➡️</button>
                                 <button class="menu-btn" style="background: #7f8c8d; border: 2px solid #95a5a6; width: 100%; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px;" onclick="setMpView('home')">⬅️ Cancel</button>
                             </div>
 
+                            <div id="mp-view-create-map" style="display: none; width: 100%; max-width: 450px; margin-top: 20px; text-align: left;">
+                                <h3 style="margin-bottom: 10px; color: #bdc3c7; font-size: 28px; text-align: center;">Select Map:</h3>
+                                <div id="mp-map-list" style="height: 190px; overflow-y: auto; background: rgba(0,0,0,0.3); border-radius: 5px; padding: 10px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 8px; border: 2px solid #34495e;">
+                                    </div>
+                                <button id="btn-next-to-id" class="menu-btn" style="background: #2ecc71; border: 2px solid #27ae60; width: 100%; font-size: 26px; color: white; padding: 10px; cursor: not-allowed; border-radius: 5px; margin-bottom: 10px; opacity: 0.5;" disabled onclick="prepareServerMap()">Next ➡️</button>
+                                <button class="menu-btn" style="background: #7f8c8d; border: 2px solid #95a5a6; width: 100%; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px;" onclick="setMpView('create-1')">⬅️ Back</button>
+                            </div>
+
                             <div id="mp-view-create-2" style="display: none; width: 100%; max-width: 450px; margin-top: 20px;">
-                                <button class="menu-btn" style="background: #e67e22; border: 2px solid #d35400; width: 100%; margin-bottom: 15px; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px;" onclick="hostMultiplayerSession()">Generate ID</button>
+                                <button class="menu-btn" style="background: #e67e22; border: 2px solid #d35400; width: 100%; margin-bottom: 15px; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px;" onclick="hostMultiplayerSession()">Generate ID & Start</button>
                                 <p style="margin-bottom: 5px; color: #bdc3c7; font-size: 22px; text-align: center;">Your Room ID (Share this):</p>
                                 <input type="text" id="my-peer-id" readonly onclick="copyRoomId()" title="Click to copy!" placeholder="ID will appear here..." style="width: 100%; text-align: center; font-size: 26px; cursor: pointer; background: #ecf0f1; border: none; padding: 10px; border-radius: 4px; box-sizing: border-box; outline: none; color: #333;">
                                 <p id="copy-hint" style="color: #2ecc71; font-size: 18px; margin-top: 5px; height: 16px; visibility: hidden; text-align: center;">Copied to clipboard!</p>
-                                <button class="menu-btn" style="background: #7f8c8d; border: 2px solid #95a5a6; width: 100%; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px; margin-top: 15px;" onclick="setMpView('create-1')">⬅️ Close Server & Back</button>
+                                <button class="menu-btn" style="background: #7f8c8d; border: 2px solid #95a5a6; width: 100%; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px; margin-top: 15px;" onclick="setMpView('create-map')">⬅️ Close Server & Back</button>
                             </div>
 
                             <div id="mp-view-join" style="display: none; width: 100%; max-width: 450px; margin-top: 20px; text-align: left;">
@@ -183,11 +208,10 @@ function initBackstageMenu() {
                                 </div>
                                 <button class="menu-btn" style="background: #7f8c8d; border: 2px solid #95a5a6; width: 100%; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px;" onclick="setMpView('home')">⬅️ Back</button>
                             </div>
-
                             <p id="multiplayer-status" style="display: none; margin-top: 25px; font-weight: bold; font-size: 28px; color: #bdc3c7;">Status: Not Connected</p>
                         </div>
-                        <div style="width: 256px; padding: 20px; display: flex; flex-direction: column; align-items: center; font-family: 'Pixeltype', sans-serif; border-left: 2px solid #34495e;">
-                            <h2 style="margin-top: 0; color: #2ecc71; font-size: 32px; text-shadow: 2px 2px 0 #000; margin-bottom: 15px;">🟢 En Línea</h2>
+                        <div style="width: 420px; padding: 20px; display: flex; flex-direction: column; align-items: center; font-family: 'Pixeltype', sans-serif; border-left: 2px solid #34495e;">
+                            <h2 style="margin-top: 0; color: #2ecc71; font-size: 44px; text-shadow: 2px 2px 0 #000; margin-bottom: 15px;">Online</h2>
                             <div id="mp-online-users-list" style="width: 100%; flex: 1; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; border: 2px solid #34495e;">
                                 <p style="text-align: center; color: #bdc3c7; font-size: 24px;">Cargando jugadores...</p>
                             </div>
@@ -293,37 +317,52 @@ window.loadTemplate = function(filename) {
     });
 };
 
+// ✨ NUEVO: Función unificada para formatear el peso de los archivos
+window.formatBytes = function(bytes) {
+    if (bytes === 0) return '0 KB';
+    const k = 1024;
+    if (bytes < k * k) {
+        return (bytes / k).toFixed(1) + ' KB';
+    } else {
+        return (bytes / (k * k)).toFixed(2) + ' MB';
+    }
+};
+
 window.renderFullscreenWorldsList = async function() {
     const listDiv = document.getElementById("fs-local-worlds-list");
     if(!listDiv || typeof localDB === 'undefined') return;
-
     const worlds = await localDB.getWorlds();
     
     if(worlds.length === 0) {
-        // Si está vacío, lo forzamos a ser una columna centrada
         listDiv.style.cssText = "display: flex; flex-direction: column; max-width: 900px;";
         listDiv.className = "";
         listDiv.innerHTML = `<div style="text-align: center; padding: 60px; background: var(--bg-dark); border-radius: 12px; border: 2px dashed var(--border);"><div style="font-size: 60px; opacity: 0.3; margin-bottom: 15px;">📭</div><h3 style="color: var(--text); font-size: 24px; margin: 0 0 10px 0;">No saved worlds yet</h3><button onclick="switchBackstageTab('templates')" style="margin-top: 25px; padding: 10px 30px; background: #4DA6FF; color: #FFF; border: none; font-weight: bold; cursor: pointer; font-size: 16px; border-radius: 4px;">Start from a Template</button></div>`;
         return;
     }
-
-    worlds.sort((a, b) => b.date - a.date);
     
-    // ✨ LA SOLUCIÓN: Limpiamos los estilos en línea antes de aplicar el Grid
+    worlds.sort((a, b) => b.date - a.date);
     listDiv.style.cssText = ""; 
     listDiv.className = "template-grid";
     
-    // Dibujamos las tarjetas
-    listDiv.innerHTML = worlds.map(w => createUnifiedWorldCard({ 
-        isTemplate: false, 
-        name: w.name, 
-        author: w.fileInfo ? w.fileInfo.author : "", 
-        version: w.fileInfo ? w.fileInfo.version : "", 
-        image: w.thumb, 
-        dateStr: new Date(w.date).toLocaleDateString(), 
-        sizeStr: (new Blob([w.data]).size / 1024).toFixed(2) + " KB", 
-        onClick: `loadSavedLocalWorld('${w.name}'); closeFileMenu();` 
-    })).join('');
+    listDiv.innerHTML = worlds.map(w => {
+        const dateObj = new Date(w.date);
+        const dateStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        
+        // ✨ Usamos la nueva función unificada
+        const bytes = new Blob([w.data]).size;
+        const sizeFormatted = window.formatBytes(bytes);
+        
+        return createUnifiedWorldCard({ 
+            isTemplate: false, 
+            name: w.name, 
+            author: w.fileInfo ? w.fileInfo.author : "", 
+            version: w.fileInfo ? w.fileInfo.version : "", 
+            image: w.thumb, 
+            dateStr: dateStr, 
+            sizeStr: sizeFormatted, // <--- Aquí inyectamos el resultado
+            onClick: `loadSavedLocalWorld('${w.name}'); closeFileMenu();` 
+        });
+    }).join('');
 };
 
 window.deleteSavedLocalWorld = async function(name) {
