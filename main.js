@@ -746,80 +746,74 @@ function copyRoomId() {
         });
     }
 }
-
 // ==========================================
-// ✨ GUARDADO DE PERFIL (Sincronizado con profile-btn)
+// ✨ PERFIL UNIFICADO EN TIEMPO REAL
 // ==========================================
 
-function loadMpProfile() {
-    let finalName = localStorage.getItem('mbw_username');
-    let finalPfp = localStorage.getItem('mbw_pfp');
-
-    // 1. 🕵️‍♂️ Intentar clonar la info visual del botón global (#profile-btn)
-    const profileBtn = document.getElementById('profile-btn');
-    if (profileBtn) {
-        // A. Sacar el nombre (ignora las imágenes de adentro y toma solo el texto)
-        const textoBoton = profileBtn.innerText.trim();
-        if (textoBoton && textoBoton !== "") {
-            finalName = textoBoton;
-        }
-
-        // B. Sacar la imagen (busca si tiene una etiqueta <img> adentro)
-        const imgTag = profileBtn.querySelector('img');
-        if (imgTag && imgTag.src) {
-            finalPfp = imgTag.src;
-        } else {
-            // Si no usa <img>, tal vez usa background-image en CSS
-            const bg = window.getComputedStyle(profileBtn).backgroundImage;
-            if (bg && bg !== 'none') {
-                finalPfp = bg.slice(4, -1).replace(/"/g, ""); // Limpia el formato url("...")
-            }
-        }
-    }
-
-    // 2. 🎨 Aplicar a nuestro Modal Multijugador
-    if (finalName) {
-        document.getElementById('mp-username-input').value = finalName;
-        localStorage.setItem('mbw_username', finalName); // Guardar en memoria para la red
-    }
-    if (finalPfp) {
-        document.getElementById('mp-pfp-preview').style.backgroundImage = `url(${finalPfp})`;
-        localStorage.setItem('mbw_pfp', finalPfp);
-    }
-}
-
-function saveMpUsername() {
-    const name = document.getElementById('mp-username-input').value.trim();
-    localStorage.setItem('mbw_username', name || "Player");
+window.openUnifiedProfile = function() {
+    openModal('unified-profile-modal');
     
-    // ✨ Reflejar el cambio de vuelta en el botón global (si solo usa texto)
-    const profileBtn = document.getElementById('profile-btn');
-    if (profileBtn && !profileBtn.querySelector('img')) {
-        profileBtn.innerText = name || "Player";
-    }
-}
+    const savedPic = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
+    const savedName = localStorage.getItem('mbw_username') || "Player";
+    
+    document.getElementById('modal-global-pfp').src = savedPic;
+    document.getElementById('global-profile-username').value = savedName;
+};
 
-function updateMpProfilePic(input) {
-    if (input.files && input.files[0]) {
+window.handleGlobalProfileUpload = function(event) {
+    const file = event.target.files[0];
+    if (file) {
         const reader = new FileReader();
         reader.onload = function(e) {
-            const imageData = e.target.result;
+            const base64Img = e.target.result;
+            localStorage.setItem('mbw_profile_pic', base64Img);
             
-            // 1. Actualizar el cuadro del Multijugador
-            document.getElementById('mp-pfp-preview').style.backgroundImage = `url(${imageData})`;
-            localStorage.setItem('mbw_pfp', imageData);
+            // 1. Actualiza el modal
+            document.getElementById('modal-global-pfp').src = base64Img;
             
-            // 2. ✨ Reflejar el cambio automáticamente en el #profile-btn global
-            const profileBtn = document.getElementById('profile-btn');
-            if (profileBtn) {
-                const imgTag = profileBtn.querySelector('img');
-                if (imgTag) {
-                    imgTag.src = imageData; // Si usa etiqueta de imagen
-                } else {
-                    profileBtn.style.backgroundImage = `url(${imageData})`; // Si usa fondo CSS
-                }
+            // 2. Actualiza el botón de la barra superior
+            const topImg = document.getElementById('top-profile-img');
+            if (topImg) topImg.src = base64Img;
+            
+            // 3. Actualiza la vista del menú multijugador (si está abierta)
+            const mpPreview = document.getElementById('mp-pfp-preview');
+            if (mpPreview) mpPreview.style.backgroundImage = `url(${base64Img})`;
+
+            // 4. Sincroniza con Firebase en tiempo real
+            if (typeof myPresenceRef !== 'undefined' && myPresenceRef) {
+                myPresenceRef.update({ pfp: base64Img });
             }
-        }
-        reader.readAsDataURL(input.files[0]);
+        };
+        reader.readAsDataURL(file);
     }
-}
+};
+
+window.handleGlobalUsernameChange = function(newName) {
+    let cleanName = newName.trim() || 'Player';
+    localStorage.setItem('mbw_username', cleanName);
+    
+    // Actualiza el input del menú multijugador por si estaba abierto
+    const mpUsernameInput = document.getElementById('mp-username-input');
+    if (mpUsernameInput) mpUsernameInput.value = cleanName;
+
+    // Sincroniza con Firebase en tiempo real
+    if (typeof myPresenceRef !== 'undefined' && myPresenceRef) {
+        myPresenceRef.update({ username: cleanName });
+    }
+};
+
+// Al cargar la página, restaurar datos y escuchar los clics
+window.addEventListener('DOMContentLoaded', () => {
+    const savedPic = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
+    const topImg = document.getElementById('top-profile-img');
+    if (topImg) topImg.src = savedPic;
+
+    // MAGIA: Esto hace que al dar clic en la foto del menú Multijugador (o en el input de nombre) se abra el Perfil Unificado
+    document.body.addEventListener('click', (e) => {
+        if (e.target && (e.target.id === 'mp-pfp-preview' || e.target.id === 'mp-username-input' || e.target.closest('#mp-pfp-preview'))) {
+            // Evitamos comportamientos raros y abrimos la ventana
+            e.preventDefault();
+            openUnifiedProfile();
+        }
+    });
+});

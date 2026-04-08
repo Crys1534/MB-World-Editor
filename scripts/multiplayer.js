@@ -884,26 +884,76 @@ window.renderServerInvites = function(container) {
 
 window.renderChatList = function(container) {
     const myUID = localStorage.getItem('mbw_uid');
-    database.ref('user_chats/' + myUID).once('value', (snapshot) => {
-        const myChats = snapshot.val();
-        container.innerHTML = '';
-        if (!myChats) { container.innerHTML = '<p style="color: #bdc3c7; text-align: center; font-size: 20px; margin-top: 20px;">No active chats.</p>'; return; }
+    
+    // 1. Pedimos a Firebase la lista de amigos
+    database.ref('friends/' + myUID).once('value', (friendsSnap) => {
+        const friends = friendsSnap.val() || {};
+        
+        // 2. Pedimos los chats activos
+        database.ref('user_chats/' + myUID).once('value', (snapshot) => {
+            const myChats = snapshot.val() || {};
+            container.innerHTML = '';
+            
+            let chatEntries = {};
+            
+            // A) Primero metemos los chats que ya existen
+            for (let uid in myChats) {
+                chatEntries[uid] = myChats[uid];
+            }
+            
+            // B) Luego metemos a los amigos que aún no tienen historial
+            for (let uid in friends) {
+                if (!chatEntries[uid]) {
+                    // Buscamos su nombre e imagen en los usuarios conectados para que no salga "Unknown"
+                    let friendName = "Player";
+                    let friendPfp = "assets/default pfp.png";
+                    
+                    if (window.lastKnownUsers) {
+                        for(let key in window.lastKnownUsers) {
+                            if(window.lastKnownUsers[key].uid === uid) {
+                                friendName = window.lastKnownUsers[key].username;
+                                friendPfp = window.lastKnownUsers[key].pfp;
+                            }
+                        }
+                    }
+                    
+                    chatEntries[uid] = {
+                        name: friendName,
+                        pfp: friendPfp,
+                        lastMsg: "Toca para iniciar una conversación",
+                        timestamp: 0, // 0 para que siempre aparezcan al final de la lista
+                        unreadCount: 0
+                    };
+                }
+            }
 
-        const sorted = Object.keys(myChats).map(uid => ({uid, ...myChats[uid]})).sort((a, b) => b.timestamp - a.timestamp);
-        sorted.forEach(chat => {
-            let unreadBadge = (chat.unreadCount && chat.unreadCount > 0) ? `<div style="background: #e74c3c; color: white; font-size: 14px; font-weight: bold; padding: 2px 8px; border-radius: 12px; margin-left: auto; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${chat.unreadCount}</div>` : '';
-            container.innerHTML += `
-                <div style="background: rgba(0,0,0,0.3); padding: 12px; display: flex; align-items: center; gap: 12px; border-radius: 6px; border-left: 4px solid #3498db; cursor: pointer; transition: 0.2s; margin-bottom: 8px;" onmouseover="this.style.background='rgba(52, 152, 219, 0.2)'" onmouseout="this.style.background='rgba(0,0,0,0.3)'" onclick="openPrivateChat('${chat.uid}', '${chat.name}', '${chat.pfp}')">
-                    <div style="width: 45px; height: 45px; border-radius: 50%; background-image: url('${chat.pfp}'); background-size: cover; background-position: center; border: 2px solid #FFF; flex-shrink: 0;"></div>
-                    <div style="flex: 1; overflow: hidden; display: flex; align-items: center;">
-                        <div style="flex: 1; overflow: hidden;">
-                            <div style="color: white; font-size: 24px; font-family: 'Pixeltype', sans-serif;">${chat.name}</div>
-                            <div style="color: #bdc3c7; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: Arial;">${chat.lastMsg}</div>
+            // Ordenamos todo por fecha del último mensaje
+            const sorted = Object.keys(chatEntries).map(uid => ({uid, ...chatEntries[uid]})).sort((a, b) => b.timestamp - a.timestamp);
+            
+            if (sorted.length === 0) { 
+                container.innerHTML = '<p style="color: #bdc3c7; text-align: center; font-size: 20px; margin-top: 20px;">No friends or active chats.</p>'; 
+                return; 
+            }
+
+            sorted.forEach(chat => {
+                let unreadBadge = (chat.unreadCount && chat.unreadCount > 0) ? `<div style="background: #e74c3c; color: white; font-size: 14px; font-weight: bold; padding: 2px 8px; border-radius: 12px; margin-left: auto; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${chat.unreadCount}</div>` : '';
+                
+                // Si es un amigo sin chat, le ponemos un estilo opaco para diferenciarlo
+                let msgStyle = chat.lastMsg === "Toca para iniciar una conversación" ? "font-style: italic; opacity: 0.6;" : "";
+
+                container.innerHTML += `
+                    <div style="background: rgba(0,0,0,0.3); padding: 12px; display: flex; align-items: center; gap: 12px; border-radius: 6px; border-left: 4px solid #3498db; cursor: pointer; transition: 0.2s; margin-bottom: 8px;" onmouseover="this.style.background='rgba(52, 152, 219, 0.2)'" onmouseout="this.style.background='rgba(0,0,0,0.3)'" onclick="openPrivateChat('${chat.uid}', '${chat.name}', '${chat.pfp}')">
+                        <div style="width: 45px; height: 45px; border-radius: 50%; background-image: url('${chat.pfp}'); background-size: cover; background-position: center; border: 2px solid #FFF; flex-shrink: 0;"></div>
+                        <div style="flex: 1; overflow: hidden; display: flex; align-items: center;">
+                            <div style="flex: 1; overflow: hidden;">
+                                <div style="color: white; font-size: 24px; font-family: 'Pixeltype', sans-serif;">${chat.name}</div>
+                                <div style="color: #bdc3c7; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: Arial; ${msgStyle}">${chat.lastMsg}</div>
+                            </div>
+                            ${unreadBadge}
                         </div>
-                        ${unreadBadge}
                     </div>
-                </div>
-            `;
+                `;
+            });
         });
     });
 };
@@ -1011,6 +1061,45 @@ window.startFriendListeners = function() {
 
     database.ref('server_invites/' + myUID).on('child_added', handleNewInvite);
     database.ref('server_invites/' + myUID).on('child_changed', handleNewInvite); 
+
+
+// 1. Notificaciones para Nuevos Mensajes Privados
+        const handleNewMessage = (snapshot) => {
+            if (isInitialLoad) return; 
+            const chat = snapshot.val();
+            
+            // Solo notificamos si hay mensajes sin leer (es un mensaje nuevo)
+            if (chat.unreadCount && chat.unreadCount > 0) {
+                if (typeof audioManager !== 'undefined') audioManager.playTone(600, 'sine', 0.1, 0.2);
+                
+                showDesktopNotification("💬 Mensaje de " + chat.name, chat.lastMsg, chat.pfp, () => {
+                    // Si le dan clic a la notificación, se abre el chat directamente!
+                    openPrivateChat(snapshot.key, chat.name, chat.pfp);
+                });
+            }
+        };
+        // Escuchamos tanto chats nuevos como chats que ya existían pero se actualizaron
+        database.ref('user_chats/' + myUID).on('child_added', handleNewMessage);
+        database.ref('user_chats/' + myUID).on('child_changed', handleNewMessage);
+
+
+        // 2. Notificaciones para Solicitudes de Amistad
+        const handleNewFriendReq = (snapshot) => {
+            if (isInitialLoad) return;
+            const req = snapshot.val();
+            
+            // Si ya tiene un status (accepted/rejected), no es nueva
+            if (req.status) return; 
+            
+            if (typeof audioManager !== 'undefined') audioManager.playTone(800, 'sine', 0.1, 0.3);
+            
+            showDesktopNotification("👥 Solicitud de amistad", req.username + " te envió una solicitud.", req.pfp, () => {
+                // Al darle clic, abrimos la pestaña de amigos
+                openMpSidebar('friends');
+            });
+        };
+        database.ref('friend_requests/' + myUID).on('child_added', handleNewFriendReq);
+
 
     setTimeout(() => { isInitialLoad = false; }, 2000);
 }

@@ -349,29 +349,14 @@
   
   <div class="right-group" style="display: flex; align-items: center; gap: 8px; margin-right: 15px; position: relative;">
         
-    <div id="mp-live-players" style="display: flex; align-items: center; margin-right: 5px;"></div>
+        <div id="mp-live-players" style="display: flex; align-items: center; margin-right: 5px;"></div>
 
-    <button id="profile-btn" onclick="toggleProfilePopup()" style="width: 28px; height: 28px; border-radius: 50%; padding: 0; cursor: pointer; overflow: hidden; background: var(--input-bg); flex-shrink: 0; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-        <img id="top-profile-img" src="assets/default pfp.png" style="width: 100%; height: 100%; object-fit: cover; image-rendering: auto;">
-    </button>
+        <button id="profile-btn" onclick="openUnifiedProfile()" style="width: 28px; height: 28px; border-radius: 50%; padding: 0; cursor: pointer; overflow: hidden; background: var(--input-bg); flex-shrink: 0; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+            <img id="top-profile-img" src="assets/default pfp.png" style="width: 100%; height: 100%; object-fit: cover; image-rendering: auto;">
+        </button>
 
-    <div id="profile-popup" style="display: none; position: absolute; top: 40px; right: 80px; background: var(--bg-panel); border-radius: 6px; padding: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); z-index: 1000; flex-direction: row; align-items: center; gap: 12px; width: 200px; cursor: default;">
-        
-        <div class="profile-pic-container" onclick="document.getElementById('profile-upload').click()" style="position: relative; width: 50px; height: 50px; border-radius: 50%; overflow: hidden; cursor: pointer; flex-shrink: 0;">
-            <img id="popup-profile-img" src="assets/default pfp.png" style="width: 100%; height: 100%; object-fit: cover; image-rendering: auto;">
-            <div class="profile-pic-overlay">✏️</div>
-        </div>
-        <input type="file" id="profile-upload" accept="image/*" style="display: none;" onchange="handleProfileUpload(event)">
-        
-        <div style="flex-grow: 1; display: flex; flex-direction: column; overflow: hidden;">
-            <span style="font-size: 10px; color: var(--text); opacity: 0.6; font-weight: bold; text-transform: uppercase;">Username</span>
-            <input type="text" id="profile-username" value="" onkeydown="handleUsernameEnter(event)" onblur="saveUsername()" autocomplete="off" spellcheck="false" title="Press Enter to save">
-        </div>
-
+        <button class="icon-btn" id="news-btn" onclick="openNewsModal()" title="Updates & Changelog" style="font-size: 14px; font-weight: bold;">📰 News</button>
     </div>
-
-    <button class="icon-btn" id="news-btn" onclick="openNewsModal()" title="Updates & Changelog" style="font-size: 14px; font-weight: bold;">📰 News</button>
-  </div>
 </div>
  <div id="ui-collapse-wrapper" class="collapsible-wrapper">
   <div class="ui-collapse-inner">
@@ -1222,86 +1207,17 @@
 </div>
 
 <script>
-    // Mostrar/Ocultar el menú del perfil
-    function toggleProfilePopup() {
-        const popup = document.getElementById('profile-popup');
-        popup.style.display = (popup.style.display === 'none' || popup.style.display === '') ? 'flex' : 'none';
-    }
-
-    // Cerrar el menú si haces clic afuera
-    document.addEventListener('click', function(event) {
-        const popup = document.getElementById('profile-popup');
-        const btn = document.getElementById('profile-btn');
-        if (popup && popup.style.display === 'flex') {
-            if (!popup.contains(event.target) && !btn.contains(event.target)) {
-                popup.style.display = 'none';
-            }
-        }
-    });
-
-    // Subir la imagen de perfil y convertirla a Base64 para guardarla en el navegador
-    function handleProfileUpload(event) {
-        const file = event.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const base64Img = e.target.result;
-                document.getElementById('top-profile-img').src = base64Img;
-                document.getElementById('popup-profile-img').src = base64Img;
-                localStorage.setItem('mbw_profile_pic', base64Img); // Guarda la foto
-            };
-            reader.readAsDataURL(file);
-        }
-    }
-
-    // Guardar el nombre al dar Enter
-    function handleUsernameEnter(event) {
-        if (event.key === 'Enter') {
-            event.target.blur(); // Quita el foco, lo que activa onblur="saveUsername()"
-        }
-    }
-
-    // Guardar el nombre en el navegador
-    function saveUsername() {
-        const input = document.getElementById('profile-username');
-        let username = input.value.trim();
-        if (username === '') username = 'Username'; // Valor por defecto si lo dejan vacío
-        
-        localStorage.setItem('mbw_username', username);
-        input.value = username;
-    }
-
-    // Cargar los datos automáticamente al abrir el editor
-    window.addEventListener('DOMContentLoaded', () => {
-        const savedPic = localStorage.getItem('mbw_profile_pic');
-        if (savedPic) {
-            document.getElementById('top-profile-img').src = savedPic;
-            document.getElementById('popup-profile-img').src = savedPic;
-        }
-        const savedName = localStorage.getItem('mbw_username');
-        if (savedName) {
-            document.getElementById('profile-username').value = savedName;
-        }
-    });
-	
-	
-		// ==========================================
+    // ==========================================
     // ✨ SISTEMA DE VOLUMEN GLOBAL
     // ==========================================
-    window.masterVolume = 1.0; // Variable global (de 0.0 a 1.0) para usar en tus audios
+    window.masterVolume = 1.0; 
 
     function changeVolume(val) {
-        // Actualiza el texto en la interfaz
         document.getElementById('volume-display').innerText = val + "%";
-        
-        // Convierte de 0-100 a 0.0-1.0 para el código de audio
         window.masterVolume = val / 100;
-        
-        // Lo guarda en el navegador
         localStorage.setItem('mbw_volume', val);
     }
 
-    // Enganchamos la carga del volumen guardado al evento DOMContentLoaded que ya teníamos
     window.addEventListener('DOMContentLoaded', () => {
         let savedVol = localStorage.getItem('mbw_volume');
         if (savedVol !== null) {
@@ -1314,6 +1230,26 @@
     });
 </script>
 
+<div id="unified-profile-modal" class="modal" style="z-index: 6000;">
+    <div class="modal-content mbw-standard-modal" style="width: 300px; height: auto; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); margin: 0;">
+        <div class="mbw-modal-header">
+            <h3>Mi Perfil</h3>
+            <span class="mbw-close-btn" onclick="closeModal('unified-profile-modal')">&times;</span>
+        </div>
+        <div class="mbw-modal-body" style="display: flex; flex-direction: column; align-items: center; padding: 20px;">
+            
+            <div class="profile-pic-container" onclick="document.getElementById('global-profile-upload').click()" style="position: relative; width: 100px; height: 100px; border-radius: 50%; overflow: hidden; cursor: pointer; border: 4px solid #FFF; box-shadow: 0 4px 8px rgba(0,0,0,0.3); margin-bottom: 20px;">
+                <img id="modal-global-pfp" src="assets/default pfp.png" style="width: 100%; height: 100%; object-fit: cover;">
+                <div class="profile-pic-overlay" style="font-size: 24px;">✏️</div>
+            </div>
+            <input type="file" id="global-profile-upload" accept="image/*" style="display: none;" onchange="handleGlobalProfileUpload(event)">
+            
+            <label style="font-size: 12px; font-weight: bold; color: #333; margin-bottom: 5px; width: 100%; text-align: left;">Nombre de Usuario:</label>
+            <input type="text" id="global-profile-username" value="" oninput="handleGlobalUsernameChange(this.value)" placeholder="Tu nombre..." style="width: 100%; padding: 8px; border: 2px solid #555; border-radius: 4px; font-size: 16px; font-weight: bold; text-align: center; font-family: inherit; color: black;">
+        </div>
+    </div>
+ </div>
+ 
 
  <script src="scripts/ui-handler.js"></script>
  <script src="scripts/mbwom.js"></script>

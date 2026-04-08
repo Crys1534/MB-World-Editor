@@ -42,7 +42,7 @@ function initBackstageMenu() {
         }
 
         .backstage-sidebar {
-            width: 280px; background-color: var(--bg-header);
+            width: 232px; background-color: var(--bg-header);
             display: flex; flex-direction: column;
             box-shadow: 2px 0 10px rgba(0,0,0,0.5);
             z-index: 2;
@@ -134,14 +134,10 @@ function initBackstageMenu() {
             </div>
 
             <div id="panel-my-worlds" class="backstage-panel active">
-                <h1 style="margin-top: 0; font-size: 42px; border-bottom: 2px solid var(--border); padding-bottom: 15px; color: var(--text);">My Worlds</h1>
-                <p style="color: var(--text); opacity: 0.7; margin-bottom: 30px; font-size: 16px;">Worlds saved securely in your browser's local storage.</p>
                 <div id="fs-local-worlds-list" style="display: flex; flex-direction: column; max-width: 900px;"></div>
             </div>
             
             <div id="panel-templates" class="backstage-panel">
-                <h1 style="margin-top: 0; font-size: 42px; border-bottom: 2px solid var(--border); padding-bottom: 15px; color: var(--text);">Templates</h1>
-                <p style="color: var(--text); opacity: 0.7; margin-bottom: 30px; font-size: 16px;">Start a new project from a blank canvas or a pre-built structure.</p>
                 <div id="template-grid-container" class="template-grid"></div>
             </div>
 
