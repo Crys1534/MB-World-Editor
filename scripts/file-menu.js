@@ -144,7 +144,7 @@ function initBackstageMenu() {
             <div id="panel-multiplayer" class="backstage-panel">
                 <div style="flex: 1; display: flex; overflow: hidden; position: relative; width: 100%;">
                     
-                    <div style="flex: 1; display: flex; flex-direction: row; padding: 20px; gap: 20px;">
+                    <div id="mp-servers-view" style="flex: 1; display: flex; flex-direction: row; padding: 20px; gap: 20px; width: 100%;">
                         <div id="mp-main-wizard" style="flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; color: white; font-family: 'Pixeltype', sans-serif;">
                             <h2 id="mp-modal-title" style="margin: 0px; color: #f1c40f; font-size: 48px; text-shadow: 2px 2px 0 #000;">🌐 Servers</h2>
                             
@@ -214,6 +214,37 @@ function initBackstageMenu() {
                         </div>
                     </div>
 
+                    <div id="mp-full-chat-view" style="display: none; flex: 1; flex-direction: row; width: 100%; height: 100%; background: #2c3e50;">
+                        <div style="width: 350px; background: #34495e; border-right: 2px solid #1a252f; display: flex; flex-direction: column;">
+                            <div style="padding: 15px; border-bottom: 2px solid #1a252f; display: flex; justify-content: space-between; align-items: center;">
+                                <h3 style="margin: 0; color: white; font-size: 32px;">💬 Chats</h3>
+                            </div>
+                            <div id="full-chat-list-container" style="flex: 1; overflow-y: auto; padding: 0px; display: flex; flex-direction: column; gap: 0px;"></div>
+                        </div>
+
+                        <div style="flex: 1; display: flex; flex-direction: column; background: #2c3e50; position: relative; width: 68%;">
+                            
+                            <div id="full-chat-placeholder" style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                                <span style="font-size: 80px; opacity: 0.2; margin-bottom: 20px;">💬</span>
+                                <h2 style="color: #bdc3c7; font-family: 'Pixeltype', sans-serif; font-size: 42px; opacity: 0.5; margin: 0;">Selecciona un chat para iniciar</h2>
+                            </div>
+
+                            <div id="full-chat-active" style="display: none; flex: 1; flex-direction: column; height: 100%;">
+                                <div style="background: #1a252f; padding: 15px 25px; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); z-index: 2;">
+                                    <div id="full-chat-header-pfp" style="width: 45px; height: 45px; border-radius: 50%; background-size: cover; background-position: center; border: 2px solid white;"></div>
+                                    <h4 id="full-chat-header-name" style="margin: 0; color: white; font-size: 36px; font-family: 'Pixeltype', sans-serif;">Nombre</h4>
+                                </div>
+                                
+                                <div id="full-dm-messages" style="flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: #2c3e50;"></div>
+                                
+                                <div style="display: flex; padding: 15px 25px; background: #34495e; gap: 15px; border-top: 2px solid #1a252f;">
+                                    <input type="text" id="full-dm-input" placeholder="Escribe un mensaje..." style="flex: 1; padding: 12px; font-family: 'Pixeltype', sans-serif; font-size: 26px; border-radius: 8px; border: none; outline: none; background: #ecf0f1; color: #333;">
+                                    <button onclick="sendPrivateMessage()" style="background: #2ecc71; border: none; border-radius: 8px; padding: 0 25px; font-size: 28px; cursor: pointer; color: white; transition: 0.2s; font-family: 'Pixeltype', sans-serif;" onmouseover="this.style.background='#27ae60'" onmouseout="this.style.background='#2ecc71'">Enviar ➔</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div id="mp-right-sidebar" style="position: absolute; top: 0; right: 0; bottom: 0; width: 350px; background: #34495e; border-left: 2px solid #1a252f; display: none; flex-direction: column; box-shadow: -10px 0 25px rgba(0,0,0,0.6); font-family: 'Pixeltype', sans-serif; z-index: 20; animation: slideIn 0.3s ease-out;">
                         <style>
                             @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
@@ -224,18 +255,6 @@ function initBackstageMenu() {
                                 <span onclick="closeMpSidebar()" style="color: white; cursor: pointer; font-size: 28px;">&times;</span>
                             </div>
                             <div id="sidebar-content" style="flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;"></div>
-                        </div>
-
-                        <div id="sidebar-chat-view" style="flex: 1; display: none; flex-direction: column; height: 100%;">
-                            <div style="background: #2c3e50; padding: 10px; display: flex; align-items: center; gap: 10px; border-bottom: 2px solid #1a252f;">
-                                <button onclick="backToSidebarList()" style="background: transparent; border: none; color: white; cursor: pointer; font-size: 28px;">⬅️</button>
-                                <h4 id="dm-title" style="margin: 0; color: white; font-size: 28px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Chat</h4>
-                            </div>
-                            <div id="dm-messages" style="flex: 1; background: #2c3e50; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;"></div>
-                            <div style="display: flex; padding: 10px; background: #34495e; gap: 5px;">
-                                <input type="text" id="dm-input" placeholder="Mensaje..." style="flex: 1; padding: 8px; font-family: 'Pixeltype', sans-serif; font-size: 24px; border-radius: 4px; border: none; outline: none;">
-                                <button onclick="sendPrivateMessage()" style="background: #2ecc71; border: none; border-radius: 4px; padding: 0 15px; font-size: 20px; cursor: pointer; color: white;">▶</button>
-                            </div>
                         </div>
                     </div>
 
@@ -286,11 +305,20 @@ window.switchBackstageTab = function(tabName) {
     const targetBtn = document.getElementById('nav-btn-' + tabName);
     if (targetPanel) targetPanel.classList.add('active');
     if (targetBtn) targetBtn.classList.add('active');
+    
     if (tabName === 'my-worlds') renderFullscreenWorldsList(); 
     else if (tabName === 'multiplayer') {
         const savedPic = localStorage.getItem('mbw_profile_pic');
         const lobbyPfp = document.getElementById('mp-pfp-preview');
         if (lobbyPfp) lobbyPfp.style.backgroundImage = savedPic ? `url('${savedPic}')` : `url('assets/default pfp.png')`;
+        
+        // ✨ Al cliquear el botón "🌐 Multiplayer" reseteamos a la vista normal de Servidores
+        const serversView = document.getElementById('mp-servers-view');
+        const fullChatView = document.getElementById('mp-full-chat-view');
+        const sidebar = document.getElementById('mp-right-sidebar');
+        if (serversView) serversView.style.display = 'flex';
+        if (fullChatView) fullChatView.style.display = 'none';
+        if (sidebar) sidebar.style.display = 'none';
     }
 };
 

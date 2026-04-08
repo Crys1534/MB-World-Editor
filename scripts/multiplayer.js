@@ -805,36 +805,54 @@ window.sendPrivateMessage = function() {
 }
 
 // ==========================================
-// ✨ CONTROL DE LA BARRA LATERAL (LOBBY)
+// ✨ CONTROL DE LA BARRA LATERAL Y CHAT PANTALLA COMPLETA
 // ==========================================
 
 let currentSidebarMode = ''; 
 
 window.openMpSidebar = function(mode) {
+    // Si el menú (File) está cerrado, lo forzamos a abrir
+    if (typeof openFileMenu === 'function') {
+        const fileMenu = document.getElementById('file-menu');
+        if (fileMenu && fileMenu.style.display === 'none') openFileMenu();
+    }
+    
+    // Forzamos a la pestaña Multiplayer 
+    if (typeof switchBackstageTab === 'function') switchBackstageTab('multiplayer');
+
+    currentSidebarMode = mode;
+    
+    const serversView = document.getElementById('mp-servers-view');
+    const fullChatView = document.getElementById('mp-full-chat-view');
     const sidebar = document.getElementById('mp-right-sidebar');
     const title = document.getElementById('sidebar-title');
     const content = document.getElementById('sidebar-content');
-    const listView = document.getElementById('sidebar-list-view');
-    const chatView = document.getElementById('sidebar-chat-view');
-    
-    if (sidebar) sidebar.style.display = 'flex';
-    if (listView) listView.style.display = 'flex';
-    if (chatView) chatView.style.display = 'none';
-    currentSidebarMode = mode;
 
-    if (mode === 'friends') {
-        if (title) title.innerText = '👥 Friend requests';
-        if (content) renderFriendRequests(content);
-        const badgeFriends = document.getElementById('badge-friends');
-        if (badgeFriends) badgeFriends.style.display = 'none'; 
-    } else if (mode === 'chats') {
-        if (title) title.innerText = '💬 Chats';
-        if (content) renderChatList(content);
-    } else if (mode === 'invites') {
-        if (title) title.innerText = '🔔 Notifications';
-        if (content) renderServerInvites(content);
-        const badgeInv = document.getElementById('badge-invites');
-        if (badgeInv) badgeInv.style.display = 'none';
+    if (mode === 'chats') {
+        // ✨ MODO WHATSAPP WEB
+        if (serversView) serversView.style.display = 'none';
+        if (sidebar) sidebar.style.display = 'none';
+        if (fullChatView) fullChatView.style.display = 'flex';
+        
+        const listContainer = document.getElementById('full-chat-list-container');
+        if (listContainer) renderChatList(listContainer);
+    } else {
+        // Modo Antiguo: Friends / Invites (usa la barra lateral pequeña)
+        if (serversView) serversView.style.display = 'flex'; // Deja los servidores de fondo
+        if (fullChatView) fullChatView.style.display = 'none';
+        if (sidebar) sidebar.style.display = 'flex';
+
+        if (mode === 'friends') {
+            if (title) title.innerText = '👥 Friend requests';
+            if (content) renderFriendRequests(content);
+            const badgeFriends = document.getElementById('badge-friends');
+            if (badgeFriends) badgeFriends.style.display = 'none'; 
+        } else if (mode === 'invites') {
+            if (title) title.innerText = '🔔 Notifications';
+            if (content) renderServerInvites(content);
+            const badgeInv = document.getElementById('badge-invites');
+            if (badgeInv) badgeInv.style.display = 'none';
+        }
     }
 }
 
@@ -843,28 +861,15 @@ window.closeMpSidebar = function() {
     if (sidebar) sidebar.style.display = 'none';
 }
 
-window.backToSidebarList = function() {
-    const chatView = document.getElementById('sidebar-chat-view');
-    const listView = document.getElementById('sidebar-list-view');
-    if (chatView) chatView.style.display = 'none';
-    if (listView) listView.style.display = 'flex';
-    if (currentChatListener && currentChatId) database.ref('private_chats/' + currentChatId).off('child_added', currentChatListener);
-}
-
 window.renderServerInvites = function(container) {
     const myUID = localStorage.getItem('mbw_uid');
     database.ref('server_invites/' + myUID).once('value', (snapshot) => {
         const invites = snapshot.val();
         container.innerHTML = '';
-        
-        if (!invites) {
-            container.innerHTML = '<p style="color: #bdc3c7; text-align: center; font-size: 24px;">No notifications yet.</p>';
-            return;
-        }
+        if (!invites) { container.innerHTML = '<p style="color: #bdc3c7; text-align: center; font-size: 24px;">No notifications yet.</p>'; return; }
 
         Object.keys(invites).reverse().forEach(senderUid => {
             let inv = invites[senderUid];
-            
             container.innerHTML += `
                 <div style="background: rgba(0,0,0,0.2); padding: 10px; display: flex; align-items: center; gap: 10px; border-radius: 4px; border-left: 3px solid #9b59b6;">
                     <div style="width: 40px; height: 40px; border-radius: 50%; background-image: url('${inv.hostPfp}'); background-size: cover; background-position: center; border: 2px solid white;"></div>
@@ -884,65 +889,38 @@ window.renderServerInvites = function(container) {
 
 window.renderChatList = function(container) {
     const myUID = localStorage.getItem('mbw_uid');
-    
-    // 1. Pedimos a Firebase la lista de amigos
     database.ref('friends/' + myUID).once('value', (friendsSnap) => {
         const friends = friendsSnap.val() || {};
-        
-        // 2. Pedimos los chats activos
         database.ref('user_chats/' + myUID).once('value', (snapshot) => {
             const myChats = snapshot.val() || {};
             container.innerHTML = '';
-            
             let chatEntries = {};
             
-            // A) Primero metemos los chats que ya existen
-            for (let uid in myChats) {
-                chatEntries[uid] = myChats[uid];
-            }
-            
-            // B) Luego metemos a los amigos que aún no tienen historial
+            for (let uid in myChats) { chatEntries[uid] = myChats[uid]; }
             for (let uid in friends) {
                 if (!chatEntries[uid]) {
-                    // Buscamos su nombre e imagen en los usuarios conectados para que no salga "Unknown"
-                    let friendName = "Player";
-                    let friendPfp = "assets/default pfp.png";
-                    
-                    if (window.lastKnownUsers) {
-                        for(let key in window.lastKnownUsers) {
-                            if(window.lastKnownUsers[key].uid === uid) {
-                                friendName = window.lastKnownUsers[key].username;
-                                friendPfp = window.lastKnownUsers[key].pfp;
-                            }
-                        }
+                    let friendName = "Friend"; let friendPfp = "assets/default pfp.png";
+                    if (window.lastKnownUsers && window.lastKnownUsers[uid]) {
+                        friendName = window.lastKnownUsers[uid].username; friendPfp = window.lastKnownUsers[uid].pfp;
                     }
-                    
-                    chatEntries[uid] = {
-                        name: friendName,
-                        pfp: friendPfp,
-                        lastMsg: "Toca para iniciar una conversación",
-                        timestamp: 0, // 0 para que siempre aparezcan al final de la lista
-                        unreadCount: 0
-                    };
+                    chatEntries[uid] = { name: friendName, pfp: friendPfp, lastMsg: "Toca para iniciar una conversación", timestamp: 0, unreadCount: 0 };
                 }
             }
 
-            // Ordenamos todo por fecha del último mensaje
             const sorted = Object.keys(chatEntries).map(uid => ({uid, ...chatEntries[uid]})).sort((a, b) => b.timestamp - a.timestamp);
-            
-            if (sorted.length === 0) { 
-                container.innerHTML = '<p style="color: #bdc3c7; text-align: center; font-size: 20px; margin-top: 20px;">No friends or active chats.</p>'; 
-                return; 
-            }
+            if (sorted.length === 0) { container.innerHTML = '<p style="color: #bdc3c7; text-align: center; font-size: 24px; margin-top: 20px;">No friends or active chats.</p>'; return; }
 
             sorted.forEach(chat => {
                 let unreadBadge = (chat.unreadCount && chat.unreadCount > 0) ? `<div style="background: #e74c3c; color: white; font-size: 14px; font-weight: bold; padding: 2px 8px; border-radius: 12px; margin-left: auto; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${chat.unreadCount}</div>` : '';
-                
-                // Si es un amigo sin chat, le ponemos un estilo opaco para diferenciarlo
                 let msgStyle = chat.lastMsg === "Toca para iniciar una conversación" ? "font-style: italic; opacity: 0.6;" : "";
+                
+                // ✨ MAGIA: Resaltar el chat actual visualmente
+                let isActive = currentChatPartner && currentChatPartner.uid === chat.uid;
+                let bgStyle = isActive ? 'rgba(52, 152, 219, 0.4)' : 'rgba(0,0,0,0.3)';
+                let borderStyle = isActive ? '4px solid #f1c40f' : '4px solid #3498db';
 
                 container.innerHTML += `
-                    <div style="background: rgba(0,0,0,0.3); padding: 12px; display: flex; align-items: center; gap: 12px; border-radius: 6px; border-left: 4px solid #3498db; cursor: pointer; transition: 0.2s; margin-bottom: 8px;" onmouseover="this.style.background='rgba(52, 152, 219, 0.2)'" onmouseout="this.style.background='rgba(0,0,0,0.3)'" onclick="openPrivateChat('${chat.uid}', '${chat.name}', '${chat.pfp}')">
+                    <div style="background: ${bgStyle}; padding: 12px; display: flex; align-items: center; gap: 12px; border-radius: 0px; border-left: ${borderStyle}; cursor: pointer; transition: 0.2s; margin-bottom: 1px;" onmouseover="this.style.background='rgba(52, 152, 219, 0.2)'" onmouseout="this.style.background='${bgStyle}'" onclick="openPrivateChat('${chat.uid}', '${chat.name}', '${chat.pfp}')">
                         <div style="width: 45px; height: 45px; border-radius: 50%; background-image: url('${chat.pfp}'); background-size: cover; background-position: center; border: 2px solid #FFF; flex-shrink: 0;"></div>
                         <div style="flex: 1; overflow: hidden; display: flex; align-items: center;">
                             <div style="flex: 1; overflow: hidden;">
@@ -973,10 +951,8 @@ window.renderFriendRequests = function(container) {
             else if (req.status === 'rejected') statusHtml = '<span style="color: #e74c3c; font-size: 20px;">❌ Denied</span>';
             else {
                 pendingCount++;
-                statusHtml = `
-                    <button onclick="acceptFriendRequest('${senderUid}'); openMpSidebar('friends');" style="background: #2ecc71; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 20px;">Accept</button>
-                    <button onclick="declineFriendRequest('${senderUid}'); openMpSidebar('friends');" style="background: #e74c3c; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 20px;">Decline</button>
-                `;
+                statusHtml = `<button onclick="acceptFriendRequest('${senderUid}'); openMpSidebar('friends');" style="background: #2ecc71; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 20px;">Accept</button>
+                              <button onclick="declineFriendRequest('${senderUid}'); openMpSidebar('friends');" style="background: #e74c3c; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 20px;">Decline</button>`;
             }
             container.innerHTML += `
                 <div style="background: rgba(0,0,0,0.2); padding: 10px; display: flex; align-items: center; gap: 10px; border-radius: 4px; border-left: 3px solid ${req.status ? '#7f8c8d' : '#f1c40f'};">
@@ -991,11 +967,113 @@ window.renderFriendRequests = function(container) {
 }
 
 // ==========================================
+// ✨ MAGIA DEL CHAT ACTIVO (DERECHA)
+// ==========================================
+
+window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/default pfp.png") {
+    const myUID = localStorage.getItem('mbw_uid');
+    currentChatId = myUID < otherUid ? myUID + "_" + otherUid : otherUid + "_" + myUID;
+    currentChatPartner = { uid: otherUid, name: otherName, pfp: otherPfp };
+
+    database.ref('user_chats/' + myUID + '/' + otherUid).update({ unreadCount: 0 });
+
+    // Ocultar Placeholder y mostrar Panel Activo
+    document.getElementById('full-chat-placeholder').style.display = 'none';
+    document.getElementById('full-chat-active').style.display = 'flex';
+    
+    // Actualizar encabezado del chat
+    document.getElementById('full-chat-header-name').innerText = otherName;
+    document.getElementById('full-chat-header-pfp').style.backgroundImage = `url('${otherPfp}')`;
+    
+    const messagesContainer = document.getElementById('full-dm-messages');
+    if (messagesContainer) messagesContainer.innerHTML = ''; 
+    if (currentChatListener) database.ref('private_chats/' + currentChatId).off('child_added', currentChatListener);
+
+    // Refrescar lista visualmente para remarcar en azul el chat actual
+    const listContainer = document.getElementById('full-chat-list-container');
+    if (listContainer) renderChatList(listContainer);
+
+    let lastRenderedDate = ""; 
+    const chatRef = database.ref('private_chats/' + currentChatId);
+    
+    currentChatListener = chatRef.on('child_added', (snap) => {
+        const msg = snap.val();
+        const isMe = msg.sender === myUID;
+        const myPfp = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
+        const avatarUrl = isMe ? myPfp : currentChatPartner.pfp;
+
+        const date = new Date(msg.timestamp || Date.now());
+        const today = new Date();
+        const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+
+        let dateString = "";
+        if (date.toDateString() === today.toDateString()) dateString = "Today";
+        else if (date.toDateString() === yesterday.toDateString()) dateString = "Yesterday";
+        else dateString = date.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+
+        if (dateString !== lastRenderedDate) {
+            const sepDiv = document.createElement('div');
+            sepDiv.style.textAlign = 'center'; sepDiv.style.margin = '15px 0'; sepDiv.style.width = '100%';
+            sepDiv.innerHTML = `<span style="background: rgba(0,0,0,0.5); color: #ecf0f1; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-family: Arial, sans-serif; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.4); text-transform: capitalize;">${dateString}</span>`;
+            if (messagesContainer) messagesContainer.appendChild(sepDiv);
+            lastRenderedDate = dateString; 
+        }
+
+        const msgRow = document.createElement('div');
+        msgRow.style.display = 'flex'; msgRow.style.alignItems = 'flex-end'; msgRow.style.gap = '8px';
+        msgRow.style.marginBottom = '10px'; msgRow.style.width = '100%'; msgRow.style.flexDirection = isMe ? 'row-reverse' : 'row'; 
+
+        const avatarDiv = document.createElement('div');
+        avatarDiv.style.width = '32px'; avatarDiv.style.height = '32px'; avatarDiv.style.borderRadius = '50%';
+        avatarDiv.style.backgroundImage = `url('${avatarUrl}')`; avatarDiv.style.backgroundSize = 'cover';
+        avatarDiv.style.backgroundPosition = 'center'; avatarDiv.style.flexShrink = '0'; avatarDiv.style.border = '1px solid rgba(255,255,255,0.3)';
+
+        const timeString = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+        const bubbleDiv = document.createElement('div');
+        bubbleDiv.style.background = isMe ? '#2ecc71' : '#3498db'; bubbleDiv.style.color = 'white';
+        bubbleDiv.style.padding = '10px 14px 6px 14px'; bubbleDiv.style.borderRadius = isMe ? '15px 15px 0 15px' : '15px 15px 15px 0';
+        bubbleDiv.style.maxWidth = '60%'; bubbleDiv.style.fontFamily = "Arial, sans-serif"; bubbleDiv.style.fontSize = "16px";
+        bubbleDiv.style.lineHeight = "1.4"; bubbleDiv.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)"; bubbleDiv.style.wordWrap = "break-word";
+        
+        bubbleDiv.innerHTML = `<div style="margin-bottom: 2px;">${msg.text}</div><div style="font-size: 11px; text-align: right; opacity: 0.7; margin-top: 4px; font-weight: bold;">${timeString}</div>`;
+
+        msgRow.appendChild(avatarDiv); msgRow.appendChild(bubbleDiv);
+        
+        if (messagesContainer) { messagesContainer.appendChild(msgRow); messagesContainer.scrollTop = messagesContainer.scrollHeight; }
+        if (!isMe && typeof audioManager !== 'undefined') audioManager.playTone(600, 'sine', 0.05, 0.1);
+        if (!isMe) database.ref('user_chats/' + myUID + '/' + otherUid).update({ unreadCount: 0 });
+    });
+    
+    // Le da foco directo al chat para empezar a escribir
+    document.getElementById('full-dm-input').focus();
+}
+
+window.sendPrivateMessage = function() {
+    const input = document.getElementById('full-dm-input'); // Cambiamos al nuevo input
+    const text = input.value.trim();
+    if (!text || !currentChatId || !currentChatPartner) return;
+    
+    const myUID = localStorage.getItem('mbw_uid');
+    const myName = localStorage.getItem('mbw_username') || "Player";
+    const myPfp = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
+    const timestamp = firebase.database.ServerValue.TIMESTAMP;
+
+    database.ref('private_chats/' + currentChatId).push({ sender: myUID, senderName: myName, text: text, timestamp: timestamp });
+    database.ref('user_chats/' + myUID + '/' + currentChatPartner.uid).set({ name: currentChatPartner.name, pfp: currentChatPartner.pfp, lastMsg: text, timestamp: timestamp, unreadCount: 0 });
+    database.ref('user_chats/' + currentChatPartner.uid + '/' + myUID).set({ name: myName, pfp: myPfp, lastMsg: text, timestamp: timestamp, unreadCount: firebase.database.ServerValue.increment(1) });
+    
+    input.value = ''; input.focus();
+}
+
+// ==========================================
 // ✨ LISTENERS GLOBALES (Burbujas Rojas y Notificaciones Toast)
 // ==========================================
 window.startFriendListeners = function() {
     const myUID = localStorage.getItem('mbw_uid');
     if(!myUID) return;
+    
+    let isInitialLoad = true; 
 
     database.ref('friend_requests/' + myUID).on('value', (snapshot) => {
         const requests = snapshot.val();
@@ -1018,26 +1096,22 @@ window.startFriendListeners = function() {
     database.ref('user_chats/' + myUID).on('value', (snapshot) => {
         const chats = snapshot.val();
         let unreadUsers = 0; 
-        if (chats) {
-            for (let id in chats) { if (chats[id].unreadCount && chats[id].unreadCount > 0) unreadUsers++; }
-        }
+        if (chats) { for (let id in chats) { if (chats[id].unreadCount && chats[id].unreadCount > 0) unreadUsers++; } }
         const badgeMsgs = document.getElementById('badge-messages');
         if (badgeMsgs) { badgeMsgs.innerText = unreadUsers; badgeMsgs.style.display = unreadUsers > 0 ? 'block' : 'none'; }
+        
+        // Actualizamos la nueva gran lista si el panel de chats está abierto
         if (typeof currentSidebarMode !== 'undefined' && currentSidebarMode === 'chats') {
-            const content = document.getElementById('sidebar-content');
+            const content = document.getElementById('full-chat-list-container');
             if (content) renderChatList(content);
         }
     });
 
-    let isInitialLoad = true; 
-
     database.ref('server_invites/' + myUID).on('value', (snapshot) => {
         const invites = snapshot.val();
         let count = invites ? Object.keys(invites).length : 0;
-        
         const badgeInv = document.getElementById('badge-invites');
         if (badgeInv) { badgeInv.innerText = count; badgeInv.style.display = count > 0 ? 'block' : 'none'; }
-        
         if (typeof currentSidebarMode !== 'undefined' && currentSidebarMode === 'invites') {
             const content = document.getElementById('sidebar-content');
             if (content) renderServerInvites(content);
@@ -1046,67 +1120,49 @@ window.startFriendListeners = function() {
 
     const handleNewInvite = (snapshot) => {
         if (isInitialLoad) return; 
-        
         const inv = snapshot.val();
         if (typeof audioManager !== 'undefined') audioManager.playTone(800, 'sine', 0.1, 0.3); 
-
-        showDesktopNotification("🎮 " + inv.hostName + " invited you", "To edit together in: " + inv.mapName, inv.hostPfp, () => {
+        showDesktopNotification("🎮 " + inv.hostName + " invited you", "Map: " + inv.mapName, inv.hostPfp, () => {
             if (typeof openFileMenu === 'function') openFileMenu();
-            setTimeout(() => {
-                if (typeof switchBackstageTab === 'function') switchBackstageTab('multiplayer');
-                openMpSidebar('invites');
-            }, 100);
+            setTimeout(() => { openMpSidebar('invites'); }, 100);
         });
     };
-
     database.ref('server_invites/' + myUID).on('child_added', handleNewInvite);
-    database.ref('server_invites/' + myUID).on('child_changed', handleNewInvite); 
+    database.ref('server_invites/' + myUID).on('child_changed', handleNewInvite);
 
-
-// 1. Notificaciones para Nuevos Mensajes Privados
-        const handleNewMessage = (snapshot) => {
-            if (isInitialLoad) return; 
-            const chat = snapshot.val();
-            
-            // Solo notificamos si hay mensajes sin leer (es un mensaje nuevo)
-            if (chat.unreadCount && chat.unreadCount > 0) {
-                if (typeof audioManager !== 'undefined') audioManager.playTone(600, 'sine', 0.1, 0.2);
-                
-                showDesktopNotification("💬 Mensaje de " + chat.name, chat.lastMsg, chat.pfp, () => {
-                    // Si le dan clic a la notificación, se abre el chat directamente!
-                    openPrivateChat(snapshot.key, chat.name, chat.pfp);
-                });
-            }
-        };
-        // Escuchamos tanto chats nuevos como chats que ya existían pero se actualizaron
-        database.ref('user_chats/' + myUID).on('child_added', handleNewMessage);
-        database.ref('user_chats/' + myUID).on('child_changed', handleNewMessage);
-
-
-        // 2. Notificaciones para Solicitudes de Amistad
-        const handleNewFriendReq = (snapshot) => {
-            if (isInitialLoad) return;
-            const req = snapshot.val();
-            
-            // Si ya tiene un status (accepted/rejected), no es nueva
-            if (req.status) return; 
-            
-            if (typeof audioManager !== 'undefined') audioManager.playTone(800, 'sine', 0.1, 0.3);
-            
-            showDesktopNotification("👥 Solicitud de amistad", req.username + " te envió una solicitud.", req.pfp, () => {
-                // Al darle clic, abrimos la pestaña de amigos
-                openMpSidebar('friends');
+    const handleNewMessage = (snapshot) => {
+        if (isInitialLoad) return; 
+        const chat = snapshot.val();
+        if (chat.unreadCount && chat.unreadCount > 0) {
+            if (typeof audioManager !== 'undefined') audioManager.playTone(600, 'sine', 0.1, 0.2);
+            showDesktopNotification("💬 " + chat.name, chat.lastMsg, chat.pfp, () => {
+                if (typeof openFileMenu === 'function') openFileMenu();
+                setTimeout(() => { openMpSidebar('chats'); openPrivateChat(snapshot.key, chat.name, chat.pfp); }, 100);
             });
-        };
-        database.ref('friend_requests/' + myUID).on('child_added', handleNewFriendReq);
+        }
+    };
+    database.ref('user_chats/' + myUID).on('child_added', handleNewMessage);
+    database.ref('user_chats/' + myUID).on('child_changed', handleNewMessage);
 
+    const handleNewFriendReq = (snapshot) => {
+        if (isInitialLoad) return;
+        const req = snapshot.val();
+        if (req.status) return; 
+        if (typeof audioManager !== 'undefined') audioManager.playTone(800, 'sine', 0.1, 0.3);
+        showDesktopNotification("👥 Friend Request", req.username + " added you.", req.pfp, () => {
+            if (typeof openFileMenu === 'function') openFileMenu();
+            setTimeout(() => { openMpSidebar('friends'); }, 100);
+        });
+    };
+    database.ref('friend_requests/' + myUID).on('child_added', handleNewFriendReq);
 
     setTimeout(() => { isInitialLoad = false; }, 2000);
 }
 
 function initMultiplayerModule() {
     setTimeout(initPresenceSystem, 1000);
-    const dmInput = document.getElementById('dm-input');
+    // Enlazamos la tecla Enter al nuevo Input del Chat Completo
+    const dmInput = document.getElementById('full-dm-input');
     if (dmInput) dmInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') sendPrivateMessage(); });
 }
 

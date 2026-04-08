@@ -352,8 +352,8 @@
         <div id="mp-live-players" style="display: flex; align-items: center; margin-right: 5px;"></div>
 
         <button id="profile-btn" onclick="openUnifiedProfile()" style="width: 28px; height: 28px; border-radius: 50%; padding: 0; cursor: pointer; overflow: hidden; background: var(--input-bg); flex-shrink: 0; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-            <img id="top-profile-img" src="assets/default pfp.png" style="width: 100%; height: 100%; object-fit: cover; image-rendering: auto;">
-        </button>
+			<img id="top-profile-img" src="assets/default pfp.png" style="width: 100%; height: 100%; object-fit: cover; image-rendering: auto;">
+		</button>
 
         <button class="icon-btn" id="news-btn" onclick="openNewsModal()" title="Updates & Changelog" style="font-size: 14px; font-weight: bold;">📰 News</button>
     </div>
@@ -1165,6 +1165,26 @@
     }
  </script>
  
+ <div id="unified-profile-modal" class="modal" style="z-index: 6000;">
+        <div class="modal-content mbw-standard-modal" style="width: 300px; height: auto; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); margin: 0;">
+            <div class="mbw-modal-header">
+                <h3>Mi Perfil</h3>
+                <span class="mbw-close-btn" onclick="closeModal('unified-profile-modal')">&times;</span>
+            </div>
+            <div class="mbw-modal-body" style="display: flex; flex-direction: column; align-items: center; padding: 20px;">
+                
+                <div class="profile-pic-container" onclick="document.getElementById('global-profile-upload').click()" style="position: relative; width: 100px; height: 100px; border-radius: 50%; overflow: hidden; cursor: pointer; border: 4px solid #FFF; box-shadow: 0 4px 8px rgba(0,0,0,0.3); margin-bottom: 20px;">
+                    <img id="modal-global-pfp" src="assets/default pfp.png" style="width: 100%; height: 100%; object-fit: cover;">
+                    <div style="position: absolute; bottom: 0; right: 0; font-size: 20px; background: rgba(0,0,0,0.6); border-radius: 50%; padding: 4px;">✏️</div>
+                </div>
+                <input type="file" id="global-profile-upload" accept="image/*" style="display: none;" onchange="handleGlobalProfileUpload(event)">
+                
+                <label style="font-size: 12px; font-weight: bold; color: #333; margin-bottom: 5px; width: 100%; text-align: left;">Nombre de Usuario:</label>
+                <input type="text" id="global-profile-username" value="" oninput="handleGlobalUsernameChange(this.value)" placeholder="Tu nombre..." style="width: 100%; padding: 8px; border: 2px solid #555; border-radius: 4px; font-size: 16px; font-weight: bold; text-align: center; font-family: inherit; color: black;">
+            </div>
+        </div>
+    </div>
+ 
 <div id="loading-overlay">
         <div class="loading-box">
             <h2 id="loading-text">Cargando Mundo...</h2>
@@ -1250,6 +1270,66 @@
     </div>
  </div>
  
+ <script>
+// ==========================================
+// ✨ PERFIL UNIFICADO EN TIEMPO REAL
+// ==========================================
+window.openUnifiedProfile = function() {
+    openModal('unified-profile-modal');
+    const savedPic = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
+    const savedName = localStorage.getItem('mbw_username') || "Player";
+    document.getElementById('modal-global-pfp').src = savedPic;
+    document.getElementById('global-profile-username').value = savedName;
+};
+
+window.handleGlobalProfileUpload = function(event) {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const base64Img = e.target.result;
+            localStorage.setItem('mbw_profile_pic', base64Img);
+            
+            // Actualiza ventana, botón top y vista multijugador al mismo tiempo
+            document.getElementById('modal-global-pfp').src = base64Img;
+            const topImg = document.getElementById('top-profile-img');
+            if (topImg) topImg.src = base64Img;
+            const mpPreview = document.getElementById('mp-pfp-preview');
+            if (mpPreview) mpPreview.style.backgroundImage = `url('${base64Img}')`;
+
+            // Sincroniza con Firebase
+            if (typeof myPresenceRef !== 'undefined' && myPresenceRef) myPresenceRef.update({ pfp: base64Img });
+        };
+        reader.readAsDataURL(file);
+    }
+};
+
+window.handleGlobalUsernameChange = function(newName) {
+    let cleanName = newName.trim() || 'Player';
+    localStorage.setItem('mbw_username', cleanName);
+    
+    // Actualiza input multijugador
+    const mpUsernameInput = document.getElementById('mp-username-input');
+    if (mpUsernameInput) mpUsernameInput.value = cleanName;
+
+    // Sincroniza con Firebase
+    if (typeof myPresenceRef !== 'undefined' && myPresenceRef) myPresenceRef.update({ username: cleanName });
+};
+
+// Al cargar y Unificar clics de Perfil
+window.addEventListener('DOMContentLoaded', () => {
+    const savedPic = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
+    const topImg = document.getElementById('top-profile-img');
+    if (topImg) topImg.src = savedPic;
+
+    document.body.addEventListener('click', (e) => {
+        if (e.target && (e.target.id === 'mp-pfp-preview' || e.target.id === 'mp-username-input' || e.target.closest('#mp-pfp-preview'))) {
+            e.preventDefault();
+            openUnifiedProfile();
+        }
+    });
+});
+</script>
 
  <script src="scripts/ui-handler.js"></script>
  <script src="scripts/mbwom.js"></script>
