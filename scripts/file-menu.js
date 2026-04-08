@@ -3,7 +3,7 @@
 // =========================================================
 
 const projectTemplates = [
-	{
+    {
         filename: 'Superflat World.mbw',
         name: 'Superflat World',
         version: '1.27.1',
@@ -11,7 +11,7 @@ const projectTemplates = [
         author: 'Carlos Petit',
         image: 'assets/Superflat World.png'
     },
-	{
+    {
         filename: 'Biomes 1.1 - Nether Update.mbw',
         name: 'Biomes 1.1 - Nether Update',
         version: '1.31.1',
@@ -29,10 +29,11 @@ const projectTemplates = [
     }
 ];
 
-document.addEventListener("DOMContentLoaded", () => {
+function initBackstageMenu() {
+    if (document.getElementById('backstage-menu')) return;
+
     const style = document.createElement('style');
     style.innerHTML = `
-        /* Pantalla Completa dependiente de los Temas */
         #backstage-menu {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background-color: var(--bg-panel); color: var(--text);
@@ -40,7 +41,6 @@ document.addEventListener("DOMContentLoaded", () => {
             font-family: inherit;
         }
 
-        /* Barra Lateral Izquierda */
         .backstage-sidebar {
             width: 280px; background-color: var(--bg-header);
             display: flex; flex-direction: column;
@@ -67,17 +67,22 @@ document.addEventListener("DOMContentLoaded", () => {
             color: #4DA6FF; 
         }
 
-        /* Área de Contenido Derecho */
         .backstage-content {
-            flex: 1; padding: 50px 80px; background-color: var(--bg-panel);
-            overflow-y: auto; color: var(--text);
+            flex: 1; background-color: var(--bg-panel); color: var(--text);
+            display: flex; flex-direction: column; overflow: hidden;
         }
 
-        .backstage-panel { display: none; animation: fadeIn 0.3s ease; }
-        .backstage-panel.active { display: block; }
+        .backstage-panel { 
+            display: none; animation: fadeIn 0.3s ease; 
+            flex: 1; overflow-y: auto; flex-direction: column;
+        }
+        .backstage-panel.active { display: flex; }
+        
+        #panel-my-worlds, #panel-templates { padding: 50px 80px; }
+        #panel-multiplayer { padding: 0; background: #2c3e50; }
+
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* ✨ Estilos Unificados de Tarjetas (Usa var y efectos Hover) */
         .template-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; margin-top: 30px; }
         .template-card {
             background-color: var(--bg-dark); border: 2px solid var(--border); border-radius: 6px;
@@ -85,13 +90,9 @@ document.addEventListener("DOMContentLoaded", () => {
             transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
         }
-        .template-card:hover { 
-            transform: translateY(-5px); 
-            border-color: #4DA6FF; 
-            box-shadow: 0 8px 20px rgba(0,0,0,0.5); 
-        }
+        .template-card:hover { transform: translateY(-5px); border-color: #4DA6FF; box-shadow: 0 8px 20px rgba(0,0,0,0.5); }
         .template-thumb {
-            width: 100%; height: 160px; background-color: var(--input-bg); background-size: cover; background-position: center; 
+            width: 100%; height: 200px; background-color: var(--input-bg); background-size: cover; background-position: center; 
             image-rendering: pixelated; border-bottom: 2px solid var(--border); display: flex; justify-content: center; align-items: center;
         }
         .template-info { padding: 15px; display: flex; flex-direction: column; gap: 5px; text-align: left; }
@@ -105,22 +106,122 @@ document.addEventListener("DOMContentLoaded", () => {
             <button class="backstage-back-btn" onclick="closeFileMenu()"><span>⬅️</span> Back</button>
             <button id="nav-btn-my-worlds" class="backstage-nav-btn active" onclick="switchBackstageTab('my-worlds')">📁 My Worlds</button>
             <button id="nav-btn-templates" class="backstage-nav-btn" onclick="switchBackstageTab('templates')">🌍 Templates</button>
-            <div style="height: 1px; background: var(--border); margin: 20px 25px;"></div>
+            
+            <div style="height: 1px; background: var(--border); margin: 5px 25px; opacity: 0.5;"></div>
+            <button id="nav-btn-multiplayer" class="backstage-nav-btn" onclick="switchBackstageTab('multiplayer')">🌐 Multiplayer</button>
+            
+            <div style="height: 1px; background: var(--border); margin: 5px 25px; opacity: 0.5;"></div>
             <button class="backstage-nav-btn" onclick="document.getElementById('file-input').click(); closeFileMenu();" style="font-weight: normal; font-size: 14px; opacity: 0.8;">📥 Load External (.mbw)</button>
             <button class="backstage-nav-btn" onclick="if(typeof fileManager !== 'undefined') fileManager.export(); closeFileMenu();" style="font-weight: normal; font-size: 14px; opacity: 0.8;">💾 Export Current</button>
         </div>
         
         <div class="backstage-content">
+            
+            <div style="display: flex; justify-content: flex-end; align-items: center; padding: 10px 30px; background: var(--bg-header); border-bottom: 2px solid var(--border); gap: 25px; z-index: 10; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+                <div style="position: relative; cursor: pointer; font-size: 28px;" onclick="openMpSidebar('chats')">
+                    💬
+                    <span id="badge-messages" style="display: none; position: absolute; top: -5px; right: -10px; background: #e74c3c; color: white; font-size: 14px; font-weight: bold; font-family: Arial; padding: 2px 6px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">0</span>
+                </div>
+                <div style="position: relative; cursor: pointer; font-size: 28px;" onclick="openMpSidebar('friends')">
+                    👥
+                    <span id="badge-friends" style="display: none; position: absolute; top: -5px; right: -10px; background: #e74c3c; color: white; font-size: 14px; font-weight: bold; font-family: Arial; padding: 2px 6px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">0</span>
+                </div>
+                <div id="mp-pfp-preview" onclick="document.getElementById('profile-upload').click()" title="Click to change picture" style="width: 45px; height: 45px; border-radius: 50%; background-size: cover; background-position: center; border: 2px solid var(--border); cursor: pointer; background-color: var(--input-bg); transition: 0.2s;" onmouseover="this.style.borderColor='#4DA6FF'" onmouseout="this.style.borderColor='var(--border)'"></div>
+            </div>
+
             <div id="panel-my-worlds" class="backstage-panel active">
-                <h1 style="margin-top: 0; font-size: 42px; border-bottom: 2px solid var(--border); padding-bottom: 15px; color: var(--text);">My Worlds</h1>
-                <p style="color: var(--text); opacity: 0.7; margin-bottom: 30px; font-size: 16px;">Worlds saved securely in your browser's local storage.</p>
                 <div id="fs-local-worlds-list" style="display: flex; flex-direction: column; max-width: 900px;"></div>
             </div>
+            
             <div id="panel-templates" class="backstage-panel">
-                <h1 style="margin-top: 0; font-size: 42px; border-bottom: 2px solid var(--border); padding-bottom: 15px; color: var(--text);">Templates</h1>
-                <p style="color: var(--text); opacity: 0.7; margin-bottom: 30px; font-size: 16px;">Start a new project from a blank canvas or a pre-built structure.</p>
                 <div id="template-grid-container" class="template-grid"></div>
             </div>
+
+            <div id="panel-multiplayer" class="backstage-panel">
+                <div style="flex: 1; display: flex; overflow: hidden; position: relative; width: 100%;">
+                    
+                    <div style="flex: 1; display: flex; flex-direction: row; padding: 20px; gap: 20px;">
+                        <div id="mp-main-wizard" style="flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; color: white; font-family: 'Pixeltype', sans-serif;">
+                            <h2 id="mp-modal-title" style="margin-top: 0; color: #f1c40f; font-size: 48px; text-shadow: 2px 2px 0 #000;">🌐 Servidores</h2>
+                            
+                            <div id="mp-view-home" style="display: flex; gap: 15px; width: 100%; max-width: 450px; margin-top: 20px;">
+                                <button class="menu-btn" style="flex: 1; background: #2ecc71; border: 2px solid #27ae60; font-size: 28px; padding: 15px; color: white; cursor: pointer; border-radius: 5px;" onclick="setMpView('create-1')">Create Server</button>
+                                <button class="menu-btn" style="flex: 1; background: #3498db; border: 2px solid #2980b9; font-size: 28px; padding: 15px; color: white; cursor: pointer; border-radius: 5px;" onclick="setMpView('join')">Join Server</button>
+                            </div>
+
+                            <div id="mp-view-create-1" style="display: none; width: 100%; max-width: 450px; margin-top: 20px;">
+                                <h3 style="margin-bottom: 10px; color: #bdc3c7; font-size: 28px;">Players Limit:</h3>
+                                <div id="mp-player-buttons" style="display: flex; justify-content: space-between; margin-bottom: 25px;">
+                                    <button class="mp-limit-btn" onclick="setMpLimit(1)">1</button>
+                                    <button class="mp-limit-btn selected-limit" onclick="setMpLimit(2)">2</button>
+                                    <button class="mp-limit-btn" onclick="setMpLimit(3)">3</button>
+                                    <button class="mp-limit-btn" onclick="setMpLimit(4)">4</button>
+                                    <button class="mp-limit-btn" onclick="setMpLimit(5)">5</button>
+                                    <button class="mp-limit-btn" onclick="setMpLimit(6)">6</button>
+                                </div>
+                                <button class="menu-btn" style="background: #2ecc71; border: 2px solid #27ae60; width: 100%; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px; margin-bottom: 10px;" onclick="setMpView('create-2')">Next ➡️</button>
+                                <button class="menu-btn" style="background: #7f8c8d; border: 2px solid #95a5a6; width: 100%; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px;" onclick="setMpView('home')">⬅️ Cancel</button>
+                            </div>
+
+                            <div id="mp-view-create-2" style="display: none; width: 100%; max-width: 450px; margin-top: 20px;">
+                                <button class="menu-btn" style="background: #e67e22; border: 2px solid #d35400; width: 100%; margin-bottom: 15px; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px;" onclick="hostMultiplayerSession()">Generate ID</button>
+                                <p style="margin-bottom: 5px; color: #bdc3c7; font-size: 22px; text-align: center;">Your Room ID (Share this):</p>
+                                <input type="text" id="my-peer-id" readonly onclick="copyRoomId()" title="Click to copy!" placeholder="ID will appear here..." style="width: 100%; text-align: center; font-size: 26px; cursor: pointer; background: #ecf0f1; border: none; padding: 10px; border-radius: 4px; box-sizing: border-box; outline: none; color: #333;">
+                                <p id="copy-hint" style="color: #2ecc71; font-size: 18px; margin-top: 5px; height: 16px; visibility: hidden; text-align: center;">Copied to clipboard!</p>
+                                <button class="menu-btn" style="background: #7f8c8d; border: 2px solid #95a5a6; width: 100%; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px; margin-top: 15px;" onclick="setMpView('create-1')">⬅️ Close Server & Back</button>
+                            </div>
+
+                            <div id="mp-view-join" style="display: none; width: 100%; max-width: 450px; margin-top: 20px; text-align: left;">
+                                <h3 style="color: #f1c40f; text-align: center; margin-bottom: 10px; font-size: 28px;">Public Servers</h3>
+                                <div id="public-servers-list" style="height: 180px; overflow-y: auto; background: rgba(0,0,0,0.3); border-radius: 5px; padding: 10px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 8px; border: 2px solid #34495e;">
+                                    <p style="text-align: center; color: #bdc3c7; font-size: 24px;">Searching for worlds...</p>
+                                </div>
+                                <p style="margin-bottom: 5px; color: #bdc3c7; font-size: 22px; text-align: center;">Or Join by Private ID:</p>
+                                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                    <input type="text" id="join-peer-id" placeholder="Paste ID here..." style="flex: 1; font-size: 24px; padding: 8px; box-sizing: border-box; background: #ecf0f1; border: none; border-radius: 4px; outline: none; color: #333;">
+                                    <button class="menu-btn" style="background: #3498db; border: 2px solid #2980b9; font-size: 24px; padding: 8px 15px; color: white; cursor: pointer; border-radius: 5px;" onclick="joinMultiplayerSession()">Connect</button>
+                                </div>
+                                <button class="menu-btn" style="background: #7f8c8d; border: 2px solid #95a5a6; width: 100%; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px;" onclick="setMpView('home')">⬅️ Back</button>
+                            </div>
+
+                            <p id="multiplayer-status" style="display: none; margin-top: 25px; font-weight: bold; font-size: 28px; color: #bdc3c7;">Status: Not Connected</p>
+                        </div>
+                        <div style="width: 256px; padding: 20px; display: flex; flex-direction: column; align-items: center; font-family: 'Pixeltype', sans-serif; border-left: 2px solid #34495e;">
+                            <h2 style="margin-top: 0; color: #2ecc71; font-size: 32px; text-shadow: 2px 2px 0 #000; margin-bottom: 15px;">🟢 En Línea</h2>
+                            <div id="mp-online-users-list" style="width: 100%; flex: 1; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; border: 2px solid #34495e;">
+                                <p style="text-align: center; color: #bdc3c7; font-size: 24px;">Cargando jugadores...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="mp-right-sidebar" style="position: absolute; top: 0; right: 0; bottom: 0; width: 350px; background: #34495e; border-left: 2px solid #1a252f; display: none; flex-direction: column; box-shadow: -10px 0 25px rgba(0,0,0,0.6); font-family: 'Pixeltype', sans-serif; z-index: 20; animation: slideIn 0.3s ease-out;">
+                        <style>
+                            @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+                        </style>
+                        <div id="sidebar-list-view" style="flex: 1; display: flex; flex-direction: column;">
+                            <div style="background: #2c3e50; padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1a252f;">
+                                <h3 id="sidebar-title" style="margin: 0; color: white; font-size: 32px;">Bandeja</h3>
+                                <span onclick="closeMpSidebar()" style="color: white; cursor: pointer; font-size: 28px;">&times;</span>
+                            </div>
+                            <div id="sidebar-content" style="flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;"></div>
+                        </div>
+
+                        <div id="sidebar-chat-view" style="flex: 1; display: none; flex-direction: column; height: 100%;">
+                            <div style="background: #2c3e50; padding: 10px; display: flex; align-items: center; gap: 10px; border-bottom: 2px solid #1a252f;">
+                                <button onclick="backToSidebarList()" style="background: transparent; border: none; color: white; cursor: pointer; font-size: 28px;">⬅️</button>
+                                <h4 id="dm-title" style="margin: 0; color: white; font-size: 28px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Chat</h4>
+                            </div>
+                            <div id="dm-messages" style="flex: 1; background: #2c3e50; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;"></div>
+                            <div style="display: flex; padding: 10px; background: #34495e; gap: 5px;">
+                                <input type="text" id="dm-input" placeholder="Mensaje..." style="flex: 1; padding: 8px; font-family: 'Pixeltype', sans-serif; font-size: 24px; border-radius: 4px; border: none; outline: none;">
+                                <button onclick="sendPrivateMessage()" style="background: #2ecc71; border: none; border-radius: 4px; padding: 0 15px; font-size: 20px; cursor: pointer; color: white;">▶</button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
         </div>
     `;
     const container = document.createElement('div');
@@ -129,174 +230,102 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.appendChild(container);
 
     generateTemplateCards();
-});
+}
 
-// =====================================
-// ✨ MOTOR ÚNICO DE TARJETAS (Unificado)
-// =====================================
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initBackstageMenu);
+} else {
+    initBackstageMenu();
+}
+
 function createUnifiedWorldCard(data) {
     let imageStyle = data.image ? `background-image: url('${data.image}');` : '';
     let fallbackIcon = data.image ? '' : '<span style="font-size:60px; opacity:0.3; color: var(--text);">🌍</span>';
-    
-    let deleteBtnHTML = !data.isTemplate ? `
-        <button class="delete-btn" onclick="event.stopPropagation(); deleteSavedLocalWorld('${data.name}');" 
-                style="position: absolute; top: 10px; right: 10px; background: rgba(231, 76, 60, 0.9); color: white; border: 2px solid #c0392b; border-radius: 4px; width: 34px; height: 34px; font-size: 18px; cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.5);"
-                title="Delete World">🗑️</button>
-    ` : '';
-
-    let dateHTML = data.dateStr ? `<div class="t-meta">📆 ${data.dateStr}</div>` : '';
-    let sizeHTML = data.sizeStr ? `<div class="t-meta">📄 ${data.sizeStr}</div>` : '';
-    let vStr = data.version ? data.version : "";
-    let aStr = data.author ? data.author : "";
-
-    return `
-        <div class="template-card" style="position: relative;">
-            ${deleteBtnHTML}
-            <div class="template-thumb" style="${imageStyle}" onclick="${data.onClick}">
-                ${fallbackIcon}
-            </div>
-            <div class="template-info" onclick="${data.onClick}">
-                <div class="t-name" title="${data.name}">${data.name}</div>
-                <div class="t-meta"><b>Version:</b> ${vStr}</div>
-                <div class="t-meta"><b>Author:</b> ${aStr}</div>
-                ${dateHTML}
-                ${sizeHTML}
-            </div>
-        </div>
-    `;
+    let deleteBtnHTML = !data.isTemplate ? `<button class="delete-btn" onclick="event.stopPropagation(); deleteSavedLocalWorld('${data.name}');" style="position: absolute; top: 10px; right: 10px; background: rgba(231, 76, 60, 0.9); color: white; border: 2px solid #c0392b; border-radius: 4px; width: 34px; height: 34px; font-size: 18px; cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.5);" title="Delete World">🗑️</button>` : '';
+    return `<div class="template-card" style="position: relative;">${deleteBtnHTML}<div class="template-thumb" style="${imageStyle}" onclick="${data.onClick}">${fallbackIcon}</div><div class="template-info" onclick="${data.onClick}"><div class="t-name" title="${data.name}">${data.name}</div><div class="t-meta"><b>Version:</b> ${data.version || ""}</div><div class="t-meta"><b>Author:</b> ${data.author || ""}</div>${data.dateStr ? `<div class="t-meta">📆 ${data.dateStr}</div>` : ''}${data.sizeStr ? `<div class="t-meta">📄 ${data.sizeStr}</div>` : ''}</div></div>`;
 }
 
-// =====================================
-// LÓGICA DE INTERFAZ DEL BACKSTAGE
-// =====================================
 window.openFileMenu = function() {
-    document.getElementById('backstage-menu').style.display = 'flex';
+    const menu = document.getElementById('backstage-menu');
+    if (menu) menu.style.display = 'flex';
+    const savedPic = localStorage.getItem('mbw_profile_pic');
+    const lobbyPfp = document.getElementById('mp-pfp-preview');
+    if (lobbyPfp) lobbyPfp.style.backgroundImage = savedPic ? `url('${savedPic}')` : `url('assets/default pfp.png')`;
     switchBackstageTab('my-worlds');
 };
 
 window.closeFileMenu = function() {
-    document.getElementById('backstage-menu').style.display = 'none';
+    const menu = document.getElementById('backstage-menu');
+    if (menu) menu.style.display = 'none';
 };
 
 window.switchBackstageTab = function(tabName) {
     document.querySelectorAll('.backstage-panel').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.backstage-nav-btn').forEach(b => b.classList.remove('active'));
-    
-    document.getElementById('panel-' + tabName).classList.add('active');
-    document.getElementById('nav-btn-' + tabName).classList.add('active');
-
-    if(tabName === 'my-worlds') { renderFullscreenWorldsList(); }
+    const targetPanel = document.getElementById('panel-' + tabName);
+    const targetBtn = document.getElementById('nav-btn-' + tabName);
+    if (targetPanel) targetPanel.classList.add('active');
+    if (targetBtn) targetBtn.classList.add('active');
+    if (tabName === 'my-worlds') renderFullscreenWorldsList(); 
+    else if (tabName === 'multiplayer') {
+        const savedPic = localStorage.getItem('mbw_profile_pic');
+        const lobbyPfp = document.getElementById('mp-pfp-preview');
+        if (lobbyPfp) lobbyPfp.style.backgroundImage = savedPic ? `url('${savedPic}')` : `url('assets/default pfp.png')`;
+    }
 };
 
-// =====================================
-// GENERAR TEMPLATES
-// =====================================
 function generateTemplateCards() {
     const grid = document.getElementById('template-grid-container');
     if (!grid) return;
-    
     let cardsHTML = '';
-    for (let t of projectTemplates) {
-        cardsHTML += createUnifiedWorldCard({
-            isTemplate: true,
-            name: t.name,
-            author: t.author,
-            version: t.version,
-            image: t.image,
-            onClick: `loadTemplate('${t.filename}')`
-        });
-    }
+    for (let t of projectTemplates) cardsHTML += createUnifiedWorldCard({ isTemplate: true, name: t.name, author: t.author, version: t.version, image: t.image, onClick: `loadTemplate('${t.filename}')` });
     grid.innerHTML = cardsHTML;
 }
 
 window.loadTemplate = function(filename) {
-    const url = 'dev-maps/' + filename;
-    if (typeof updateLoadingBar === 'function') updateLoadingBar(10, "Downloading template...");
-    
-    fetch(url)
-        .then(response => {
-            if (!response.ok) throw new Error("File not found");
-            return response.blob();
-        })
-        .then(blob => {
-            const file = new File([blob], filename, { type: "application/octet-stream" });
-            const dataTransfer = new DataTransfer();
-            dataTransfer.items.add(file);
-            
-            const fileInput = document.getElementById('file-input');
-            if (fileInput) {
-                fileInput.files = dataTransfer.files;
-                fileInput.dispatchEvent(new Event('change')); 
-            }
-            closeFileMenu(); 
-        })
-        .catch(err => {
-            alert("Error loading template: " + err.message);
-            const overlay = document.getElementById('loading-overlay');
-            if (overlay) overlay.style.display = 'none';
-        });
+    fetch('dev-maps/' + filename).then(r => r.blob()).then(blob => {
+        const file = new File([blob], filename, { type: "application/octet-stream" });
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        const fileInput = document.getElementById('file-input');
+        if (fileInput) { fileInput.files = dataTransfer.files; fileInput.dispatchEvent(new Event('change')); }
+        closeFileMenu(); 
+    });
 };
 
-// =====================================
-// GENERAR MY WORLDS
-// =====================================
 window.renderFullscreenWorldsList = async function() {
     const listDiv = document.getElementById("fs-local-worlds-list");
-    if(!listDiv) return;
-
-    listDiv.innerHTML = "<p style='color: var(--text); font-size: 20px; font-weight:bold;'>Loading worlds...</p>";
-    
-    if(typeof localDB === 'undefined') {
-        listDiv.innerHTML = "<p style='color:#e74c3c; font-size: 18px; font-weight:bold;'>Database engine is offline.</p>";
-        return;
-    }
+    if(!listDiv || typeof localDB === 'undefined') return;
 
     const worlds = await localDB.getWorlds();
     
     if(worlds.length === 0) {
+        // Si está vacío, lo forzamos a ser una columna centrada
         listDiv.style.cssText = "display: flex; flex-direction: column; max-width: 900px;";
         listDiv.className = "";
-        listDiv.innerHTML = `
-            <div style="text-align: center; padding: 60px; background: var(--bg-dark); border-radius: 12px; border: 2px dashed var(--border);">
-                <div style="font-size: 60px; opacity: 0.3; margin-bottom: 15px;">📭</div>
-                <h3 style="color: var(--text); font-size: 24px; margin: 0 0 10px 0;">No saved worlds yet</h3>
-                <p style="color: var(--text); opacity: 0.7; font-size: 16px; font-weight: bold;">Turn on the AutoSave switch or click the floppy disk icon in the editor to save your progress.</p>
-                <button onclick="switchBackstageTab('templates')" style="margin-top: 25px; padding: 10px 30px; background: #4DA6FF; color: #FFF; border: none; font-weight: bold; cursor: pointer; font-size: 16px; border-radius: 4px;">Start from a Template</button>
-            </div>
-        `;
+        listDiv.innerHTML = `<div style="text-align: center; padding: 60px; background: var(--bg-dark); border-radius: 12px; border: 2px dashed var(--border);"><div style="font-size: 60px; opacity: 0.3; margin-bottom: 15px;">📭</div><h3 style="color: var(--text); font-size: 24px; margin: 0 0 10px 0;">No saved worlds yet</h3><button onclick="switchBackstageTab('templates')" style="margin-top: 25px; padding: 10px 30px; background: #4DA6FF; color: #FFF; border: none; font-weight: bold; cursor: pointer; font-size: 16px; border-radius: 4px;">Start from a Template</button></div>`;
         return;
     }
 
     worlds.sort((a, b) => b.date - a.date);
     
+    // ✨ LA SOLUCIÓN: Limpiamos los estilos en línea antes de aplicar el Grid
     listDiv.style.cssText = ""; 
     listDiv.className = "template-grid";
-    let cardsHTML = '';
-
-    worlds.forEach(w => {
-        const dateObj = new Date(w.date);
-        const dateStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-        const bytes = new Blob([w.data]).size;
-        let sizeText = bytes >= 1048576 ? (bytes / 1048576).toFixed(2) + " MB" : (bytes / 1024).toFixed(2) + " KB";
-
-        cardsHTML += createUnifiedWorldCard({
-            isTemplate: false,
-            name: w.name,
-            author: w.fileInfo ? w.fileInfo.author : "", 
-            version: w.fileInfo ? w.fileInfo.version : "", 
-            image: w.thumb,
-            dateStr: dateStr,
-            sizeStr: sizeText,
-            onClick: `loadSavedLocalWorld('${w.name}'); closeFileMenu();`
-        });
-    });
-
-    listDiv.innerHTML = cardsHTML;
+    
+    // Dibujamos las tarjetas
+    listDiv.innerHTML = worlds.map(w => createUnifiedWorldCard({ 
+        isTemplate: false, 
+        name: w.name, 
+        author: w.fileInfo ? w.fileInfo.author : "", 
+        version: w.fileInfo ? w.fileInfo.version : "", 
+        image: w.thumb, 
+        dateStr: new Date(w.date).toLocaleDateString(), 
+        sizeStr: (new Blob([w.data]).size / 1024).toFixed(2) + " KB", 
+        onClick: `loadSavedLocalWorld('${w.name}'); closeFileMenu();` 
+    })).join('');
 };
 
 window.deleteSavedLocalWorld = async function(name) {
-    if(confirm('Are you sure you want to PERMANENTLY DELETE "'+name+'"?')) {
-        await localDB.deleteWorld(name);
-        renderFullscreenWorldsList(); 
-    }
+    if(confirm('Are you sure?')) { await localDB.deleteWorld(name); renderFullscreenWorldsList(); }
 };

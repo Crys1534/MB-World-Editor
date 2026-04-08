@@ -717,6 +717,9 @@ function setMpView(viewName) {
         document.getElementById('mp-view-join').style.display = 'block';
         document.getElementById('multiplayer-status').style.display = 'block'; // Mostrar status
         loadMpProfile(); // Cargar datos guardados
+		
+		// ✨ FIREBASE: Iniciar la búsqueda de servidores al instante
+        if (typeof loadPublicServers === 'function') loadPublicServers();
     }
 }
 

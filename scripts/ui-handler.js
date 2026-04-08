@@ -2502,3 +2502,70 @@ function toggleLiveTime(checkbox) {
         console.log("⏸️ Live Time: PAUSADO");
     }
 }
+
+
+// ==========================================
+// ✨ LÓGICA DE LA BARRA DE ESTADO (STATUS BAR) ✨
+// ==========================================
+
+// 1. Botones de + y - (Sincronizado con tu barra deslizable)
+window.zoomHUD = function(direction) {
+    // direction es -1 (out) o 1 (in)
+    if (typeof currentZoomIndex !== 'undefined' && typeof ZOOM_LEVELS !== 'undefined') {
+        let newIndex = currentZoomIndex + direction;
+        // Evitamos que se salga de los límites
+        if (newIndex >= 0 && newIndex < ZOOM_LEVELS.length) {
+            // Reutilizamos tu función original
+            updateZoomSlider(newIndex);
+        }
+    }
+};
+
+// 2. Reiniciar Zoom al hacer clic en el porcentaje ("100%")
+window.resetZoomHUD = function() {
+    if (typeof ZOOM_LEVELS !== 'undefined') {
+        let index100 = ZOOM_LEVELS.indexOf(100);
+        if (index100 !== -1) {
+            updateZoomSlider(index100);
+        }
+    }
+};
+
+// 3. Botón de Pantalla Completa
+window.toggleFullscreenHUD = function() {
+    if (!document.fullscreenElement) {
+        // Entrar a pantalla completa
+        document.documentElement.requestFullscreen().catch(err => {
+            console.log(`Error al intentar pantalla completa: ${err.message}`);
+        });
+    } else {
+        // Salir de pantalla completa
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        }
+    }
+};
+
+// 4. Medidor de FPS Real en vivo
+let lastFrameTime = performance.now();
+let frameCount = 0;
+
+function updateFPS() {
+    const now = performance.now();
+    frameCount++;
+    
+    // Cada 1000 milisegundos (1 segundo), actualizamos el texto
+    if (now - lastFrameTime >= 1000) {
+        const fpsDisplay = document.getElementById('fps-display');
+        if (fpsDisplay) {
+            fpsDisplay.innerText = frameCount + " FPS";
+        }
+        frameCount = 0;
+        lastFrameTime = now;
+    }
+    
+    requestAnimationFrame(updateFPS);
+}
+
+// Iniciar el contador de FPS
+requestAnimationFrame(updateFPS);
