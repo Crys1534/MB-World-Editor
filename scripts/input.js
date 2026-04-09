@@ -25,6 +25,24 @@ const mouse = {
 }
 
 function cameraMovement() {
+	// ✨ LÓGICA DE MODO ESPECTADOR
+    if (typeof isMultiplayer !== 'undefined' && isMultiplayer && window.spectatingTargetId) {
+        let targetPlayer = window.roomPlayers ? window.roomPlayers.find(p => p.peerId === window.spectatingTargetId) : null;
+        
+        if (targetPlayer && window.networkCursors && window.networkCursors[targetPlayer.name]) {
+            let targetData = window.networkCursors[targetPlayer.name];
+            
+            // Movemos la cámara suavemente hacia él
+            camera.x += (targetData.x - (grid.width / 2) - camera.x) * 0.1;
+            camera.y += (targetData.y - (grid.height / 2) - camera.y) * 0.1;
+            
+            worldDirty = true;
+            return; // ⛔ SALIMOS de la función aquí para que tu teclado no pueda mover la cámara
+        } else {
+            window.spectatingTargetId = null; // Si se desconecta, cancelamos
+        }
+    }
+	
     if (typeof camera.accX === 'undefined') { camera.accX = 0; camera.accY = 0; }
     let moveX = 0; let moveY = 0;
 

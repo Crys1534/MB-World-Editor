@@ -1,3 +1,40 @@
+window.spectatingTargetId = null; // Rastrea a quién vemos
+
+// Función para activar/desactivar el espectador
+window.toggleSpectatorMode = function(targetPeerId, targetName) {
+    if (window.spectatingTargetId === targetPeerId) {
+        window.spectatingTargetId = null; // Apagar
+        
+        // ✨ FIX: REINICIO Y ALINEACIÓN DE CÁMARA
+        if (typeof camera !== 'undefined' && typeof mbwom !== 'undefined' && mbwom.world) {
+            
+            // 1. Calculamos dónde está tu personaje actualmente
+            let miX = Number(mbwom.world.worldX);
+            let miY = -Number(mbwom.world.worldY); // Tu juego usa Y invertida
+            
+            // 2. Centramos la cámara exactamente en ti
+            if (typeof grid !== 'undefined') {
+                camera.x = miX - (grid.width / 2);
+                camera.y = miY - (grid.height / 2);
+            }
+
+            // 3. ¡LO MÁS IMPORTANTE! Redondeamos para matar los decimales y arreglar la cuadrícula
+            camera.x = Math.round(camera.x);
+            camera.y = Math.round(camera.y);
+        }
+        
+        // Forzamos al canvas a redibujarse inmediatamente
+        if (typeof worldDirty !== 'undefined') worldDirty = true;
+
+        if (typeof showDesktopNotification === 'function') showDesktopNotification("Modo Espectador", "Cámara normal restaurada.", "assets/default pfp.png");
+    } else {
+        window.spectatingTargetId = targetPeerId; // Encender
+        if (typeof showDesktopNotification === 'function') showDesktopNotification("Modo Espectador", "Viendo a " + targetName, "assets/default pfp.png");
+    }
+    
+    if (typeof window.renderLivePlayers === 'function') window.renderLivePlayers();
+};
+
 // ==========================================
 // ✨ MOTOR MULTIJUGADOR P2P + FIREBASE (SERVIDORES PÚBLICOS)
 // ==========================================
@@ -30,10 +67,13 @@ window.lastKnownUsers = null;
 window.multiplayerAccess = 'public'; 
 window.inviteCooldowns = window.inviteCooldowns || {};
 
-// ✨ NUEVO: Almacenaje temporal del mapa a hostear
+// Almacenaje temporal del mapa a hostear
 window.mpSelectedMapName = null;
 window.mpSelectedMapData = null;
 window.mpSelectedMapThumb = null;
+
+// ✨ Sistema de Respuestas
+let replyingTo = null; 
 
 // ==========================================
 // ✨ NOTIFICACIONES ESTILO ESCRITORIO
@@ -55,16 +95,14 @@ window.showDesktopNotification = function(title, body, icon, onClickCallback) {
             <div style="font-size: 18px; color: #ecf0f1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${body}</div>
         </div>
     `;
-    
     toast.onclick = () => {
         if(onClickCallback) onClickCallback();
         toast.style.right = '-400px';
         setTimeout(() => toast.remove(), 400);
     };
-    
     document.body.appendChild(toast);
     setTimeout(() => toast.style.right = '20px', 100);
-    setTimeout(() => { toast.style.right = '-400px'; setTimeout(() => toast.remove(), 400); }, 6000);
+    setTimeout(() => { if (toast) { toast.style.right = '-400px'; setTimeout(() => toast.remove(), 400); } }, 6000);
 };
 
 // ==========================================
@@ -81,15 +119,26 @@ window.renderLivePlayers = function() {
 
     window.roomPlayers.forEach((p) => {
         if (p.uid === myUID) return; 
+        
         let marginLeft = drawnCount > 0 ? '-10px' : '0';
         let zIndex = 100 - drawnCount; 
 
+        // ✨ MAGIA: Checamos si lo estamos espectando para ponerle borde rojo
+        let isSpectating = (window.spectatingTargetId === p.peerId);
+        let borderColor = isSpectating ? '#e74c3c' : 'var(--bg-header)';
+        let borderWidth = isSpectating ? '3px' : '2px';
+        let scale = isSpectating ? 'scale(1.15)' : 'scale(1)';
+
         container.innerHTML += `
-            <div title="${p.name}" style="
-                width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--bg-header);
+            <div title="Clic para espectar a ${p.name}" 
+                 onclick="toggleSpectatorMode('${p.peerId}', '${p.name.replace(/'/g, "\\'")}')"
+                 style="
+                width: 28px; height: 28px; border-radius: 50%; border: ${borderWidth} solid ${borderColor};
                 background-color: #34495e; background-image: url('${p.pfp}'); background-size: cover; background-position: center; 
-                margin-left: ${marginLeft}; z-index: ${zIndex}; cursor: default; box-shadow: 0 2px 4px rgba(0,0,0,0.3); 
-                transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                margin-left: ${marginLeft}; z-index: ${zIndex}; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3); 
+                transform: ${scale}; transition: 0.2s;" 
+                 onmouseover="this.style.transform='translateY(-2px) ${scale}'" 
+                 onmouseout="this.style.transform='translateY(0) ${scale}'">
             </div>
         `;
         drawnCount++;
@@ -125,8 +174,6 @@ window.setMpView = function(viewId) {
     if (target) target.style.display = 'block';
     
     if (viewId === 'join') window.loadPublicServers();
-    
-    // ✨ Disparar la carga de la base de datos cuando se entra a esta pantalla
     if (viewId === 'create-map') window.renderMpMapSelection();
 
     if ((viewId === 'home' || viewId === 'create-1' || viewId === 'create-map') && isHost) {
@@ -161,9 +208,9 @@ window.copyRoomId = function() {
 };
 
 // ==========================================
-// ✨ NUEVO: SELECTOR DE MAPA Y FILTRO DE PESO
+// ✨ SELECTOR DE MAPA Y FILTRO DE PESO
 // ==========================================
-window.mpAvailableWorlds = []; // ✨ Guardamos los mundos en memoria para no volver a consultar la base de datos
+window.mpAvailableWorlds = []; 
 
 window.renderMpMapSelection = async function() {
     const listDiv = document.getElementById('mp-map-list');
@@ -191,10 +238,8 @@ window.renderMpMapSelection = async function() {
     listDiv.innerHTML = '';
 
     worlds.forEach(w => {
-        // ✨ Usamos la nueva función unificada
         const bytes = new Blob([w.data]).size;
         const sizeFormatted = window.formatBytes(bytes);
-        
         let thumbUrl = w.thumb || 'assets/Superflat World.png';
         const safeId = 'mp-map-card-' + w.name.replace(/[^a-zA-Z0-9]/g, '-');
         const safeName = w.name.replace(/'/g, "\\'"); 
@@ -205,9 +250,7 @@ window.renderMpMapSelection = async function() {
                  onclick="selectMpMapForServer('${safeName}')"
                  onmouseover="if(window.mpSelectedMapName !== '${safeName}') this.style.borderColor='#3498db'"
                  onmouseout="if(window.mpSelectedMapName !== '${safeName}') this.style.borderColor='#7f8c8d'">
-                
                 <div style="width: 60px; height: 40px; background-image: url('${thumbUrl}'); background-size: cover; background-position: center; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); flex-shrink: 0; margin-right: 12px; image-rendering: pixelated;"></div>
-                
                 <div style="flex: 1; overflow: hidden; text-align: left;">
                     <div style="color: white; font-size: 24px; font-family: 'Pixeltype', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1;">${w.name}</div>
                     <div style="color: #bdc3c7; font-size: 14px; font-family: Arial;">⚖️ ${sizeFormatted}</div> </div>
@@ -217,21 +260,18 @@ window.renderMpMapSelection = async function() {
 };
 
 window.selectMpMapForServer = function(mapName) {
-    // 1. Deseleccionar todos visualmente
     const listDiv = document.getElementById('mp-map-list');
     const cards = listDiv.querySelectorAll('div[id^="mp-map-card-"]');
     cards.forEach(c => c.style.borderColor = '#7f8c8d');
 
-    // ✨ 2. Buscar el mapa directamente en la memoria que ya cargamos (Evita errores)
     const w = window.mpAvailableWorlds.find(x => x.name === mapName);
     if(!w) return;
 
     const sizeBytes = new Blob([w.data]).size;
     const sizeMB = sizeBytes / (1024 * 1024);
 
-    // ⛔ ALERTA: Límite P2P configurado en 5.0 MB (Texto en inglés incluido)
-    if (sizeMB > 5.0) {
-        alert(`⚠️ Map is too heavy!\n\nThe map "${mapName}" weighs ${sizeMB.toFixed(2)} MB.\n\nTo guarantee a stable connection without crashing the server, the absolute limit is 5.00 MB.\n\nPlease select a lighter map.`);
+    if (sizeMB > 32.0) {
+        alert(`⚠️ Map is too heavy!\n\nThe map "${mapName}" weighs ${sizeMB.toFixed(2)} MB.\n\nTo guarantee a stable connection without crashing the server, the absolute limit is 32 MB.\n\nPlease select a lighter map.`);
         window.mpSelectedMapData = null;
         window.mpSelectedMapName = null;
         const nextBtn = document.getElementById('btn-next-to-id');
@@ -239,43 +279,30 @@ window.selectMpMapForServer = function(mapName) {
         return;
     }
 
-    // 3. Selección Aprobada
     window.mpSelectedMapName = w.name;
     window.mpSelectedMapData = w.data;
     window.mpSelectedMapThumb = w.thumb;
 
-    // 4. Cambiar color a verde
     const safeId = 'mp-map-card-' + mapName.replace(/[^a-zA-Z0-9]/g, '-');
     const selectedCard = document.getElementById(safeId);
     if (selectedCard) selectedCard.style.borderColor = '#2ecc71';
 
-    // 5. Desbloquear botón "Next"
     const nextBtn = document.getElementById('btn-next-to-id');
     if (nextBtn) { nextBtn.disabled = false; nextBtn.style.opacity = '1'; nextBtn.style.cursor = 'pointer'; }
 };
 
-// ==========================================
-// ✨ PREPARAR EL MAPA EN EL EDITOR (CON TABS)
-// ==========================================
 window.prepareServerMap = async function() {
-    if (!window.mpSelectedMapName) { 
-        alert("Error: No map selected."); 
-        return; 
-    }
-
-    // ✨ Cargamos el mapa EXACTAMENTE como si lo abrieras desde "My Worlds"
+    if (!window.mpSelectedMapName) { alert("Error: No map selected."); return; }
     if (typeof loadSavedLocalWorld === 'function') {
         await loadSavedLocalWorld(window.mpSelectedMapName);
     } else {
         console.error("Error: loadSavedLocalWorld no existe.");
     }
-
-    // Una vez que el editor ya creó la pestaña y cargó todo, pasamos al último paso del Wizard
     setMpView('create-2');
 };
 
 // ==========================================
-// EL ANFITRIÓN CREA LA SALA
+// ✨ CONEXIÓN DE SERVIDORES (HOST/CLIENTE)
 // ==========================================
 window.hostMultiplayerSession = function() {
     if (peer) peer.destroy();
@@ -290,7 +317,16 @@ window.hostMultiplayerSession = function() {
 
     isHost = true;
     misClientes = []; 
-    peer = new Peer(); 
+    
+    // ✨ MAGIA: Generamos una ID de exactamente 8 caracteres (mayúsculas, minúsculas y números)
+    const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let miIdPersonalizada = '';
+    for (let i = 0; i < 8; i++) {
+        miIdPersonalizada += caracteres.charAt(Math.floor(Math.random() * caracteres.length));
+    }
+
+    // Le pasamos tu nueva ID aleatoria de 8 caracteres al motor
+    peer = new Peer(miIdPersonalizada); 
 
     peer.on('open', function(id) {
         const peerInput = document.getElementById('my-peer-id');
@@ -325,11 +361,16 @@ window.hostMultiplayerSession = function() {
         }
         setupHostConnection(conn);
     });
+    
+    // Si la ID por casualidad ya existe, PeerJS tirará este error
+    peer.on('error', function(err) {
+        if (err.type === 'unavailable-id') {
+            alert("Vaya, esa ID ya estaba en uso. Intenta crear el servidor de nuevo.");
+            setMpView('create-1');
+        }
+    });
 };
 
-// ==========================================
-// EL CLIENTE SE CONECTA
-// ==========================================
 window.joinMultiplayerSession = function(directId = null) {
     const inputEl = document.getElementById('join-peer-id');
     const hostId = directId || (inputEl ? inputEl.value.trim() : null);
@@ -364,11 +405,9 @@ function setupHostConnection(conn) {
         if (statusText) { statusText.innerText = `Status: ${misClientes.length + 1}/${window.multiplayerPlayerLimit} Players 🟢`; statusText.style.color = "#4CAF50"; }
         if (window.myRoomRef) window.myRoomRef.update({ currentPlayers: misClientes.length + 1 });
         
-        // ✨ SOLUCIÓN: Enviamos el mundo VIVO directamente desde el motor del juego
         if (typeof mbwom !== 'undefined' && mbwom.world) {
             conn.send({ tipo: "sync_mundo", mundo: mbwom.world });
         }
-        
         enviarMensajeEnRed({ tipo: "chat", autor: "System", texto: "Un jugador se ha unido y está descargando el mapa." });
     });
 
@@ -414,14 +453,12 @@ function setupClientConnection(conn) {
         isMultiplayer = false; miConexionAlHost = null;
         window.roomPlayers = []; 
         renderLivePlayers();
-
         const statusText = document.getElementById('multiplayer-status');
         if (statusText) { statusText.innerText = "Status: Disconnected 🔴"; statusText.style.color = "#e74c3c"; }
         alert("Disconnected from Server.");
     });
 }
 
-// BUSCADOR DE SERVIDORES (TIEMPO REAL)
 window.loadPublicServers = function() {
     const listDiv = document.getElementById('public-servers-list');
     if (!listDiv) return;
@@ -467,7 +504,6 @@ window.loadPublicServers = function() {
             }
 
             let thumbUrl = s.mapThumb || 'assets/Superflat World.png';
-
             listDiv.innerHTML += `
                 <div style="background: rgba(52, 73, 94, 0.8); padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #7f8c8d; gap: 12px; margin-bottom: 5px;">
                     <div style="display: flex; align-items: center; gap: 15px;">
@@ -487,7 +523,7 @@ window.loadPublicServers = function() {
     });
 }
 
-// FUNCIONES DE RED
+// FUNCIONES DE RED INTERNAS
 window.enviarMensajeEnRed = function(datos) {
     if (!isMultiplayer) return;
     if (isHost) {
@@ -555,7 +591,7 @@ function recibirMensajeDeRed(datos) {
 }
 
 // ==========================================
-// ✨ SISTEMA DE PRESENCIA GLOBAL Y RENDERIZADO
+// ✨ PRESENCIA GLOBAL Y RENDERIZADO
 // ==========================================
 let myPresenceRef = null;
 
@@ -595,7 +631,6 @@ function initPresenceSystem(isReload = false) {
 window.renderPresenceList = function() {
     const users = window.lastKnownUsers;
     const listContainer = document.getElementById('mp-online-users-list');
-    
     if (listContainer) listContainer.innerHTML = '';
     if (!users) return;
 
@@ -622,7 +657,6 @@ window.renderPresenceList = function() {
             <div style="background: rgba(0,0,0,0.4); border: 2px solid ${borderColor}; padding: 10px; display: flex; align-items: center; gap: 12px; border-radius: 6px;">
                 <div style="width: 40px; height: 40px; border-radius: 50%; background-image: url('${u.pfp}'); background-size: cover; background-position: center; border: 2px solid #bdc3c7;"></div>
                 <span style="color: white; font-family: 'Pixeltype', sans-serif; font-size: 26px;">${u.username}</span>
-                
                 ${isMe ? 
                     '<span style="color: #2ecc71; font-size: 16px; margin-left: auto; font-weight: bold;">(You)</span>' 
                     : 
@@ -635,17 +669,14 @@ window.renderPresenceList = function() {
             </div>
         `;
     }
-
     if (listContainer) listContainer.innerHTML = htmlContent;
 };
 
 // ==========================================
-// ✨ LÓGICA DE INVITACIONES (MANDAR Y RECIBIR)
+// ✨ INVITACIONES (MANDAR Y RECIBIR)
 // ==========================================
-
 window.sendServerInvite = function(targetUid, targetName, event) {
     if (!isHost || !window.currentRoomId) return;
-
     const now = Date.now();
     if (window.inviteCooldowns[targetUid] && now < window.inviteCooldowns[targetUid]) return;
     window.inviteCooldowns[targetUid] = now + 15000;
@@ -655,14 +686,7 @@ window.sendServerInvite = function(targetUid, targetName, event) {
     const myPfp = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
     const mapName = window.mpSelectedMapName || "Survival Map";
     
-    database.ref('server_invites/' + targetUid + '/' + myUID).set({
-        roomId: window.currentRoomId,
-        hostName: myName,
-        hostPfp: myPfp,
-        mapName: mapName,
-        timestamp: firebase.database.ServerValue.TIMESTAMP
-    });
-    
+    database.ref('server_invites/' + targetUid + '/' + myUID).set({ roomId: window.currentRoomId, hostName: myName, hostPfp: myPfp, mapName: mapName, timestamp: firebase.database.ServerValue.TIMESTAMP });
     if (typeof window.renderPresenceList === 'function') window.renderPresenceList();
     setTimeout(() => { if (typeof window.renderPresenceList === 'function') window.renderPresenceList(); }, 15000);
 };
@@ -670,10 +694,8 @@ window.sendServerInvite = function(targetUid, targetName, event) {
 window.acceptServerInvite = function(roomId, senderUid) {
     const myUID = localStorage.getItem('mbw_uid');
     database.ref('server_invites/' + myUID + '/' + senderUid).remove(); 
-    
     const joinInput = document.getElementById('join-peer-id');
     if (joinInput) joinInput.value = roomId; 
-
     closeMpSidebar();
     setMpView('join');
     joinMultiplayerSession(roomId); 
@@ -684,14 +706,13 @@ window.declineServerInvite = function(senderUid) {
     database.ref('server_invites/' + myUID + '/' + senderUid).remove(); 
 };
 
-
 // ==========================================
-// ✨ LÓGICA DE AMIGOS Y CHAT PRIVADO
+// ✨ AMIGOS Y PETICIONES
 // ==========================================
-
 let currentChatId = null;
 let currentChatListener = null;
 let misAmigosConfirmados = [];
+let currentChatPartner = null; 
 
 window.sendFriendRequest = function(targetUid, targetName) {
     const myUID = localStorage.getItem('mbw_uid');
@@ -711,113 +732,16 @@ window.declineFriendRequest = function(senderUid) {
     database.ref('friend_requests/' + myUID + '/' + senderUid).update({ status: 'rejected' });
 }
 
-let currentChatPartner = null; 
-
-window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/default pfp.png") {
-    const myUID = localStorage.getItem('mbw_uid');
-    currentChatId = myUID < otherUid ? myUID + "_" + otherUid : otherUid + "_" + myUID;
-    currentChatPartner = { uid: otherUid, name: otherName, pfp: otherPfp };
-
-    database.ref('user_chats/' + myUID + '/' + otherUid).update({ unreadCount: 0 });
-
-    document.getElementById('dm-title').innerText = "💬 " + otherName;
-    document.getElementById('mp-right-sidebar').style.display = 'flex';
-    document.getElementById('sidebar-list-view').style.display = 'none';
-    document.getElementById('sidebar-chat-view').style.display = 'flex';
-    
-    const messagesContainer = document.getElementById('dm-messages');
-    if (messagesContainer) messagesContainer.innerHTML = ''; 
-    if (currentChatListener) database.ref('private_chats/' + currentChatId).off('child_added', currentChatListener);
-
-    let lastRenderedDate = ""; 
-
-    const chatRef = database.ref('private_chats/' + currentChatId);
-    currentChatListener = chatRef.on('child_added', (snap) => {
-        const msg = snap.val();
-        const isMe = msg.sender === myUID;
-        const myPfp = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
-        const avatarUrl = isMe ? myPfp : currentChatPartner.pfp;
-
-        const date = new Date(msg.timestamp || Date.now());
-        
-        const today = new Date();
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-
-        let dateString = "";
-        if (date.toDateString() === today.toDateString()) {
-            dateString = "Today";
-        } else if (date.toDateString() === yesterday.toDateString()) {
-            dateString = "Yesterday";
-        } else {
-            dateString = date.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
-        }
-
-        if (dateString !== lastRenderedDate) {
-            const sepDiv = document.createElement('div');
-            sepDiv.style.textAlign = 'center'; sepDiv.style.margin = '15px 0'; sepDiv.style.width = '100%';
-            sepDiv.innerHTML = `<span style="background: rgba(0,0,0,0.5); color: #ecf0f1; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-family: Arial, sans-serif; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.4); text-transform: capitalize;">${dateString}</span>`;
-            if (messagesContainer) messagesContainer.appendChild(sepDiv);
-            lastRenderedDate = dateString; 
-        }
-
-        const msgRow = document.createElement('div');
-        msgRow.style.display = 'flex'; msgRow.style.alignItems = 'flex-end'; msgRow.style.gap = '8px';
-        msgRow.style.marginBottom = '10px'; msgRow.style.width = '100%'; msgRow.style.flexDirection = isMe ? 'row-reverse' : 'row'; 
-
-        const avatarDiv = document.createElement('div');
-        avatarDiv.style.width = '26px'; avatarDiv.style.height = '26px'; avatarDiv.style.borderRadius = '50%';
-        avatarDiv.style.backgroundImage = `url('${avatarUrl}')`; avatarDiv.style.backgroundSize = 'cover';
-        avatarDiv.style.backgroundPosition = 'center'; avatarDiv.style.flexShrink = '0'; avatarDiv.style.border = '1px solid rgba(255,255,255,0.3)';
-
-        const timeString = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-
-        const bubbleDiv = document.createElement('div');
-        bubbleDiv.style.background = isMe ? '#2ecc71' : '#3498db'; bubbleDiv.style.color = 'white';
-        bubbleDiv.style.padding = '8px 12px 4px 12px'; bubbleDiv.style.borderRadius = isMe ? '15px 15px 0 15px' : '15px 15px 15px 0';
-        bubbleDiv.style.maxWidth = '210px'; bubbleDiv.style.fontFamily = "Arial, sans-serif"; bubbleDiv.style.fontSize = "15px";
-        bubbleDiv.style.lineHeight = "1.3"; bubbleDiv.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)"; bubbleDiv.style.wordWrap = "break-word";
-        
-        bubbleDiv.innerHTML = `<div style="margin-bottom: 2px;">${msg.text}</div><div style="font-size: 10px; text-align: right; opacity: 0.7; margin-top: 4px; font-weight: bold;">${timeString}</div>`;
-
-        msgRow.appendChild(avatarDiv); msgRow.appendChild(bubbleDiv);
-        
-        if (messagesContainer) { messagesContainer.appendChild(msgRow); messagesContainer.scrollTop = messagesContainer.scrollHeight; }
-        if (!isMe && typeof audioManager !== 'undefined') audioManager.playTone(600, 'sine', 0.05, 0.1);
-        if (!isMe) database.ref('user_chats/' + myUID + '/' + otherUid).update({ unreadCount: 0 });
-    });
-}
-
-window.sendPrivateMessage = function() {
-    const input = document.getElementById('dm-input');
-    const text = input.value.trim();
-    if (!text || !currentChatId || !currentChatPartner) return;
-    
-    const myUID = localStorage.getItem('mbw_uid');
-    const myName = localStorage.getItem('mbw_username') || "Player";
-    const myPfp = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
-    const timestamp = firebase.database.ServerValue.TIMESTAMP;
-
-    database.ref('private_chats/' + currentChatId).push({ sender: myUID, senderName: myName, text: text, timestamp: timestamp });
-    database.ref('user_chats/' + myUID + '/' + currentChatPartner.uid).set({ name: currentChatPartner.name, pfp: currentChatPartner.pfp, lastMsg: text, timestamp: timestamp, unreadCount: 0 });
-    database.ref('user_chats/' + currentChatPartner.uid + '/' + myUID).set({ name: myName, pfp: myPfp, lastMsg: text, timestamp: timestamp, unreadCount: firebase.database.ServerValue.increment(1) });
-    input.value = ''; input.focus();
-}
-
 // ==========================================
-// ✨ CONTROL DE LA BARRA LATERAL Y CHAT PANTALLA COMPLETA
+// ✨ CONTROL DE BARRA LATERAL (WhatsApp Web)
 // ==========================================
-
 let currentSidebarMode = ''; 
 
 window.openMpSidebar = function(mode) {
-    // Si el menú (File) está cerrado, lo forzamos a abrir
     if (typeof openFileMenu === 'function') {
         const fileMenu = document.getElementById('file-menu');
         if (fileMenu && fileMenu.style.display === 'none') openFileMenu();
     }
-    
-    // Forzamos a la pestaña Multiplayer 
     if (typeof switchBackstageTab === 'function') switchBackstageTab('multiplayer');
 
     currentSidebarMode = mode;
@@ -829,7 +753,6 @@ window.openMpSidebar = function(mode) {
     const content = document.getElementById('sidebar-content');
 
     if (mode === 'chats') {
-        // ✨ MODO WHATSAPP WEB
         if (serversView) serversView.style.display = 'none';
         if (sidebar) sidebar.style.display = 'none';
         if (fullChatView) fullChatView.style.display = 'flex';
@@ -837,8 +760,7 @@ window.openMpSidebar = function(mode) {
         const listContainer = document.getElementById('full-chat-list-container');
         if (listContainer) renderChatList(listContainer);
     } else {
-        // Modo Antiguo: Friends / Invites (usa la barra lateral pequeña)
-        if (serversView) serversView.style.display = 'flex'; // Deja los servidores de fondo
+        if (serversView) serversView.style.display = 'flex'; 
         if (fullChatView) fullChatView.style.display = 'none';
         if (sidebar) sidebar.style.display = 'flex';
 
@@ -887,55 +809,6 @@ window.renderServerInvites = function(container) {
     });
 };
 
-window.renderChatList = function(container) {
-    const myUID = localStorage.getItem('mbw_uid');
-    database.ref('friends/' + myUID).once('value', (friendsSnap) => {
-        const friends = friendsSnap.val() || {};
-        database.ref('user_chats/' + myUID).once('value', (snapshot) => {
-            const myChats = snapshot.val() || {};
-            container.innerHTML = '';
-            let chatEntries = {};
-            
-            for (let uid in myChats) { chatEntries[uid] = myChats[uid]; }
-            for (let uid in friends) {
-                if (!chatEntries[uid]) {
-                    let friendName = "Friend"; let friendPfp = "assets/default pfp.png";
-                    if (window.lastKnownUsers && window.lastKnownUsers[uid]) {
-                        friendName = window.lastKnownUsers[uid].username; friendPfp = window.lastKnownUsers[uid].pfp;
-                    }
-                    chatEntries[uid] = { name: friendName, pfp: friendPfp, lastMsg: "Toca para iniciar una conversación", timestamp: 0, unreadCount: 0 };
-                }
-            }
-
-            const sorted = Object.keys(chatEntries).map(uid => ({uid, ...chatEntries[uid]})).sort((a, b) => b.timestamp - a.timestamp);
-            if (sorted.length === 0) { container.innerHTML = '<p style="color: #bdc3c7; text-align: center; font-size: 24px; margin-top: 20px;">No friends or active chats.</p>'; return; }
-
-            sorted.forEach(chat => {
-                let unreadBadge = (chat.unreadCount && chat.unreadCount > 0) ? `<div style="background: #e74c3c; color: white; font-size: 14px; font-weight: bold; padding: 2px 8px; border-radius: 12px; margin-left: auto; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${chat.unreadCount}</div>` : '';
-                let msgStyle = chat.lastMsg === "Toca para iniciar una conversación" ? "font-style: italic; opacity: 0.6;" : "";
-                
-                // ✨ MAGIA: Resaltar el chat actual visualmente
-                let isActive = currentChatPartner && currentChatPartner.uid === chat.uid;
-                let bgStyle = isActive ? 'rgba(52, 152, 219, 0.4)' : 'rgba(0,0,0,0.3)';
-                let borderStyle = isActive ? '4px solid #f1c40f' : '4px solid #3498db';
-
-                container.innerHTML += `
-                    <div style="background: ${bgStyle}; padding: 12px; display: flex; align-items: center; gap: 12px; border-radius: 0px; border-left: ${borderStyle}; cursor: pointer; transition: 0.2s; margin-bottom: 1px;" onmouseover="this.style.background='rgba(52, 152, 219, 0.2)'" onmouseout="this.style.background='${bgStyle}'" onclick="openPrivateChat('${chat.uid}', '${chat.name}', '${chat.pfp}')">
-                        <div style="width: 45px; height: 45px; border-radius: 50%; background-image: url('${chat.pfp}'); background-size: cover; background-position: center; border: 2px solid #FFF; flex-shrink: 0;"></div>
-                        <div style="flex: 1; overflow: hidden; display: flex; align-items: center;">
-                            <div style="flex: 1; overflow: hidden;">
-                                <div style="color: white; font-size: 24px; font-family: 'Pixeltype', sans-serif;">${chat.name}</div>
-                                <div style="color: #bdc3c7; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: Arial; ${msgStyle}">${chat.lastMsg}</div>
-                            </div>
-                            ${unreadBadge}
-                        </div>
-                    </div>
-                `;
-            });
-        });
-    });
-};
-
 window.renderFriendRequests = function(container) {
     const myUID = localStorage.getItem('mbw_uid');
     database.ref('friend_requests/' + myUID).once('value', (snapshot) => {
@@ -967,29 +840,154 @@ window.renderFriendRequests = function(container) {
 }
 
 // ==========================================
-// ✨ MAGIA DEL CHAT ACTIVO (DERECHA)
+// ✨ LÓGICA DEL CHAT Y RESPUESTAS (REPLY)
 // ==========================================
 
+window.setReply = function(msgId, senderName, text) {
+    replyingTo = { msgId, senderName, text };
+    
+    let replyPreview = document.getElementById('full-chat-reply-preview');
+    if (!replyPreview) {
+        replyPreview = document.createElement('div');
+        replyPreview.id = 'full-chat-reply-preview';
+        replyPreview.style.cssText = `
+            background: rgba(0,0,0,0.2); border-left: 4px solid #f1c40f;
+            padding: 10px 15px; margin: 0; border-radius: 8px 8px 0 0;
+            display: flex; justify-content: space-between; align-items: center;
+            font-family: Arial, sans-serif; font-size: 13px; color: #ecf0f1;
+        `;
+        const chatActive = document.getElementById('full-chat-active');
+        const inputArea = chatActive.querySelector('div[style*="background: #34495e"]');
+        chatActive.insertBefore(replyPreview, inputArea);
+    }
+    
+    replyPreview.style.display = 'flex';
+    replyPreview.innerHTML = `
+        <div style="overflow: hidden;">
+            <div style="color: #f1c40f; font-weight: bold; font-size: 14px;">Respondiendo a ${senderName}</div>
+            <div style="opacity: 0.7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 16px; font-family: 'Pixeltype'">${text}</div>
+        </div>
+        <span onclick="cancelReply()" style="cursor: pointer; font-size: 24px; margin-left: 10px; color: #e74c3c;">&times;</span>
+    `;
+    document.getElementById('full-dm-input').focus();
+};
+
+window.cancelReply = function() {
+    replyingTo = null;
+    const preview = document.getElementById('full-chat-reply-preview');
+    if (preview) preview.style.display = 'none';
+};
+
+window.sendPrivateMessage = function() {
+    const input = document.getElementById('full-dm-input');
+    const text = input.value.trim();
+    if (!text || !currentChatId || !currentChatPartner) return;
+    
+    const myUID = localStorage.getItem('mbw_uid');
+    const myName = localStorage.getItem('mbw_username') || "Player";
+    const myPfp = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
+    const timestamp = firebase.database.ServerValue.TIMESTAMP;
+
+    const messageData = { 
+        sender: myUID, 
+        senderName: myName, 
+        text: text, 
+        timestamp: timestamp 
+    };
+
+    if (replyingTo) {
+        messageData.replyTo = replyingTo;
+        cancelReply(); 
+    }
+
+    database.ref('private_chats/' + currentChatId).push(messageData);
+    database.ref('user_chats/' + myUID + '/' + currentChatPartner.uid).set({ name: currentChatPartner.name, pfp: currentChatPartner.pfp, lastMsg: text, timestamp: timestamp, unreadCount: 0 });
+    database.ref('user_chats/' + currentChatPartner.uid + '/' + myUID).set({ name: myName, pfp: myPfp, lastMsg: text, timestamp: timestamp, unreadCount: firebase.database.ServerValue.increment(1) });
+    
+    input.value = ''; 
+    input.focus();
+};
+
+window.renderChatList = function(container) {
+    const myUID = localStorage.getItem('mbw_uid');
+    database.ref('friends/' + myUID).once('value', (friendsSnap) => {
+        const friends = friendsSnap.val() || {};
+        database.ref('user_chats/' + myUID).once('value', (snapshot) => {
+            const myChats = snapshot.val() || {};
+            container.innerHTML = '';
+            let chatEntries = {};
+            
+            for (let uid in myChats) { chatEntries[uid] = myChats[uid]; }
+            for (let uid in friends) {
+                if (!chatEntries[uid]) {
+                    let friendName = "User"; let friendPfp = "assets/default pfp.png";
+                    if (window.lastKnownUsers && window.lastKnownUsers[uid]) {
+                        friendName = window.lastKnownUsers[uid].username; friendPfp = window.lastKnownUsers[uid].pfp;
+                    }
+                    chatEntries[uid] = { name: friendName, pfp: friendPfp, lastMsg: "", timestamp: 0, unreadCount: 0 };
+                }
+            }
+
+            const sorted = Object.keys(chatEntries).map(uid => ({uid, ...chatEntries[uid]})).sort((a, b) => b.timestamp - a.timestamp);
+            if (sorted.length === 0) { container.innerHTML = '<p style="color: #bdc3c7; text-align: center; font-size: 24px; margin-top: 20px;">No friends or active chats.</p>'; return; }
+
+            sorted.forEach(chat => {
+                let unreadBadge = (chat.unreadCount && chat.unreadCount > 0) ? `<div style="background: #e74c3c; color: white; font-size: 14px; font-weight: bold; padding: 2px 8px; border-radius: 12px; margin-left: auto; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${chat.unreadCount}</div>` : '';
+                let msgStyle = chat.lastMsg === "" ? "font-style: italic; opacity: 0.6;" : "";
+                
+                let isActive = currentChatPartner && currentChatPartner.uid === chat.uid;
+                let bgStyle = isActive ? 'rgba(52, 152, 219, 0.4)' : 'rgba(0,0,0,0.3)';
+                let borderStyle = isActive ? '4px solid #f1c40f' : '4px solid #3498db';
+
+                // ✨ Protección contra comillas en los nombres que rompen los botones
+                let safeName = chat.name.replace(/'/g, "\\'");
+
+                container.innerHTML += `
+                    <div style="background: ${bgStyle}; padding: 12px; display: flex; align-items: center; gap: 12px; border-radius: 0px; border-left: ${borderStyle}; cursor: pointer; transition: 0.2s; margin-bottom: 1px;" onmouseover="this.style.background='rgba(52, 152, 219, 0.2)'" onmouseout="this.style.background='${bgStyle}'" onclick="openPrivateChat('${chat.uid}', '${safeName}', '${chat.pfp}')">
+                        <div style="width: 45px; height: 45px; border-radius: 50%; background-image: url('${chat.pfp}'); background-size: cover; background-position: center; border: 2px solid #FFF; flex-shrink: 0;"></div>
+                        <div style="flex: 1; overflow: hidden; display: flex; align-items: center;">
+                            <div style="flex: 1; overflow: hidden;">
+                                <div style="color: white; font-size: 24px; font-family: 'Pixeltype', sans-serif;">${chat.name}</div>
+                                <div style="color: #bdc3c7; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: Arial; ${msgStyle}">${chat.lastMsg}</div>
+                            </div>
+                            ${unreadBadge}
+                        </div>
+                    </div>
+                `;
+            });
+        });
+    });
+};
+
 window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/default pfp.png") {
+    // ✨ FIX 1: Forzar el cambio a la vista de chats al abrir un chat privado
+    if (typeof window.openMpSidebar === 'function') {
+        window.openMpSidebar('chats');
+    }
+
     const myUID = localStorage.getItem('mbw_uid');
     currentChatId = myUID < otherUid ? myUID + "_" + otherUid : otherUid + "_" + myUID;
     currentChatPartner = { uid: otherUid, name: otherName, pfp: otherPfp };
 
     database.ref('user_chats/' + myUID + '/' + otherUid).update({ unreadCount: 0 });
 
-    // Ocultar Placeholder y mostrar Panel Activo
-    document.getElementById('full-chat-placeholder').style.display = 'none';
-    document.getElementById('full-chat-active').style.display = 'flex';
-    
-    // Actualizar encabezado del chat
-    document.getElementById('full-chat-header-name').innerText = otherName;
-    document.getElementById('full-chat-header-pfp').style.backgroundImage = `url('${otherPfp}')`;
-    
+    const placeholder = document.getElementById('full-chat-placeholder');
+    const activePanel = document.getElementById('full-chat-active');
+    const headerName = document.getElementById('full-chat-header-name');
+    const headerPfp = document.getElementById('full-chat-header-pfp');
     const messagesContainer = document.getElementById('full-dm-messages');
-    if (messagesContainer) messagesContainer.innerHTML = ''; 
-    if (currentChatListener) database.ref('private_chats/' + currentChatId).off('child_added', currentChatListener);
+    const dmInput = document.getElementById('full-dm-input');
 
-    // Refrescar lista visualmente para remarcar en azul el chat actual
+    if (placeholder) placeholder.style.display = 'none';
+    if (activePanel) activePanel.style.display = 'flex';
+    if (headerName) headerName.innerText = otherName;
+    if (headerPfp) headerPfp.style.backgroundImage = `url('${otherPfp}')`;
+    
+    if (messagesContainer) messagesContainer.innerHTML = ''; 
+    if (currentChatListener && currentChatId) {
+        database.ref('private_chats/' + currentChatId).off('child_added', currentChatListener);
+    }
+
     const listContainer = document.getElementById('full-chat-list-container');
     if (listContainer) renderChatList(listContainer);
 
@@ -1031,43 +1029,62 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
         const timeString = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
         const bubbleDiv = document.createElement('div');
-        bubbleDiv.style.background = isMe ? '#2ecc71' : '#3498db'; bubbleDiv.style.color = 'white';
-        bubbleDiv.style.padding = '10px 14px 6px 14px'; bubbleDiv.style.borderRadius = isMe ? '15px 15px 0 15px' : '15px 15px 15px 0';
-        bubbleDiv.style.maxWidth = '60%'; bubbleDiv.style.fontFamily = "Arial, sans-serif"; bubbleDiv.style.fontSize = "16px";
-        bubbleDiv.style.lineHeight = "1.4"; bubbleDiv.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)"; bubbleDiv.style.wordWrap = "break-word";
+        bubbleDiv.style.background = isMe ? '#2ecc71' : '#3498db'; 
+        bubbleDiv.style.color = 'white';
+        bubbleDiv.style.padding = '8px 12px 4px 12px'; 
+        bubbleDiv.style.borderRadius = isMe ? '15px 15px 0 15px' : '15px 15px 15px 0';
+        bubbleDiv.style.maxWidth = '210px'; 
+        bubbleDiv.style.fontFamily = "Arial, sans-serif"; 
+        bubbleDiv.style.fontSize = "15px";
+        bubbleDiv.style.lineHeight = "1.3"; 
+        bubbleDiv.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)"; 
+        bubbleDiv.style.wordWrap = "break-word";
         
-        bubbleDiv.innerHTML = `<div style="margin-bottom: 2px;">${msg.text}</div><div style="font-size: 11px; text-align: right; opacity: 0.7; margin-top: 4px; font-weight: bold;">${timeString}</div>`;
+        // ✨ FIX 2: Estilos para indicar que se puede interactuar
+        bubbleDiv.style.cursor = "pointer";
+        bubbleDiv.title = "Doble clic para responder";
 
-        msgRow.appendChild(avatarDiv); msgRow.appendChild(bubbleDiv);
+        // ✨ Citas (Reply) visuales
+        let replyHtml = '';
+        if (msg.replyTo) {
+            replyHtml = `
+                <div style="background: rgba(0,0,0,0.15); border-left: 3px solid #f1c40f; padding: 5px 8px; margin-bottom: 8px; border-radius: 4px; font-family: Arial;">
+                    <b style="display: block; font-size: 11px; color: #f1c40f;">${msg.replyTo.senderName}</b>
+                    <span style="display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; font-size: 13px; opacity: 0.8;">${msg.replyTo.text}</span>
+                </div>
+            `;
+        }
+
+        bubbleDiv.innerHTML = `
+            ${replyHtml}
+            <div style="margin-bottom: 2px;">${msg.text}</div>
+            <div style="font-size: 10px; text-align: right; opacity: 0.7; margin-top: 4px; font-weight: bold;">${timeString}</div>
+        `;
+
+        // ✨ FIX 3: Activador del doble clic para responder
+        bubbleDiv.ondblclick = (e) => {
+            e.stopPropagation(); // Evita errores de propagación de clics
+            if (typeof window.setReply === 'function') {
+                window.setReply(snap.key, msg.senderName, msg.text);
+            }
+        };
+
+        msgRow.appendChild(avatarDiv); 
+        msgRow.appendChild(bubbleDiv);
         
-        if (messagesContainer) { messagesContainer.appendChild(msgRow); messagesContainer.scrollTop = messagesContainer.scrollHeight; }
+        if (messagesContainer) { 
+            messagesContainer.appendChild(msgRow); 
+            messagesContainer.scrollTop = messagesContainer.scrollHeight; 
+        }
         if (!isMe && typeof audioManager !== 'undefined') audioManager.playTone(600, 'sine', 0.05, 0.1);
         if (!isMe) database.ref('user_chats/' + myUID + '/' + otherUid).update({ unreadCount: 0 });
     });
     
-    // Le da foco directo al chat para empezar a escribir
-    document.getElementById('full-dm-input').focus();
-}
-
-window.sendPrivateMessage = function() {
-    const input = document.getElementById('full-dm-input'); // Cambiamos al nuevo input
-    const text = input.value.trim();
-    if (!text || !currentChatId || !currentChatPartner) return;
-    
-    const myUID = localStorage.getItem('mbw_uid');
-    const myName = localStorage.getItem('mbw_username') || "Player";
-    const myPfp = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
-    const timestamp = firebase.database.ServerValue.TIMESTAMP;
-
-    database.ref('private_chats/' + currentChatId).push({ sender: myUID, senderName: myName, text: text, timestamp: timestamp });
-    database.ref('user_chats/' + myUID + '/' + currentChatPartner.uid).set({ name: currentChatPartner.name, pfp: currentChatPartner.pfp, lastMsg: text, timestamp: timestamp, unreadCount: 0 });
-    database.ref('user_chats/' + currentChatPartner.uid + '/' + myUID).set({ name: myName, pfp: myPfp, lastMsg: text, timestamp: timestamp, unreadCount: firebase.database.ServerValue.increment(1) });
-    
-    input.value = ''; input.focus();
-}
+    if (dmInput) dmInput.focus();
+};
 
 // ==========================================
-// ✨ LISTENERS GLOBALES (Burbujas Rojas y Notificaciones Toast)
+// ✨ LISTENERS GLOBALES
 // ==========================================
 window.startFriendListeners = function() {
     const myUID = localStorage.getItem('mbw_uid');
@@ -1100,7 +1117,6 @@ window.startFriendListeners = function() {
         const badgeMsgs = document.getElementById('badge-messages');
         if (badgeMsgs) { badgeMsgs.innerText = unreadUsers; badgeMsgs.style.display = unreadUsers > 0 ? 'block' : 'none'; }
         
-        // Actualizamos la nueva gran lista si el panel de chats está abierto
         if (typeof currentSidebarMode !== 'undefined' && currentSidebarMode === 'chats') {
             const content = document.getElementById('full-chat-list-container');
             if (content) renderChatList(content);
@@ -1161,7 +1177,6 @@ window.startFriendListeners = function() {
 
 function initMultiplayerModule() {
     setTimeout(initPresenceSystem, 1000);
-    // Enlazamos la tecla Enter al nuevo Input del Chat Completo
     const dmInput = document.getElementById('full-dm-input');
     if (dmInput) dmInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') sendPrivateMessage(); });
 }
