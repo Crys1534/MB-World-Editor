@@ -111,8 +111,8 @@ function initBackstageMenu() {
             <button id="nav-btn-multiplayer" class="backstage-nav-btn" onclick="switchBackstageTab('multiplayer')">🌐 Multiplayer</button>
             
             <div style="height: 1px; background: var(--border); margin: 5px 25px; opacity: 0.5;"></div>
-            <button class="backstage-nav-btn" onclick="document.getElementById('file-input').click(); closeFileMenu();" style="font-weight: normal; font-size: 14px; opacity: 0.8;">📥 Load External (.mbw)</button>
-            <button class="backstage-nav-btn" onclick="if(typeof fileManager !== 'undefined') fileManager.export(); closeFileMenu();" style="font-weight: normal; font-size: 14px; opacity: 0.8;">💾 Export Current</button>
+            <button class="backstage-nav-btn" onclick="document.getElementById('file-input').click(); closeFileMenu();" style="font-weight: normal; font-size: 14px; opacity: 0.8;">📥 Load World</button>
+            <button class="backstage-nav-btn" onclick="if(typeof fileManager !== 'undefined') fileManager.export(); closeFileMenu();" style="font-weight: normal; font-size: 14px; opacity: 0.8;">💾 Export</button>
         </div>
         
         <div class="backstage-content">
@@ -144,8 +144,8 @@ function initBackstageMenu() {
             <div id="panel-multiplayer" class="backstage-panel">
                 <div style="flex: 1; display: flex; overflow: hidden; position: relative; width: 100%;">
                     
-                    <div id="mp-servers-view" style="flex: 1; display: flex; flex-direction: row; padding: 20px; gap: 20px; width: 100%;">
-                        <div id="mp-main-wizard" style="flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; color: white; font-family: 'Pixeltype', sans-serif;">
+                    <div id="mp-servers-view" style="flex: 1; display: flex; flex-direction: row; padding: 0px; gap: 20px; width: 100%;">
+                        <div id="mp-main-wizard" style="flex: 1; padding: 0px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; color: white; font-family: 'Pixeltype', sans-serif;">
                             <h2 id="mp-modal-title" style="margin: 0px; color: #f1c40f; font-size: 48px; text-shadow: 2px 2px 0 #000;">🌐 Servers</h2>
                             
                             <div id="mp-view-home" style="display: flex; gap: 15px; width: 100%; max-width: 450px; margin-top: 20px;">
@@ -206,7 +206,7 @@ function initBackstageMenu() {
                             </div>
                             <p id="multiplayer-status" style="display: none; margin-top: 25px; font-weight: bold; font-size: 28px; color: #bdc3c7;">Status: Not Connected</p>
                         </div>
-                        <div style="width: 420px; padding: 20px; display: flex; flex-direction: column; align-items: center; font-family: 'Pixeltype', sans-serif; border-left: 2px solid #34495e;">
+                        <div style="width: 364px; padding: 20px; display: flex; flex-direction: column; align-items: center; font-family: 'Pixeltype', sans-serif; border-left: 2px solid #34495e;">
                             <h2 style="margin-top: 0; color: #2ecc71; font-size: 44px; text-shadow: 2px 2px 0 #000; margin-bottom: 15px;">Online</h2>
                             <div id="mp-online-users-list" style="width: 100%; flex: 1; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; border: 2px solid #34495e;">
                                 <p style="text-align: center; color: #bdc3c7; font-size: 24px;">Cargando jugadores...</p>
@@ -239,7 +239,7 @@ function initBackstageMenu() {
                                 
                                 <div style="display: flex; padding: 15px 25px; background: #34495e; gap: 15px; border-top: 2px solid #1a252f;">
                                     <input type="text" id="full-dm-input" placeholder="Escribe un mensaje..." style="flex: 1; padding: 12px; font-family: 'Pixeltype', sans-serif; font-size: 26px; border-radius: 8px; border: none; outline: none; background: #ecf0f1; color: #333;">
-                                    <button onclick="sendPrivateMessage()" style="background: #2ecc71; border: none; border-radius: 8px; padding: 0 25px; font-size: 28px; cursor: pointer; color: white; transition: 0.2s; font-family: 'Pixeltype', sans-serif;" onmouseover="this.style.background='#27ae60'" onmouseout="this.style.background='#2ecc71'">Enviar ➔</button>
+                                    <button onclick="sendPrivateMessage()" style="background: #2ecc71; border: none; border-radius: 8px; padding: 0 25px; font-size: 28px; cursor: pointer; color: white; transition: 0.2s; font-family: 'Pixeltype', sans-serif;" onmouseover="this.style.background='#27ae60'" onmouseout="this.style.background='#2ecc71'">➔</button>
                                 </div>
                             </div>
                         </div>

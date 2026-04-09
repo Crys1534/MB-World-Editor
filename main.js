@@ -30,7 +30,7 @@ let tileSize = BASE_TILE_SIZE;
 
 // --- IMÁGENES GLOBALES ---
 // Agrega aquí los nombres de los PNGs que vayas metiendo a la carpeta assets/
-window.images = { names: ["blocks", "hotbar", "slot", "zombie", "skeleton", "creeper", "enderman", "nethereye", "enderdragon", "pig", "cow", "chicken", "player",] };
+window.images = { names: ["blocks", "hotbar", "slot", "zombie", "skeleton", "creeper", "enderman", "nethereye", "enderdragon", "pig", "cow", "chicken", "Player",] };
 
 window.images.names.forEach((name) => {
     window.images[name] = new Image();
@@ -343,7 +343,7 @@ function drawPlayer() {
     const playerWidth = tileSize * 1.4;
     const playerHeight = tileSize * 2.0; // Altura de casi 2 bloques
 
-    let playerImg = window.images['player'];
+    let playerImg = window.images['Player'];
 
     // Si tienes un archivo 'player.png' en assets, lo dibuja:
     if (playerImg && playerImg.complete && playerImg.naturalWidth > 0) {
@@ -376,6 +376,51 @@ function drawPlayer() {
     ctx.fillText("PLAYER", screenX, screenY - playerHeight - 8);
     ctx.shadowBlur = 0;
 }
+
+// ✨ RELLENAR SELECCIÓN AL ESTILO PHOTOSHOP
+window.fillSelectionWithBucket = function(blockState) {
+    if (!window.selection || !window.selection.type) return false; // Falso si no hay selección
+    
+    let blocksUpdated = 0;
+
+    // 1. Si es Varita Mágica
+    if (window.selection.type === 'magic' && window.selection.points) {
+        window.selection.points.forEach(p => {
+            mbwom.setBlockState(p.x, p.y, blockState); // Cambiamos el bloque en el motor
+            if (typeof renderBlock === 'function') renderBlock(p.x, p.y); // Actualizamos el caché
+            blocksUpdated++;
+        });
+    } 
+    // 2. Si es Selección Cuadrada
+    else if (window.selection.type === 'rect') {
+        const rects = [...window.selection.subRects];
+        if (window.selection.p1 && window.selection.p2) rects.push({p1: window.selection.p1, p2: window.selection.p2});
+        
+        rects.forEach(r => {
+            const minX = Math.min(r.p1.x, r.p2.x);
+            const maxX = Math.max(r.p1.x, r.p2.x);
+            const minY = Math.min(r.p1.y, r.p2.y);
+            const maxY = Math.max(r.p1.y, r.p2.y);
+            
+            for (let x = minX; x <= maxX; x++) {
+                for (let y = minY; y <= maxY; y++) {
+                    mbwom.setBlockState(x, y, blockState);
+                    if (typeof renderBlock === 'function') renderBlock(x, y);
+                    blocksUpdated++;
+                }
+            }
+        });
+    }
+    
+    if (blocksUpdated > 0) {
+        if (typeof worldDirty !== 'undefined') worldDirty = true;
+        // Opcional: Puedes descomentar la siguiente línea si quieres que la selección desaparezca tras pintar
+        // window.selection = { type: null }; 
+        return true; // Verdadero si pintó algo
+    }
+    
+    return false;
+};
 
 function drawUI() {
     const coordsDiv = document.getElementById('coords-overlay');
@@ -469,6 +514,10 @@ function drawUI() {
         ctx.fillStyle = "rgba(0, 255, 255, 0.2)"; // Un rosa translúcido para identificar la magia
         ctx.strokeStyle = "#87CEFA"; // Borde rosa fuerte
         ctx.lineWidth = 2;
+		
+		// ✨ MAGIA DE PHOTOSHOP: Línea punteada en movimiento
+        ctx.setLineDash([6, 6]); // 6px de línea, 6px de espacio
+        ctx.lineDashOffset = -(Date.now() / 50); // El tiempo hace que se mueva
 
         ctx.beginPath();
         
@@ -502,6 +551,9 @@ function drawUI() {
         });
         
         ctx.stroke();
+		
+		// ✨ IMPORTANTE: Reiniciar la línea a normal para que no afecte otros dibujos
+        ctx.setLineDash([]);
     }
 
 
@@ -529,7 +581,15 @@ function drawUI() {
 
             ctx.strokeStyle = "#87CEFA";
             ctx.lineWidth = 2;
+			
+			// ✨ MAGIA DE PHOTOSHOP
+            ctx.setLineDash([6, 6]);
+            ctx.lineDashOffset = -(Date.now() / 50);
+			
             ctx.strokeRect(screenX, screenY, screenW, screenH);
+			
+			// ✨ REINICIAR
+            ctx.setLineDash([]);
         });
     }
     
@@ -657,7 +717,7 @@ function changeDimension(sceneIndex) {
             if (iconElement) {
                 switch(sceneIndex) {
                     case 1:
-                        iconElement.src = "assets/Underworld icon.png";
+                        iconElement.src = "assets/Overworld icon.png";
                         break;
                     case 2:
                         iconElement.src = "assets/Nether icon.png";

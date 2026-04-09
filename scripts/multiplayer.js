@@ -26,10 +26,10 @@ window.toggleSpectatorMode = function(targetPeerId, targetName) {
         // Forzamos al canvas a redibujarse inmediatamente
         if (typeof worldDirty !== 'undefined') worldDirty = true;
 
-        if (typeof showDesktopNotification === 'function') showDesktopNotification("Modo Espectador", "Cámara normal restaurada.", "assets/default pfp.png");
+        if (typeof showDesktopNotification === 'function') showDesktopNotification("Spectator Mode!", "Camera reset.", "assets/default pfp.png");
     } else {
         window.spectatingTargetId = targetPeerId; // Encender
-        if (typeof showDesktopNotification === 'function') showDesktopNotification("Modo Espectador", "Viendo a " + targetName, "assets/default pfp.png");
+        if (typeof showDesktopNotification === 'function') showDesktopNotification("Spectator Mode", "You're following " + targetName, "assets/default pfp.png");
     }
     
     if (typeof window.renderLivePlayers === 'function') window.renderLivePlayers();
@@ -130,7 +130,7 @@ window.renderLivePlayers = function() {
         let scale = isSpectating ? 'scale(1.15)' : 'scale(1)';
 
         container.innerHTML += `
-            <div title="Clic para espectar a ${p.name}" 
+            <div title="Click to spectate ${p.name}" 
                  onclick="toggleSpectatorMode('${p.peerId}', '${p.name.replace(/'/g, "\\'")}')"
                  style="
                 width: 28px; height: 28px; border-radius: 50%; border: ${borderWidth} solid ${borderColor};
@@ -270,8 +270,8 @@ window.selectMpMapForServer = function(mapName) {
     const sizeBytes = new Blob([w.data]).size;
     const sizeMB = sizeBytes / (1024 * 1024);
 
-    if (sizeMB > 32.0) {
-        alert(`⚠️ Map is too heavy!\n\nThe map "${mapName}" weighs ${sizeMB.toFixed(2)} MB.\n\nTo guarantee a stable connection without crashing the server, the absolute limit is 32 MB.\n\nPlease select a lighter map.`);
+    if (sizeMB > 25.0) {
+        alert(`⚠️ Map is too heavy!\n\nThe map "${mapName}" weighs ${sizeMB.toFixed(2)} MB.\n\nTo guarantee a stable connection without crashing the server, the absolute limit is 25 MB.\n\nPlease select a lighter map.`);
         window.mpSelectedMapData = null;
         window.mpSelectedMapName = null;
         const nextBtn = document.getElementById('btn-next-to-id');
@@ -548,7 +548,10 @@ function recibirMensajeDeRed(datos) {
         renderLivePlayers();
     }
 
-    if (datos.tipo === "chat") { if (typeof audioManager !== 'undefined') audioManager.playTone(800, 'sine', 0.1, 0.2); }
+    if (datos.tipo === "chat") { 
+    if (typeof audioManager !== 'undefined') audioManager.playTone(800, 'sine', 0.1, 0.2); 
+    if (typeof window.agregarMensajeChatPublico === 'function') window.agregarMensajeChatPublico(datos.autor, datos.texto);
+}
     if (datos.tipo === "sync_mundo") {
         mbwom.world = datos.mundo; 
         if (typeof mbwom.loadScene === 'function') mbwom.loadScene(1); 
@@ -663,7 +666,7 @@ window.renderPresenceList = function() {
                     `<div style="margin-left: auto; display: flex; gap: 8px;">
                         ${inviteBtn}
                         ${!isFriend ? `<button onclick="sendFriendRequest('${u.uid}', '${u.username}')" style="background: #e67e22; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#d35400'" onmouseout="this.style.background='#e67e22'">➕ Add</button>` : ''}
-                        ${isFriend ? `<button onclick="openPrivateChat('${u.uid}', '${u.username}', '${u.pfp}')" style="background: #3498db; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#2980b9'" onmouseout="this.style.background='#3498db'">💬 Chat</button>` : ''}
+                        ${isFriend ? `<button onclick="openPrivateChat('${u.uid}', '${u.username}', '${u.pfp}')" style="background: transparent; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#2980b9'" onmouseout="this.style.background='transparent'">💬</button>` : ''}
                     </div>`
                 }
             </div>
@@ -892,7 +895,8 @@ window.sendPrivateMessage = function() {
         sender: myUID, 
         senderName: myName, 
         text: text, 
-        timestamp: timestamp 
+        timestamp: timestamp,
+        status: 'sent' // ✨ AQUÍ ESTÁ EL TRUCO: Nace como enviado
     };
 
     if (replyingTo) {
@@ -960,10 +964,8 @@ window.renderChatList = function(container) {
 };
 
 window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/default pfp.png") {
-    // ✨ FIX 1: Forzar el cambio a la vista de chats al abrir un chat privado
-    if (typeof window.openMpSidebar === 'function') {
-        window.openMpSidebar('chats');
-    }
+    // Forzar el cambio a la vista de chats
+    if (typeof window.openMpSidebar === 'function') window.openMpSidebar('chats');
 
     const myUID = localStorage.getItem('mbw_uid');
     currentChatId = myUID < otherUid ? myUID + "_" + otherUid : otherUid + "_" + myUID;
@@ -984,8 +986,11 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
     if (headerPfp) headerPfp.style.backgroundImage = `url('${otherPfp}')`;
     
     if (messagesContainer) messagesContainer.innerHTML = ''; 
-    if (currentChatListener && currentChatId) {
-        database.ref('private_chats/' + currentChatId).off('child_added', currentChatListener);
+    
+    // ✨ FIX MUY IMPORTANTE: Apagamos los radares viejos para no duplicar mensajes visualmente
+    if (currentChatId) {
+        database.ref('private_chats/' + currentChatId).off('child_added');
+        database.ref('private_chats/' + currentChatId).off('child_changed');
     }
 
     const listContainer = document.getElementById('full-chat-list-container');
@@ -994,11 +999,18 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
     let lastRenderedDate = ""; 
     const chatRef = database.ref('private_chats/' + currentChatId);
     
-    currentChatListener = chatRef.on('child_added', (snap) => {
+    // --- 1. RENDERIZAR MENSAJES ---
+    chatRef.on('child_added', (snap) => {
         const msg = snap.val();
+        const msgKey = snap.key;
         const isMe = msg.sender === myUID;
         const myPfp = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
         const avatarUrl = isMe ? myPfp : currentChatPartner.pfp;
+
+        // ✨ MAGIA 1: Si yo veo un mensaje que no es mío, le digo a Firebase "¡Ya lo leí!"
+        if (!isMe && msg.status !== 'read') {
+            database.ref('private_chats/' + currentChatId + '/' + msgKey).update({ status: 'read' });
+        }
 
         const date = new Date(msg.timestamp || Date.now());
         const today = new Date();
@@ -1012,7 +1024,7 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
         if (dateString !== lastRenderedDate) {
             const sepDiv = document.createElement('div');
             sepDiv.style.textAlign = 'center'; sepDiv.style.margin = '15px 0'; sepDiv.style.width = '100%';
-            sepDiv.innerHTML = `<span style="background: rgba(0,0,0,0.5); color: #ecf0f1; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-family: Arial, sans-serif; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.4); text-transform: capitalize;">${dateString}</span>`;
+            sepDiv.innerHTML = `<span style="background: rgba(0,0,0,0.5); color: #ecf0f1; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-family: Arial, sans-serif; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.4); text-transform: capitalize; cursor: pointer;">${dateString}</span>`;
             if (messagesContainer) messagesContainer.appendChild(sepDiv);
             lastRenderedDate = dateString; 
         }
@@ -1029,22 +1041,19 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
         const timeString = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
         const bubbleDiv = document.createElement('div');
-        bubbleDiv.style.background = isMe ? '#2ecc71' : '#3498db'; 
+        bubbleDiv.style.background = isMe ? '#34495e' : '#243341'; 
         bubbleDiv.style.color = 'white';
         bubbleDiv.style.padding = '8px 12px 4px 12px'; 
         bubbleDiv.style.borderRadius = isMe ? '15px 15px 0 15px' : '15px 15px 15px 0';
-        bubbleDiv.style.maxWidth = '210px'; 
-        bubbleDiv.style.fontFamily = "Arial, sans-serif"; 
+        bubbleDiv.style.maxWidth = '256px'; 
+        bubbleDiv.style.fontFamily = "Dosis, sans-serif"; 
         bubbleDiv.style.fontSize = "15px";
         bubbleDiv.style.lineHeight = "1.3"; 
         bubbleDiv.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)"; 
         bubbleDiv.style.wordWrap = "break-word";
-        
-        // ✨ FIX 2: Estilos para indicar que se puede interactuar
         bubbleDiv.style.cursor = "pointer";
-        bubbleDiv.title = "Doble clic para responder";
+        bubbleDiv.title = "Double click to reply";
 
-        // ✨ Citas (Reply) visuales
         let replyHtml = '';
         if (msg.replyTo) {
             replyHtml = `
@@ -1055,17 +1064,25 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
             `;
         }
 
+        // ✨ MAGIA 2: Creamos el HTML de las palomitas (Solo las ves tú)
+        let ticksHtml = '';
+        if (isMe) {
+            let tickColor = msg.status === 'read' ? '#3498db' : '#bdc3c7'; // Azul si ya lo leyó, Gris si no
+            ticksHtml = `<span id="ticks-${msgKey}" style="color: ${tickColor}; font-size: 13px; margin-left: 4px; font-weight: bold; text-shadow: none;">✓✓</span>`;
+        }
+
         bubbleDiv.innerHTML = `
             ${replyHtml}
             <div style="margin-bottom: 2px;">${msg.text}</div>
-            <div style="font-size: 10px; text-align: right; opacity: 0.7; margin-top: 4px; font-weight: bold;">${timeString}</div>
+            <div style="font-size: 10px; text-align: right; opacity: 0.7; margin-top: 4px; font-weight: bold;">
+                ${timeString} ${ticksHtml}
+            </div>
         `;
 
-        // ✨ FIX 3: Activador del doble clic para responder
         bubbleDiv.ondblclick = (e) => {
-            e.stopPropagation(); // Evita errores de propagación de clics
+            e.stopPropagation(); 
             if (typeof window.setReply === 'function') {
-                window.setReply(snap.key, msg.senderName, msg.text);
+                window.setReply(msgKey, msg.senderName, msg.text);
             }
         };
 
@@ -1078,6 +1095,20 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
         }
         if (!isMe && typeof audioManager !== 'undefined') audioManager.playTone(600, 'sine', 0.05, 0.1);
         if (!isMe) database.ref('user_chats/' + myUID + '/' + otherUid).update({ unreadCount: 0 });
+    });
+
+    // --- 2. ESCUCHAR CAMBIOS EN VIVO ---
+    // ✨ MAGIA 3: Si tengo el chat abierto y mi amigo lo abre en ese instante, pinto mis palomitas de azul
+    chatRef.on('child_changed', (snap) => {
+        const updatedMsg = snap.val();
+        const msgKey = snap.key;
+        
+        if (updatedMsg.sender === myUID) {
+            const tickElement = document.getElementById(`ticks-${msgKey}`);
+            if (tickElement) {
+                tickElement.style.color = updatedMsg.status === 'read' ? '#3498db' : '#bdc3c7';
+            }
+        }
     });
     
     if (dmInput) dmInput.focus();
@@ -1186,3 +1217,89 @@ if (document.readyState === "loading") {
 } else {
     initMultiplayerModule();
 }
+
+
+// ==========================================
+// ✨ CHAT PÚBLICO (ESTILO MINECRAFT CON LA TECLA T)
+// ==========================================
+let chatFadeTimeout;
+
+window.agregarMensajeChatPublico = function(autor, texto) {
+    const container = document.getElementById('chat-container');
+    const messagesDiv = document.getElementById('chat-messages');
+    const input = document.getElementById('chat-input');
+    if (!messagesDiv || !container) return;
+
+    // Crear el mensaje
+    const msgDiv = document.createElement('div');
+    msgDiv.innerHTML = `<span style="color: #f1c40f; font-weight:bold;">&lt;${autor}&gt;</span> <span style="color: white;">${texto}</span>`;
+    messagesDiv.appendChild(msgDiv);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+    // Mostrar el contenedor. Si no estamos escribiendo en este momento, ocultamos la caja de texto.
+    container.style.display = 'block';
+    if (document.activeElement !== input) {
+        input.style.display = 'none';
+        
+        // Auto-ocultar el chat entero después de 6 segundos de inactividad
+        clearTimeout(chatFadeTimeout);
+        chatFadeTimeout = setTimeout(() => {
+            container.style.display = 'none';
+        }, 6000);
+    }
+};
+
+window.enviarChatPublico = function() {
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    
+    // Solo enviar si hay texto y estamos conectados a un servidor
+    if (text && isMultiplayer) {
+        const myName = localStorage.getItem('mbw_username') || "Player";
+        enviarMensajeEnRed({ tipo: "chat", autor: myName, texto: text });
+        window.agregarMensajeChatPublico(myName, text); // Imprimir nuestro propio mensaje
+    }
+    
+    input.value = '';
+    input.blur();
+    input.style.display = 'none';
+    
+    // Iniciar el temporizador para que el chat desaparezca después de enviar
+    clearTimeout(chatFadeTimeout);
+    chatFadeTimeout = setTimeout(() => {
+        document.getElementById('chat-container').style.display = 'none';
+    }, 6000);
+};
+
+// --- EL RADAR DEL TECLADO ---
+document.addEventListener('keydown', function(e) {
+    const input = document.getElementById('chat-input');
+    const container = document.getElementById('chat-container');
+    if (!input || !container) return;
+
+    // 1. Si el usuario está escribiendo en cualquier otro lado (buscando bloques, guardando mapas), lo ignoramos.
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        if (e.target.id === 'chat-input') {
+            if (e.key === 'Enter') window.enviarChatPublico();
+            if (e.key === 'Escape') {
+                input.blur();
+                input.style.display = 'none';
+                container.style.display = 'none';
+            }
+        }
+        return;
+    }
+
+    // 2. Si presiona 'T' y está en un servidor multijugador
+    if ((e.key === 't' || e.key === 'T') && isMultiplayer) {
+        e.preventDefault(); // Evitamos que la letra "t" se escriba solita
+        
+        container.style.display = 'block';
+        input.style.display = 'block';
+        
+        // Detenemos el auto-ocultado mientras el jugador piensa qué escribir
+        clearTimeout(chatFadeTimeout); 
+        
+        setTimeout(() => input.focus(), 10);
+    }
+});

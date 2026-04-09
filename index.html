@@ -624,7 +624,7 @@
         <div class="ribbon-group">
             <div class="ribbon-group-content">
                 <button class="ribbon-btn-large" onclick="openModal('dimensions-modal')">
-                    <img id="current-dim-icon" src="assets/Underworld icon.png" class="icon-img" alt="Dim">
+                    <img id="current-dim-icon" src="assets/Overworld icon.png" class="icon-img" alt="Dim">
                     <span class="text">Change</br>Dimension</span>
                 </button>
             </div>
@@ -1001,13 +1001,13 @@
         <h3 style="color:gray; margin-top: 0;">Select Dimension</h3>
         <div class="dimensions-grid">
             <div class="dim-item" onclick="changeDimension(1)">
-                <img src="assets/underworld icon.png" class="dim-preview"><span class="dim-name">Overworld</span> 
+                <img src="assets/Overworld icon.png" class="dim-preview"><span class="dim-name">Overworld</span> 
             </div>
             <div class="dim-item" onclick="changeDimension(2)">
-                <img src="assets/nether icon.png" class="dim-preview"><span class="dim-name">Nether</span>
+                <img src="assets/Nether icon.png" class="dim-preview"><span class="dim-name">Nether</span>
             </div>
             <div class="dim-item" onclick="changeDimension(3)">
-                <img src="assets/end icon.png" class="dim-preview"><span class="dim-name">End</span>
+                <img src="assets/End icon.png" class="dim-preview"><span class="dim-name">End</span>
             </div>
         </div>
     </div>
@@ -1287,18 +1287,59 @@ window.handleGlobalProfileUpload = function(event) {
     if (file) {
         const reader = new FileReader();
         reader.onload = function(e) {
-            const base64Img = e.target.result;
-            localStorage.setItem('mbw_profile_pic', base64Img);
-            
-            // Actualiza ventana, botón top y vista multijugador al mismo tiempo
-            document.getElementById('modal-global-pfp').src = base64Img;
-            const topImg = document.getElementById('top-profile-img');
-            if (topImg) topImg.src = base64Img;
-            const mpPreview = document.getElementById('mp-pfp-preview');
-            if (mpPreview) mpPreview.style.backgroundImage = `url('${base64Img}')`;
+            const img = new Image();
+            img.onload = function() {
+                // --- PROCESAMIENTO DE IMAGEN ---
+                const MAX_SIZE = 156; // El tamaño que pediste
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
 
-            // Sincroniza con Firebase
-            if (typeof myPresenceRef !== 'undefined' && myPresenceRef) myPresenceRef.update({ pfp: base64Img });
+                // Recorte cuadrado (Center Crop) para que no se estire
+                let width = img.width;
+                let height = img.height;
+                let offsetX = 0;
+                let offsetY = 0;
+
+                if (width > height) {
+                    offsetX = (width - height) / 2;
+                    width = height;
+                } else {
+                    offsetY = (height - width) / 2;
+                    height = width;
+                }
+
+                canvas.width = MAX_SIZE;
+                canvas.height = MAX_SIZE;
+
+                // Dibujamos la imagen optimizada
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(img, offsetX, offsetY, width, height, 0, 0, MAX_SIZE, MAX_SIZE);
+
+                // Convertimos a JPEG al 70% de calidad (0.7)
+                const optimizedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+
+                // --- GUARDADO Y ACTUALIZACIÓN ---
+                localStorage.setItem('mbw_profile_pic', optimizedBase64);
+                
+                // Actualiza el modal
+                document.getElementById('modal-global-pfp').src = optimizedBase64;
+                
+                // Actualiza el botón de la barra superior (si existe)
+                const topImg = document.getElementById('top-profile-img');
+                if (topImg) topImg.src = optimizedBase64;
+                
+                // Actualiza la miniatura en el menú multijugador
+                const mpPreview = document.getElementById('mp-pfp-preview');
+                if (mpPreview) mpPreview.style.backgroundImage = `url('${optimizedBase64}')`;
+
+                // Sincroniza con Firebase (enviando solo los pocos KB optimizados)
+                if (typeof myPresenceRef !== 'undefined' && myPresenceRef) {
+                    myPresenceRef.update({ pfp: optimizedBase64 });
+                }
+                
+                console.log("✅ Imagen optimizada y sincronizada!");
+            };
+            img.src = e.target.result;
         };
         reader.readAsDataURL(file);
     }
