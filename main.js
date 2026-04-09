@@ -100,16 +100,19 @@ function updateZoomSlider(value) {
     updateGridDimensions();
 }
 
-const zoomContainer = document.getElementById('zoom-floating');
-if (zoomContainer) {
-    zoomContainer.addEventListener('wheel', function(e) {
-        e.preventDefault();
+// ✨ FIX: Radar de scroll apuntando a la nueva barra de estado
+const statusRightZone = document.querySelector('.status-right');
+if (statusRightZone) {
+    statusRightZone.addEventListener('wheel', function(e) {
+        e.preventDefault(); // Evita que la página haga scroll
         if (e.deltaY < 0) {
+            // Scroll arriba (Zoom In)
             if (currentZoomIndex < ZOOM_LEVELS.length - 1) {
                 currentZoomIndex++;
                 updateZoomSlider(currentZoomIndex);
             }
         } else {
+            // Scroll abajo (Zoom Out)
             if (currentZoomIndex > 0) {
                 currentZoomIndex--;
                 updateZoomSlider(currentZoomIndex);
@@ -658,6 +661,42 @@ function drawUI() {
             ctx.restore();
         }
     }
+	
+	// ✨ INDICADOR DE ESPECTADOR (OJO ROJO EN LA ESQUINA SUPERIOR DERECHA)
+    if (typeof window.mySpectators !== 'undefined' && window.mySpectators.size > 0) {
+        ctx.save();
+        
+        // Creamos el texto uniendo a todos los que nos están viendo
+        const text = "👁️ " + Array.from(window.mySpectators).join(", ");
+        ctx.font = "bold 16px Arial";
+        
+        const paddingX = 15;
+        const paddingY = 8;
+        const textWidth = ctx.measureText(text).width;
+        const boxWidth = textWidth + (paddingX * 2);
+        const boxHeight = 34;
+        
+        // Lo posicionamos arriba a la derecha
+        const startX = canvas.width - boxWidth - 20;
+        const startY = 20;
+
+        // Fondo semitransparente oscuro
+        ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
+        ctx.fillRect(startX, startY, boxWidth, boxHeight);
+        
+        // Borde rojo que parpadea ligeramente
+        ctx.strokeStyle = Math.floor(Date.now() / 500) % 2 === 0 ? "#ff7675" : "#e74c3c";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(startX, startY, boxWidth, boxHeight);
+
+        // Texto
+        ctx.fillStyle = "#ff7675";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(text, startX + (boxWidth / 2), startY + (boxHeight / 2));
+        
+        ctx.restore();
+    }
 }
 
 function mainLoop() {
@@ -668,7 +707,10 @@ function mainLoop() {
     mouse.calculateCoordinates();
     
     // 3. Ahora sí, interacciones y dibujo sincronizados
-    if (typeof mineAndPlace === 'function') mineAndPlace();
+    // ✨ FIX: Solo permitimos usar herramientas (minar/colocar) si NO estamos espectando
+    if (!window.spectatingTargetId) {
+        if (typeof mineAndPlace === 'function') mineAndPlace();
+    }
     drawWorld();
     drawMobs(); // ✨ AÑADIMOS ESTA LÍNEA AQUÍ
 	drawPlayer();
@@ -683,21 +725,48 @@ function mainLoop() {
             // Si el amigo no ha movido el ratón en 5 segundos, ocultamos su cursor
             if (ahora - cursor.lastUpdate > 5000) continue; 
 
-            // Convertimos sus coordenadas del mundo a las coordenadas de nuestra pantalla
+            // Convertimos sus coordenadas del mundo a la pantalla
             let screenX = (cursor.x - camera.x) * tileSize;
             let screenY = canvas.height - ((cursor.y - camera.y) * tileSize) - tileSize;
 
-            // Dibujamos el recuadro transparente en la cuadrícula
-            ctx.fillStyle = "rgba(77, 166, 255, 0.4)"; // Azul semitransparente
+            // 1. Dibujamos el recuadro azul en el bloque
+            ctx.fillStyle = "rgba(77, 166, 255, 0.4)";
             ctx.fillRect(screenX, screenY, tileSize, tileSize);
             ctx.strokeStyle = "#4DA6FF";
             ctx.strokeRect(screenX, screenY, tileSize, tileSize);
 
-            // Dibujamos su nombre flotando arribita del recuadro
+            // 2. Dibujamos su nombre con sombra para que se lea perfecto
             ctx.fillStyle = "white";
-            ctx.font = "14px 'Pixeltype', sans-serif";
+            ctx.font = "16px 'Pixeltype', sans-serif";
             ctx.textAlign = "center";
+            ctx.shadowColor = "black";
+            ctx.shadowBlur = 4;
             ctx.fillText(autor, screenX + (tileSize/2), screenY - 5);
+            ctx.shadowBlur = 0; // Apagamos la sombra para lo demás
+
+            // 3. ✨ DIBUJAMOS EL CURSOR FANTASMA (Flechita de ratón) ✨
+            ctx.save();
+            // Movemos el origen al centro del bloque para que la flecha apunte ahí
+            ctx.translate(screenX + (tileSize / 2), screenY + (tileSize / 2));
+            
+            ctx.beginPath();
+            ctx.moveTo(0, 0);       // Punta de la flecha
+            ctx.lineTo(0, 17);      // Baja recto
+            ctx.lineTo(4, 13);      // Quiebre interior
+            ctx.lineTo(8, 20);      // Pata larga izquierda
+            ctx.lineTo(11, 18);     // Pata larga derecha
+            ctx.lineTo(7, 12);      // Quiebre interior derecho
+            ctx.lineTo(13, 12);     // Lado derecho
+            ctx.closePath();
+            
+            // La pintamos de blanco semi-transparente con borde negro
+            ctx.fillStyle = "rgba(255, 255, 255, 0.85)"; 
+            ctx.fill();
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = "rgba(0, 0, 0, 0.7)";
+            ctx.stroke();
+            
+            ctx.restore();
         }
     }
 	

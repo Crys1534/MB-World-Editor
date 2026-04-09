@@ -238,7 +238,7 @@ function initBackstageMenu() {
                                 <div id="full-dm-messages" style="flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: #2c3e50;"></div>
                                 
                                 <div style="display: flex; padding: 15px 25px; background: #34495e; gap: 15px; border-top: 2px solid #1a252f;">
-                                    <input type="text" id="full-dm-input" placeholder="Escribe un mensaje..." style="flex: 1; padding: 12px; font-family: 'Pixeltype', sans-serif; font-size: 26px; border-radius: 8px; border: none; outline: none; background: #ecf0f1; color: #333;">
+                                    <input type="text" id="full-dm-input" placeholder="Send a message..." style="flex: 1; padding: 12px; font-family: 'Pixeltype', sans-serif; font-size: 26px; border-radius: 8px; border: none; outline: none; background: #ecf0f1; color: #333;">
                                     <button onclick="sendPrivateMessage()" style="background: #2ecc71; border: none; border-radius: 8px; padding: 0 25px; font-size: 28px; cursor: pointer; color: white; transition: 0.2s; font-family: 'Pixeltype', sans-serif;" onmouseover="this.style.background='#27ae60'" onmouseout="this.style.background='#2ecc71'">➔</button>
                                 </div>
                             </div>

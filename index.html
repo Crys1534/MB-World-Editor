@@ -333,7 +333,10 @@
         <span class="ms-slider"></span>
     </label>
    </div>
-   <button class="icon-btn" onclick="openFileMenu(); setTimeout(() => switchBackstageTab('multiplayer'), 50);" style="color: #4DA6FF; font-weight: bold;">🌐 Multiplayer</button>
+   <button class="icon-btn" onclick="openFileMenu(); setTimeout(() => switchBackstageTab('multiplayer'), 50);" style="color: #4DA6FF; font-weight: bold; position: relative;">
+    🌐 Multiplayer
+    <div id="global-mp-badge" style="display: none; position: absolute; top: -6px; right: -6px; background: #e74c3c; color: white; font-size: 11px; font-weight: bold; padding: 2px 6px; border-radius: 10px; border: 1px solid #c0392b; z-index: 10;">0</div>
+</button>
    <button class="icon-btn" onclick="openModal('settings-modal')" title="Configuration">Configuration</button>
    
    <div class="separator"></div>
@@ -670,24 +673,7 @@
       <div id="chest-tooltip-grid"></div>
   </div>
   
-<div id="zoom-floating">
-    <label for="zoom-slider">Zoom</label>
-    
-    <input type="range" id="zoom-slider" min="0" max="7" step="1" value="3" list="zoom-ticks" oninput="updateZoomSlider(this.value)">
-    
-    <datalist id="zoom-ticks">
-        <option value="0"></option>
-        <option value="1"></option>
-        <option value="2"></option>
-        <option value="3"></option>
-        <option value="4"></option>
-        <option value="5"></option>
-        <option value="6"></option>
-        <option value="7"></option>
-    </datalist>
-    
-    <span id="zoom-value">100%</span>
-  </div>
+
 <div id="console-overlay">
       <div class="console-container">
           <div id="console-history"></div>
@@ -700,7 +686,23 @@
   <canvas id="weather-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5;"></canvas>
   <canvas id="grid-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;"></canvas>
  
-<div id="world-info-sidebar" style="display: none; position: absolute; right: 0; top: 8px; bottom: 0; width: 250px; z-index: 100; flex-direction: column; padding: 15px; box-sizing: border-box; box-shadow: -4px 0 10px rgba(0,0,0,0.3); background-color: var(--bg-panel); color: var(--text); border-left: 2px solid var(--border);">
+<div id="world-info-sidebar" style="display: flex;
+  position: absolute;
+  right: 0px;
+  top: 9px;
+  bottom: 27px;
+  width: 250px;
+  z-index: 100;
+  flex-direction: column;
+  padding-left: 16px;
+  box-sizing: border-box;
+  box-shadow: rgba(0, 0, 0, 0.3) -4px 0px 10px;
+  background-color: var(--bg-panel);
+  color: var(--text);
+  border-left: 2px solid var(--border);
+  padding-right: 16px;
+  padding-bottom: 16px;
+  padding-top: 4px;">
      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid var(--border); padding-bottom: 5px;">
          <h3 style="margin: 0; font-size: 16px;">World Info</h3>
          <span onclick="toggleWorldInfo()" style="cursor: pointer; font-size: 20px; font-weight: bold;">&times;</span>
@@ -722,7 +724,7 @@
              <label style="font-weight: bold; margin: 0;">Defeated Enderdragon:</label>
              <span id="sidebar-world-ender" style="font-weight: bold;">-</span>
          </div>
-		 <p><b>File Size: </b><span id="world-info-size" style="font-weight: normal;">-</span></p>
+		 <p style="margin-top: 2px;"><b>File Size: </b><span id="world-info-size" style="font-weight: normal;">-</span></p>
      </div>
  </div>
 
@@ -1165,26 +1167,6 @@
     }
  </script>
  
- <div id="unified-profile-modal" class="modal" style="z-index: 6000;">
-        <div class="modal-content mbw-standard-modal" style="width: 300px; height: auto; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); margin: 0;">
-            <div class="mbw-modal-header">
-                <h3>Mi Perfil</h3>
-                <span class="mbw-close-btn" onclick="closeModal('unified-profile-modal')">&times;</span>
-            </div>
-            <div class="mbw-modal-body" style="display: flex; flex-direction: column; align-items: center; padding: 20px;">
-                
-                <div class="profile-pic-container" onclick="document.getElementById('global-profile-upload').click()" style="position: relative; width: 100px; height: 100px; border-radius: 50%; overflow: hidden; cursor: pointer; border: 4px solid #FFF; box-shadow: 0 4px 8px rgba(0,0,0,0.3); margin-bottom: 20px;">
-                    <img id="modal-global-pfp" src="assets/default pfp.png" style="width: 100%; height: 100%; object-fit: cover;">
-                    <div style="position: absolute; bottom: 0; right: 0; font-size: 20px; background: rgba(0,0,0,0.6); border-radius: 50%; padding: 4px;">✏️</div>
-                </div>
-                <input type="file" id="global-profile-upload" accept="image/*" style="display: none;" onchange="handleGlobalProfileUpload(event)">
-                
-                <label style="font-size: 12px; font-weight: bold; color: #333; margin-bottom: 5px; width: 100%; text-align: left;">Nombre de Usuario:</label>
-                <input type="text" id="global-profile-username" value="" oninput="handleGlobalUsernameChange(this.value)" placeholder="Tu nombre..." style="width: 100%; padding: 8px; border: 2px solid #555; border-radius: 4px; font-size: 16px; font-weight: bold; text-align: center; font-family: inherit; color: black;">
-            </div>
-        </div>
-    </div>
- 
 <div id="loading-overlay">
         <div class="loading-box">
             <h2 id="loading-text">Cargando Mundo...</h2>
@@ -1250,7 +1232,7 @@
     });
 </script>
 
-<div id="unified-profile-modal" class="modal" style="z-index: 6000;">
+<div id="unified-profile-modal" class="modal" style="z-index: 9999999;">
     <div class="modal-content mbw-standard-modal" style="width: 300px; height: auto; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); margin: 0;">
         <div class="mbw-modal-header">
             <h3>Mi Perfil</h3>
@@ -1260,7 +1242,7 @@
             
             <div class="profile-pic-container" onclick="document.getElementById('global-profile-upload').click()" style="position: relative; width: 100px; height: 100px; border-radius: 50%; overflow: hidden; cursor: pointer; border: 4px solid #FFF; box-shadow: 0 4px 8px rgba(0,0,0,0.3); margin-bottom: 20px;">
                 <img id="modal-global-pfp" src="assets/default pfp.png" style="width: 100%; height: 100%; object-fit: cover;">
-                <div class="profile-pic-overlay" style="font-size: 24px;">✏️</div>
+                <div style="position: absolute; bottom: 0; right: 0; font-size: 20px; background: rgba(0,0,0,0.6); border-radius: 50%; padding: 4px;">✏️</div>
             </div>
             <input type="file" id="global-profile-upload" accept="image/*" style="display: none;" onchange="handleGlobalProfileUpload(event)">
             
@@ -1268,7 +1250,7 @@
             <input type="text" id="global-profile-username" value="" oninput="handleGlobalUsernameChange(this.value)" placeholder="Tu nombre..." style="width: 100%; padding: 8px; border: 2px solid #555; border-radius: 4px; font-size: 16px; font-weight: bold; text-align: center; font-family: inherit; color: black;">
         </div>
     </div>
- </div>
+</div>
  
  <script>
 // ==========================================

@@ -1685,3 +1685,37 @@ button:hover {
     body.zen-mode #zen-mode-btn:hover {
         background: #A0A0A0;
     }
+	
+	
+	
+/* ==========================================
+   ✨ MODO ESPECTADOR (BLOQUEO VISUAL) ✨
+   ========================================== */
+/* Ocultar y desactivar la barra de herramientas lateral */
+body.is-spectating #toolbar-sidebar {
+    opacity: 0.3;
+    pointer-events: none !important; 
+    filter: grayscale(100%);
+}
+
+/* Desactivar los botones de la cinta superior (Copiar, Pegar, Rellenar, etc.) */
+body.is-spectating .ribbon-btn-large,
+body.is-spectating .ribbon-btn-small,
+body.is-spectating .quick-struct-btn {
+    opacity: 0.4;
+    pointer-events: none !important;
+    filter: grayscale(100%);
+}
+
+/* Mostrar un cursor de "Prohibido" cuando se pasa el ratón por el lienzo */
+body.is-spectating #canvas {
+    cursor: not-allowed !important;
+}
+
+/* ✨ BLOQUEO DE HOTBAR EN MODO ESPECTADOR */
+body.is-spectating #hotbar-container {
+    opacity: 0.4;
+    pointer-events: none !important;
+    filter: grayscale(100%);
+    transition: all 0.3s ease; /* Para que el cambio de color sea suave */
+}

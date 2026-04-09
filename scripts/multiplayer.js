@@ -1,34 +1,47 @@
 window.spectatingTargetId = null; // Rastrea a quién vemos
+window.mySpectators = new Set(); // Rastrea quién NOS está viendo a nosotros
 
 // Función para activar/desactivar el espectador
 window.toggleSpectatorMode = function(targetPeerId, targetName) {
+    const myName = localStorage.getItem('mbw_username') || "Player";
+
     if (window.spectatingTargetId === targetPeerId) {
-        window.spectatingTargetId = null; // Apagar
+        // 🔴 APAGAR: Le avisamos al objetivo que ya no lo vemos
+        if (typeof enviarMensajeEnRed === 'function') {
+            enviarMensajeEnRed({ tipo: "spectator_update", targetPeer: window.spectatingTargetId, spectatorName: myName, spectating: false });
+        }
+        
+        window.spectatingTargetId = null; 
         
         // ✨ FIX: REINICIO Y ALINEACIÓN DE CÁMARA
         if (typeof camera !== 'undefined' && typeof mbwom !== 'undefined' && mbwom.world) {
-            
-            // 1. Calculamos dónde está tu personaje actualmente
             let miX = Number(mbwom.world.worldX);
-            let miY = -Number(mbwom.world.worldY); // Tu juego usa Y invertida
+            let miY = -Number(mbwom.world.worldY);
             
-            // 2. Centramos la cámara exactamente en ti
             if (typeof grid !== 'undefined') {
                 camera.x = miX - (grid.width / 2);
                 camera.y = miY - (grid.height / 2);
             }
-
-            // 3. ¡LO MÁS IMPORTANTE! Redondeamos para matar los decimales y arreglar la cuadrícula
             camera.x = Math.round(camera.x);
             camera.y = Math.round(camera.y);
         }
         
-        // Forzamos al canvas a redibujarse inmediatamente
         if (typeof worldDirty !== 'undefined') worldDirty = true;
-
         if (typeof showDesktopNotification === 'function') showDesktopNotification("Spectator Mode!", "Camera reset.", "assets/default pfp.png");
+        
     } else {
-        window.spectatingTargetId = targetPeerId; // Encender
+        // 🟢 ENCENDER: Si ya veíamos a alguien más, le avisamos que nos fuimos
+        if (window.spectatingTargetId && typeof enviarMensajeEnRed === 'function') {
+            enviarMensajeEnRed({ tipo: "spectator_update", targetPeer: window.spectatingTargetId, spectatorName: myName, spectating: false });
+        }
+
+        window.spectatingTargetId = targetPeerId; 
+        
+        // Le avisamos al NUEVO objetivo que lo estamos viendo
+        if (typeof enviarMensajeEnRed === 'function') {
+            enviarMensajeEnRed({ tipo: "spectator_update", targetPeer: targetPeerId, spectatorName: myName, spectating: true });
+        }
+
         if (typeof showDesktopNotification === 'function') showDesktopNotification("Spectator Mode", "You're following " + targetName, "assets/default pfp.png");
     }
     
@@ -591,6 +604,29 @@ function recibirMensajeDeRed(datos) {
         window.networkCursors[datos.autor] = { x: datos.x, y: datos.y, lastUpdate: Date.now() };
         if (typeof worldDirty !== 'undefined') worldDirty = true;
     }
+	
+	// ✨ RECIBIR ALERTA DE ESPECTADOR
+    if (datos.tipo === "spectator_update") {
+        // Verificamos si NOSOTROS somos el objetivo (comparando el peer.id)
+        if (peer && peer.id === datos.targetPeer) {
+            if (!window.mySpectators) window.mySpectators = new Set();
+
+            if (datos.spectating) {
+                // Alguien empezó a vernos
+                window.mySpectators.add(datos.spectatorName);
+                if (typeof showDesktopNotification === 'function') {
+                    showDesktopNotification("👁️ Spectator Mode", datos.spectatorName + " is now spectating you.", "assets/default pfp.png");
+                }
+                if (typeof audioManager !== 'undefined') audioManager.playTone(600, 'sine', 0.1, 0.2); // Sonidito opcional
+            } else {
+                // Alguien dejó de vernos
+                window.mySpectators.delete(datos.spectatorName);
+            }
+            
+            // Forzamos al mapa a redibujarse para que aparezca/desaparezca el icono del ojo
+            if (typeof worldDirty !== 'undefined') worldDirty = true;
+        }
+    }
 }
 
 // ==========================================
@@ -654,7 +690,7 @@ window.renderPresenceList = function() {
             }
         }
 
-        const borderColor = (isMe || isFriend) ? '#2ecc71' : '#7f8c8d';
+        const borderColor = (isMe || isFriend) ? '#1e293b' : '#34495e';
 
         htmlContent += `
             <div style="background: rgba(0,0,0,0.4); border: 2px solid ${borderColor}; padding: 10px; display: flex; align-items: center; gap: 12px; border-radius: 6px;">
@@ -748,6 +784,17 @@ window.openMpSidebar = function(mode) {
     if (typeof switchBackstageTab === 'function') switchBackstageTab('multiplayer');
 
     currentSidebarMode = mode;
+
+    if (mode !== 'chats') {
+        currentChatPartner = null;
+        // ✨ FIX: Destruir el radar fantasma si cambiamos a la pestaña de Amigos o Servidores
+        if (currentChatListener && currentChatId) {
+            database.ref('private_chats/' + currentChatId).off('child_added', currentChatListener);
+            database.ref('private_chats/' + currentChatId).off('child_changed');
+            currentChatListener = null;
+            currentChatId = null;
+        }
+    }
     
     const serversView = document.getElementById('mp-servers-view');
     const fullChatView = document.getElementById('mp-full-chat-view');
@@ -779,12 +826,21 @@ window.openMpSidebar = function(mode) {
             if (badgeInv) badgeInv.style.display = 'none';
         }
     }
-}
+};
 
 window.closeMpSidebar = function() {
     const sidebar = document.getElementById('mp-right-sidebar');
     if (sidebar) sidebar.style.display = 'none';
-}
+    
+    currentChatPartner = null;
+    // ✨ FIX: Destruir el radar fantasma al cerrar el menú lateral
+    if (currentChatListener && currentChatId) {
+        database.ref('private_chats/' + currentChatId).off('child_added', currentChatListener);
+        database.ref('private_chats/' + currentChatId).off('child_changed');
+        currentChatListener = null;
+        currentChatId = null;
+    }
+};
 
 window.renderServerInvites = function(container) {
     const myUID = localStorage.getItem('mbw_uid');
@@ -896,7 +952,7 @@ window.sendPrivateMessage = function() {
         senderName: myName, 
         text: text, 
         timestamp: timestamp,
-        status: 'sent' // ✨ AQUÍ ESTÁ EL TRUCO: Nace como enviado
+        status: 'sent' // ✨ AQUÍ ESTÁ: Nace como enviado
     };
 
     if (replyingTo) {
@@ -964,8 +1020,14 @@ window.renderChatList = function(container) {
 };
 
 window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/default pfp.png") {
-    // Forzar el cambio a la vista de chats
-    if (typeof window.openMpSidebar === 'function') window.openMpSidebar('chats');
+    if (currentChatListener && currentChatId) {
+        database.ref('private_chats/' + currentChatId).off('child_added', currentChatListener);
+        database.ref('private_chats/' + currentChatId).off('child_changed');
+    }
+
+    if (typeof window.openMpSidebar === 'function') {
+        window.openMpSidebar('chats');
+    }
 
     const myUID = localStorage.getItem('mbw_uid');
     currentChatId = myUID < otherUid ? myUID + "_" + otherUid : otherUid + "_" + myUID;
@@ -986,12 +1048,6 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
     if (headerPfp) headerPfp.style.backgroundImage = `url('${otherPfp}')`;
     
     if (messagesContainer) messagesContainer.innerHTML = ''; 
-    
-    // ✨ FIX MUY IMPORTANTE: Apagamos los radares viejos para no duplicar mensajes visualmente
-    if (currentChatId) {
-        database.ref('private_chats/' + currentChatId).off('child_added');
-        database.ref('private_chats/' + currentChatId).off('child_changed');
-    }
 
     const listContainer = document.getElementById('full-chat-list-container');
     if (listContainer) renderChatList(listContainer);
@@ -999,17 +1055,26 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
     let lastRenderedDate = ""; 
     const chatRef = database.ref('private_chats/' + currentChatId);
     
-    // --- 1. RENDERIZAR MENSAJES ---
-    chatRef.on('child_added', (snap) => {
+    currentChatListener = chatRef.on('child_added', (snap) => {
         const msg = snap.val();
         const msgKey = snap.key;
         const isMe = msg.sender === myUID;
         const myPfp = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
         const avatarUrl = isMe ? myPfp : currentChatPartner.pfp;
 
-        // ✨ MAGIA 1: Si yo veo un mensaje que no es mío, le digo a Firebase "¡Ya lo leí!"
-        if (!isMe && msg.status !== 'read') {
-            database.ref('private_chats/' + currentChatId + '/' + msgKey).update({ status: 'read' });
+        // ✨ TRUCO MAESTRO: Si offsetWidth > 0, significa que nuestros ojos lo están viendo.
+        const chatVisible = activePanel && activePanel.offsetWidth > 0;
+        const isActivelyChatting = chatVisible && currentChatPartner && currentChatPartner.uid === otherUid;
+        
+        if (!isMe) {
+            if (isActivelyChatting) {
+                if (msg.status !== 'read') {
+                    database.ref('private_chats/' + currentChatId + '/' + msgKey).update({ status: 'read' });
+                }
+                database.ref('user_chats/' + myUID + '/' + otherUid).update({ unreadCount: 0 });
+                // Sonar suave solo si estamos dentro del chat
+                if (typeof audioManager !== 'undefined') audioManager.playTone(600, 'sine', 0.05, 0.1);
+            }
         }
 
         const date = new Date(msg.timestamp || Date.now());
@@ -1024,7 +1089,7 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
         if (dateString !== lastRenderedDate) {
             const sepDiv = document.createElement('div');
             sepDiv.style.textAlign = 'center'; sepDiv.style.margin = '15px 0'; sepDiv.style.width = '100%';
-            sepDiv.innerHTML = `<span style="background: rgba(0,0,0,0.5); color: #ecf0f1; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-family: Arial, sans-serif; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.4); text-transform: capitalize; cursor: pointer;">${dateString}</span>`;
+            sepDiv.innerHTML = `<span style="background: rgba(0,0,0,0.5); color: #ecf0f1; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-family: Arial, sans-serif; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.4); text-transform: capitalize;">${dateString}</span>`;
             if (messagesContainer) messagesContainer.appendChild(sepDiv);
             lastRenderedDate = dateString; 
         }
@@ -1041,18 +1106,18 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
         const timeString = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
         const bubbleDiv = document.createElement('div');
-        bubbleDiv.style.background = isMe ? '#34495e' : '#243341'; 
+        bubbleDiv.style.background = isMe ? '#0f172a' : '#243341'; 
         bubbleDiv.style.color = 'white';
         bubbleDiv.style.padding = '8px 12px 4px 12px'; 
         bubbleDiv.style.borderRadius = isMe ? '15px 15px 0 15px' : '15px 15px 15px 0';
-        bubbleDiv.style.maxWidth = '256px'; 
-        bubbleDiv.style.fontFamily = "Dosis, sans-serif"; 
+        bubbleDiv.style.maxWidth = '210px'; 
+        bubbleDiv.style.fontFamily = "Arial, sans-serif"; 
         bubbleDiv.style.fontSize = "15px";
         bubbleDiv.style.lineHeight = "1.3"; 
         bubbleDiv.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)"; 
         bubbleDiv.style.wordWrap = "break-word";
         bubbleDiv.style.cursor = "pointer";
-        bubbleDiv.title = "Double click to reply";
+        bubbleDiv.title = "Doble clic para responder";
 
         let replyHtml = '';
         if (msg.replyTo) {
@@ -1064,10 +1129,9 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
             `;
         }
 
-        // ✨ MAGIA 2: Creamos el HTML de las palomitas (Solo las ves tú)
         let ticksHtml = '';
         if (isMe) {
-            let tickColor = msg.status === 'read' ? '#3498db' : '#bdc3c7'; // Azul si ya lo leyó, Gris si no
+            let tickColor = msg.status === 'read' ? '#3498db' : '#bdc3c7'; 
             ticksHtml = `<span id="ticks-${msgKey}" style="color: ${tickColor}; font-size: 13px; margin-left: 4px; font-weight: bold; text-shadow: none;">✓✓</span>`;
         }
 
@@ -1081,9 +1145,7 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
 
         bubbleDiv.ondblclick = (e) => {
             e.stopPropagation(); 
-            if (typeof window.setReply === 'function') {
-                window.setReply(msgKey, msg.senderName, msg.text);
-            }
+            if (typeof window.setReply === 'function') window.setReply(msgKey, msg.senderName, msg.text);
         };
 
         msgRow.appendChild(avatarDiv); 
@@ -1093,21 +1155,13 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
             messagesContainer.appendChild(msgRow); 
             messagesContainer.scrollTop = messagesContainer.scrollHeight; 
         }
-        if (!isMe && typeof audioManager !== 'undefined') audioManager.playTone(600, 'sine', 0.05, 0.1);
-        if (!isMe) database.ref('user_chats/' + myUID + '/' + otherUid).update({ unreadCount: 0 });
     });
 
-    // --- 2. ESCUCHAR CAMBIOS EN VIVO ---
-    // ✨ MAGIA 3: Si tengo el chat abierto y mi amigo lo abre en ese instante, pinto mis palomitas de azul
     chatRef.on('child_changed', (snap) => {
         const updatedMsg = snap.val();
-        const msgKey = snap.key;
-        
         if (updatedMsg.sender === myUID) {
-            const tickElement = document.getElementById(`ticks-${msgKey}`);
-            if (tickElement) {
-                tickElement.style.color = updatedMsg.status === 'read' ? '#3498db' : '#bdc3c7';
-            }
+            const tickElement = document.getElementById(`ticks-${snap.key}`);
+            if (tickElement) tickElement.style.color = updatedMsg.status === 'read' ? '#3498db' : '#bdc3c7';
         }
     });
     
@@ -1123,6 +1177,23 @@ window.startFriendListeners = function() {
     
     let isInitialLoad = true; 
 
+    window.updateGlobalMpBadge = function() {
+        let total = 0;
+        const bF = document.getElementById('badge-friends');
+        const bM = document.getElementById('badge-messages');
+        const bI = document.getElementById('badge-invites');
+        
+        if (bF && bF.innerText) total += parseInt(bF.innerText) || 0;
+        if (bM && bM.innerText) total += parseInt(bM.innerText) || 0;
+        if (bI && bI.innerText) total += parseInt(bI.innerText) || 0;
+
+        const globalBadge = document.getElementById('global-mp-badge');
+        if (globalBadge) {
+            globalBadge.innerText = total;
+            globalBadge.style.display = total > 0 ? 'block' : 'none';
+        }
+    };
+
     database.ref('friend_requests/' + myUID).on('value', (snapshot) => {
         const requests = snapshot.val();
         let pending = 0;
@@ -1133,6 +1204,7 @@ window.startFriendListeners = function() {
             const content = document.getElementById('sidebar-content');
             if (content) renderFriendRequests(content);
         }
+        window.updateGlobalMpBadge(); 
     });
 
     database.ref('friends/' + myUID).on('value', (snapshot) => {
@@ -1152,6 +1224,7 @@ window.startFriendListeners = function() {
             const content = document.getElementById('full-chat-list-container');
             if (content) renderChatList(content);
         }
+        window.updateGlobalMpBadge(); 
     });
 
     database.ref('server_invites/' + myUID).on('value', (snapshot) => {
@@ -1163,6 +1236,7 @@ window.startFriendListeners = function() {
             const content = document.getElementById('sidebar-content');
             if (content) renderServerInvites(content);
         }
+        window.updateGlobalMpBadge(); 
     });
 
     const handleNewInvite = (snapshot) => {
@@ -1180,7 +1254,12 @@ window.startFriendListeners = function() {
     const handleNewMessage = (snapshot) => {
         if (isInitialLoad) return; 
         const chat = snapshot.val();
-        if (chat.unreadCount && chat.unreadCount > 0) {
+        
+        // ✨ FIX: Inteligencia para NO lanzar notificación si ya lo estás viendo
+        const activePanel = document.getElementById('full-chat-active');
+        const isLookingAtThisChat = currentChatPartner && currentChatPartner.uid === snapshot.key && activePanel && activePanel.offsetWidth > 0;
+
+        if (chat.unreadCount && chat.unreadCount > 0 && !isLookingAtThisChat) {
             if (typeof audioManager !== 'undefined') audioManager.playTone(600, 'sine', 0.1, 0.2);
             showDesktopNotification("💬 " + chat.name, chat.lastMsg, chat.pfp, () => {
                 if (typeof openFileMenu === 'function') openFileMenu();
@@ -1204,7 +1283,7 @@ window.startFriendListeners = function() {
     database.ref('friend_requests/' + myUID).on('child_added', handleNewFriendReq);
 
     setTimeout(() => { isInitialLoad = false; }, 2000);
-}
+};
 
 function initMultiplayerModule() {
     setTimeout(initPresenceSystem, 1000);
