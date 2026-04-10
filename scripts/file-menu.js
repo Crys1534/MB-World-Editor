@@ -113,6 +113,7 @@ function initBackstageMenu() {
             <div style="height: 1px; background: var(--border); margin: 5px 25px; opacity: 0.5;"></div>
             <button class="backstage-nav-btn" onclick="document.getElementById('file-input').click(); closeFileMenu();" style="font-weight: normal; font-size: 14px; opacity: 0.8;">📥 Load World</button>
             <button class="backstage-nav-btn" onclick="if(typeof fileManager !== 'undefined') fileManager.export(); closeFileMenu();" style="font-weight: normal; font-size: 14px; opacity: 0.8;">💾 Export</button>
+			<button class="backstage-nav-btn" onclick="openModal('settings-modal'); closeFileMenu();" style="font-weight: normal; font-size: 14px; opacity: 0.8; margin-top: auto; margin-bottom: 10px;">⚙️ Configuration</button>
         </div>
         
         <div class="backstage-content">
@@ -156,7 +157,6 @@ function initBackstageMenu() {
                             <div id="mp-view-create-1" style="display: none; width: 100%; max-width: 450px; margin-top: 20px;">
                                 <h3 style="margin-bottom: 10px; color: #bdc3c7; font-size: 28px;">Players Limit:</h3>
                                 <div id="mp-player-buttons" style="display: flex; justify-content: space-between; margin-bottom: 20px;">
-                                    <button class="mp-limit-btn" onclick="setMpLimit(1)">1</button>
                                     <button class="mp-limit-btn selected-limit" onclick="setMpLimit(2)">2</button>
                                     <button class="mp-limit-btn" onclick="setMpLimit(3)">3</button>
                                     <button class="mp-limit-btn" onclick="setMpLimit(4)">4</button>
@@ -176,7 +176,7 @@ function initBackstageMenu() {
                                 <button class="menu-btn" style="background: #7f8c8d; border: 2px solid #95a5a6; width: 100%; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px;" onclick="setMpView('home')">⬅️ Cancel</button>
                             </div>
 
-                            <div id="mp-view-create-map" style="display: none; width: 100%; max-width: 450px; margin-top: 20px; text-align: left;">
+                            <div id="mp-view-create-map" style="display: none; width: 100%; max-width: 450px; margin-top: 0px; text-align: left;">
                                 <h3 style="margin-bottom: 10px; color: #bdc3c7; font-size: 28px; text-align: center;">Select Map:</h3>
                                 <div id="mp-map-list" style="height: 190px; overflow-y: auto; background: rgba(0,0,0,0.3); border-radius: 5px; padding: 10px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 8px; border: 2px solid #34495e;">
                                     </div>

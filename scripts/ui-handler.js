@@ -2485,7 +2485,7 @@ function toggleLiveTime(checkbox) {
             }
         }, 1000); // Se ejecuta al mismo ritmo que el reloj del juego
         
-        console.log("⏱️ Live Time + Clima + Cultivos: ACTIVADOS");
+        console.log("⏱️ Live Time + Weather + Crops: ACTIVADOS");
 
     } else {
         // --- 4. APAGADO SEGURO ---
@@ -2499,7 +2499,7 @@ function toggleLiveTime(checkbox) {
         weatherTimeout = null;
         cropEngine = null;
         
-        console.log("⏸️ Live Time: PAUSADO");
+        console.log("⏸️ Live Time: PAUSED");
     }
 }
 
@@ -2536,7 +2536,7 @@ window.toggleFullscreenHUD = function() {
     if (!document.fullscreenElement) {
         // Entrar a pantalla completa
         document.documentElement.requestFullscreen().catch(err => {
-            console.log(`Error al intentar pantalla completa: ${err.message}`);
+            console.log(`Error while fullscreen: ${err.message}`);
         });
     } else {
         // Salir de pantalla completa
@@ -2546,7 +2546,7 @@ window.toggleFullscreenHUD = function() {
     }
 };
 
-// 4. Medidor de FPS Real en vivo
+// 4. Medidor de FPS Real en vivo (Con Semáforo de Rendimiento)
 let lastFrameTime = performance.now();
 let frameCount = 0;
 
@@ -2559,7 +2559,18 @@ function updateFPS() {
         const fpsDisplay = document.getElementById('fps-display');
         if (fpsDisplay) {
             fpsDisplay.innerText = frameCount + " FPS";
+            
+            // ✨ MAGIA DE COLORES ✨
+            if (frameCount >= 50) {
+                fpsDisplay.style.color = "#2ecc71"; // Verde (Súper fluido)
+            } else if (frameCount >= 30) {
+                fpsDisplay.style.color = "#f1c40f"; // Amarillo (Bajón leve)
+            } else {
+                fpsDisplay.style.color = "#e74c3c"; // Rojo (Lag severo)
+            }
         }
+        
+        // Reiniciamos los contadores para el siguiente segundo
         frameCount = 0;
         lastFrameTime = now;
     }

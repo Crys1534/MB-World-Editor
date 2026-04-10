@@ -17,6 +17,9 @@ const mouse = {
     alignedX: null, alignedY: null, worldX: null, worldY: null,
     right: false, left: false,
     calculateCoordinates: function () {
+        // ✨ FIX: Si las variables maestras aún no cargan, no hacemos matemáticas
+        if (typeof tileSize === 'undefined' || typeof camera === 'undefined') return;
+        
         this.alignedX = this.gridX * tileSize;
         this.alignedY = canvas.height - this.gridY * tileSize;
         this.worldX = Math.floor(camera.x) + this.gridX;
@@ -131,23 +134,31 @@ window.addEventListener("keydown", function (event) {
     if (isCtrl && event.code === 'KeyZ') { event.preventDefault(); historyManager.undo(); }
     if (isCtrl && event.code === 'KeyY') { event.preventDefault(); historyManager.redo(); }
     
-    // ✨ COPIAR CLON (Ctrl + C)
+    // ✨ COPIAR CLON O ESTRUCTURA (Ctrl + C)
     if (isCtrl && event.code === 'KeyC') { 
-        event.preventDefault(); 
         if (typeof currentTool !== 'undefined' && currentTool === 'move' && selectedMob) {
+            event.preventDefault(); // Bloqueamos el navegador solo si vamos a copiar un Mob
             mobClipboard = JSON.parse(JSON.stringify(selectedMob));
             console.log("Mob copiado nativamente:", mobClipboard.type);
-        } else if (typeof copySelection === 'function') {
-            copySelection(); 
+        } else if (typeof currentTool !== 'undefined' && (currentTool === 'select' || currentTool === 'lasso' || currentTool === 'magic')) {
+            event.preventDefault(); // Bloqueamos el navegador solo si estamos usando herramientas de selección
+            if (typeof copySelection === 'function') copySelection(); 
         }
+        // Si no se cumple nada de arriba, el navegador hará su copia de texto normal sin interrupciones.
     }
 
-    if (isCtrl && event.code === 'KeyX') { event.preventDefault(); if (typeof cutSelection === 'function') cutSelection(); }
+    // ✨ CORTAR (Ctrl + X)
+    if (isCtrl && event.code === 'KeyX') { 
+        if (typeof currentTool !== 'undefined' && (currentTool === 'select' || currentTool === 'lasso' || currentTool === 'magic')) {
+            event.preventDefault(); 
+            if (typeof cutSelection === 'function') cutSelection(); 
+        }
+    }
     
-    // ✨ PEGAR CLON (Ctrl + V)
+    // ✨ PEGAR CLON O ESTRUCTURA (Ctrl + V)
     if (isCtrl && event.code === 'KeyV') { 
-        event.preventDefault(); 
         if (typeof currentTool !== 'undefined' && currentTool === 'move' && mobClipboard) {
+            event.preventDefault(); 
             if (typeof mbwom !== 'undefined') {
                 if (!mbwom.mobs) mbwom.mobs = {};
                 let newId = "mob_copy_" + Date.now() + Math.floor(Math.random() * 1000);
@@ -160,8 +171,9 @@ window.addEventListener("keydown", function (event) {
                 mbwom.mobs[newId] = newMob;
                 if (typeof worldDirty !== 'undefined') worldDirty = true;
             }
-        } else if (typeof activatePasteMode === 'function') {
-            activatePasteMode(); 
+        } else if (typeof currentTool !== 'undefined' && (currentTool === 'select' || currentTool === 'lasso' || currentTool === 'magic')) {
+            event.preventDefault(); 
+            if (typeof activatePasteMode === 'function') activatePasteMode(); 
         }
     }
 
@@ -174,8 +186,14 @@ window.addEventListener("keydown", function (event) {
 
     if (event.code.startsWith('Digit')) {
         let num = parseInt(event.code.charAt(5));
-        if (!isNaN(num) && num > 0) {
+        if (!isNaN(num) && num > 0 && num <= 9) { // (Le puse límite a 9 por seguridad)
             slotIndex = num - 1;
+            
+            // ✨ FIX: Si traemos una estructura flotando, la soltamos y regresamos al lápiz
+            if (typeof currentTool !== 'undefined' && currentTool === 'paste') {
+                if (typeof selectTool === 'function') selectTool('pencil');
+            }
+            
             if (typeof updateHotbarSelection === 'function') updateHotbarSelection();
         }
     }
@@ -187,6 +205,9 @@ window.addEventListener("keyup", function (event) {
 
 // --- MOUSE MOVE ---
 canvas.addEventListener("mousemove", (event) => {
+	// ✨ FIX: Salimos inmediatamente si main.js no ha terminado de cargar
+    if (typeof tileSize === 'undefined') return;
+	
     mouse.canvasX = event.offsetX;
     mouse.canvasY = canvas.height - event.offsetY;
     mouse.gridX = Math.floor(mouse.canvasX / tileSize);
@@ -208,6 +229,28 @@ canvas.addEventListener("mousemove", (event) => {
         draggedMob.x = exactWorldX + dragOffset.x;
         draggedMob.y = -(exactWorldY + dragOffset.y); 
         if (typeof worldDirty !== 'undefined') worldDirty = true;
+
+        // ==========================================
+        // ✨ MULTIPLAYER D: Sincronización de Mob en Vivo
+        // ==========================================
+        if (typeof isMultiplayer !== 'undefined' && isMultiplayer) {
+            if (!window.lastMobSend) window.lastMobSend = 0;
+            // Enviamos la posición del mob máximo 20 veces por segundo (cada 50ms)
+            if (Date.now() - window.lastMobSend > 50) { 
+                let miNombre = localStorage.getItem('mbw_username') || "Player";
+                // Usamos enviarMensajeEnRed (tu función centralizada)
+                if (typeof enviarMensajeEnRed === 'function' && selectedMobKey) {
+                    enviarMensajeEnRed({ 
+                        tipo: "accion_mover_mob_live", 
+                        id: selectedMobKey, 
+                        x: draggedMob.x, 
+                        y: draggedMob.y,
+                        autor: miNombre
+                    });
+                }
+                window.lastMobSend = Date.now();
+            }
+        }
     }
 
     if ((currentTool === 'select' || currentTool === 'lasso') && mouse.left) {
@@ -398,7 +441,8 @@ function updateChestTooltip(screenX, screenY) {
     const tooltip = document.getElementById('chest-tooltip-overlay');
     if (!tooltip) return;
 
-    const blockState = typeof mbwom !== 'undefined' ? mbwom.getBlockState(mouse.worldX, mouse.worldY) : null;
+    // ✨ FIX: Doble seguro. Solo intentamos leer si mbwom existe Y si ya tiene un mapa/escena cargada.
+    const blockState = (typeof mbwom !== 'undefined' && mbwom.scene) ? mbwom.getBlockState(mouse.worldX, mouse.worldY) : null;
     const gridContainer = document.getElementById('chest-tooltip-grid');
 
     if (renderChestOrOvenUI(blockState, gridContainer)) {
@@ -549,7 +593,7 @@ canvas.addEventListener("mousedown", function (event) {
             mbwom.mobs[newId] = JSON.parse(JSON.stringify(BASE_MOB_TEMPLATE));
 
             if (typeof worldDirty !== 'undefined') worldDirty = true; 
-            console.log("Mob generado desde Plantilla Perfecta:", baseType);
+            console.log("Mob generated from Perfect Preset:", baseType);
 
             // ==========================================
             // ✨ MULTIPLAYER A: Avisar que creamos un Mob

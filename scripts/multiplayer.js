@@ -163,6 +163,9 @@ window.renderLivePlayers = function() {
 // ==========================================
 window.setMpLimit = function(limit) {
     window.multiplayerPlayerLimit = limit;
+	// ✨ FIX: Si por alguna razón intentan poner 1, lo forzamos a ser 2 mínimo
+    if (limit < 2) limit = 2;
+	
     const buttons = document.querySelectorAll('.mp-limit-btn');
     buttons.forEach(btn => btn.classList.toggle('selected-limit', parseInt(btn.innerText) === limit));
 };
@@ -230,6 +233,11 @@ window.renderMpMapSelection = async function() {
     const nextBtn = document.getElementById('btn-next-to-id');
     if (!listDiv) return;
 
+    // ✨ FIX: Restaurar la vista por si había una tarjeta gigante abierta
+    listDiv.style.display = 'block';
+    const detailDiv = document.getElementById('mp-map-detail');
+    if (detailDiv) detailDiv.style.display = 'none';
+
     listDiv.innerHTML = '<p style="text-align: center; color: #bdc3c7; font-size: 24px; margin-top: 15px;">Loading saved worlds...</p>';
     if (nextBtn) { nextBtn.disabled = true; nextBtn.style.opacity = '0.5'; nextBtn.style.cursor = 'not-allowed'; }
     window.mpSelectedMapData = null; 
@@ -273,16 +281,13 @@ window.renderMpMapSelection = async function() {
 };
 
 window.selectMpMapForServer = function(mapName) {
-    const listDiv = document.getElementById('mp-map-list');
-    const cards = listDiv.querySelectorAll('div[id^="mp-map-card-"]');
-    cards.forEach(c => c.style.borderColor = '#7f8c8d');
-
     const w = window.mpAvailableWorlds.find(x => x.name === mapName);
     if(!w) return;
 
     const sizeBytes = new Blob([w.data]).size;
     const sizeMB = sizeBytes / (1024 * 1024);
 
+    // Límite de seguridad
     if (sizeMB > 25.0) {
         alert(`⚠️ Map is too heavy!\n\nThe map "${mapName}" weighs ${sizeMB.toFixed(2)} MB.\n\nTo guarantee a stable connection without crashing the server, the absolute limit is 25 MB.\n\nPlease select a lighter map.`);
         window.mpSelectedMapData = null;
@@ -292,16 +297,59 @@ window.selectMpMapForServer = function(mapName) {
         return;
     }
 
+    // Guardar los datos temporalmente
     window.mpSelectedMapName = w.name;
     window.mpSelectedMapData = w.data;
     window.mpSelectedMapThumb = w.thumb;
 
-    const safeId = 'mp-map-card-' + mapName.replace(/[^a-zA-Z0-9]/g, '-');
-    const selectedCard = document.getElementById(safeId);
-    if (selectedCard) selectedCard.style.borderColor = '#2ecc71';
-
+    // Habilitar botón "Next"
     const nextBtn = document.getElementById('btn-next-to-id');
     if (nextBtn) { nextBtn.disabled = false; nextBtn.style.opacity = '1'; nextBtn.style.cursor = 'pointer'; }
+
+    // ✨ NUEVO: Ocultamos la lista y mostramos el detalle gigante
+    const listDiv = document.getElementById('mp-map-list');
+    listDiv.style.display = 'none';
+
+    let detailDiv = document.getElementById('mp-map-detail');
+    if (!detailDiv) {
+        detailDiv = document.createElement('div');
+        detailDiv.id = 'mp-map-detail';
+        listDiv.parentNode.insertBefore(detailDiv, listDiv.nextSibling);
+    }
+    
+    detailDiv.style.display = 'block';
+    
+    // Formateo del tamaño y de la imagen
+    const sizeFormatted = typeof window.formatBytes === 'function' ? window.formatBytes(sizeBytes) : sizeMB.toFixed(2) + ' MB';
+    let thumbUrl = w.thumb || 'assets/Superflat World.png';
+
+    // ✨ Inyectamos el HTML de la tarjeta gigante
+    detailDiv.innerHTML = `
+        <div style="background: rgba(0,0,0,0.5); border: 2px solid #2ecc71; border-radius: 8px; padding: 20px; margin-top: 15px; display: flex; flex-direction: column; align-items: center; position: relative;">
+            <button onclick="cancelMpMapSelection()" style="position: absolute; top: 10px; left: 10px; background: #7f8c8d; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-family: Arial; transition: 0.2s;" onmouseover="this.style.background='#95a5a6'" onmouseout="this.style.background='#7f8c8d'">↩️ Change Map</button>
+            
+            <div style="width: 260px; height: 160px; background-image: url('${thumbUrl}'); background-size: cover; background-position: center; border: 4px solid #fff; border-radius: 6px; image-rendering: pixelated; margin-bottom: 15px; margin-top: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.6);"></div>
+            
+            <div style="color: white; font-size: 40px; font-family: 'Pixeltype', sans-serif; margin-bottom: 5px; text-shadow: 2px 2px 0 #000; text-align: center;">${mapName}</div>
+            <div style="color: #bdc3c7; font-size: 16px; font-family: Arial; font-weight: bold;">⚖️ File Size: ${sizeFormatted}</div>
+        </div>
+    `;
+};
+
+// ✨ NUEVO: Función para arrepentirse y volver a la lista
+window.cancelMpMapSelection = function() {
+    window.mpSelectedMapData = null;
+    window.mpSelectedMapName = null;
+    window.mpSelectedMapThumb = null;
+
+    const nextBtn = document.getElementById('btn-next-to-id');
+    if (nextBtn) { nextBtn.disabled = true; nextBtn.style.opacity = '0.5'; nextBtn.style.cursor = 'not-allowed'; }
+
+    const listDiv = document.getElementById('mp-map-list');
+    const detailDiv = document.getElementById('mp-map-detail');
+    
+    if (detailDiv) detailDiv.style.display = 'none';
+    if (listDiv) listDiv.style.display = 'block';
 };
 
 window.prepareServerMap = async function() {
@@ -600,6 +648,20 @@ function recibirMensajeDeRed(datos) {
     if (datos.tipo === "accion_spawn_mob") { if (typeof mbwom !== 'undefined') mbwom.mobs[datos.id] = datos.mob; }
     if (datos.tipo === "accion_mover_mob") { if (typeof mbwom !== 'undefined' && mbwom.mobs[datos.id]) { mbwom.mobs[datos.id].x = datos.x; mbwom.mobs[datos.id].y = datos.y; } }
     if (datos.tipo === "accion_eliminar_mob") { if (typeof mbwom !== 'undefined' && mbwom.mobs[datos.id]) delete mbwom.mobs[datos.id]; }
+    
+    // ==========================================
+    // ✨ MULTIPLAYER D: Recepción del Mob en Vivo
+    // ==========================================
+    if (datos.tipo === "accion_mover_mob_live") {
+        if (typeof mbwom !== 'undefined' && mbwom.mobs && mbwom.mobs[datos.id]) {
+            mbwom.mobs[datos.id].x = datos.x;
+            mbwom.mobs[datos.id].y = datos.y;
+            mbwom.mobs[datos.id].lockedBy = datos.autor;
+            mbwom.mobs[datos.id].lastMoveTime = Date.now();
+            if (typeof worldDirty !== 'undefined') worldDirty = true;
+        }
+    }
+
     if (datos.tipo === "cursor") {
         window.networkCursors[datos.autor] = { x: datos.x, y: datos.y, lastUpdate: Date.now() };
         if (typeof worldDirty !== 'undefined') worldDirty = true;
@@ -651,11 +713,20 @@ function initPresenceSystem(isReload = false) {
     if (!isReload) {
         connectedRef.on('value', (snap) => {
             if (snap.val() === true) {
-                myPresenceRef = onlineUsersRef.push();
+                // ✨ FIX: Usamos tu UID como la llave única en la base de datos
+                myPresenceRef = database.ref('online_users/' + myUID);
+                
                 myPresenceRef.onDisconnect().remove().then(() => {
                     const myName = localStorage.getItem('mbw_username') || "Player";
                     const myPfp = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
-                    myPresenceRef.set({ uid: myUID, username: myName, pfp: myPfp, timestamp: firebase.database.ServerValue.TIMESTAMP });
+                    
+                    // Sobrescribimos el registro si ya existía
+                    myPresenceRef.set({ 
+                        uid: myUID, 
+                        username: myName, 
+                        pfp: myPfp, 
+                        timestamp: firebase.database.ServerValue.TIMESTAMP 
+                    });
                 });
             }
         });
@@ -673,12 +744,16 @@ window.renderPresenceList = function() {
     if (listContainer) listContainer.innerHTML = '';
     if (!users) return;
 
+    // ✨ AQUÍ ESTÁ EL FIX: Leemos tu ID para que el código sepa quién eres tú
+    const myUID = localStorage.getItem('mbw_uid');
+
     let htmlContent = '';
     const now = Date.now();
 
     for (let key in users) {
         const u = users[key];
-        const isMe = (myPresenceRef && key === myPresenceRef.key);
+        // Ahora sí, esta línea no va a fallar
+        const isMe = (myUID && key === myUID);
         const isFriend = misAmigosConfirmados.includes(u.uid);
         
         let inviteBtn = '';
@@ -947,12 +1022,32 @@ window.sendPrivateMessage = function() {
     const myPfp = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
     const timestamp = firebase.database.ServerValue.TIMESTAMP;
 
+    // ✨ SI ESTAMOS EDITANDO UN MENSAJE
+    if (window.editingMsgKey) {
+        database.ref('private_chats/' + currentChatId + '/' + window.editingMsgKey).update({
+            text: text,
+            isEdited: true
+        });
+        
+        input.value = '';
+        window.editingMsgKey = null;
+        database.ref('typing_status/' + currentChatId + '/' + myUID).set(false);
+        let typingIndicator = document.getElementById('dm-typing-indicator');
+        if (typingIndicator) {
+            typingIndicator.style.display = 'none';
+            typingIndicator.style.color = "#2ecc71"; // Regresa al color original
+        }
+        input.focus();
+        return; 
+    }
+
+    // ✨ SI ES UN MENSAJE NUEVO
     const messageData = { 
         sender: myUID, 
         senderName: myName, 
         text: text, 
         timestamp: timestamp,
-        status: 'sent' // ✨ AQUÍ ESTÁ: Nace como enviado
+        status: 'sent' 
     };
 
     if (replyingTo) {
@@ -965,6 +1060,7 @@ window.sendPrivateMessage = function() {
     database.ref('user_chats/' + currentChatPartner.uid + '/' + myUID).set({ name: myName, pfp: myPfp, lastMsg: text, timestamp: timestamp, unreadCount: firebase.database.ServerValue.increment(1) });
     
     input.value = ''; 
+    database.ref('typing_status/' + currentChatId + '/' + myUID).set(false);
     input.focus();
 };
 
@@ -1019,15 +1115,95 @@ window.renderChatList = function(container) {
     });
 };
 
+// ==========================================
+// ✨ CEREBRO DE EMOTES Y SEGURIDAD
+// ==========================================
+
+// 1. TUS EMOTES INTERNOS (Cambia las URLs por tus imágenes reales)
+window.customEmotes = {
+    "gg": "assets/emote_gg.png",
+    "rip": "assets/emote_rip.png",
+    "pog": "assets/emote_pog.png",
+    "heart": "assets/emote_heart.png",
+    "troll": "assets/emote_troll.png",
+    "wow": "assets/emote_wow.png",
+    "mad": "assets/emote_mad.png",
+    "happy": "assets/emote_happy.png"
+};
+
+// 2. CATEGORÍAS DE EMOJIS ESTÁNDAR (ARSENAL COMPLETO)
+window.emojiCategories = [
+    { 
+        id: "peo", icon: "😃", name: "People", 
+        items: [
+            // Caritas y Emociones
+            "😀","😃","😄","😁","😆","😅","😂","🤣","🥲","☺️","😊","😇","🙂","🙃","😉","😌","😍","🥰","😘","😗","😙","😚","😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎","🥸","🤩","🥳","😏","😒","😞","😔","😟","😕","🙁","☹️","😣","😖","😫","😩","🥺","😢","😭","😤","😠","😡","🤬","🤯","😳","🥵","🥶","😱","😨","😰","😥","😓","🤗","🤔","🫣","🤭","🤫","🤥","😶","😶‍🌫️","😐","😑","😬","🫨","🫠","🙄","😯","😦","😧","😮","😲","🥱","😴","🤤","😪","😵","😵‍💫","🤐","🥴","🤢","🤮","🤧","😷","🤒","🤕","🤑","🤠","😈","👿","👹","👺","🤡","💩","👻","💀","☠️","👽","👾","🤖","🎃",
+            // Manos y Gestos
+            "👐","🤲","🙌","👏","🤝","👍","👎","👊","✊","🤛","🤜","🤞","✌️","🫰","🤟","🤘","👌","🤌","🤏","🫳","🫴","👈","👉","👆","👇","☝️","✋","🤚","🖐️","🖖","👋","🤙","🫲","🫱","🫷","🫸","💪","🦾","🖕","✍️","🙏","🦶","🦵","🦿","💄","💋","👄","🦷","👅","👂","🦻","👃","👣","👁️","👀","🧠","🫀","🫁",
+            // Personas y Profesiones
+            "👶","👧","🧒","👦","👩","🧑","👨","👱‍♀️","👱","👱‍♂️","🧔‍♀️","🧔","🧔‍♂️","👵","🧓","👴","👲","👳‍♀️","👳","👳‍♂️","🧕","👮‍♀️","👮","👮‍♂️","👷‍♀️","👷","👷‍♂️","💂‍♀️","💂","💂‍♂️","🕵️‍♀️","🕵️","🕵️‍♂️","👩‍⚕️","🧑‍⚕️","👨‍⚕️","👩‍🌾","🧑‍🌾","👨‍🌾","👩‍🍳","🧑‍🍳","👨‍🍳","👩‍🎓","🧑‍🎓","👨‍🎓","👩‍🎤","🧑‍🎤","👨‍🎤","👩‍🏫","🧑‍🏫","👨‍🏫","👩‍🏭","🧑‍🏭","👨‍🏭","👩‍💻","🧑‍💻","👨‍💻","👩‍💼","🧑‍💼","👨‍💼","👩‍🔧","🧑‍🔧","👨‍🔧","👩‍🔬","🧑‍🔬","👨‍🔬","👩‍🎨","🧑‍🎨","👨‍🎨","👩‍🚒","🧑‍🚒","👨‍🚒","👩‍✈️","🧑‍✈️","👨‍✈️","👩‍🚀","🧑‍🚀","👨‍🚀","👩‍⚖️","🧑‍⚖️","👨‍⚖️","👰‍♀️","👰","👰‍♂️","🤵‍♀️","🤵","🤵‍♂️","👸","🫅","🤴","🥷","🦸‍♀️","🦸","🦸‍♂️","🦹‍♀️","🦹","🦹‍♂️","🤶","🧑‍🎄","🎅","🧙‍♀️","🧙","🧙‍♂️","🧝‍♀️","🧝","🧝‍♂️","🧛‍♀️","🧛","🧛‍♂️","🧟‍♀️","🧟","🧟‍♂️","🧞‍♀️","🧞","🧞‍♂️","🧜‍♀️","🧜","🧜‍♂️","🧚‍♀️","🧚","🧚‍♂️","👼","🤰","🫄","🫃","🤱","👩‍🍼","🧑‍🍼","👨‍🍼","🙇‍♀️","🙇","🙇‍♂️","💁‍♀️","💁","💁‍♂️","🙅‍♀️","🙅","🙅‍♂️","🙆‍♀️","🙆","🙆‍♂️","🙋‍♀️","🙋","🙋‍♂️","🧏‍♀️","🧏","🧏‍♂️","🤦‍♀️","🤦","🤦‍♂️","🤷‍♀️","🤷","🤷‍♂️","🙎‍♀️","🙎","🙎‍♂️","🙍‍♀️","🙍","🙍‍♂️","💇‍♀️","💇","💇‍♂️","💆‍♀️","💆","💆‍♂️","🧖‍♀️","🧖","🧖‍♂️","💅","🤳","💃","🕺","👯‍♀️","👯","👯‍♂️","🕴️","🚶‍♀️","🚶","🚶‍♂️","🧎‍♀️","🧎","🧎‍♂️","🏃‍♀️","🏃","🏃‍♂️","🧍‍♀️","🧍","🧍‍♂️","👭","🧑‍🤝‍🧑","👬","👫"
+        ] 
+    },
+    { id: "nat", icon: "🌿", name: "Nature", items: ["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐸","🐵","🐔","🐧","🐦","🐤","🦆","🦅","🦉","🦇","🐺","🐗","🐴","🦄","🐝","🐛","🦋","🐌","🐞","🐜","🦟","🐢","🐍","🦎","🦖","🦕","🐙","🦑","🦐","🦞","🦀","🐡","🐠","🐟","🐬","🐳","🐋","🦈","🐊","🐅","🐆","🦓","🦍","🦧","🐘","🦛","🦏","🐪","🐫","🦒","🦘","🐃","🐂","🐄","🐎","🐖","🐏","🐑","🦙","🐐","🦌","🐕","🐩","🦮","🐕‍🦺","🐈","🐈‍⬛","🪶","🐓","🦃","🦚","🦜","🦢","🦩","🕊️","🐇","🦝","🦨","🦡","🦦","🦥","🐁","🐀","🐿️","🦔","🐾","🐉","🐲","🌵","🎄","🌲","🌳","🌴","🪵","🌱","🌿","☘️","🍀","🎍","🪴","🎋","🍃","🍂","🍁","🍄","🌾","💐","🌷","🌹","🥀","🌺","🌸","🌼","🌻","🌞","🌝","🌛","🌜","🌚","🌕","🌖","🌗","🌘","🌑","🌒","🌓","🌔","🌙","🌎","🌍","🌏","🪐","💫","⭐️","🌟","✨","⚡️","☄️","💥","🔥","🌪️","🌈","☀️","🌤️","⛅️","🌥️","☁️","🌦️","🌧️","⛈️","🌩️","🌨️","❄️","☃️","⛄️","🌬️","💨","💧","💦","☔️","☂️","🌊","🌫️"] },
+    { id: "foo", icon: "🍔", name: "Food", items: ["🍏","🍎","🍐","🍊","🍋","🍌","🍉","🍇","🍓","🫐","🍈","🍒","🍑","🥭","🍍","🥥","🥝","🍅","🍆","🥑","🥦","🥬","🥒","🌶️","🫑","🌽","🥕","🫒","🧄","🧅","🥔","🍠","🥐","🥯","🍞","🥖","🥨","🧀","🥚","🍳","🧈","🥞","🧇","🥓","🥩","🍗","🍖","🦴","🌭","🍔","🍟","🍕","🫓","🥪","🥙","🧆","🌮","🌯","🫔","🥗","🥘","🫕","🥫","🍝","🍜","🍲","🍛","🍣","🍱","🥟","🦪","🍤","🍙","🍚","🍘","🍥","🥠","🥮","🍢","🍡","🍧","🍨","🍦","🥧","🧁","🍰","🎂","🍮","🍭","🍬","🍫","🍿","🍩","🍪","🌰","🥜","🍯","🥛","🍼","🫖","☕️","🍵","🧃","🥤","🧋","🍶","🍺","🍻","🥂","🍷","🥃","🍸","🍹","🧉","🍾","🧊","🥄","🍴","🍽️","🥣","🥡","🥢","🧂"] },
+    { id: "act", icon: "⚽", name: "Activities", items: ["⚽️","🏀","🏈","⚾️","🥎","🎾","🏐","🏉","🥏","🎱","🪀","🏓","🏸","🏒","🏑","🥍","🏏","🪃","🥅","⛳️","🪁","🏹","🎣","🤿","🥊","🥋","🎽","🛹","🛼","🛷","⛸️","🥌","🎿","⛷️","🏂","🪂","🏋️‍♀️","🏋️","🏋️‍♂️","🤼‍♀️","🤼","🤼‍♂️","🤸‍♀️","🤸","🤸‍♂️","⛹️‍♀️","⛹️","⛹️‍♂️","🤺","🤾‍♀️","🤾","🤾‍♂️","🏌️‍♀️","🏌️","🏌️‍♂️","🏇","🧘‍♀️","🧘","🧘‍♂️","🏄‍♀️","🏄","🏄‍♂️","🏊‍♀️","🏊","🏊‍♂️","🤽‍♀️","🤽","🤽‍♂️","🚣‍♀️","🚣","🚣‍♂️","🧗‍♀️","🧗","🧗‍♂️","🚵‍♀️","🚵","🚵‍♂️","🚴‍♀️","🚴","🚴‍♂️","🏆","🥇","🥈","🥉","🏅","🎖️","🏵️","🎗️","🎫","🎟️","🎪","🤹‍♀️","🤹","🤹‍♂️","🎭","🩰","🎨","🎬","🎤","🎧","🎼","🎹","🥁","🪘","🎷","🎺","🪗","🎸","🪕","🎻","🎲","♟️","🎯","🎳","🎮","🎰","🧩"] },
+    { id: "tri", icon: "🚗", name: "Trips", items: ["🚗","🚕","🚙","🚌","🚎","🏎️","🚓","🚑","🚒","🚐","🛻","🚚","🚛","🚜","🦯","🦽","🦼","🛴","🚲","🛵","🏍️","🛺","🚨","🚔","🚍","🚘","🚖","🚡","🚠","🚟","🚃","🚋","🚞","🚝","🚄","🚅","🚈","🚂","🚆","🚇","🚊","🚉","✈️","🛫","🛬","🛩️","💺","🛰️","🚀","🛸","🚁","🛶","⛵️","🚤","🛥️","🛳️","⛴️","🚢","⚓️","🪝","⛽️","🚧","🚦","🚥","🚏","🗺️","🗿","🗽","🗼","🏰","🏯","🏟️","🎡","🎢","🎠","⛲️","⛱️","🏖️","🏝️","🏜️","🌋","⛰️","🏔️","🗻","🏕️","⛺️","🛖","🏠","🏡","🏘️","🏚️","🏗️","🏭","🏢","🏬","🏣","🏤","🏥","🏦","🏨","🏪","🏫","🏩","💒","🏛️","⛪️","🕌","🕍","🛕","🕋","⛩️","🛤️","🛣️","🗾","🎑","🏞️","🌅","🌄","🌠","🎇","🎆","🌇","🌆","🏙️","🌃","🌌","🌉","🌁"] },
+    { id: "obj", icon: "💡", name: "Objects", items: ["⌚️","📱","📲","💻","⌨️","🖥️","🖨️","🖱️","🖲️","🕹️","🗜️","💽","💾","💿","📀","📼","📷","📸","📹","🎥","📽️","🎞️","📞","☎️","📟","📠","📺","📻","🎙️","🎚️","🎛️","🧭","⏱️","⏲️","⏰","🕰️","⌛️","⏳","📡","🔋","🔌","💡","🔦","🕯️","🪔","🧯","🛢️","💸","💵","💴","💶","💷","🪙","💰","💳","💎","⚖️","🪜","🧰","🪛","🔧","🔨","⚒️","🛠️","⛏️","🪚","🔩","⚙️","🪤","🧱","⛓️","🧲","🔫","💣","🧨","🪓","🔪","🗡️","⚔️","盾","🚬","⚰️","🪦","⚱️","🏺","🔮","📿","🧿","💈","⚗️","🔭","🔬","🕳️","🩹","🩺","💊","💉","🩸","🧬","🦠","🧫","🧪","🌡️","🧹","🪠","🧺","🧻","🚽","🚰","🚿","🛁","🛀","🧼","🪥","🪒","🧽","🪣","🧴","🛎️","🔑","🗝️","🚪","🪑","🛋️","🛏️","🛌","🧸","🪆","🖼️","🪞","🪟","🛍️","🛒","🎁","🎈","🎏","🎀","🪄","🪅","🎊","🎉","🎎","🏮","🎐","🧧","✉️","📩","📨","📧","💌","📥","📤","📦","🏷️","🪧","📪","📫","📬","📭","📮","📯","📜","📃","📄","📑","🧾","📊","📈","📉","🗒️","🗓️","📆","📅","🗑️","📇","🗃️","🗳️","🗄️","📋","📁","📂","🗂️","🗞️","📰","📓","📔","📒","📕","📗","📘","📙","📚","📖","🔖","🧷","🔗","📎","🖇️","📐","📏","🧮","📌","📍","✂️","🖊️","🖋️","✒️","🖌️","🖍️","📝","✏️","🔍","🔎","🔏","🔐","🔒","🔓"] },
+    { id: "sym", icon: "❤️", name: "Symbols", items: ["❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","❣️","💕","💞","💓","💗","💖","💘","💝","💟","☮️","✝️","☪️","🕉️","☸️","✡️","🔯","🕎","☯️","☦️","🛐","⛎","♈️","♉️","♊️","♋️","♌️","♍️","♎️","♏️","♐️","♑️","♒️","♓️","🆔","⚛️","🉑","☢️","☣️","📴","📳","🈶","🈚️","🈸","🈺","🈷️","✴️","🆚","💮","🉐","㊙️","㊗️","🈴","🈵","🈹","🈲","🅰️","🅱️","🆎","🆑","🅾️","🆘","❌","⭕️","🛑","⛔️","📛","🚫","💯","💢","♨️","🚷","🚯","🚳","🚱","🔞","📵","🚭","❗️","❕","❓","❔","‼️","⁉️","🔅","🔆","〽️","⚠️","🚸","🔱","⚜️","🔰","♻️","✅","🈯️","💹","❇️","✳️","❎","🌐","💠","Ⓜ️","🌀","💤","🏧","🚾","♿️","🅿️","🛗","🈳","🈂️","🛂","🛃","🛄","🛅","🚹","🚺","🚼","⚧️","🚻","🚮","🎦","📶","🈁","🔣","ℹ️","🔤","🔡","🔠","🆖","🆗","🆙","🆒","🆕","🆓","0️⃣","1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟","🔢","#️⃣","*️⃣","⏏️","▶️","⏸️","⏯️","⏹️","⏺️","⏭️","⏮️","⏩","⏪","⏫","⏬","◀️","🔼","🔽","➡️","⬅️","⬆️","⬇️","↗️","↘️","↙️","↖️","↕️","↔️","↪️","↩️","⤴️","⤵️","🔀","🔁","🔂","🔄","🔃","🎵","🎶","➕","➖","➗","✖️","♾️","💲","💱","™️","©️","®️","〰️","➰","➿","🔚","🔙","🔛","🔝","🔜","✔️","☑️","🔘","🔴","🟠","🟡","🟢","🔵","🟣","⚫️","⚪️","🟤","🔺","🔻","🔸","🔹","🔶","🔷","🔳","🔲","▪️","▫️","◾️","◽️","◼️","◻️","🟥","🟧","🟨","🟩","🟦","🟪","⬛️","⬜️","🟫","🔈","🔇","🔉","🔊","🔔","🔕","📣","📢","👁‍🗨","💬","💭","🗯️","♠️","♣️","♥️","♦️","🃏","🎴","🀄️","🕐","🕑","🕒","🕓","🕔","🕕","🕖","🕗","🕘","🕙","🕚","🕛","🕜","🕝","🕞","🕟","🕠","🕡","🕢","🕣","🕤","🕥","🕦","🕧"] },
+    { id: "fla", icon: "🏁", name: "Flags", items: ["🏁","🚩","🎌","🏴","🏳️","🏳️‍🌈","🏳️‍⚧️","🏴‍☠️","🇲🇽","🇪🇸","🇺🇸","🇨🇦","🇦🇷","🇨🇴","🇨🇱","🇵🇪","🇬🇧","🇫🇷","🇩🇪","🇮🇹","🇯🇵","🇰🇷","🇨🇳","🇧🇷","🇮🇳","🇷🇺","🇿🇦","🇦🇺","🇳🇿"] }
+];
+
+// 3. SEGURIDAD CONTRA HACKEOS (XSS)
+window.escapeHTML = function(str) {
+    return String(str || "").replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[tag] || tag));
+};
+
+// 4. EL CONVERTIDOR MÁGICO (Detecta si va solo para hacerlo 56x56 o 24x24)
+window.parseEmotes = function(safeText) {
+    let cleanText = safeText.trim();
+    // Revisa si el mensaje son PURAS etiquetas de emotes separados por espacios
+    let onlyEmotesRegex = /^(\s*:[a-zA-Z0-9_]+:\s*)+$/;
+    let isOnlyEmotes = onlyEmotesRegex.test(cleanText);
+    
+    let size = isOnlyEmotes ? '56px' : '24px';
+    
+    // ✨ FIX: Truco CSS estilo Discord para centrar la imagen en medio del texto
+    // Si va acompañado de texto, lo bajamos 6 pixeles para clavarlo en el centro de la letra
+    let alignStyle = isOnlyEmotes ? 'vertical-align: middle;' : 'vertical-align: -6px; margin: 0 2px;';
+
+    return cleanText.replace(/:([a-zA-Z0-9_]+):/g, (match, name) => {
+        if (window.customEmotes[name]) {
+            return `<img src="${window.customEmotes[name]}" style="width:${size}; height:${size}; ${alignStyle} display:inline-block;" alt="${name}" title=":${name}:" onerror="this.src='assets/default pfp.png';">`;
+        }
+        return match; 
+    });
+};
+
+// 5. GUARDAR EMOTES RECIENTES
+window.saveRecentEmote = function(emoteName) {
+    let recents = JSON.parse(localStorage.getItem('mbw_recent_emotes') || "[]");
+    recents = recents.filter(e => e !== emoteName); // Quita duplicados
+    recents.unshift(emoteName); // Lo pone al inicio
+    if(recents.length > 10) recents.pop(); // Máximo 10 recientes
+    localStorage.setItem('mbw_recent_emotes', JSON.stringify(recents));
+};
+
+// ==========================================
+// ✨ EL CHAT Y EL PANEL DISCORD
+// ==========================================
 window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/default pfp.png") {
+    
     if (currentChatListener && currentChatId) {
         database.ref('private_chats/' + currentChatId).off('child_added', currentChatListener);
         database.ref('private_chats/' + currentChatId).off('child_changed');
     }
-
-    if (typeof window.openMpSidebar === 'function') {
-        window.openMpSidebar('chats');
+    if (window.typingListener && currentChatId && currentChatPartner) {
+        database.ref('typing_status/' + currentChatId + '/' + currentChatPartner.uid).off('value', window.typingListener);
     }
+
+    if (typeof window.openMpSidebar === 'function') window.openMpSidebar('chats');
 
     const myUID = localStorage.getItem('mbw_uid');
     currentChatId = myUID < otherUid ? myUID + "_" + otherUid : otherUid + "_" + myUID;
@@ -1046,35 +1222,70 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
     if (activePanel) activePanel.style.display = 'flex';
     if (headerName) headerName.innerText = otherName;
     if (headerPfp) headerPfp.style.backgroundImage = `url('${otherPfp}')`;
-    
     if (messagesContainer) messagesContainer.innerHTML = ''; 
 
     const listContainer = document.getElementById('full-chat-list-container');
     if (listContainer) renderChatList(listContainer);
 
-    let lastRenderedDate = ""; 
+    // ✨ SEMÁFORO DE SONIDO (Evita la metralleta al cargar)
+    let isHistoryLoaded = false;
     const chatRef = database.ref('private_chats/' + currentChatId);
+    chatRef.once('value').then(() => { isHistoryLoaded = true; });
+
+    let lastRenderedDate = ""; 
     
+    // ✨ RENDERIZADO DE MENSAJES
+    const renderBubble = (msg, msgKey) => {
+        const isMe = msg.sender === myUID;
+        const date = new Date(msg.timestamp || Date.now());
+        const timeString = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+
+        // Sanitización y Emotes
+        let textToRender = "";
+        let extraStyle = "";
+
+        if (msg.isDeleted) {
+            textToRender = "🚫 Este mensaje fue eliminado";
+            extraStyle = "font-style: italic; opacity: 0.6;";
+        } else {
+            let safeText = window.escapeHTML(msg.text);
+            let emotedText = window.parseEmotes(safeText); // Convertir :nombres: a imágenes
+            
+            textToRender = emotedText.replace(/(?:x:\s*)?(-?\d+)\s*(?:,|y:)\s*(-?\d+)/gi, 
+                '<span style="color: #3498db; text-decoration: underline; font-weight: bold; cursor: pointer;" onclick="if(window.camera !== undefined){camera.x=$1; camera.y=$2; window.worldDirty=true;} event.stopPropagation();" title="Teletransportar">[$1, $2]</span>'
+            );
+            if (msg.isEdited) textToRender += ' <span style="font-size: 11px; opacity: 0.6; margin-left: 6px;">(editado)</span>';
+        }
+
+        let replyHtml = '';
+        if (msg.replyTo) {
+            replyHtml = `
+                <div style="background: rgba(0,0,0,0.15); border-left: 3px solid #f1c40f; padding: 5px 8px; margin-bottom: 8px; border-radius: 4px; font-family: Arial;">
+                    <b style="display: block; font-size: 11px; color: #f1c40f;">${window.escapeHTML(msg.replyTo.senderName)}</b>
+                    <span style="display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; font-size: 13px; opacity: 0.8;">${window.parseEmotes(window.escapeHTML(msg.replyTo.text))}</span>
+                </div>
+            `;
+        }
+
+        let ticksHtml = isMe ? `<span id="ticks-${msgKey}" style="color: ${msg.status === 'read' ? '#3498db' : '#bdc3c7'}; font-size: 13px; margin-left: 4px; font-weight: bold;">✓✓</span>` : '';
+
+        return `
+            ${replyHtml}
+            <div id="msg-text-${msgKey}" style="margin-bottom: 2px; ${extraStyle}">${textToRender}</div>
+            <div style="font-size: 10px; text-align: right; opacity: 0.7; margin-top: 4px; font-weight: bold;">
+                ${timeString} ${ticksHtml}
+            </div>
+        `;
+    };
+
     currentChatListener = chatRef.on('child_added', (snap) => {
         const msg = snap.val();
         const msgKey = snap.key;
         const isMe = msg.sender === myUID;
-        const myPfp = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
-        const avatarUrl = isMe ? myPfp : currentChatPartner.pfp;
 
-        // ✨ TRUCO MAESTRO: Si offsetWidth > 0, significa que nuestros ojos lo están viendo.
-        const chatVisible = activePanel && activePanel.offsetWidth > 0;
-        const isActivelyChatting = chatVisible && currentChatPartner && currentChatPartner.uid === otherUid;
-        
-        if (!isMe) {
-            if (isActivelyChatting) {
-                if (msg.status !== 'read') {
-                    database.ref('private_chats/' + currentChatId + '/' + msgKey).update({ status: 'read' });
-                }
-                database.ref('user_chats/' + myUID + '/' + otherUid).update({ unreadCount: 0 });
-                // Sonar suave solo si estamos dentro del chat
-                if (typeof audioManager !== 'undefined') audioManager.playTone(600, 'sine', 0.05, 0.1);
-            }
+        if (!isMe && activePanel && activePanel.offsetWidth > 0 && currentChatPartner.uid === otherUid) {
+            if (msg.status !== 'read') database.ref('private_chats/' + currentChatId + '/' + msgKey).update({ status: 'read' });
+            if (isHistoryLoaded && typeof audioManager !== 'undefined') audioManager.playTone(600, 'sine', 0.05, 0.1);
         }
 
         const date = new Date(msg.timestamp || Date.now());
@@ -1095,77 +1306,183 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
         }
 
         const msgRow = document.createElement('div');
-        msgRow.style.display = 'flex'; msgRow.style.alignItems = 'flex-end'; msgRow.style.gap = '8px';
-        msgRow.style.marginBottom = '10px'; msgRow.style.width = '100%'; msgRow.style.flexDirection = isMe ? 'row-reverse' : 'row'; 
-
+        msgRow.style.cssText = `display: flex; align-items: flex-end; gap: 8px; margin-bottom: 10px; width: 100%; flex-direction: ${isMe ? 'row-reverse' : 'row'};`;
+        
         const avatarDiv = document.createElement('div');
-        avatarDiv.style.width = '32px'; avatarDiv.style.height = '32px'; avatarDiv.style.borderRadius = '50%';
-        avatarDiv.style.backgroundImage = `url('${avatarUrl}')`; avatarDiv.style.backgroundSize = 'cover';
-        avatarDiv.style.backgroundPosition = 'center'; avatarDiv.style.flexShrink = '0'; avatarDiv.style.border = '1px solid rgba(255,255,255,0.3)';
-
-        const timeString = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        avatarDiv.style.cssText = `width: 32px; height: 32px; border-radius: 50%; background-image: url('${isMe ? localStorage.getItem('mbw_profile_pic') : currentChatPartner.pfp}'); background-size: cover; flex-shrink: 0;`;
 
         const bubbleDiv = document.createElement('div');
-        bubbleDiv.style.background = isMe ? '#0f172a' : '#243341'; 
-        bubbleDiv.style.color = 'white';
-        bubbleDiv.style.padding = '8px 12px 4px 12px'; 
-        bubbleDiv.style.borderRadius = isMe ? '15px 15px 0 15px' : '15px 15px 15px 0';
-        bubbleDiv.style.maxWidth = '210px'; 
-        bubbleDiv.style.fontFamily = "Arial, sans-serif"; 
-        bubbleDiv.style.fontSize = "15px";
-        bubbleDiv.style.lineHeight = "1.3"; 
-        bubbleDiv.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)"; 
-        bubbleDiv.style.wordWrap = "break-word";
-        bubbleDiv.style.cursor = "pointer";
-        bubbleDiv.title = "Doble clic para responder";
-
-        let replyHtml = '';
-        if (msg.replyTo) {
-            replyHtml = `
-                <div style="background: rgba(0,0,0,0.15); border-left: 3px solid #f1c40f; padding: 5px 8px; margin-bottom: 8px; border-radius: 4px; font-family: Arial;">
-                    <b style="display: block; font-size: 11px; color: #f1c40f;">${msg.replyTo.senderName}</b>
-                    <span style="display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; font-size: 13px; opacity: 0.8;">${msg.replyTo.text}</span>
-                </div>
-            `;
-        }
-
-        let ticksHtml = '';
-        if (isMe) {
-            let tickColor = msg.status === 'read' ? '#3498db' : '#bdc3c7'; 
-            ticksHtml = `<span id="ticks-${msgKey}" style="color: ${tickColor}; font-size: 13px; margin-left: 4px; font-weight: bold; text-shadow: none;">✓✓</span>`;
-        }
-
-        bubbleDiv.innerHTML = `
-            ${replyHtml}
-            <div style="margin-bottom: 2px;">${msg.text}</div>
-            <div style="font-size: 10px; text-align: right; opacity: 0.7; margin-top: 4px; font-weight: bold;">
-                ${timeString} ${ticksHtml}
-            </div>
-        `;
-
-        bubbleDiv.ondblclick = (e) => {
-            e.stopPropagation(); 
-            if (typeof window.setReply === 'function') window.setReply(msgKey, msg.senderName, msg.text);
-        };
-
-        msgRow.appendChild(avatarDiv); 
-        msgRow.appendChild(bubbleDiv);
+        bubbleDiv.style.cssText = `background: ${isMe ? '#0f172a' : '#243341'}; color: white; padding: 8px 12px 4px 12px; border-radius: ${isMe ? '15px 15px 0 15px' : '15px 15px 15px 0'}; max-width: 210px; font-family: Arial; font-size: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); word-wrap: break-word; cursor: pointer;`;
         
-        if (messagesContainer) { 
-            messagesContainer.appendChild(msgRow); 
-            messagesContainer.scrollTop = messagesContainer.scrollHeight; 
-        }
+        bubbleDiv.innerHTML = renderBubble(msg, msgKey);
+
+        bubbleDiv.addEventListener('contextmenu', (e) => {
+            e.preventDefault(); e.stopPropagation();
+            if (typeof window.showChatContextMenu === 'function') window.showChatContextMenu(e.clientX, e.clientY, msgKey, msg, isMe);
+        });
+
+        msgRow.appendChild(avatarDiv); msgRow.appendChild(bubbleDiv);
+        if (messagesContainer) { messagesContainer.appendChild(msgRow); messagesContainer.scrollTop = messagesContainer.scrollHeight; }
     });
 
     chatRef.on('child_changed', (snap) => {
-        const updatedMsg = snap.val();
-        if (updatedMsg.sender === myUID) {
-            const tickElement = document.getElementById(`ticks-${snap.key}`);
-            if (tickElement) tickElement.style.color = updatedMsg.status === 'read' ? '#3498db' : '#bdc3c7';
+        const msg = snap.val();
+        if (msg.sender === myUID) {
+            const tick = document.getElementById(`ticks-${snap.key}`);
+            if (tick) tick.style.color = msg.status === 'read' ? '#3498db' : '#bdc3c7';
+        }
+        const bubble = document.getElementById(`msg-text-${snap.key}`);
+        if (bubble) bubble.parentElement.innerHTML = renderBubble(msg, snap.key);
+    });
+
+    // ✨ PANEL DISCORD Y BOTÓN
+    if (dmInput && !document.getElementById('dm-emoji-btn')) {
+        let emojiBtn = document.createElement('button');
+        emojiBtn.id = 'dm-emoji-btn';
+        emojiBtn.innerHTML = '😀';
+        emojiBtn.style.cssText = "background: transparent; border: none; font-size: 22px; cursor: pointer; padding: 5px 10px; transition: 0.2s; filter: grayscale(100%) opacity(0.7); outline: none;";
+        emojiBtn.onmouseover = () => emojiBtn.style.filter = 'grayscale(0%) opacity(1)';
+        emojiBtn.onmouseout = () => emojiBtn.style.filter = 'grayscale(100%) opacity(0.7)';
+        dmInput.parentNode.insertBefore(emojiBtn, dmInput.nextSibling);
+        dmInput.parentNode.style.position = 'relative';
+
+        const picker = document.createElement('div');
+        picker.id = 'dm-emoji-picker';
+        picker.style.cssText = "display: none; position: absolute; bottom: 60px; right: 20px; width: 432px; height: 350px; background: #2b2d31; border: 1px solid #1e1f22; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.6); z-index: 10000; flex-direction: column; overflow: hidden; font-family: Arial;";
+        
+        // Estructura Interna del Panel
+        picker.innerHTML = `
+            <div style="display: flex; background: #1e1f22; border-bottom: 1px solid #000;">
+                <div id="tab-btn-emotes" style="flex:1; padding: 10px; text-align: center; color: #fff; cursor: pointer; background: #313338; font-weight: bold; border-bottom: 2px solid #5865F2;">Emotes</div>
+                <div id="tab-btn-emojis" style="flex:1; padding: 10px; text-align: center; color: #aaa; cursor: pointer; border-bottom: 2px solid transparent;">Emojis</div>
+            </div>
+            
+            <div id="view-emotes" style="flex: 1; overflow-y: auto; padding: 10px; display: block;">
+    <div style="font-size: 11px; font-weight: bold; color: #949ba4; margin-bottom: 8px;">Most used</div>
+    <div id="emotes-recents-grid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0px; justify-items: stretch;"></div>
+    
+    <div style="height: 1px; background: #3f4147; margin: 10px 0;"></div>
+    
+    <div style="font-size: 11px; font-weight: bold; color: #949ba4; margin-bottom: 8px;">All emotes</div>
+    <div id="emotes-all-grid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0px; justify-items: stretch;"></div>
+</div>
+
+            <div id="view-emojis" style="flex: 1; overflow-y: hidden; display: none; flex-direction: column;">
+                <div id="emoji-subtabs" style="display: flex; background: #2b2d31; padding: 5px; border-bottom: 1px solid #1e1f22; gap: 0px; overflow-x: auto;"></div>
+                <div id="emoji-scroll-area" style="flex: 1; overflow-y: auto; padding: 10px;"></div>
+            </div>
+        `;
+        dmInput.parentNode.appendChild(picker);
+
+        // Lógica de Pestañas
+        const tEmotes = picker.querySelector('#tab-btn-emotes');
+        const tEmojis = picker.querySelector('#tab-btn-emojis');
+        const vEmotes = picker.querySelector('#view-emotes');
+        const vEmojis = picker.querySelector('#view-emojis');
+
+        tEmotes.onclick = () => { tEmotes.style.color='#fff'; tEmotes.style.background='#313338'; tEmotes.style.borderBottom='2px solid #5865F2'; tEmojis.style.color='#aaa'; tEmojis.style.background='transparent'; tEmojis.style.borderBottom='2px solid transparent'; vEmotes.style.display='block'; vEmojis.style.display='none'; };
+        tEmojis.onclick = () => { tEmojis.style.color='#fff'; tEmojis.style.background='#313338'; tEmojis.style.borderBottom='2px solid #5865F2'; tEmotes.style.color='#aaa'; tEmotes.style.background='transparent'; tEmotes.style.borderBottom='2px solid transparent'; vEmojis.style.display='flex'; vEmotes.style.display='none'; };
+
+        // Renderizar Emotes Internos
+        const renderEmotesGrid = () => {
+            const allGrid = picker.querySelector('#emotes-all-grid');
+            const recGrid = picker.querySelector('#emotes-recents-grid');
+            allGrid.innerHTML = ''; recGrid.innerHTML = '';
+            
+            const createBtn = (name) => {
+                let div = document.createElement('div');
+                div.style.cssText = "width: 48px; height: 48px; display: flex; justify-content: center; align-items: center; cursor: pointer; border-radius: 6px; transition: 0.1s;";
+                div.innerHTML = `<img src="${window.customEmotes[name]}" style="max-width: 32px; max-height: 32px;" title=":${name}:" onerror="this.src='assets/default pfp.png';">`;
+                div.onmouseover = () => div.style.background = '#404249';
+                div.onmouseout = () => div.style.background = 'transparent';
+                div.onclick = () => {
+                    dmInput.value += ` :${name}: `;
+                    window.saveRecentEmote(name);
+                    renderEmotesGrid(); // Actualiza recientes
+                    picker.style.display = 'none'; dmInput.focus();
+                };
+                return div;
+            };
+
+            Object.keys(window.customEmotes).forEach(name => allGrid.appendChild(createBtn(name)));
+            let recents = JSON.parse(localStorage.getItem('mbw_recent_emotes') || "[]");
+            if(recents.length === 0) recGrid.innerHTML = '<span style="color:#555; font-size:12px; grid-column: span 5;">No hay recientes</span>';
+            recents.forEach(name => { if(window.customEmotes[name]) recGrid.appendChild(createBtn(name)); });
+        };
+        renderEmotesGrid();
+
+        // Renderizar Emojis Estándar
+        const subTabs = picker.querySelector('#emoji-subtabs');
+        const scrollArea = picker.querySelector('#emoji-scroll-area');
+        window.emojiCategories.forEach(cat => {
+            // Subtab
+            let st = document.createElement('div');
+            st.innerHTML = cat.icon;
+            st.style.cssText = "padding: 5px; cursor: pointer; font-size: 16px; border-radius: 4px; transition: 0.2s;";
+            st.title = cat.name;
+            st.onmouseover = () => st.style.background = '#404249';
+            st.onmouseout = () => st.style.background = 'transparent';
+            st.onclick = () => { scrollArea.querySelector(`#cat-${cat.id}`).scrollIntoView({behavior: 'smooth'}); };
+            subTabs.appendChild(st);
+
+            // Categoria en scroll
+            let title = document.createElement('div');
+            title.id = `cat-${cat.id}`;
+            title.innerText = cat.name.toUpperCase();
+            title.style.cssText = "font-size: 11px; font-weight: bold; color: #949ba4; margin: 10px 0 8px 0;";
+            scrollArea.appendChild(title);
+
+            let grid = document.createElement('div');
+            grid.style.cssText = "display: grid; grid-template-columns: repeat(9, 1fr); gap: 0px;";
+            cat.items.forEach(emo => {
+                let eSpan = document.createElement('span');
+                eSpan.innerText = emo;
+                eSpan.style.cssText = "font-size: 32px; cursor: pointer; padding: 0px; border-radius: 4px; text-align: center;";
+                eSpan.onmouseover = () => eSpan.style.background = '#404249';
+                eSpan.onmouseout = () => eSpan.style.background = 'transparent';
+                eSpan.onclick = () => { dmInput.value += emo; picker.style.display = 'none'; dmInput.focus(); };
+                grid.appendChild(eSpan);
+            });
+            scrollArea.appendChild(grid);
+        });
+
+        // Toggle del panel
+        emojiBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); picker.style.display = picker.style.display === 'none' ? 'flex' : 'none'; };
+        document.addEventListener('click', (e) => { if (e.target !== emojiBtn && !picker.contains(e.target)) picker.style.display = 'none'; });
+    }
+
+    // ✨ OPTIMIZACIÓN ESCRIBIENDO... (THROTTLING)
+    if (dmInput && !dmInput.hasAttribute('data-typing-listener')) {
+        let typingTimeout; let isTyping = false;
+        dmInput.addEventListener('input', function() {
+            if (!currentChatId) return;
+            if (!isTyping) { isTyping = true; database.ref('typing_status/' + currentChatId + '/' + myUID).set(true); }
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => { isTyping = false; database.ref('typing_status/' + currentChatId + '/' + myUID).set(false); }, 2000);
+        });
+        dmInput.setAttribute('data-typing-listener', 'true');
+    }
+
+    let typingIndicator = document.getElementById('dm-typing-indicator');
+    if (!typingIndicator) {
+        typingIndicator = document.createElement('div');
+        typingIndicator.id = 'dm-typing-indicator';
+        typingIndicator.style.cssText = `position: absolute; bottom: 65px; left: 0; width: 100%; padding: 40px 15px 10px 15px; color: #2ecc71; font-size: 22px; font-style: italic; font-family: 'Pixeltype', sans-serif; background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%); pointer-events: none; box-sizing: border-box; text-shadow: 2px 2px 2px #000; z-index: 99; display: none; transition: opacity 0.3s;`;
+        if (activePanel) {
+            activePanel.style.position = 'relative'; 
+            activePanel.appendChild(typingIndicator);
+        }
+    }
+
+    window.typingListener = database.ref('typing_status/' + currentChatId + '/' + otherUid).on('value', (snap) => {
+        if (snap.val() === true) {
+            typingIndicator.innerText = `${otherName} está escribiendo...`;
+            typingIndicator.style.display = 'block';
+            if (messagesContainer) messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        } else {
+            typingIndicator.style.display = 'none';
         }
     });
-    
-    if (dmInput) dmInput.focus();
 };
 
 // ==========================================
@@ -1285,10 +1602,32 @@ window.startFriendListeners = function() {
     setTimeout(() => { isInitialLoad = false; }, 2000);
 };
 
+let typingTimeout; // Temporizador global
+
 function initMultiplayerModule() {
     setTimeout(initPresenceSystem, 1000);
     const dmInput = document.getElementById('full-dm-input');
-    if (dmInput) dmInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') sendPrivateMessage(); });
+    
+    if (dmInput) {
+        dmInput.addEventListener('keydown', function(e) { 
+            if (e.key === 'Enter') sendPrivateMessage(); 
+        });
+
+        // ✨ NUEVO: Detectar cuando el usuario escribe
+        dmInput.addEventListener('input', function() {
+            if (!currentChatId) return;
+            const myUID = localStorage.getItem('mbw_uid');
+            
+            // Avisar a Firebase que estamos escribiendo
+            database.ref('typing_status/' + currentChatId + '/' + myUID).set(true);
+
+            // Si dejamos de escribir por 2 segundos, avisar que paramos
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(() => {
+                database.ref('typing_status/' + currentChatId + '/' + myUID).set(false);
+            }, 2000);
+        });
+    }
 }
 
 if (document.readyState === "loading") {
@@ -1382,3 +1721,85 @@ document.addEventListener('keydown', function(e) {
         setTimeout(() => input.focus(), 10);
     }
 });
+
+
+// ==========================================
+// ✨ MENÚ CONTEXTUAL DE CHAT (VERSIÓN CORREGIDA)
+// ==========================================
+window.editingMsgKey = null; 
+
+window.showChatContextMenu = function(x, y, msgKey, msg, isMe) {
+    let menu = document.getElementById('chat-context-menu');
+    if (!menu) {
+        menu = document.createElement('div');
+        menu.id = 'chat-context-menu';
+        // ✨ FIX: Z-index extremo para que nada lo tape
+        menu.style.cssText = "position: fixed; background: #1e293b; border: 2px solid #34495e; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.8); z-index: 9999999; display: flex; flex-direction: column; overflow: hidden; font-family: Arial, sans-serif; font-size: 14px; min-width: 140px;";
+        document.body.appendChild(menu);
+        
+        // ✨ FIX: Cerrar con mousedown si hacemos clic fuera del menú
+        document.addEventListener('mousedown', (e) => { 
+            if (menu && !menu.contains(e.target)) menu.style.display = 'none'; 
+        });
+    }
+
+    menu.innerHTML = ''; 
+    
+    // Opcion 1: Responder
+    let replyBtn = document.createElement('div');
+    replyBtn.innerHTML = "↩️ Reply";
+    replyBtn.style.cssText = "padding: 10px 15px; cursor: pointer; color: white; border-bottom: 1px solid #34495e; transition: 0.2s;";
+    replyBtn.onmouseover = () => replyBtn.style.background = '#2c3e50';
+    replyBtn.onmouseout = () => replyBtn.style.background = 'transparent';
+    replyBtn.onclick = () => {
+        menu.style.display = 'none'; // Cerrar menú al hacer clic
+        if (typeof window.setReply === 'function' && !msg.isDeleted) window.setReply(msgKey, msg.senderName, msg.text);
+    };
+    menu.appendChild(replyBtn);
+
+    // Opciones 2 y 3: Editar y Borrar (Solo si es nuestro y no está borrado)
+    if (isMe && !msg.isDeleted) {
+        let editBtn = document.createElement('div');
+        editBtn.innerHTML = "✏️ Edit";
+        editBtn.style.cssText = "padding: 10px 15px; cursor: pointer; color: white; border-bottom: 1px solid #34495e; transition: 0.2s;";
+        editBtn.onmouseover = () => editBtn.style.background = '#2c3e50';
+        editBtn.onmouseout = () => editBtn.style.background = 'transparent';
+        editBtn.onclick = () => {
+            menu.style.display = 'none'; // Cerrar menú
+            const input = document.getElementById('full-dm-input');
+            if (input) {
+                input.value = msg.text; 
+                input.focus();
+                window.editingMsgKey = msgKey; 
+                let typingIndicator = document.getElementById('dm-typing-indicator');
+                if (typingIndicator) {
+                    typingIndicator.innerText = "Editando mensaje... (Enter para guardar)";
+                    typingIndicator.style.display = 'block';
+                    typingIndicator.style.color = "#f1c40f";
+                }
+            }
+        };
+        menu.appendChild(editBtn);
+
+        let deleteBtn = document.createElement('div');
+        deleteBtn.innerHTML = "🗑️ Delete";
+        deleteBtn.style.cssText = "padding: 10px 15px; cursor: pointer; color: #e74c3c; font-weight: bold; transition: 0.2s;";
+        deleteBtn.onmouseover = () => { deleteBtn.style.background = '#e74c3c'; deleteBtn.style.color = 'white'; };
+        deleteBtn.onmouseout = () => { deleteBtn.style.background = 'transparent'; deleteBtn.style.color = '#e74c3c'; };
+        deleteBtn.onclick = () => {
+            menu.style.display = 'none'; // Cerrar menú
+            if (window.currentChatId) {
+                database.ref('private_chats/' + currentChatId + '/' + msgKey).update({
+                    isDeleted: true,
+                    text: "🚫 Este mensaje fue eliminado"
+                });
+            }
+        };
+        menu.appendChild(deleteBtn);
+    }
+
+    // Posicionar el menú usando las coordenadas del ratón en la pantalla
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+    menu.style.display = 'flex';
+};

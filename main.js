@@ -1,3 +1,4 @@
+window.liveTimeEnabled = false; // Apagado por defecto
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
@@ -128,11 +129,19 @@ function toggleGrid(enabled) {
 
 function initializeWorldCache() {
     window.worldCache = [];
-    for (let x = 0; x < mbwom.scene.length; x++) {
-        for (let y = 0; y < mbwom.scene[x].length; y++) {
-            renderBlock(x, y);
+    
+    // ✨ FIX: Solo intentamos inicializar el caché si existe mbwom Y la escena ya tiene datos adentro
+    if (typeof mbwom !== 'undefined' && mbwom.scene && Array.isArray(mbwom.scene)) {
+        for (let x = 0; x < mbwom.scene.length; x++) {
+            // Un segundo seguro: verificamos que la columna 'x' también exista
+            if (mbwom.scene[x]) {
+                for (let y = 0; y < mbwom.scene[x].length; y++) {
+                    renderBlock(x, y);
+                }
+            }
         }
     }
+    
     worldDirty = true;
 }
 
@@ -311,6 +320,27 @@ function drawMobs() {
                 ctx.fillRect(screenX - (mobWidth/2), screenY - mobHeight - 4, mobWidth, 4);
                 ctx.fillStyle = hpPercent > 0.3 ? "#00FF00" : "#FF0000";
                 ctx.fillRect(screenX - (mobWidth/2), screenY - mobHeight - 4, mobWidth * hpPercent, 4);
+            }
+			
+			// ==========================================
+            // ✨ INDICADOR MULTIJUGADOR (MOB BLOQUEADO)
+            // ==========================================
+            let miNombre = localStorage.getItem('mbw_username') || "Player";
+            
+            // Si alguien más lo movió en los últimos 2 segundos, consideramos que lo tiene "agarrado"
+            if (mob.lockedBy && mob.lockedBy !== miNombre && mob.lastMoveTime && (Date.now() - mob.lastMoveTime < 500)) {
+                
+                // Pintamos un recuadro rojo suave encima del mob
+                ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
+                ctx.fillRect(screenX - (mobWidth / 2), screenY - mobHeight, mobWidth, mobHeight);
+                
+                // Mostramos un candado y el nombre de quién lo está moviendo
+                ctx.fillStyle = "#FF5555";
+                ctx.font = "bold 10px Arial";
+                ctx.textAlign = "center";
+                ctx.shadowColor = "black"; ctx.shadowBlur = 3;
+                ctx.fillText("🔒 " + mob.lockedBy, screenX, screenY - mobHeight - 22);
+                ctx.shadowBlur = 0;
             }
         } catch (e) {
             console.error("Mob inválido saltado");
@@ -711,10 +741,62 @@ function mainLoop() {
     if (!window.spectatingTargetId) {
         if (typeof mineAndPlace === 'function') mineAndPlace();
     }
+// 1. Dibujamos el mundo y personajes (tu código actual)
     drawWorld();
-    drawMobs(); // ✨ AÑADIMOS ESTA LÍNEA AQUÍ
-	drawPlayer();
-    drawUI();
+    if (typeof drawMobs === 'function') drawMobs(); 
+    drawPlayer();
+
+    // ==========================================
+    // ✨ CICLO DE DÍA Y NOCHE (LIVE TIME INTEGRADO)
+    // ==========================================
+    const liveTimeToggle = document.getElementById('live-time-toggle');
+    const timeInput = document.getElementById('gr-time');
+
+    if (liveTimeToggle && liveTimeToggle.checked && timeInput) {
+        
+        // 1. Hacemos que el tiempo (0-99) avance automáticamente
+        if (typeof window.lastTimeUpdate === 'undefined') window.lastTimeUpdate = Date.now();
+        
+        let ahora = Date.now();
+        // 12000ms = 12 segundos (12s * 100 ticks = 1200s = 20 minutos)
+        if (ahora - window.lastTimeUpdate >= 12000) { 
+            let nuevoTiempo = Number(timeInput.value) + 1;
+            if (nuevoTiempo > 99) nuevoTiempo = 0; // Reinicia al amanecer
+            timeInput.value = nuevoTiempo;
+            window.lastTimeUpdate = ahora;
+		}
+
+        // 2. Calculamos la oscuridad (Progreso del 0.0 al 1.0)
+        let tiempo = Number(timeInput.value);
+        let progreso = tiempo / 99; 
+        
+        let oscuridad = 0;
+        let oscuridadMaxima = 0.75; // 75% negro
+        
+        // 🌅 Atardecer (Oscurece entre el 45 y 50)
+        if (progreso > 0.45 && progreso <= 0.5) {
+            oscuridad = ((progreso - 0.45) / 0.05) * oscuridadMaxima;
+        } 
+        // 🌌 Noche Cerrada (Entre el 50 y el 90)
+        else if (progreso > 0.5 && progreso <= 0.9) {
+            oscuridad = oscuridadMaxima;
+        } 
+        // 🌄 Amanecer (Aclara entre el 90 y el 99)
+        else if (progreso > 0.9) {
+            oscuridad = oscuridadMaxima - (((progreso - 0.9) / 0.1) * oscuridadMaxima);
+        }
+
+        // 3. Pintamos el cielo oscuro sobre el canvas
+        if (oscuridad > 0) {
+            ctx.save();
+            ctx.fillStyle = `rgba(5, 5, 20, ${oscuridad})`; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.restore();
+        }
+    }
+
+    // 2. DESPUÉS de la oscuridad, dibujamos la interfaz
+    if (typeof drawUI === 'function') drawUI();
     
 	// ✨ DIBUJAR CURSORES MULTIJUGADOR
     if (typeof isMultiplayer !== 'undefined' && isMultiplayer && window.networkCursors) {
@@ -723,7 +805,7 @@ function mainLoop() {
             let cursor = window.networkCursors[autor];
             
             // Si el amigo no ha movido el ratón en 5 segundos, ocultamos su cursor
-            if (ahora - cursor.lastUpdate > 5000) continue; 
+            if (ahora - cursor.lastUpdate > 60000) continue; 
 
             // Convertimos sus coordenadas del mundo a la pantalla
             let screenX = (cursor.x - camera.x) * tileSize;
@@ -946,3 +1028,70 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
+
+// ✨ FUNCIONES PARA EL MENÚ HELP
+window.toggleHelpMenu = function() {
+    document.getElementById("help-dropdown").classList.toggle("show");
+};
+
+window.closeHelpMenu = function() {
+    let dropdown = document.getElementById("help-dropdown");
+    if (dropdown && dropdown.classList.contains('show')) {
+        dropdown.classList.remove("show");
+    }
+};
+
+// Cerrar el menú si el usuario hace clic fuera de él
+document.addEventListener('click', function(event) {
+    if (!event.target.matches('.icon-btn') && !event.target.closest('.dropdown-container')) {
+        window.closeHelpMenu();
+    }
+});
+
+
+// ==========================================
+// ✨ ZOOM INTELIGENTE CON SCROLL EN EL CANVAS
+// ==========================================
+const canvasElement = document.getElementById('canvas');
+
+if (canvasElement) {
+    canvasElement.addEventListener('wheel', function(e) {
+        e.preventDefault(); 
+
+        let mX = (typeof mouse !== 'undefined' && mouse.canvasX !== null) ? mouse.canvasX : canvasElement.width / 2;
+        let mY = (typeof mouse !== 'undefined' && mouse.canvasY !== null) ? mouse.canvasY : canvasElement.height / 2;
+
+        // 1. Calculamos la posición EXACTA del mundo bajo el cursor
+        let exactWorldX = camera.x + (mX / tileSize);
+        let exactWorldY = camera.y + (mY / tileSize);
+
+        let zoomed = false;
+        if (e.deltaY < 0) {
+            if (currentZoomIndex < ZOOM_LEVELS.length - 1) { currentZoomIndex++; zoomed = true; }
+        } else {
+            if (currentZoomIndex > 0) { currentZoomIndex--; zoomed = true; }
+        }
+
+        if (zoomed) {
+            let nextZoom = ZOOM_LEVELS[currentZoomIndex];
+            let newTileSize = BASE_TILE_SIZE * (nextZoom / 100);
+
+            // 2. Ajustamos la cámara PRIMERO para el nuevo centro
+            camera.x = exactWorldX - (mX / newTileSize);
+            camera.y = exactWorldY - (mY / newTileSize);
+
+            // 3. Llamamos a tu función de interfaz (esto actualiza tileSize globalmente y REDONDEA la cámara a enteros)
+            updateZoomSlider(currentZoomIndex);
+
+            // 4. ✨ EL FIX: Forzamos al ratón a recalcular su posición instantáneamente con el nuevo tamaño
+            if (typeof mouse !== 'undefined' && mouse.canvasX !== null) {
+                mouse.gridX = Math.floor(mouse.canvasX / tileSize);
+                mouse.gridY = Math.floor(mouse.canvasY / tileSize);
+                mouse.calculateCoordinates();
+            }
+
+            if (typeof worldDirty !== 'undefined') worldDirty = true;
+        }
+    }, { passive: false });
+}

@@ -6,7 +6,7 @@ const clipboard = {
     // Copia el área seleccionada
     copy: function() {
         if (!selection.p1 || !selection.p2) {
-            console.log("¡Selecciona un área primero!");
+            console.log("Select an area first.");
             return;
         }
 
@@ -52,7 +52,7 @@ const clipboard = {
         const startX = mouse.worldX;
         const startY = mouse.worldY;
 
-        console.log(`Pegando en X:${startX} Y:${startY}`);
+        console.log(`Pasted in X:${startX} Y:${startY}`);
 
         for (let i = 0; i < this.data.length; i++) {
             for (let j = 0; j < this.data[i].length; j++) {

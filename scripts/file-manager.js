@@ -349,7 +349,7 @@ saveLocal: async function(isAutoSave = false) {
     if (!isAutoSave) {
         alert(`¡Mundo "${data.name}" guardado exitosamente en tu navegador!`);
     } else {
-        console.log(`[Auto-Save] Mundo "${data.name}" guardado a las ${new Date().toLocaleTimeString()}`);
+        console.log(`[Auto-Save] Mundo "${data.name}" saving at ${new Date().toLocaleTimeString()}`);
         const toast = document.createElement('div');
         toast.innerText = "💾 Auto-saved";
         toast.style = "position:fixed; bottom:20px; right:20px; background:rgba(0,0,0,0.8); color:#00FF00; padding:10px 20px; border-radius:5px; z-index:999999; font-weight:bold; border:2px solid #004d00; pointer-events:none;";

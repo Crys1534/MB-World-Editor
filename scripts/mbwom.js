@@ -62,9 +62,11 @@ const mbwom = {
 		}
 	},
 	getBlock: function (x, y) {
-		if (this.scene[x]) {
+        // ✨ FIX: Prevenimos el crasheo si la escena aún no carga
+		if (this.scene && this.scene[x]) {
 			return this.scene[x][y];
 		}
+        return undefined; // Si no hay mapa o no hay columna, regresa undefined
 	},
 	setBlock: function (x, y, id) {
 		if (!this.scene[x]) {
