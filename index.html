@@ -669,9 +669,8 @@
 	<button class="tool-btn" id="tool-magic" onclick="selectTool('magic')" title="Magic Wand">🪄</button>
     <button class="tool-btn" id="tool-lasso" onclick="selectTool('lasso')" title="Free form">➰</button>
     <button class="tool-btn" id="tool-eyedropper" onclick="selectTool('eyedropper')" title="Gotero">💧</button>
-    <div class="separator" style="width: 80%; height: 1px; background: #444; margin: 5px 0;"></div>
+    <div class="separator" style="width: 80%; height: 1px; background: #444; margin: 0px 0;"></div>
     <button class="tool-btn" onclick="takeScreenshot()" title="Screenshot">📷</button>
-    <button class="tool-btn" onclick="toggleConsole()" title="/tp">📍</button>
  </div>
 
  <div id="workspace">
@@ -695,11 +694,12 @@
   <canvas id="weather-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5;"></canvas>
   <canvas id="grid-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10;"></canvas>
  
-<div id="world-info-sidebar" style="display: flex;
+<div id="world-info-sidebar" style="
+  display: flex;
   position: absolute;
   right: 0px;
-  top: 9px;
-  bottom: 27px;
+  top: 0px;
+  bottom: 0px;
   width: 250px;
   z-index: 100;
   flex-direction: column;
@@ -1386,8 +1386,8 @@ window.addEventListener('DOMContentLoaded', () => {
             </p>
             
             <div style="position: absolute; bottom: 10px; left: 15px; font-size: 11px; color: gray; font-family: monospace;">
-                Last Update: April 9, 2026<br>
-                v2.3 - Snapshot 23
+                Last Update: April 10, 2026<br>
+                v2.3 - Snapshot 24
             </div>
             <div style="position: absolute; bottom: 10px; right: 15px; font-size: 12px; color: gray; font-weight: bold;">
                 2026
@@ -1400,16 +1400,16 @@ window.addEventListener('DOMContentLoaded', () => {
 
  <script src="scripts/ui-handler.js"></script>
  <script src="scripts/mbwom.js"></script>
+ <script src="scripts/textures.js"></script>
+ <script src="scripts/tools.js"></script>
+<script src="scripts/structures.js"></script>
  <script src="scripts/mbw-algorithm.js"></script>
  <script src="scripts/history.js"></script>
  <script src="scripts/input.js"></script>
  <script src="scripts/file-manager.js"></script>
- <script src="scripts/textures.js"></script>
  <script src="scripts/rendering.js"></script>
  <script src="scripts/clipboard.js"></script>
  <script src="main.js"></script>
- <script src="scripts/tools.js"></script>
-<script src="scripts/structures.js"></script>
 <script src="scripts/custom-items.js"></script>
  <script src="scripts/audio-manager.js"></script>
  <script src="scripts/file-menu.js"></script>

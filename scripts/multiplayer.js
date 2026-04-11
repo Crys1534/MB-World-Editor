@@ -981,35 +981,94 @@ window.setReply = function(msgId, senderName, text) {
     replyingTo = { msgId, senderName, text };
     
     let replyPreview = document.getElementById('full-chat-reply-preview');
+    const dmInput = document.getElementById('full-dm-input');
+
     if (!replyPreview) {
         replyPreview = document.createElement('div');
         replyPreview.id = 'full-chat-reply-preview';
+        
+        // Estética pegada al input
         replyPreview.style.cssText = `
-            background: rgba(0,0,0,0.2); border-left: 4px solid #f1c40f;
-            padding: 10px 15px; margin: 0; border-radius: 8px 8px 0 0;
-            display: flex; justify-content: space-between; align-items: center;
-            font-family: Arial, sans-serif; font-size: 13px; color: #ecf0f1;
+            background: var(--bg-dark, rgba(0,0,0,0.4)); 
+            border-left: 4px solid var(--accent, #3498db);
+            border-top: 1px solid var(--border, #3e3e42);
+            border-right: 1px solid var(--border, #3e3e42);
+            border-radius: 8px 8px 0 0; /* Solo redondeado arriba */
+            padding: 8px 12px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            font-family: Arial, sans-serif; 
+            color: var(--text, #ecf0f1);
+            width: 100%;
+            box-sizing: border-box;
+            border-bottom: 1px solid var(--bg-panel);
         `;
-        const chatActive = document.getElementById('full-chat-active');
-        const inputArea = chatActive.querySelector('div[style*="background: #34495e"]');
-        chatActive.insertBefore(replyPreview, inputArea);
+    }
+
+    if (dmInput) {
+        // ✨ LA MAGIA DEL WRAPPER: Agrupamos el input para apilar la respuesta encima
+        let wrapper = document.getElementById('dm-input-wrapper');
+        
+        if (!wrapper) {
+            wrapper = document.createElement('div');
+            wrapper.id = 'dm-input-wrapper';
+            // Flex 1 hace que este grupo ocupe el espacio del input, dejando los botones a la derecha intactos
+            wrapper.style.cssText = 'display: flex; flex-direction: column; flex: 1;';
+            
+            // Metemos el wrapper en el lugar exacto del input
+            dmInput.parentNode.insertBefore(wrapper, dmInput);
+            // Metemos el input dentro del wrapper
+            wrapper.appendChild(dmInput);
+        }
+        
+        // Colocamos la vista previa ADENTRO del wrapper, JUSTO ARRIBA del input
+        wrapper.insertBefore(replyPreview, dmInput);
+        
+        // Le borramos las esquinas redondeadas superiores al input para que parezcan una sola burbuja unida
+        dmInput.style.borderTopLeftRadius = '0';
+        dmInput.style.borderTopRightRadius = '0';
+        dmInput.style.borderTop = 'none';
     }
     
     replyPreview.style.display = 'flex';
+    
+    // Procesamiento de seguridad y emotes
+    let safeName = typeof window.escapeHTML === 'function' ? window.escapeHTML(senderName) : senderName;
+    let safeText = typeof window.escapeHTML === 'function' ? window.escapeHTML(text) : text;
+    let emotedText = typeof window.parseEmotes === 'function' ? window.parseEmotes(safeText) : safeText;
+
     replyPreview.innerHTML = `
-        <div style="overflow: hidden;">
-            <div style="color: #f1c40f; font-weight: bold; font-size: 14px;">Respondiendo a ${senderName}</div>
-            <div style="opacity: 0.7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 16px; font-family: 'Pixeltype'">${text}</div>
+        <div style="overflow: hidden; flex: 1;">
+            <div style="color: var(--accent, #3498db); font-weight: bold; font-size: 13px; margin-bottom: 4px;">Respondiendo a ${safeName}</div>
+            <div style="opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 15px; font-family: 'Pixeltype', sans-serif;">
+                ${emotedText}
+            </div>
         </div>
-        <span onclick="cancelReply()" style="cursor: pointer; font-size: 24px; margin-left: 10px; color: #e74c3c;">&times;</span>
+        <span onclick="cancelReply()" style="cursor: pointer; font-size: 24px; margin-left: 10px; color: var(--text-muted, #888); font-weight: bold; padding: 0 5px;" title="Cancelar">&times;</span>
     `;
-    document.getElementById('full-dm-input').focus();
+    
+    if (dmInput) {
+        if (typeof window.moveCursorToEnd === 'function') {
+            window.moveCursorToEnd(dmInput);
+        } else {
+            dmInput.focus();
+        }
+    }
 };
 
 window.cancelReply = function() {
     replyingTo = null;
     const preview = document.getElementById('full-chat-reply-preview');
     if (preview) preview.style.display = 'none';
+    
+    const dmInput = document.getElementById('full-dm-input');
+    if (dmInput) {
+        // Le devolvemos su forma original a la caja de texto al cancelar
+        dmInput.style.borderTopLeftRadius = '';
+        dmInput.style.borderTopRightRadius = '';
+        dmInput.style.borderTop = ''; 
+    }
 };
 
 window.sendPrivateMessage = function() {
@@ -1088,23 +1147,31 @@ window.renderChatList = function(container) {
             if (sorted.length === 0) { container.innerHTML = '<p style="color: #bdc3c7; text-align: center; font-size: 24px; margin-top: 20px;">No friends or active chats.</p>'; return; }
 
             sorted.forEach(chat => {
-                let unreadBadge = (chat.unreadCount && chat.unreadCount > 0) ? `<div style="background: #e74c3c; color: white; font-size: 14px; font-weight: bold; padding: 2px 8px; border-radius: 12px; margin-left: auto; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${chat.unreadCount}</div>` : '';
+                let unreadBadge = (chat.unreadCount && chat.unreadCount > 0) ? `<div style="background: var(--danger, #e74c3c); color: white; font-size: 14px; font-weight: bold; padding: 2px 8px; border-radius: 12px; margin-left: auto; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${chat.unreadCount}</div>` : '';
                 let msgStyle = chat.lastMsg === "" ? "font-style: italic; opacity: 0.6;" : "";
                 
                 let isActive = currentChatPartner && currentChatPartner.uid === chat.uid;
-                let bgStyle = isActive ? 'rgba(52, 152, 219, 0.4)' : 'rgba(0,0,0,0.3)';
-                let borderStyle = isActive ? '4px solid #f1c40f' : '4px solid #3498db';
+                let bgStyle = isActive ? 'var(--bg-hover, rgba(255,255,255,0.1))' : 'transparent';
+                let borderStyle = isActive ? '4px solid var(--accent, #f1c40f)' : '4px solid transparent';
 
-                // ✨ Protección contra comillas en los nombres que rompen los botones
                 let safeName = chat.name.replace(/'/g, "\\'");
 
+                // ✨ NUEVO: Detectar si está online
+                let isOnline = window.lastKnownUsers && window.lastKnownUsers[chat.uid];
+                let statusColor = isOnline ? 'var(--success, #2ecc71)' : 'var(--text-muted, #7f8c8d)';
+
                 container.innerHTML += `
-                    <div style="background: ${bgStyle}; padding: 12px; display: flex; align-items: center; gap: 12px; border-radius: 0px; border-left: ${borderStyle}; cursor: pointer; transition: 0.2s; margin-bottom: 1px;" onmouseover="this.style.background='rgba(52, 152, 219, 0.2)'" onmouseout="this.style.background='${bgStyle}'" onclick="openPrivateChat('${chat.uid}', '${safeName}', '${chat.pfp}')">
-                        <div style="width: 45px; height: 45px; border-radius: 50%; background-image: url('${chat.pfp}'); background-size: cover; background-position: center; border: 2px solid #FFF; flex-shrink: 0;"></div>
+                    <div style="background: ${bgStyle}; padding: 12px; display: flex; align-items: center; gap: 12px; border-radius: 0px; border-left: ${borderStyle}; border-bottom: 1px solid var(--border); cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='var(--bg-hover, rgba(255,255,255,0.1))'" onmouseout="this.style.background='${bgStyle}'" onclick="openPrivateChat('${chat.uid}', '${safeName}', '${chat.pfp}')">
+                        
+                        <div style="position: relative; width: 45px; height: 45px; flex-shrink: 0;">
+                            <div style="width: 100%; height: 100%; border-radius: 50%; background-image: url('${chat.pfp}'); background-size: cover; background-position: center; border: 2px solid var(--border);"></div>
+                            <div style="position: absolute; bottom: -2px; right: -2px; width: 14px; height: 14px; background-color: ${statusColor}; border: 3px solid var(--bg-panel); border-radius: 50%; box-sizing: border-box; box-shadow: 0 1px 2px rgba(0,0,0,0.3);"></div>
+                        </div>
+
                         <div style="flex: 1; overflow: hidden; display: flex; align-items: center;">
                             <div style="flex: 1; overflow: hidden;">
-                                <div style="color: white; font-size: 24px; font-family: 'Pixeltype', sans-serif;">${chat.name}</div>
-                                <div style="color: #bdc3c7; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: Arial; ${msgStyle}">${chat.lastMsg}</div>
+                                <div style="color: var(--text-title, white); font-size: 24px; font-family: 'Pixeltype', sans-serif;">${chat.name}</div>
+                                <div style="color: var(--text-muted, #bdc3c7); font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: Arial; ${msgStyle}">${chat.lastMsg}</div>
                             </div>
                             ${unreadBadge}
                         </div>
@@ -1121,14 +1188,7 @@ window.renderChatList = function(container) {
 
 // 1. TUS EMOTES INTERNOS (Cambia las URLs por tus imágenes reales)
 window.customEmotes = {
-    "gg": "assets/emote_gg.png",
-    "rip": "assets/emote_rip.png",
-    "pog": "assets/emote_pog.png",
-    "heart": "assets/emote_heart.png",
-    "troll": "assets/emote_troll.png",
-    "wow": "assets/emote_wow.png",
-    "mad": "assets/emote_mad.png",
-    "happy": "assets/emote_happy.png"
+    "minifrank": "assets/emote_minifrank.png",
 };
 
 // 2. CATEGORÍAS DE EMOJIS ESTÁNDAR (ARSENAL COMPLETO)
@@ -1191,10 +1251,11 @@ window.saveRecentEmote = function(emoteName) {
 };
 
 // ==========================================
-// ✨ EL CHAT Y EL PANEL DISCORD
+// ✨ EL CHAT Y EL PANEL DISCORD (CONSOLIDADO)
 // ==========================================
 window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/default pfp.png") {
     
+    // 1. Limpieza de listeners anteriores
     if (currentChatListener && currentChatId) {
         database.ref('private_chats/' + currentChatId).off('child_added', currentChatListener);
         database.ref('private_chats/' + currentChatId).off('child_changed');
@@ -1205,10 +1266,12 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
 
     if (typeof window.openMpSidebar === 'function') window.openMpSidebar('chats');
 
+    // 2. Configuración inicial del chat actual
     const myUID = localStorage.getItem('mbw_uid');
     currentChatId = myUID < otherUid ? myUID + "_" + otherUid : otherUid + "_" + myUID;
     currentChatPartner = { uid: otherUid, name: otherName, pfp: otherPfp };
 
+    // Reiniciar contador de no leídos
     database.ref('user_chats/' + myUID + '/' + otherUid).update({ unreadCount: 0 });
 
     const placeholder = document.getElementById('full-chat-placeholder');
@@ -1227,47 +1290,93 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
     const listContainer = document.getElementById('full-chat-list-container');
     if (listContainer) renderChatList(listContainer);
 
-    // ✨ SEMÁFORO DE SONIDO (Evita la metralleta al cargar)
+    // 3. ✨ BOTÓN FLOTANTE DE SCROLL (NUEVOS MENSAJES)
+    let scrollBtn = document.getElementById('chat-scroll-bottom-btn');
+    if (!scrollBtn) {
+        scrollBtn = document.createElement('button');
+        scrollBtn.id = 'chat-scroll-bottom-btn';
+        scrollBtn.innerHTML = '⬇️ Nuevos';
+        scrollBtn.style.cssText = 'display: none; position: absolute; bottom: 80px; right: 20px; background: var(--accent, #3498db); color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.4); font-weight: bold; font-family: Arial; z-index: 100; transition: transform 0.2s;';
+        scrollBtn.onmouseover = () => scrollBtn.style.transform = 'scale(1.05)';
+        scrollBtn.onmouseout = () => scrollBtn.style.transform = 'scale(1)';
+        scrollBtn.onclick = () => {
+            if (messagesContainer) messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            scrollBtn.style.display = 'none';
+        };
+        const mainView = document.getElementById('mp-full-chat-view');
+        if (mainView) mainView.appendChild(scrollBtn);
+    }
+
+    // Detectar cuando el usuario hace scroll manual para ocultar el botón
+    if (messagesContainer) {
+        messagesContainer.onscroll = () => {
+            let isAtBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < 20;
+            if (isAtBottom && scrollBtn) scrollBtn.style.display = 'none';
+        };
+    }
+
+    // 4. Semáforo de historial y fechas
     let isHistoryLoaded = false;
     const chatRef = database.ref('private_chats/' + currentChatId);
     chatRef.once('value').then(() => { isHistoryLoaded = true; });
 
     let lastRenderedDate = ""; 
     
-    // ✨ RENDERIZADO DE MENSAJES
+    // 5. ✨ CONSTRUCTOR DE BURBUJAS DE MENSAJE (CON REACCIONES Y RESPUESTAS)
     const renderBubble = (msg, msgKey) => {
         const isMe = msg.sender === myUID;
         const date = new Date(msg.timestamp || Date.now());
         const timeString = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 
-        // Sanitización y Emotes
         let textToRender = "";
         let extraStyle = "";
 
+        // Sanitización y Parseo
         if (msg.isDeleted) {
             textToRender = "🚫 Este mensaje fue eliminado";
             extraStyle = "font-style: italic; opacity: 0.6;";
         } else {
             let safeText = window.escapeHTML(msg.text);
-            let emotedText = window.parseEmotes(safeText); // Convertir :nombres: a imágenes
-            
+            let emotedText = window.parseEmotes(safeText); 
             textToRender = emotedText.replace(/(?:x:\s*)?(-?\d+)\s*(?:,|y:)\s*(-?\d+)/gi, 
-                '<span style="color: #3498db; text-decoration: underline; font-weight: bold; cursor: pointer;" onclick="if(window.camera !== undefined){camera.x=$1; camera.y=$2; window.worldDirty=true;} event.stopPropagation();" title="Teletransportar">[$1, $2]</span>'
+                '<span style="color: var(--accent, #3498db); text-decoration: underline; font-weight: bold; cursor: pointer;" onclick="if(window.camera !== undefined){camera.x=$1; camera.y=$2; window.worldDirty=true;} event.stopPropagation();" title="Teletransportar">[$1, $2]</span>'
             );
             if (msg.isEdited) textToRender += ' <span style="font-size: 11px; opacity: 0.6; margin-left: 6px;">(editado)</span>';
         }
 
+        // Respuestas (Reply)
         let replyHtml = '';
         if (msg.replyTo) {
             replyHtml = `
-                <div style="background: rgba(0,0,0,0.15); border-left: 3px solid #f1c40f; padding: 5px 8px; margin-bottom: 8px; border-radius: 4px; font-family: Arial;">
-                    <b style="display: block; font-size: 11px; color: #f1c40f;">${window.escapeHTML(msg.replyTo.senderName)}</b>
+                <div style="background: rgba(0,0,0,0.15); border-left: 3px solid var(--accent, #f1c40f); padding: 5px 8px; margin-bottom: 8px; border-radius: 4px; font-family: Arial;">
+                    <b style="display: block; font-size: 11px; color: var(--accent, #f1c40f);">${window.escapeHTML(msg.replyTo.senderName)}</b>
                     <span style="display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; font-size: 13px; opacity: 0.8;">${window.parseEmotes(window.escapeHTML(msg.replyTo.text))}</span>
                 </div>
             `;
         }
 
-        let ticksHtml = isMe ? `<span id="ticks-${msgKey}" style="color: ${msg.status === 'read' ? '#3498db' : '#bdc3c7'}; font-size: 13px; margin-left: 4px; font-weight: bold;">✓✓</span>` : '';
+        // ✨ MAGIA: RENDERIZAR REACCIONES (AFUERA Y CLICKEABLES)
+        let reactionsHtml = '';
+        if (msg.reactions && !msg.isDeleted) {
+            let counts = {};
+            let myReacts = {}; // Rastrear qué puse yo
+            for (let uid in msg.reactions) {
+                let e = msg.reactions[uid];
+                counts[e] = (counts[e] || 0) + 1;
+                if (uid === myUID) myReacts[e] = true;
+            }
+            let badges = '';
+            for (let e in counts) {
+                // Si yo puse la reacción, se pinta con el color de acento
+                let highlight = myReacts[e] ? 'border-color: var(--accent, #3498db); background: var(--bg-dark, #1e1e1e);' : 'border-color: var(--border, #3e3e42); background: var(--bg-panel, #252526);';
+                
+                badges += `<span onclick="window.toggleReaction('${msgKey}', '${e}'); event.stopPropagation();" style="${highlight} border-width: 1px; border-style: solid; border-radius: 12px; padding: 2px 6px; font-size: 11px; display: inline-flex; align-items: center; gap: 3px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: transform 0.1s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">${e} <span style="font-size: 10px; opacity: 0.8;">${counts[e]}</span></span>`;
+            }
+            // Posicionamiento absoluto afuera de la burbuja
+            reactionsHtml = `<div style="position: absolute; bottom: -12px; right: -5px; display: flex; flex-wrap: wrap; gap: 4px; z-index: 5;">${badges}</div>`;
+        }
+
+        let ticksHtml = isMe ? `<span id="ticks-${msgKey}" style="color: ${msg.status === 'read' ? 'var(--accent, #3498db)' : 'var(--text-muted, #bdc3c7)'}; font-size: 13px; margin-left: 4px; font-weight: bold;">✓✓</span>` : '';
 
         return `
             ${replyHtml}
@@ -1275,44 +1384,51 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
             <div style="font-size: 10px; text-align: right; opacity: 0.7; margin-top: 4px; font-weight: bold;">
                 ${timeString} ${ticksHtml}
             </div>
+            ${reactionsHtml}
         `;
     };
 
+    // 6. ✨ RECEPCIÓN DE MENSAJES (Nuevos)
     currentChatListener = chatRef.on('child_added', (snap) => {
         const msg = snap.val();
         const msgKey = snap.key;
         const isMe = msg.sender === myUID;
 
+        // Marcar como leído si estoy viendo el chat
         if (!isMe && activePanel && activePanel.offsetWidth > 0 && currentChatPartner.uid === otherUid) {
             if (msg.status !== 'read') database.ref('private_chats/' + currentChatId + '/' + msgKey).update({ status: 'read' });
             if (isHistoryLoaded && typeof audioManager !== 'undefined') audioManager.playTone(600, 'sine', 0.05, 0.1);
         }
 
+        // Separador de Fechas
         const date = new Date(msg.timestamp || Date.now());
         const today = new Date();
         const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
 
         let dateString = "";
-        if (date.toDateString() === today.toDateString()) dateString = "Today";
-        else if (date.toDateString() === yesterday.toDateString()) dateString = "Yesterday";
-        else dateString = date.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+        if (date.toDateString() === today.toDateString()) dateString = "Hoy";
+        else if (date.toDateString() === yesterday.toDateString()) dateString = "Ayer";
+        else dateString = date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
 
         if (dateString !== lastRenderedDate) {
             const sepDiv = document.createElement('div');
             sepDiv.style.textAlign = 'center'; sepDiv.style.margin = '15px 0'; sepDiv.style.width = '100%';
-            sepDiv.innerHTML = `<span style="background: rgba(0,0,0,0.5); color: #ecf0f1; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-family: Arial, sans-serif; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.4); text-transform: capitalize;">${dateString}</span>`;
+            sepDiv.innerHTML = `<span style="background: var(--bg-panel, rgba(0,0,0,0.5)); color: var(--text, #ecf0f1); padding: 4px 12px; border-radius: 12px; font-size: 11px; font-family: Arial, sans-serif; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.4); text-transform: capitalize;">${dateString}</span>`;
             if (messagesContainer) messagesContainer.appendChild(sepDiv);
             lastRenderedDate = dateString; 
         }
 
+        // ✨ FIX: Dejamos más espacio abajo (margin-bottom: 22px) si hay reacciones para que no choquen
+        const hasReactions = msg.reactions && !msg.isDeleted;
         const msgRow = document.createElement('div');
-        msgRow.style.cssText = `display: flex; align-items: flex-end; gap: 8px; margin-bottom: 10px; width: 100%; flex-direction: ${isMe ? 'row-reverse' : 'row'};`;
+        msgRow.style.cssText = `display: flex; align-items: flex-end; gap: 8px; margin-bottom: ${hasReactions ? '22px' : '10px'}; width: 100%; flex-direction: ${isMe ? 'row-reverse' : 'row'}; transition: margin 0.2s;`;
         
         const avatarDiv = document.createElement('div');
-        avatarDiv.style.cssText = `width: 32px; height: 32px; border-radius: 50%; background-image: url('${isMe ? localStorage.getItem('mbw_profile_pic') : currentChatPartner.pfp}'); background-size: cover; flex-shrink: 0;`;
+        avatarDiv.style.cssText = `width: 32px; height: 32px; border-radius: 50%; background-image: url('${isMe ? localStorage.getItem('mbw_profile_pic') : currentChatPartner.pfp}'); background-size: cover; flex-shrink: 0; border: 1px solid var(--border);`;
 
         const bubbleDiv = document.createElement('div');
-        bubbleDiv.style.cssText = `background: ${isMe ? '#0f172a' : '#243341'}; color: white; padding: 8px 12px 4px 12px; border-radius: ${isMe ? '15px 15px 0 15px' : '15px 15px 15px 0'}; max-width: 210px; font-family: Arial; font-size: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); word-wrap: break-word; cursor: pointer;`;
+        // ✨ FIX: position: relative y overflow: visible para permitir que la reacción flote afuera de la burbuja
+        bubbleDiv.style.cssText = `position: relative; overflow: visible; background: ${isMe ? 'var(--input-bg, #0f172a)' : 'var(--bg-panel, #243341)'}; color: var(--text, white); padding: 8px 12px 4px 12px; border-radius: ${isMe ? '15px 15px 0 15px' : '15px 15px 15px 0'}; max-width: 210px; font-family: Arial; font-size: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); word-wrap: break-word; cursor: pointer; border: 1px solid var(--border, transparent);`;
         
         bubbleDiv.innerHTML = renderBubble(msg, msgKey);
 
@@ -1322,20 +1438,39 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
         });
 
         msgRow.appendChild(avatarDiv); msgRow.appendChild(bubbleDiv);
-        if (messagesContainer) { messagesContainer.appendChild(msgRow); messagesContainer.scrollTop = messagesContainer.scrollHeight; }
+        
+        if (messagesContainer) {
+            messagesContainer.appendChild(msgRow);
+            
+            // Auto-scroll Inteligente
+            let isAtBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < 60;
+            if (isMe || isAtBottom || !isHistoryLoaded) {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                if (scrollBtn) scrollBtn.style.display = 'none';
+            } else if (isHistoryLoaded) {
+                if (scrollBtn) scrollBtn.style.display = 'block';
+            }
+        }
     });
 
+    // 7. ✨ ACTUALIZACIÓN DE MENSAJES (Ediciones, Borrados, Lecturas, Reacciones)
     chatRef.on('child_changed', (snap) => {
         const msg = snap.val();
         if (msg.sender === myUID) {
             const tick = document.getElementById(`ticks-${snap.key}`);
-            if (tick) tick.style.color = msg.status === 'read' ? '#3498db' : '#bdc3c7';
+            if (tick) tick.style.color = msg.status === 'read' ? 'var(--accent, #3498db)' : 'var(--text-muted, #bdc3c7)';
         }
         const bubble = document.getElementById(`msg-text-${snap.key}`);
-        if (bubble) bubble.parentElement.innerHTML = renderBubble(msg, snap.key);
+        if (bubble && bubble.parentElement) {
+            bubble.parentElement.innerHTML = renderBubble(msg, snap.key);
+            
+            // ✨ FIX: Ajustar el margen del renglón si agregaron/quitaron reacciones
+            const hasReactions = msg.reactions && !msg.isDeleted;
+            bubble.parentElement.parentElement.style.marginBottom = hasReactions ? '22px' : '10px';
+        }
     });
 
-    // ✨ PANEL DISCORD Y BOTÓN
+    // 8. ✨ PANEL DISCORD Y BOTÓN DE EMOJIS (Fix de .innerHTML)
     if (dmInput && !document.getElementById('dm-emoji-btn')) {
         let emojiBtn = document.createElement('button');
         emojiBtn.id = 'dm-emoji-btn';
@@ -1348,42 +1483,47 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
 
         const picker = document.createElement('div');
         picker.id = 'dm-emoji-picker';
-        picker.style.cssText = "display: none; position: absolute; bottom: 60px; right: 20px; width: 432px; height: 350px; background: #2b2d31; border: 1px solid #1e1f22; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.6); z-index: 10000; flex-direction: column; overflow: hidden; font-family: Arial;";
+        picker.style.cssText = "display: none; position: absolute; bottom: 60px; right: 20px; width: 432px; height: 350px; background: var(--bg-panel, #2b2d31); border: 1px solid var(--border, #1e1f22); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.6); z-index: 10000; flex-direction: column; overflow: hidden; font-family: Arial;";
         
-        // Estructura Interna del Panel
         picker.innerHTML = `
-            <div style="display: flex; background: #1e1f22; border-bottom: 1px solid #000;">
-                <div id="tab-btn-emotes" style="flex:1; padding: 10px; text-align: center; color: #fff; cursor: pointer; background: #313338; font-weight: bold; border-bottom: 2px solid #5865F2;">Emotes</div>
-                <div id="tab-btn-emojis" style="flex:1; padding: 10px; text-align: center; color: #aaa; cursor: pointer; border-bottom: 2px solid transparent;">Emojis</div>
+            <div style="display: flex; background: var(--bg-dark, #1e1f22); border-bottom: 1px solid var(--border, #000);">
+                <div id="tab-btn-emotes" style="flex:1; padding: 10px; text-align: center; color: var(--text, #fff); cursor: pointer; background: var(--bg-panel, #313338); font-weight: bold; border-bottom: 2px solid var(--accent, #5865F2);">Emotes</div>
+                <div id="tab-btn-emojis" style="flex:1; padding: 10px; text-align: center; color: var(--text-muted, #aaa); cursor: pointer; border-bottom: 2px solid transparent;">Emojis</div>
             </div>
             
             <div id="view-emotes" style="flex: 1; overflow-y: auto; padding: 10px; display: block;">
-    <div style="font-size: 11px; font-weight: bold; color: #949ba4; margin-bottom: 8px;">Most used</div>
-    <div id="emotes-recents-grid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0px; justify-items: stretch;"></div>
-    
-    <div style="height: 1px; background: #3f4147; margin: 10px 0;"></div>
-    
-    <div style="font-size: 11px; font-weight: bold; color: #949ba4; margin-bottom: 8px;">All emotes</div>
-    <div id="emotes-all-grid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0px; justify-items: stretch;"></div>
-</div>
+                <div style="font-size: 11px; font-weight: bold; color: var(--text-muted, #949ba4); margin-bottom: 8px;">Most used</div>
+                <div id="emotes-recents-grid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0px; justify-items: stretch;"></div>
+                
+                <div style="height: 1px; background: var(--border, #3f4147); margin: 10px 0;"></div>
+                
+                <div style="font-size: 11px; font-weight: bold; color: var(--text-muted, #949ba4); margin-bottom: 8px;">All emotes</div>
+                <div id="emotes-all-grid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0px; justify-items: stretch;"></div>
+            </div>
 
             <div id="view-emojis" style="flex: 1; overflow-y: hidden; display: none; flex-direction: column;">
-                <div id="emoji-subtabs" style="display: flex; background: #2b2d31; padding: 5px; border-bottom: 1px solid #1e1f22; gap: 0px; overflow-x: auto;"></div>
+                <div id="emoji-subtabs" style="display: flex; background: var(--bg-panel, #2b2d31); padding: 5px; border-bottom: 1px solid var(--border, #1e1f22); gap: 0px; overflow-x: auto;"></div>
                 <div id="emoji-scroll-area" style="flex: 1; overflow-y: auto; padding: 10px;"></div>
             </div>
         `;
         dmInput.parentNode.appendChild(picker);
 
-        // Lógica de Pestañas
         const tEmotes = picker.querySelector('#tab-btn-emotes');
         const tEmojis = picker.querySelector('#tab-btn-emojis');
         const vEmotes = picker.querySelector('#view-emotes');
         const vEmojis = picker.querySelector('#view-emojis');
 
-        tEmotes.onclick = () => { tEmotes.style.color='#fff'; tEmotes.style.background='#313338'; tEmotes.style.borderBottom='2px solid #5865F2'; tEmojis.style.color='#aaa'; tEmojis.style.background='transparent'; tEmojis.style.borderBottom='2px solid transparent'; vEmotes.style.display='block'; vEmojis.style.display='none'; };
-        tEmojis.onclick = () => { tEmojis.style.color='#fff'; tEmojis.style.background='#313338'; tEmojis.style.borderBottom='2px solid #5865F2'; tEmotes.style.color='#aaa'; tEmotes.style.background='transparent'; tEmotes.style.borderBottom='2px solid transparent'; vEmojis.style.display='flex'; vEmotes.style.display='none'; };
+        tEmotes.onclick = () => { 
+            tEmotes.style.color = 'var(--text)'; tEmotes.style.background = 'var(--bg-panel)'; tEmotes.style.borderBottom = '2px solid var(--accent)'; 
+            tEmojis.style.color = 'var(--text-muted)'; tEmojis.style.background = 'transparent'; tEmojis.style.borderBottom = '2px solid transparent'; 
+            vEmotes.style.display = 'block'; vEmojis.style.display = 'none'; 
+        };
+        tEmojis.onclick = () => { 
+            tEmojis.style.color = 'var(--text)'; tEmojis.style.background = 'var(--bg-panel)'; tEmojis.style.borderBottom = '2px solid var(--accent)'; 
+            tEmotes.style.color = 'var(--text-muted)'; tEmotes.style.background = 'transparent'; tEmotes.style.borderBottom = '2px solid transparent'; 
+            vEmojis.style.display = 'flex'; vEmotes.style.display = 'none'; 
+        };
 
-        // Renderizar Emotes Internos
         const renderEmotesGrid = () => {
             const allGrid = picker.querySelector('#emotes-all-grid');
             const recGrid = picker.querySelector('#emotes-recents-grid');
@@ -1392,44 +1532,46 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
             const createBtn = (name) => {
                 let div = document.createElement('div');
                 div.style.cssText = "width: 48px; height: 48px; display: flex; justify-content: center; align-items: center; cursor: pointer; border-radius: 6px; transition: 0.1s;";
-                div.innerHTML = `<img src="${window.customEmotes[name]}" style="max-width: 32px; max-height: 32px;" title=":${name}:" onerror="this.src='assets/default pfp.png';">`;
-                div.onmouseover = () => div.style.background = '#404249';
+                div.innerHTML = `<img src="${window.customEmotes[name]}" style="max-width: 32px; max-height: 32px; pointer-events: none;" title=":${name}:" onerror="this.src='assets/default pfp.png';">`;
+                div.onmouseover = () => div.style.background = 'var(--bg-hover, #404249)';
                 div.onmouseout = () => div.style.background = 'transparent';
+                
                 div.onclick = () => {
-                    dmInput.value += ` :${name}: `;
+                    // ✨ FIX APLICADO: Ahora inyecta HTML visual al DIV editable
+                    let imgHtml = `<img src="${window.customEmotes[name]}" alt=":${name}:" style="width: 24px; height: 24px; vertical-align: -6px; margin: 0 2px; display: inline-block;">`;
+                    dmInput.innerHTML += imgHtml + "&nbsp;"; 
+                    
                     window.saveRecentEmote(name);
-                    renderEmotesGrid(); // Actualiza recientes
-                    picker.style.display = 'none'; dmInput.focus();
+                    renderEmotesGrid(); 
+                    picker.style.display = 'none'; 
+                    if (typeof window.moveCursorToEnd === 'function') window.moveCursorToEnd(dmInput);
                 };
                 return div;
             };
 
             Object.keys(window.customEmotes).forEach(name => allGrid.appendChild(createBtn(name)));
             let recents = JSON.parse(localStorage.getItem('mbw_recent_emotes') || "[]");
-            if(recents.length === 0) recGrid.innerHTML = '<span style="color:#555; font-size:12px; grid-column: span 5;">No hay recientes</span>';
+            if(recents.length === 0) recGrid.innerHTML = '<span style="color:var(--text-muted); font-size:12px; grid-column: span 6;">No hay recientes</span>';
             recents.forEach(name => { if(window.customEmotes[name]) recGrid.appendChild(createBtn(name)); });
         };
         renderEmotesGrid();
 
-        // Renderizar Emojis Estándar
         const subTabs = picker.querySelector('#emoji-subtabs');
         const scrollArea = picker.querySelector('#emoji-scroll-area');
         window.emojiCategories.forEach(cat => {
-            // Subtab
             let st = document.createElement('div');
             st.innerHTML = cat.icon;
             st.style.cssText = "padding: 5px; cursor: pointer; font-size: 16px; border-radius: 4px; transition: 0.2s;";
             st.title = cat.name;
-            st.onmouseover = () => st.style.background = '#404249';
+            st.onmouseover = () => st.style.background = 'var(--bg-hover, #404249)';
             st.onmouseout = () => st.style.background = 'transparent';
             st.onclick = () => { scrollArea.querySelector(`#cat-${cat.id}`).scrollIntoView({behavior: 'smooth'}); };
             subTabs.appendChild(st);
 
-            // Categoria en scroll
             let title = document.createElement('div');
             title.id = `cat-${cat.id}`;
             title.innerText = cat.name.toUpperCase();
-            title.style.cssText = "font-size: 11px; font-weight: bold; color: #949ba4; margin: 10px 0 8px 0;";
+            title.style.cssText = "font-size: 11px; font-weight: bold; color: var(--text-muted, #949ba4); margin: 10px 0 8px 0;";
             scrollArea.appendChild(title);
 
             let grid = document.createElement('div');
@@ -1438,36 +1580,29 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
                 let eSpan = document.createElement('span');
                 eSpan.innerText = emo;
                 eSpan.style.cssText = "font-size: 32px; cursor: pointer; padding: 0px; border-radius: 4px; text-align: center;";
-                eSpan.onmouseover = () => eSpan.style.background = '#404249';
+                eSpan.onmouseover = () => eSpan.style.background = 'var(--bg-hover, #404249)';
                 eSpan.onmouseout = () => eSpan.style.background = 'transparent';
-                eSpan.onclick = () => { dmInput.value += emo; picker.style.display = 'none'; dmInput.focus(); };
+                eSpan.onclick = () => { 
+                    // ✨ FIX APLICADO: Para emojis nativos
+                    dmInput.innerHTML += emo; 
+                    picker.style.display = 'none'; 
+                    if (typeof window.moveCursorToEnd === 'function') window.moveCursorToEnd(dmInput);
+                };
                 grid.appendChild(eSpan);
             });
             scrollArea.appendChild(grid);
         });
 
-        // Toggle del panel
         emojiBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); picker.style.display = picker.style.display === 'none' ? 'flex' : 'none'; };
         document.addEventListener('click', (e) => { if (e.target !== emojiBtn && !picker.contains(e.target)) picker.style.display = 'none'; });
     }
 
-    // ✨ OPTIMIZACIÓN ESCRIBIENDO... (THROTTLING)
-    if (dmInput && !dmInput.hasAttribute('data-typing-listener')) {
-        let typingTimeout; let isTyping = false;
-        dmInput.addEventListener('input', function() {
-            if (!currentChatId) return;
-            if (!isTyping) { isTyping = true; database.ref('typing_status/' + currentChatId + '/' + myUID).set(true); }
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => { isTyping = false; database.ref('typing_status/' + currentChatId + '/' + myUID).set(false); }, 2000);
-        });
-        dmInput.setAttribute('data-typing-listener', 'true');
-    }
-
+    // 9. ✨ INDICADOR DE ESCRIBIENDO (Typing Indicator)
     let typingIndicator = document.getElementById('dm-typing-indicator');
     if (!typingIndicator) {
         typingIndicator = document.createElement('div');
         typingIndicator.id = 'dm-typing-indicator';
-        typingIndicator.style.cssText = `position: absolute; bottom: 65px; left: 0; width: 100%; padding: 40px 15px 10px 15px; color: #2ecc71; font-size: 22px; font-style: italic; font-family: 'Pixeltype', sans-serif; background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%); pointer-events: none; box-sizing: border-box; text-shadow: 2px 2px 2px #000; z-index: 99; display: none; transition: opacity 0.3s;`;
+        typingIndicator.style.cssText = `position: absolute; bottom: 65px; left: 0; width: 100%; padding: 40px 15px 10px 15px; color: var(--success, #2ecc71); font-size: 22px; font-style: italic; font-family: 'Pixeltype', sans-serif; background: linear-gradient(to top, var(--bg-dark, rgba(0,0,0,0.7)) 0%, transparent 100%); pointer-events: none; box-sizing: border-box; text-shadow: 2px 2px 2px #000; z-index: 99; display: none; transition: opacity 0.3s;`;
         if (activePanel) {
             activePanel.style.position = 'relative'; 
             activePanel.appendChild(typingIndicator);
@@ -1745,6 +1880,42 @@ window.showChatContextMenu = function(x, y, msgKey, msg, isMe) {
 
     menu.innerHTML = ''; 
     
+    // ✨ NUEVO: Función inteligente para poner/quitar la reacción
+    window.toggleReaction = function(msgKeyToReact, emoji) {
+        const myUID = localStorage.getItem('mbw_uid');
+        if (currentChatId) {
+            const ref = database.ref('private_chats/' + currentChatId + '/' + msgKeyToReact + '/reactions/' + myUID);
+            ref.once('value').then(snap => {
+                if (snap.val() === emoji) {
+                    ref.remove(); // Si ya tenías EXACTAMENTE ese emoji, lo quita
+                } else {
+                    ref.set(emoji); // Si no tenías, o elegiste otro, lo pone/cambia
+                }
+            });
+        }
+    };
+
+    // Barra de Reacciones Rápidas
+    if (!msg.isDeleted) {
+        let reactBar = document.createElement('div');
+        reactBar.style.cssText = "display: flex; gap: 8px; padding: 10px; border-bottom: 1px solid var(--border); justify-content: center; background: var(--bg-dark);";
+        
+        const fastEmojis = ['❤️', '👍', '😂', '😮', '😢'];
+        fastEmojis.forEach(emoji => {
+            let eBtn = document.createElement('span');
+            eBtn.innerText = emoji;
+            eBtn.style.cssText = "cursor: pointer; font-size: 20px; transition: transform 0.1s;";
+            eBtn.onmouseover = () => eBtn.style.transform = 'scale(1.3)';
+            eBtn.onmouseout = () => eBtn.style.transform = 'scale(1)';
+            eBtn.onclick = () => { 
+                window.toggleReaction(msgKey, emoji); // Usar la nueva función
+                menu.style.display = 'none'; 
+            };
+            reactBar.appendChild(eBtn);
+        });
+        menu.appendChild(reactBar);
+    }
+    
     // Opcion 1: Responder
     let replyBtn = document.createElement('div');
     replyBtn.innerHTML = "↩️ Reply";
@@ -1781,22 +1952,26 @@ window.showChatContextMenu = function(x, y, msgKey, msg, isMe) {
         };
         menu.appendChild(editBtn);
 
-        let deleteBtn = document.createElement('div');
+    let deleteBtn = document.createElement('div');
         deleteBtn.innerHTML = "🗑️ Delete";
-        deleteBtn.style.cssText = "padding: 10px 15px; cursor: pointer; color: #e74c3c; font-weight: bold; transition: 0.2s;";
-        deleteBtn.onmouseover = () => { deleteBtn.style.background = '#e74c3c'; deleteBtn.style.color = 'white'; };
-        deleteBtn.onmouseout = () => { deleteBtn.style.background = 'transparent'; deleteBtn.style.color = '#e74c3c'; };
+        deleteBtn.style.cssText = "padding: 10px 15px; cursor: pointer; color: var(--danger, #e74c3c); font-weight: bold; transition: 0.2s;";
+        deleteBtn.onmouseover = () => { deleteBtn.style.background = 'var(--danger, #e74c3c)'; deleteBtn.style.color = 'white'; };
+        deleteBtn.onmouseout = () => { deleteBtn.style.background = 'transparent'; deleteBtn.style.color = 'var(--danger, #e74c3c)'; };
         deleteBtn.onclick = () => {
             menu.style.display = 'none'; // Cerrar menú
-            if (window.currentChatId) {
+            
+            // ✨ FIX: Quitamos el "window." para que encuentre el chat correctamente
+            if (currentChatId) {
                 database.ref('private_chats/' + currentChatId + '/' + msgKey).update({
                     isDeleted: true,
                     text: "🚫 Este mensaje fue eliminado"
-                });
+                }).then(() => {
+                    console.log("Mensaje borrado de la base de datos.");
+                }).catch(err => console.error("Error al borrar:", err));
             }
         };
         menu.appendChild(deleteBtn);
-    }
+	}
 
     // Posicionar el menú usando las coordenadas del ratón en la pantalla
     menu.style.left = `${x}px`;
