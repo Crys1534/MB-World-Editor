@@ -118,7 +118,7 @@ function initBackstageMenu() {
         
         <div class="backstage-content">
             
-            <div style="display: flex; justify-content: flex-end; align-items: center; padding: 10px 30px; background: var(--bg-header); border-bottom: 2px solid var(--border); gap: 25px; z-index: 10; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+            <div style="display: flex; justify-content: flex-end; align-items: center; padding: 4px 30px; background: var(--bg-header); border-bottom: 2px solid var(--border); gap: 8px; z-index: 10; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
                 <div style="position: relative; cursor: pointer; font-size: 28px;" onclick="openMpSidebar('chats')">
                     💬
                     <span id="badge-messages" style="display: none; position: absolute; top: -5px; right: -10px; background: #e74c3c; color: white; font-size: 14px; font-weight: bold; font-family: Arial; padding: 2px 6px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">0</span>
@@ -131,7 +131,7 @@ function initBackstageMenu() {
                     🔔
                     <span id="badge-invites" style="display: none; position: absolute; top: -5px; right: -10px; background: #e74c3c; color: white; font-size: 14px; font-weight: bold; font-family: Arial; padding: 2px 6px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">0</span>
                 </div>
-                <div id="mp-pfp-preview" onclick="document.getElementById('profile-upload').click()" title="Click to change picture" style="width: 45px; height: 45px; border-radius: 50%; background-size: cover; background-position: center; border: 2px solid var(--border); cursor: pointer; background-color: var(--input-bg); transition: 0.2s;" onmouseover="this.style.borderColor='#4DA6FF'" onmouseout="this.style.borderColor='var(--border)'"></div>
+                <div id="mp-pfp-preview" onclick="document.getElementById('profile-upload').click()" title="Click to change picture" style="width: 36px; height: 36px; border-radius: 50%; background-size: cover; background-position: center; border: 2px solid var(--border); cursor: pointer; background-color: var(--input-bg); transition: 0.2s;" onmouseover="this.style.borderColor='#4DA6FF'" onmouseout="this.style.borderColor='var(--border)'"></div>
             </div>
 
             <div id="panel-my-worlds" class="backstage-panel active">
@@ -147,11 +147,23 @@ function initBackstageMenu() {
                     
                     <div id="mp-servers-view" style="flex: 1; display: flex; flex-direction: row; padding: 0px; gap: 20px; width: 100%;">
                         <div id="mp-main-wizard" style="flex: 1; padding: 0px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; color: white; font-family: 'Pixeltype', sans-serif;">
-                            <h2 id="mp-modal-title" style="margin: 0px; color: #f1c40f; font-size: 48px; text-shadow: 2px 2px 0 #000;">🌐 Servers</h2>
                             
-                            <div id="mp-view-home" style="display: flex; gap: 15px; width: 100%; max-width: 450px; margin-top: 20px;">
-                                <button class="menu-btn" style="flex: 1; background: #2ecc71; border: 2px solid #27ae60; font-size: 28px; padding: 15px; color: white; cursor: pointer; border-radius: 5px;" onclick="setMpView('create-1')">Create Server</button>
-                                <button class="menu-btn" style="flex: 1; background: #3498db; border: 2px solid #2980b9; font-size: 28px; padding: 15px; color: white; cursor: pointer; border-radius: 5px;" onclick="setMpView('join')">Join Server</button>
+                            <div id="mp-view-join" style="display: block; width: 100%; max-width: 500px; margin-top: 20px; text-align: left;">
+                                <h2 style="margin: 0px; color: #f1c40f; font-size: 48px; text-shadow: 2px 2px 0 #000; text-align: center; margin-bottom: 20px;">🌐 Public Servers</h2>
+                                
+                                <div id="public-servers-list" style="height: 250px; overflow-y: auto; background: rgba(0,0,0,0.3); border-radius: 5px; padding: 10px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 8px; border: 2px solid #34495e;">
+                                    <p style="text-align: center; color: #bdc3c7; font-size: 24px;">Searching for worlds...</p>
+                                </div>
+
+                                <p style="margin-bottom: 5px; color: #bdc3c7; font-size: 22px; text-align: center;">Join by ID or Create your own:</p>
+                                
+                                <div style="display: flex; gap: 10px; margin-bottom: 15px; align-items: center;">
+                                    <button class="menu-btn" style="background: #2ecc71; border: 2px solid #27ae60; font-size: 22px; padding: 8px 15px; color: white; cursor: pointer; border-radius: 5px; min-width: 169px;" onclick="setMpView('create-1')">Create Server</button>
+                                    
+                                    <input type="text" id="join-peer-id" placeholder="Paste ID here..." style="flex: 1; width: 0px; font-size: 24px; padding: 8px; box-sizing: border-box; background: #ecf0f1; border: none; border-radius: 4px; outline: none; color: #333;">
+                                    
+                                    <button class="menu-btn" style="background: #3498db; border: 2px solid #2980b9; font-size: 22px; padding: 8px 15px; color: white; cursor: pointer; border-radius: 5px;" onclick="joinMultiplayerSession()">Connect</button>
+                                </div>
                             </div>
 
                             <div id="mp-view-create-1" style="display: none; width: 100%; max-width: 450px; margin-top: 20px;">
@@ -173,7 +185,7 @@ function initBackstageMenu() {
                                 </div>
 
                                 <button class="menu-btn" style="background: #2ecc71; border: 2px solid #27ae60; width: 100%; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px; margin-bottom: 10px;" onclick="setMpView('create-map')">Next ➡️</button>
-                                <button class="menu-btn" style="background: #7f8c8d; border: 2px solid #95a5a6; width: 100%; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px;" onclick="setMpView('home')">⬅️ Cancel</button>
+                                <button class="menu-btn" style="background: #7f8c8d; border: 2px solid #95a5a6; width: 100%; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px;" onclick="setMpView('join')">⬅️ Cancel</button>
                             </div>
 
                             <div id="mp-view-create-map" style="display: none; width: 100%; max-width: 450px; margin-top: 0px; text-align: left;">
@@ -192,18 +204,6 @@ function initBackstageMenu() {
                                 <button class="menu-btn" style="background: #7f8c8d; border: 2px solid #95a5a6; width: 100%; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px; margin-top: 15px;" onclick="setMpView('create-map')">⬅️ Close Server & Back</button>
                             </div>
 
-                            <div id="mp-view-join" style="display: none; width: 100%; max-width: 450px; margin-top: 20px; text-align: left;">
-                                <h3 style="color: #f1c40f; text-align: center; margin-bottom: 10px; font-size: 28px;">Public Servers</h3>
-                                <div id="public-servers-list" style="height: 180px; overflow-y: auto; background: rgba(0,0,0,0.3); border-radius: 5px; padding: 10px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 8px; border: 2px solid #34495e;">
-                                    <p style="text-align: center; color: #bdc3c7; font-size: 24px;">Searching for worlds...</p>
-                                </div>
-                                <p style="margin-bottom: 5px; color: #bdc3c7; font-size: 22px; text-align: center;">Or Join by Private ID:</p>
-                                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                                    <input type="text" id="join-peer-id" placeholder="Paste ID here..." style="flex: 1; font-size: 24px; padding: 8px; box-sizing: border-box; background: #ecf0f1; border: none; border-radius: 4px; outline: none; color: #333;">
-                                    <button class="menu-btn" style="background: #3498db; border: 2px solid #2980b9; font-size: 24px; padding: 8px 15px; color: white; cursor: pointer; border-radius: 5px;" onclick="joinMultiplayerSession()">Connect</button>
-                                </div>
-                                <button class="menu-btn" style="background: #7f8c8d; border: 2px solid #95a5a6; width: 100%; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px;" onclick="setMpView('home')">⬅️ Back</button>
-                            </div>
                             <p id="multiplayer-status" style="display: none; margin-top: 25px; font-weight: bold; font-size: 28px; color: #bdc3c7;">Status: Not Connected</p>
                         </div>
                         <div style="width: 364px; padding: 20px; display: flex; flex-direction: column; align-items: center; font-family: 'Pixeltype', sans-serif; border-left: 2px solid #34495e;">
@@ -237,7 +237,7 @@ function initBackstageMenu() {
                                 
                                 <div id="full-dm-messages" style="flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: #2c3e50;"></div>
                                 
-                                <div style="display: flex; padding: 15px 25px; background: #34495e; gap: 0px; border-top: 2px solid #1a252f;">
+                                <div style="display: flex; padding: 6px 25px; background: #34495e; gap: 0px; border-top: 2px solid #1a252f;">
                                     <input type="text" id="full-dm-input" placeholder="Send a message..." style="flex: 1; padding: 12px; font-family: 'Pixeltype', sans-serif; font-size: 26px; border-radius: 8px; border: none; outline: none; background: #ecf0f1; color: #333;">
                                     <button onclick="sendPrivateMessage()" style="background: #2ecc71; border: none; border-radius: 8px; padding: 0 25px; font-size: 28px; cursor: pointer; color: white; transition: 0.2s; font-family: 'Pixeltype', sans-serif;" onmouseover="this.style.background='#27ae60'" onmouseout="this.style.background='#2ecc71'">➔</button>
                                 </div>

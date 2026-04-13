@@ -123,12 +123,12 @@ body.theme-winxp {
  --bg-dark: #ece9d8;
  --bg-panel: #ffffff;
  --bg-header: #0058e6; 
- --bg-tooltip: #ffffe1; /* El clásico amarillo pastel de los tooltips de XP */
+ --bg-tooltip: #ffffe1; 
  --bg-overlay: rgba(0, 0, 0, 0.4);
 
  --input-bg: #ffffff;
  --input-hover: #e0e8f3;
- --bg-hover: rgba(49, 106, 197, 0.2); /* Azul XP translúcido para hovers */
+ --bg-hover: rgba(49, 106, 197, 0.2); 
 
  --text: #000000;
  --text-title: #000000;
@@ -147,28 +147,24 @@ body.theme-winxp #top-bar {
  color: white;
 }
 body.theme-winxp .tab-btn { color: white; }
-body.theme-winxp .tab-btn.active { color: black; border-bottom: 2px solid #e58200; } /* Naranja XP */
+body.theme-winxp .tab-btn.active { color: black; border-bottom: 2px solid #e58200; } 
 body.theme-winxp .icon-btn { color: white; }
 body.theme-winxp .filename-wrapper { background: #ffffff; color: black; }
 body.theme-winxp #filename-display { color: black; }
 body.theme-winxp .ribbon-group-label { color: #000; font-weight: bold; }
+
 /* --- TEMA WINDOWS 7 (Frutiger Aero Súper Vivo) --- */
 body.theme-win7 {
- /* Fondo hiper vibrante, estilo Aurora muy saturado */
  --bg-dark: linear-gradient(135deg, #0055ff 0%, #00aaff 50%, #00d4ff 100%); 
- --bg-panel: rgba(255, 255, 255, 0.65); /* Cristal claro */
- --bg-header: rgba(0, 170, 255, 0.4); /* Base celeste brillante */
- 
- /* ✨ Este es el botón celeste que te encantó, intacto ✨ */
+ --bg-panel: rgba(255, 255, 255, 0.65); 
+ --bg-header: rgba(0, 170, 255, 0.4); 
  --accent: linear-gradient(to bottom, #66b3ff 0%, #0078d7 49%, #005a9e 50%, #0078d7 100%); 
- 
  --text: #001a33; 
  --border: rgba(255, 255, 255, 0.8); 
  --input-bg: rgba(255, 255, 255, 0.9);
  --input-hover: #ffffff;
 }
 
-/* Magia Aero Glass Ultra-Vibrante */
 body.theme-win7 #top-bar, 
 body.theme-win7 #ribbon, 
 body.theme-win7 .tabs, 
@@ -177,7 +173,6 @@ body.theme-win7 .tab-content {
 }
 
 body.theme-win7 #top-bar {
-    /* ✨ Reflejos blancos puros arriba, y un celeste cristalino súper vivo abajo ✨ */
     background: linear-gradient(to bottom, rgba(255, 255, 255, 0.8) 0%, rgba(170, 225, 255, 0.6) 49%, rgba(0, 170, 255, 0.4) 50%, rgba(100, 200, 255, 0.6) 100%);
     backdrop-filter: blur(10px); 
     -webkit-backdrop-filter: blur(10px);
@@ -186,7 +181,6 @@ body.theme-win7 #top-bar {
 }
 
 body.theme-win7 #ribbon {
-    /* La cinta un poco más blanca para que los íconos resalten perfecto */
     background: linear-gradient(to bottom, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.4) 100%);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
@@ -194,7 +188,6 @@ body.theme-win7 #ribbon {
     box-shadow: inset 0 1px 2px rgba(255, 255, 255, 1), 0 4px 8px rgba(0,0,0,0.1);
 }
 
-/* Pestañas cristalinas */
 body.theme-win7 .tab-btn {
     color: #002244;
     text-shadow: 0 1px 2px rgba(255,255,255,0.9);
@@ -215,19 +208,21 @@ body.theme-win7 .filename-wrapper {
     box-shadow: inset 0 1px 4px rgba(0,0,0,0.1);
 }
 
-/* Efecto Glossy en los botones de herramientas (Sidebar) */
 body.theme-win7 .tool-btn {
     border: 1px solid transparent;
 }
 
 body.theme-win7 .tool-btn.active {
-    /* Tu botón celeste favorito */
     background: var(--accent);
     border: 1px solid #004488; 
     box-shadow: inset 0 1px 2px rgba(255,255,255,0.9), 0 0 8px rgba(0, 170, 255, 0.8);
     color: white;
     text-shadow: 0 -1px 1px rgba(0,0,0,0.5); 
 }
+
+/* =========================================
+   A PARTIR DE AQUÍ COMIENZA LA ESTRUCTURA 
+   ========================================= */
 
 body {
  margin: 0;
@@ -250,7 +245,7 @@ body {
  justify-content: space-between;
  padding: 0 10px;
  border-bottom: 1px solid var(--border);
- z-index: 30; /* Encima de todo */
+ z-index: 30; 
  position: relative;
 }
 
@@ -265,7 +260,6 @@ body {
 .left-group, .right-group {
  display: flex;
  align-items: center;
-
 }
 
 .icon-btn {
@@ -279,14 +273,6 @@ body {
  display: flex;
  align-items: center;
  gap: 5px;
-}
-
-.icon-small {
-    width: 32px;
-    height: 32px;
-    object-fit: contain;
-    image-rendering: pixelated;
-    vertical-align: middle;
 }
 
 .icon-btn:hover {
@@ -304,17 +290,16 @@ body {
     display: flex;
     align-items: center;
     background-color: var(--bg-header); 
-    border: 2px solid var(--bg-header); /* ✨ Borde del mismo color que el fondo */
+    border: 2px solid var(--bg-header); 
     padding: 2px 5px;
     height: 28px;
     box-sizing: border-box;
-    transition: background-color 0.2s ease, border-color 0.2s ease; /* Transición para ambos */
+    transition: background-color 0.2s ease, border-color 0.2s ease; 
 }
 
-/* ✨ Efecto al pasar el ratón */
 .filename-wrapper:hover {
     background-color: var(--input-bg);
-    border-color: var(--input-bg); /* ✨ El borde acompaña al nuevo fondo */
+    border-color: var(--input-bg); 
 }
 
 #filename-display {
@@ -340,7 +325,7 @@ body {
  border-bottom: 1px solid var(--border);
  display: flex;
  flex-direction: column;
- z-index: 20; /* Encima de sidebar */
+ z-index: 20; 
  position: relative;
 }
 
@@ -351,7 +336,6 @@ body {
  padding-left: 8px;
 }
 
-/* Ancho dinámico para pestañas */
 .tab-btn {
  background: transparent;
  border: none;
@@ -364,13 +348,11 @@ body {
  border-top-left-radius: 3px;
  border-top-right-radius: 3px;
  transition: background-color 0.2s;
- 
- /* ✨ NUEVO: Preparamos el contenedor para el fantasma */
  display: inline-flex;
  flex-direction: column;
  align-items: center;
 }
-/* ✨ EL FANTASMA INVISIBLE: Reserva el espacio exacto del bold */
+
 .tab-btn::after {
     content: attr(data-text);
     font-weight: bold;
@@ -383,7 +365,6 @@ body {
 
 .tab-btn.active {
  background-color: var(--bg-panel);
- /* ✨ Regresamos a tu bold original, puro y nítido */
  font-weight: bold; 
 }
 
@@ -395,12 +376,11 @@ body {
  background-color: transparent;
 }
 
-/* MODIFICADO: Altura aumentada para estilo Word */
 .tab-content {
  height: 85px; 
  padding: 5px 10px;
  display: flex;
- align-items: stretch; /* Estirar para que los grupos ocupen todo el alto */
+ align-items: stretch;
  background-color: var(--bg-panel);
  gap: 5px;
 }
@@ -411,11 +391,10 @@ body {
  height: 100%;
 }
 
-/* --- Ajuste específico para separadores en la Ribbon --- */
 .tab-pane .separator {
-    height: 85px;       /* Altura mayor (el contenedor mide 85px) */
-    align-self: center; /* Centrado verticalmente (ignora el estiramiento del padre) */
-    background-color: rgba(128, 128, 128, 0.4); /* Opcional: un poco más visible */
+    height: 85px;       
+    align-self: center; 
+    background-color: rgba(128, 128, 128, 0.4); 
 }
 
 .tab-pane.active {
@@ -424,14 +403,11 @@ body {
  gap: 5px;
 }
 
-/* --- TRUNCAR NOMBRES DE MUNDOS LARGOS EN PESTAÑAS --- */
-.world-tab, .world-tab-active {
-    max-width: 150px; /* Ajusta este ancho máximo a tu gusto (ej. 120px o 200px) */
-    white-space: nowrap; /* Evita que el texto baje a un segundo renglón */
-    overflow: hidden; /* Oculta lo que se salga de la caja */
-    text-overflow: ellipsis; /* Agrega mágicamente los 3 puntitos '...' */
-    
-    /* Si el texto se desalinea, esta propiedad ayuda a mantenerlo centrado */
+.world-tab {
+    max-width: 150px; 
+    white-space: nowrap; 
+    overflow: hidden; 
+    text-overflow: ellipsis; 
     vertical-align: bottom; 
 }
 
@@ -450,7 +426,7 @@ body {
     display: flex;
     flex-direction: row;
     align-items: center;
-    flex-grow: 1; /* Ocupa el espacio superior */
+    flex-grow: 1; 
     justify-content: center;
 }
 
@@ -464,7 +440,6 @@ body {
 	user-select: none;
 }
 
-/* Botón Grande (Pegar) */
 .ribbon-btn-large {
     display: flex;
     flex-direction: column;
@@ -485,20 +460,17 @@ body {
   font-size: 28px;
 }
 
-/* Estilo para cuando el botón Spray (o cualquier botón grande) está activo */
 .ribbon-btn-large.active {
-    background-color: #a0a0a0; /* Fondo más oscuro */
-    border: 2px inset #fff;    /* Borde hundido */
-    box-shadow: inset 1px 1px 5px rgba(0,0,0,0.4); /* Sombra interior */
+    background-color: #a0a0a0; 
+    border: 2px inset #fff;    
+    box-shadow: inset 1px 1px 5px rgba(0,0,0,0.4); 
 }
 
-/* Ajuste para que la imagen pixel art se vea bien */
 .ribbon-btn-large .pixel-icon {
     display: block;
     image-rendering: pixelated;
 }
 
-/* NUEVO: Clase para la imagen dentro del botón de la Ribbon */
 .icon-img {
     width: 32px;
     height: 32px;
@@ -508,7 +480,6 @@ body {
 	cursor: unset;
 }
 
-/* Columna de botones pequeños (Cortar/Copiar) */
 .ribbon-btn-col {
     display: flex;
     flex-direction: column;
@@ -519,7 +490,6 @@ body {
     display: flex;
     align-items: center;
     gap: 5px;
-
     height: 24px;
     background: transparent;
     border: 1px solid transparent;
@@ -530,13 +500,12 @@ body {
     text-align: left;
 }
 .ribbon-btn-small:hover {
-    background-color: #999; /* Un poco más claro */
-    border: 1px solid #FFF; /* El borde blanco que querías */
+    background-color: #999; 
+    border: 1px solid #FFF; 
     cursor: pointer;
 }
 
-
-/* --- SIDEBAR (HERRAMIENTAS LATERALES - SOLO EN EL WORKSPACE) --- */
+/* --- SIDEBAR (HERRAMIENTAS LATERALES) --- */
 #toolbar-sidebar {
   position: absolute;
   top: 204px;
@@ -557,10 +526,8 @@ body {
   height: 100%;
 }
 
-/* Ocultar la barrita de scroll para que se vea limpio */
 #toolbar-sidebar::-webkit-scrollbar { display: none; }
 
-/* Estilos de los botones para que encajen perfectos */
 .tool-btn {
   width: 38px;
   height: 38px;
@@ -588,10 +555,10 @@ body {
 /* --- WORKSPACE (LIENZO COMPLETO) --- */
 #workspace {
     position: absolute;
-    top: 204px;   /* A la misma altura que la barra lateral */
-    left: 55px;   /* ✨ Empieza JUSTO donde termina la barra lateral */
-    width: calc(100% - 55px); /* ✨ Ocupa exactamente el resto de la pantalla */
-    bottom: 28px; /* Deja espacio para la barra de estado */
+    top: 204px;   
+    left: 55px;   
+    width: calc(100% - 55px); 
+    bottom: 28px; 
     background-color: #1a1a1a;
     overflow: hidden;
 }
@@ -617,7 +584,6 @@ canvas {
  z-index: 10;
 }
 
-/* ZOOM TRANSPARENTE CON SOMBRA */
 #zoom-floating {
  position: absolute;
  bottom: 10px;
@@ -631,7 +597,7 @@ canvas {
  font-size: 12px;
  z-index: 10;
  text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
- transition: right 0.3s ease-in-out; /* ✨ NUEVO: Animación de deslizamiento suave */
+ transition: right 0.3s ease-in-out; 
 }
 
 #zoom-floating input[type=range] {
@@ -639,8 +605,6 @@ canvas {
  width: 120px;
  box-shadow: 0 0 5px rgba(0,0,0,0.8);
  border-radius: 5px;
- 
- /* ✨ NUEVO: Dibuja pequeñas líneas verticales perfectas de fondo */
  background: repeating-linear-gradient(
     to right,
     transparent,
@@ -650,7 +614,6 @@ canvas {
  );
 }
 
-/* --- CONSOLA --- */
 #console-overlay {
  display: none;
  position: absolute;
@@ -692,7 +655,7 @@ canvas {
  position: fixed;
  z-index: 100;
  left: 0;
- top: 0;
+ top: -17px;
  width: 100%;
  height: 100%;
  background-color: rgba(0,0,0,0.5);
@@ -712,7 +675,6 @@ canvas {
  border: 1px solid var(--border);
  width: 600px;
  max-width: 90vw;
-
  overflow-y: auto;
  border-radius: 5px;
  box-shadow: 0 4px 15px rgba(0,0,0,0.5);
@@ -732,7 +694,6 @@ canvas {
  opacity: 1;
 }
 
-/* Logros en 2 Columnas */
 #achievements-list {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -747,7 +708,6 @@ canvas {
     font-size: 14px;
     cursor: pointer;
     white-space: nowrap;
-
     text-overflow: ellipsis;
 }
 
@@ -763,39 +723,29 @@ canvas {
  gap: 10px;
 }
 
-.settings-row {
- margin-bottom: 15px;
-}
-.settings-row label {
- display: block;
- margin-bottom: 5px;
- font-weight: bold;
-}
-.settings-row select {
- width: 100%;
- padding: 8px;
-}
+.settings-row { margin-bottom: 15px; }
+.settings-row label { display: block; margin-bottom: 5px; font-weight: bold; }
+.settings-row select { width: 100%; padding: 8px; }
 
-/* MODAL SAVE - DISEÑO HORIZONTAL Y TEXTOS NEGROS */
 #save-structure-modal .modal-content { width: 500px; background: #C6C6C6; border: 2px solid #555; padding: 15px; display: flex; flex-direction: column; gap: 10px; }
 #struct-save-preview { width: 460px; height: 295px; background: #8B8B8B; border: 2px solid #373737; margin: 0 auto; display: block; image-rendering: pixelated; }
 
 .save-form-row { 
     display: flex; 
-    flex-direction: row; /* Horizontal */
-    align-items: center; /* Centrado vertical */
+    flex-direction: row; 
+    align-items: center; 
     margin-bottom: 5px;
 }
 .save-form-row label { 
-    width: 100px; /* Ancho fijo para la etiqueta a la izquierda */
+    width: 100px; 
     text-align: right; 
     font-size: 12px; 
     font-weight: bold; 
-    color: #000; /* Texto Negro */
+    color: #000; 
     margin-right: 15px; 
 }
 .save-form-row input, .save-form-row select { 
-    flex: 1; /* Ocupa el resto del espacio a la derecha */
+    flex: 1; 
     padding: 5px; 
     border: 2px solid #555; 
     background: #FFF; 
@@ -803,7 +753,6 @@ canvas {
 }
 
 .save-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; }
-/* --- BOTÓN VERDE (Guardar / Yes) --- */
 .btn-confirm-save, .btn-yes {
   background: #4CAF50;
   color: white;
@@ -811,7 +760,7 @@ canvas {
   cursor: pointer;
 }
 .btn-confirm-save:hover, .btn-yes:hover {
-  background: #66BB6A; /* Un verde un poco más claro al pasar el mouse */
+  background: #66BB6A; 
 }
 
 .btn-cancel, .btn-no {
@@ -821,10 +770,9 @@ canvas {
   cursor: pointer;
 }
 .btn-cancel:hover, .btn-no:hover {
-  background: #e53935; /* Un rojo un poco más claro al pasar el mouse */
+  background: #e53935; 
 }
 
-/* UI GENERAL */
 select, button, .input-group input {
   background: transparent;
   border: 1px solid transparent;
@@ -846,9 +794,7 @@ button:hover {
  align-items: center;
 }
 
-
-
-/* --- ESTILOS DE DIMENSIONES MODIFICADOS --- */
+/* --- DIMENSIONES --- */
 .dimensions-grid {
     display: flex;
     justify-content: center;
@@ -875,15 +821,14 @@ button:hover {
     transform: translateY(-2px);
 }
 
-/* Modificado para soportar etiquetas IMG */
 .dim-preview {
     width: 100px;
     height: 100px;
     margin-bottom: 10px;
     border: 2px solid #222;
-    background-color: #000; /* Fondo negro por si la imagen tiene transparencia */
+    background-color: #000; 
     image-rendering: pixelated;
-    object-fit: cover; /* Ajuste para la imagen */
+    object-fit: cover; 
 }
 
 .dim-name {
@@ -892,8 +837,7 @@ button:hover {
     font-size: 12px;
 }
 
-
-/* --- Estilos para Botones de Estructuras Rápidas --- */
+/* --- BOTONES ESTRUCTURAS --- */
 .quick-struct-btn {
     width: 66px;
     height: 66px;
@@ -906,20 +850,16 @@ button:hover {
     cursor: pointer;
 }
 
-/* Efecto Hover: Borde blanco */
 .quick-struct-btn:hover {
     border: 2px solid lightgray;
     background: var(--input-hover);
 }
 
-/* Efecto Activo (Seleccionado): Hundido y más oscuro */
 .quick-struct-btn.active {
-    background: #666; /* Más oscuro */
-    border: 4px inset #FFF; /* Borde hundido */
-
+    background: #666; 
+    border: 4px inset #FFF; 
 }
 
-/* Estilo para slots vacíos */
 .quick-struct-btn.empty-slot {
     background: #444;
     cursor: default;
@@ -927,39 +867,33 @@ button:hover {
     border: 1px solid #333;
 }
 .quick-struct-btn.empty-slot:hover {
-    border: 1px solid #333; /* Sin efecto hover si está vacío */
+    border: 1px solid #333; 
     background: #444;
 }
 
-
-/* --- CORRECCIÓN: ALTURA MODAL CONFIRMACIÓN --- */
 #custom-confirm-modal .modal-content {
-    height: auto !important;       /* Permite crecer según el contenido */
-	weight: 350px;
-    min-height: 160px;             /* Altura mínima para que no se vea aplastado */
+    height: auto !important;       
+	width: 350px;
+    min-height: 160px;             
     display: flex;
     flex-direction: column;
 }
 
 #custom-confirm-modal .mbw-modal-body {
-    flex: 1;                       /* Ocupa el espacio disponible */
+    flex: 1;                       
     display: flex;
     flex-direction: column;
-    justify-content: center;       /* Centra verticalmente el texto y botones */
+    justify-content: center;       
     align-items: center;
-    padding: 20px 10px;            /* Espaciado interno */
+    padding: 20px 10px;            
 }
 
-/* Asegurar que los botones tengan espacio */
 #custom-confirm-modal .confirm-actions {
     margin-top: 20px;
     width: 100%;
     justify-content: center;
 }
 
-
-
-/* --- ESTILOS DE ESTRUCTURAS (LIBRARY) --- */
 .struct-item {
     background: #555;
     border: 2px solid #333;
@@ -967,39 +901,30 @@ button:hover {
     flex-direction: column;
     align-items: center;
     cursor: pointer;
-
 }
 
-/* Efecto al pasar el ratón */
 .struct-item:hover {
     background: #666;
     border-color: #FFF;
-
 }
 
-/* Efecto cuando está seleccionada */
 .struct-item.selected {
     background: #777;
-    border-color: #FFD700; /* Dorado */
-
+    border-color: #FFD700; 
 }
 
-
-
-/* --- TOOLTIP DE INVENTARIO FLOTANTE (WORKSPACE) --- */
+/* --- TOOLTIP INVENTARIO FLOTANTE --- */
 #chest-tooltip-overlay {
-        position: absolute;
-        z-index: 1500;
-
-        padding: 8px; /* Espacio para que el mouse entre fácilmente */
-
-        border-radius: 4px;
-        pointer-events: auto; /* Permite que el mouse interactúe con el panel */
-    }
+    position: absolute;
+    z-index: 1500;
+    padding: 8px; 
+    border-radius: 4px;
+    pointer-events: auto; 
+}
 
 #chest-tooltip-grid {
     display: grid;
-    grid-template-columns: repeat(9, 24px); /* Fijo a 24px por slot */
+    grid-template-columns: repeat(9, 24px); 
     gap: 0px 2px;
     background: #8B8B8B;
     padding: 0px 4px 0px 0px;
@@ -1023,16 +948,13 @@ button:hover {
     image-rendering: pixelated;
 }
 
-
-/* Borde morado para el slot encantado */
 .struct-chest-preview .slot.enchanted {
-    border: 2px solid #a200ff; /* Color morado de encantamiento */
-    box-shadow: 0 0 8px #a200ff inset; /* Brillo interno opcional */
+    border: 2px solid #a200ff; 
+    box-shadow: 0 0 8px #a200ff inset; 
     position: relative;
     overflow: hidden;
 }
 
-/* Efecto de brillitos animado */
 .struct-chest-preview .slot.enchanted::before {
     content: "";
     position: absolute;
@@ -1043,7 +965,7 @@ button:hover {
     background-size: 15px 15px;
     background-position: 0 0, 7px 7px;
     animation: sparkles 2s linear infinite;
-    pointer-events: none; /* Para que no bloquee los clics en el ítem */
+    pointer-events: none; 
     opacity: 0.6;
     z-index: 2;
 }
@@ -1054,7 +976,6 @@ button:hover {
     100% { background-position: 0 15px, 7px 22px; opacity: 0.3; }
 }
 
-/* Estilo básico para el tooltip de los encantamientos */
 .struct-chest-preview .slot .tooltip {
     visibility: hidden;
     position: absolute;
@@ -1077,15 +998,11 @@ button:hover {
     visibility: visible;
 }
 
-/* Color específico para el texto del encantamiento */
 .tooltip-enchant {
-    color: #ffaa00; /* Color dorado/naranja clásico o puedes usar #a200ff */
+    color: #ffaa00; 
     display: block;
 }
 
-
-
-/* Estilo general para el título del ítem en el tooltip */
 .enchant-tooltip strong {
     color: #fff;
     font-size: 24px;
@@ -1094,7 +1011,6 @@ button:hover {
     line-height: 1;
 }
 
-/* Estilo para cada línea de encantamiento */
 .tooltip-enchant {
     color: #ffaa00;
     display: block;
@@ -1102,27 +1018,24 @@ button:hover {
     margin-top: 2px;
 }
 
-
-
-/* --- WORLD TABS (Estilo Photoshop) --- */
+/* --- WORLD TABS --- */
 #world-tabs {
     display: flex;
     flex-direction: row;
-    background-color: var(--bg-dark); /* Fondo oscuro del editor */
-    padding: 4px 8px 0 8px; /* Espacio arriba y a los lados */
+    background-color: var(--bg-dark); 
+    padding: 4px 8px 0 8px; 
     gap: 2px;
-    overflow-x: auto; /* Scroll si hay muchas pestañas */
+    overflow-x: auto; 
     border-bottom: 1px solid var(--border);
 }
 
-/* Ocultar la barra de scroll en las pestañas */
 #world-tabs::-webkit-scrollbar { height: 4px; }
 #world-tabs::-webkit-scrollbar-thumb { background: #555; border-radius: 2px; }
 
 .world-tab {
     display: flex;
     align-items: center;
-    background-color: #2d2d2d; /* Color de pestaña inactiva */
+    background-color: #2d2d2d; 
     color: #999;
     padding: 6px 12px;
     font-size: 12px;
@@ -1143,14 +1056,13 @@ button:hover {
     color: #ccc;
 }
 
-/* Pestaña Activa: Se fusiona con el panel de abajo */
 .world-tab.active {
     background-color: var(--bg-panel);
     color: var(--text);
     border-color: var(--border);
     position: relative;
     z-index: 25;
-    margin-bottom: -1px; /* Para tapar el borde inferior */
+    margin-bottom: -1px; 
     border-bottom: 1px solid var(--bg-panel);
 }
 
@@ -1160,7 +1072,7 @@ button:hover {
     overflow: hidden;
     text-overflow: ellipsis;
     margin-right: 8px;
-    pointer-events: none; /* Para que el clic vaya al tab */
+    pointer-events: none; 
 }
 
 .world-tab-close {
@@ -1178,29 +1090,25 @@ button:hover {
 }
 
 .world-tab-close:hover {
-    background-color: #c42b1c; /* Rojo estilo cierre de ventana */
+    background-color: #c42b1c; 
     color: white;
     opacity: 1;
 }
 
-
-/* Estado Bloqueado (Conflicto de nivel) */
+/* --- CUSTOM ITEMS CREATOR --- */
 .enchant-option.disabled-enchant {
     background-color: #666 !important;
     border: 2px solid #444 !important;
     color: #aaa !important;
-    pointer-events: none; /* Bloquea el clic */
+    pointer-events: none; 
     filter: grayscale(100%);
     box-shadow: none;
-    transform: none; /* Evita que se haga grande al pasar el ratón */
+    transform: none; 
 }
 
-
-
-/* --- CUSTOM ITEMS CREATOR --- */
 .enchant-option {
-    background-color: #FFEFAD; /* Amarillo mostaza pastel */
-    border: 2px solid #CFC07C; /* Borde mostaza */
+    background-color: #FFEFAD; 
+    border: 2px solid #CFC07C; 
     color: #333;
     padding: 6px 10px;
     font-family: 'Eight Bit Dragon', monospace;
@@ -1216,34 +1124,27 @@ button:hover {
 	transition: none !important;
 }
 
-
-
-
-
-/* Estilo unificado para el Tooltip Mágico Flotante */
 .enchant-tooltip-floating {
     position: fixed;
-    z-index: 9999999 !important; /* Por encima de todo */
-    background-color: rgba(16, 0, 16, 0.9) !important; /* Fondo oscuro y sutil */
-    border: 2px solid #2e0066 !important; /* Borde morado oscuro */
-    border-image: linear_gradient(to bottom, #2e0066, #160033) 1; /* Efecto de degradado en el borde */
-    color: #a0a0a0 !important; /* Texto gris claro por defecto */
-    font-family: 'Pixeltype', sans-serif !important; /* Tu fuente pixel art */
+    z-index: 9999999 !important; 
+    background-color: rgba(16, 0, 16, 0.9) !important; 
+    border: 2px solid #2e0066 !important; 
+    border-image: linear_gradient(to bottom, #2e0066, #160033) 1; 
+    color: #a0a0a0 !important; 
+    font-family: 'Pixeltype', sans-serif !important; 
     font-size: 20px !important;
     padding: 8px 12px !important;
-    pointer-events: none; /* No interfiere con los clics */
-    white-space: nowrap; /* Evita que el texto se parta en varias líneas */
-    box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.5); /* Sombra nítida estilo Minecraft */
-    display: none; /* Oculto por defecto */
+    pointer-events: none; 
+    white-space: nowrap; 
+    box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.5); 
+    display: none; 
 }
 
-/* Estilo para el título dorado dentro del tooltip */
 .enchant-tooltip-floating strong {
-    color: #ffaa00 !important; /* Dorado/Amarillo Minecraft */
+    color: #ffaa00 !important; 
     display: block;
     margin-bottom: 4px;
 }
-
 
 /* --- NOTICIAS --- */
 .news-card {
@@ -1253,15 +1154,12 @@ button:hover {
 .news-card:hover { background: #A0A0A0; }
 .news-card img { width: 80px; height: 80px; object-fit: cover; border: 2px inset #FFF; }
 
-/* Animación de alerta (Brillo dorado) */
 .news-unread { animation: glowNews 1.5s infinite alternate; }
 @keyframes glowNews { 
     0% { box-shadow: 0 0 5px #ffaa00; background-color: #ffaa0033; border-color: #ffaa00; } 
     100% { box-shadow: 0 0 15px #ff0000; background-color: #ff000055; border-color: #ff0000; } 
 }
 
-
-/* --- BOTÓN FLOTANTE "BACK" (SECCIÓN NOTICIAS) --- */
 #news-back-btn {
     position: absolute; 
     top: 8px; 
@@ -1274,55 +1172,50 @@ button:hover {
     padding: 5px 10px; 
     z-index: 10; 
     box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
-    transition: background 0.2s ease, transform 0.1s ease; /* Transición suave */
+    transition: background 0.2s ease, transform 0.1s ease; 
 }
 
-/* Efecto al pasar el ratón por encima (Hover) */
 #news-back-btn:hover {
-    background: rgba(255, 255, 255, 0.9); /* Se vuelve más claro/blanco */
+    background: rgba(255, 255, 255, 0.9); 
     color: #000;
 }
 
-/* Efecto al hacer clic (Active) */
 #news-back-btn:active {
-    border: 2px inset #FFF; /* Cambia el borde para que parezca hundido */
-    background: rgba(100, 100, 100, 0.9); /* Se oscurece */
-    transform: translateY(2px); /* Baja 2 píxeles para dar peso */
+    border: 2px inset #FFF; 
+    background: rgba(100, 100, 100, 0.9); 
+    transform: translateY(2px); 
     box-shadow: 0px 0px 2px rgba(0,0,0,0.5);
 }
 
-
-/* --- GALERÍA DE NOTICIAS (3 por fila) --- */
 .news-gallery {
     display: grid;
-    grid-template-columns: repeat(3, 1fr); /* ⬅️ ESTA ES LA MAGIA: 3 columnas exactas */
+    grid-template-columns: repeat(3, 1fr); 
     gap: 10px;
     margin-top: 15px;
     padding: 10px 5px;
 }
 
 .news-gallery-img {
-    width: 100%; /* Hace que la imagen llene su tercio de la pantalla */
+    width: 100%; 
     height: 100px;
     object-fit: cover;
     border: 2px solid #555;
     cursor: zoom-in;
     transition: transform 0.2s ease-in-out, border-color 0.2s ease-in-out;
-    image-rendering: auto; /* Mantiene las fotos reales nítidas */
+    image-rendering: auto; 
 }
 
 .news-gallery-img:hover {
     border-color: #FFF;
     transform: scale(1.05);
     box-shadow: 0 4px 8px rgba(0,0,0,0.5);
-    z-index: 10; /* Evita que al crecer se quede por debajo de otra imagen */
+    z-index: 10; 
 }
 
-/* --- VISOR DE IMAGEN A PANTALLA COMPLETA (LIGHTBOX) --- */
 #lightbox-modal {
     display: none;
     position: fixed;
-    z-index: 99999; /* Por encima de todo */
+    z-index: 99999; 
     left: 0;
     top: 0;
     width: 100%;
@@ -1352,18 +1245,15 @@ button:hover {
 }
 .lightbox-close:hover { color: #FFD700; }
 
-
-/* --- ESTILO DE VIÑETAS PIXELADAS PARA LAS NOTICIAS --- */
 .pixel-list {
-    list-style: none; /* Quitamos los círculos redondos por defecto */
+    list-style: none; 
     padding-left: 20px;
     margin-top: 5px;
 }
 
-/* --- ESTILO PARA ETIQUETAS TIPO CÓDIGO [Beta] --- */
 .code-tag {
     background-color: gray;
-    color: white; /* Un verde estilo consola/Matrix */
+    color: white; 
     font-family: 'Consolas', monospace;
     padding: 2px 6px;
     border-radius: 3px;
@@ -1379,7 +1269,6 @@ button:hover {
     color: #000;
 }
 
-/* Dibujamos un pequeño bloque cuadrado como viñeta */
 .pixel-list li::before {
     content: "";
     position: absolute;
@@ -1392,8 +1281,6 @@ button:hover {
     box-sizing: border-box;
 }
 
-
-/* --- ANIMACIÓN PARA NOTICIAS NO LEÍDAS --- */
 @keyframes newsPulse {
     0% { background-color: #8B8B8B; border-color: #FFF; }
     50% { background-color: #4AF626; border-color: #222; color: #000; }
@@ -1402,39 +1289,32 @@ button:hover {
 
 .news-unread {
     animation: newsPulse 1.5s infinite;
-    /* Forzamos el borde para que destaque más cuando parpadea */
     border: 2px outset #FFF !important; 
 }
 
-
-/* --- FILTROS DE CLIMA PARA EL MUNDO --- */
+/* --- FILTROS DE CLIMA --- */
 #canvas {
     transition: filter 1.5s ease-in-out; 
 }
 
-/* Filtro para Lluvia Normal (Más grisáceo) */
 .canvas-raining {
     filter: brightness(0.65) saturate(0.60); 
 }
 
-/* ✨ NUEVO: Filtro para Tormenta (Tus valores exactos) ✨ */
 .canvas-thunder {
     filter: brightness(0.33) saturate(0.99); 
 }
 
-
-/* ✨ ESTILOS DEL BOTÓN WORLD INFO ✨ */
+/* --- BOTÓN WORLD INFO --- */
 #btn-world-info {
     background-color: var(--bg-header);
 }
 
-/* El efecto hover SOLO funcionará si el botón NO está deshabilitado */
 #btn-world-info:not(:disabled):hover {
     background-color: var(--bg-panel);
 }
 
-
-/* Botones compactos para el Quick Access de Mobs */
+/* Botones compactos Quick Access Mobs */
 .quick-mob-btn {
     width: 32px;
     height: 32px;
@@ -1454,49 +1334,41 @@ button:hover {
     border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
-
-/* ==========================================
-   ✨ INTERFAZ DE DRAG AND DROP ✨
-   ========================================== */
+/* --- DRAG AND DROP --- */
 #drag-overlay {
-    display: none; /* Permanece oculta hasta que arrastras algo */
+    display: none; 
     position: fixed;
     top: 0;
     left: 0;
     width: 100vw;
     height: 100vh;
-    background-color: rgba(0, 0, 0, 0.85); /* Fondo negro al 85% */
-    z-index: 999999; /* Por encima de todos los menús y modales */
+    background-color: rgba(0, 0, 0, 0.85); 
+    z-index: 999999; 
     justify-content: center;
     align-items: center;
     text-align: center;
     color: white;
     font-family: Arial, sans-serif;
-    
-    /* IMPORTANTE: Evita que el overlay bloquee el ratón y cause parpadeos */
     pointer-events: none; 
-    backdrop-filter: blur(5px); /* Efecto de desenfoque del fondo */
+    backdrop-filter: blur(5px); 
 }
 
 .drag-content {
-    border: 4px dashed #4DA6FF; /* Borde punteado celeste */
+    border: 4px dashed #4DA6FF; 
     padding: 50px 100px;
     border-radius: 20px;
     background-color: rgba(77, 166, 255, 0.1);
     box-shadow: 0 0 50px rgba(77, 166, 255, 0.3);
 }
 
-
-/* ==========================================
-   ✨ PANTALLA DE CARGA ✨
-   ========================================== */
+/* --- PANTALLA DE CARGA --- */
 #loading-overlay {
-    display: none; /* Oculta por defecto */
+    display: none; 
     position: fixed;
     top: 0; left: 0;
     width: 100vw; height: 100vh;
     background-color: rgba(0, 0, 0, 0.95);
-    z-index: 9999999; /* Por encima de todo */
+    z-index: 9999999; 
     justify-content: center;
     align-items: center;
     flex-direction: column;
@@ -1509,9 +1381,7 @@ button:hover {
     width: 400px;
 }
 
-/* ==========================================
-   ✨ DISEÑO DE BARRA DE EXPERIENCIA (XP) ✨
-   ========================================== */
+/* --- BARRA DE EXPERIENCIA (XP) --- */
 .progress-bar-container {
     width: 100%;
     height: 24px;
@@ -1522,10 +1392,10 @@ button:hover {
     position: relative;
     overflow: hidden;
     background-color: #002200;
-    background-image: var(--xp-bg); /* Se genera por JS */
+    background-image: var(--xp-bg); 
     background-size: 64px 64px;
     image-rendering: pixelated;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.8); /* Sombra exterior flotante */
+    box-shadow: 0 5px 15px rgba(0,0,0,0.8); 
 }
 
 .progress-bar-fill {
@@ -1538,9 +1408,9 @@ button:hover {
     width: 0%;
     transition: width 0.2s ease;
     background-color: rgb(0,170,0);
-    background-image: var(--xp-fill); /* Se genera por JS */
+    background-image: var(--xp-fill); 
     background-size: 64px 64px;
-    animation: flow 6s linear infinite; /* Movimiento de textura */
+    animation: flow 6s linear infinite; 
 }
 
 @keyframes flow {
@@ -1548,7 +1418,6 @@ button:hover {
     100% { background-position: -64px 0; }
 }
 
-/* --- BURBUJAS DE LA BARRA --- */
 .bubble {
     position: absolute;
     width: 4px;
@@ -1571,10 +1440,7 @@ button:hover {
 .b2 { top: 60%; animation: moverBurbuja 4.5s linear infinite 1s; }
 .b3 { top: 45%; animation: moverBurbuja 3s linear infinite .5s; }
 
-
-/* ==========================================
-   ✨ SWITCH ESTILO MS WORD (AutoSave)
-   ========================================== */
+/* --- SWITCH MS WORD --- */
 .ms-switch-container { display: flex; align-items: center; gap: 8px; }
 .ms-switch-label { color: #FFF; font-size: 13px; font-family: 'Segoe UI', Arial, sans-serif; cursor: pointer; }
 
@@ -1583,23 +1449,10 @@ button:hover {
 .ms-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #555; transition: .3s; border-radius: 18px; border: 1px solid #777; }
 .ms-slider:before { position: absolute; content: ""; height: 12px; width: 12px; left: 2px; bottom: 2px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.4); }
 
-/* Color azul al activar */
 .ms-switch input:checked + .ms-slider { background-color: #0078D4; border-color: #0078D4; }
 .ms-switch input:checked + .ms-slider:before { transform: translateX(16px); }
 
-/* ==========================================
-   ✨ PESTAÑAS DEL MENÚ FILE
-   ========================================== */
-.file-tabs-header { display: flex; border-bottom: 2px solid #444; margin-bottom: 10px; }
-.file-tab-btn { background: none; border: none; color: #aaa; padding: 8px 16px; font-size: 15px; cursor: pointer; transition: 0.2s; font-weight: bold; }
-.file-tab-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
-.file-tab-btn.active { color: #4DA6FF; border-bottom: 3px solid #4DA6FF; }
-
-
-/* ==========================================
-   ✨ SISTEMA DE PERFIL (HOVER EFFECTS)
-   ========================================== */
-/* Capa oscura con el lápiz sobre la foto */
+/* --- SISTEMA DE PERFIL --- */
 .profile-pic-overlay {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center;
@@ -1609,7 +1462,6 @@ button:hover {
     opacity: 1;
 }
 
-/* El input que parece texto normal pero se hace celda al pasar el mouse */
 #profile-username {
     width: 100%; background: transparent; border: 1px solid transparent;
     color: var(--text); font-family: inherit; font-size: 16px; font-weight: bold;
@@ -1622,40 +1474,33 @@ button:hover {
     box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
 }
 
-/* ==========================================
-   ✨ BOTÓN DE ELIMINAR MUNDOS (HOVER EFECTO)
-   ========================================== */
-
-/* 1. Ocultar el botón por defecto, pero con transición suave */
+/* --- BOTÓN DE ELIMINAR MUNDOS --- */
 .template-card .delete-btn {
     opacity: 0;
     visibility: hidden;
-    transform: scale(0.8); /* Lo hace un poquito más pequeño cuando está oculto */
+    transform: scale(0.8); 
     transition: all 0.2s ease-in-out;
 }
 
-/* 2. Mostrar el botón cuando el mouse pasa sobre la tarjeta */
 .template-card:hover .delete-btn {
     opacity: 1;
     visibility: visible;
-    transform: scale(1); /* Regresa a su tamaño original, dando un efecto "pop" */
+    transform: scale(1); 
 }
 
-/* 3. Asegurarnos de que el hover del botón en sí también funcione (si quieres) */
 .template-card .delete-btn:hover {
     background: rgba(255, 0, 0, 1) !important;
-    transform: scale(1.1); /* Crece un poquito más al ponerle el mouse directamente al basurero */
+    transform: scale(1.1); 
 }
 
-
-/* --- BARRA DE ESTADO (Estilo MS Word) --- */
+/* --- BARRA DE ESTADO --- */
 #status-bar {
     position: fixed;
     bottom: 0;
     left: 0;
     width: 100%;
-    height: 28px; /* Delgada como en Word */
-    background: var(--bg-dark); /* Azul estilo Word/Windows clásico. Cámbialo a #333 si la prefieres oscura */
+    height: 28px; 
+    background: var(--bg-dark); 
     color: white;
     display: flex;
     justify-content: space-between;
@@ -1710,7 +1555,6 @@ button:hover {
     text-decoration: underline;
 }
 
-/* Estilo para que la barrita deslizable se vea más delgada y fina */
 #zoom-slider {
     width: 120px;
     cursor: pointer;
@@ -1730,48 +1574,36 @@ button:hover {
     box-shadow: 0 1px 3px rgba(0,0,0,0.5);
 }
 
+/* --- MODO ZEN --- */
+body.zen-mode #top-bar { display: none !important; }
+body.zen-mode #world-tabs { display: none !important; }
+body.zen-mode #ribbon .tabs { display: none !important; }
 
-/* ==========================================
-       ✨ MODO ZEN (Estilo Google Docs) ✨
-       ========================================== */
-       
-    /* 1. Ocultar los elementos al activar el modo */
-    body.zen-mode #top-bar { display: none !important; }
-    body.zen-mode #world-tabs { display: none !important; }
-    body.zen-mode #ribbon .tabs { display: none !important; }
+body.zen-mode #zen-mode-btn {
+    position: fixed;
+    top: 0;
+    right: 20px;
+    background: #C6C6C6;
+    border: 2px solid #555;
+    border-top: none;
+    border-radius: 0 0 5px 5px; 
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    padding: 5px 15px;
+    transition: background 0.2s;
+    z-index: 9999;
+}
 
-    /* 2. El botón escapa y se ancla al techo de la pantalla */
-    body.zen-mode #zen-mode-btn {
-        position: fixed;
-        top: 0;
-        right: 20px;
-        background: #C6C6C6;
-        border: 2px solid #555;
-        border-top: none;
-        border-radius: 0 0 5px 5px; /* Bordes redondeados abajo */
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        padding: 5px 15px;
-        transition: background 0.2s;
-        z-index: 9999;
-    }
-
-    body.zen-mode #zen-mode-btn:hover {
-        background: #A0A0A0;
-    }
+body.zen-mode #zen-mode-btn:hover {
+    background: #A0A0A0;
+}
 	
-	
-	
-/* ==========================================
-   ✨ MODO ESPECTADOR (BLOQUEO VISUAL) ✨
-   ========================================== */
-/* Ocultar y desactivar la barra de herramientas lateral */
+/* --- MODO ESPECTADOR --- */
 body.is-spectating #toolbar-sidebar {
     opacity: 0.3;
     pointer-events: none !important; 
     filter: grayscale(100%);
 }
 
-/* Desactivar los botones de la cinta superior (Copiar, Pegar, Rellenar, etc.) */
 body.is-spectating .ribbon-btn-large,
 body.is-spectating .ribbon-btn-small,
 body.is-spectating .quick-struct-btn {
@@ -1780,23 +1612,18 @@ body.is-spectating .quick-struct-btn {
     filter: grayscale(100%);
 }
 
-/* Mostrar un cursor de "Prohibido" cuando se pasa el ratón por el lienzo */
 body.is-spectating #canvas {
     cursor: not-allowed !important;
 }
 
-/* ✨ BLOQUEO DE HOTBAR EN MODO ESPECTADOR */
 body.is-spectating #hotbar-container {
     opacity: 0.4;
     pointer-events: none !important;
     filter: grayscale(100%);
-    transition: all 0.3s ease; /* Para que el cambio de color sea suave */
+    transition: all 0.3s ease; 
 }
 
-
-/* ==========================================
-   ✨ SUBMENÚ "HELP" EN LA TOP-BAR
-   ========================================== */
+/* --- SUBMENÚ "HELP" --- */
 .dropdown-content {
     display: none;
     position: absolute;
@@ -1806,12 +1633,11 @@ body.is-spectating #hotbar-container {
     z-index: 9999999;
     border: 1px solid #ccc;
     border-radius: 4px;
-    top: 100%; /* Lo pone exactamente debajo del botón */
+    top: 100%; 
     left: 0;
     overflow: hidden;
 }
 
-/* Opciones del menú */
 .dropdown-content a {
     color: #333;
     padding: 12px 16px;
@@ -1832,51 +1658,39 @@ body.is-spectating #hotbar-container {
     color: #000;
 }
 
-/* Clase para mostrar el menú mediante JavaScript */
 .dropdown-content.show {
     display: block;
 }
 
-
-/* ==========================================
-   ✨ CHAT MULTIJUGADOR (THEME ADAPTIVE)
-   ========================================== */
-
-/* 1. Contenedor principal del chat */
+/* --- CHAT MULTIJUGADOR --- */
 #mp-full-chat-view {
     background-color: var(--bg-panel) !important;
     color: var(--text) !important;
 }
 
-/* 2. Cabecera del chat (Donde aparece la foto y nombre del amigo) */
 #mp-full-chat-view > div:first-child {
     background-color: var(--bg-header) !important;
     border-bottom: 2px solid var(--border) !important;
     color: var(--text) !important;
 }
 
-/* Forzar que el nombre en la cabecera use el color del texto del tema */
 #full-chat-header-name {
     color: var(--text) !important;
 }
 
-/* 3. Área central de los mensajes */
 #full-dm-messages {
     background-color: var(--bg-dark) !important;
 }
 
-/* 4. Barra inferior (Donde está el input y los botones) */
 #full-chat-active {
     background-color: var(--bg-panel) !important;
     border-top: 2px solid var(--border) !important;
 }
 
-/* Contenedor oscuro que envuelve al input (si lo tienes) */
 #full-chat-active > div {
     background-color: transparent !important; 
 }
 
-/* 5. La caja de texto editable (Rich Text) */
 #full-dm-input {
     background-color: var(--input-bg) !important;
     color: var(--text) !important;
@@ -1884,13 +1698,11 @@ body.is-spectating #hotbar-container {
     box-shadow: inset 0 1px 3px rgba(0,0,0,0.1) !important;
 }
 
-/* Placeholder (El texto fantasma "Type a message...") */
 #full-dm-input:empty:before {
     color: var(--text) !important;
     opacity: 0.5 !important;
 }
 
-/* 6. El botón de Emojis */
 #dm-emoji-btn {
     filter: grayscale(100%) opacity(0.7) !important;
 }
@@ -1898,60 +1710,166 @@ body.is-spectating #hotbar-container {
     filter: grayscale(0%) opacity(1) !important;
 }
 
+/* --- CLASES DE UTILIDAD CREADAS EN FASE 1, 1.5 y 3 --- */
+.top-bar { display: flex; justify-content: space-between; align-items: center; }
+.btn-save-quick {  padding: 2px 6px;  font-size: 16px;  border: 1px solid var(--input-bg);  border-radius: 3px;}
+.btn-multiplayer { color: #4DA6FF; font-weight: bold; position: relative; }
 
-/* --- CENTRO DE NOTIFICACIONES FLOTANTE (ESTILO FB) --- */
-#mp-notifications-flyout {
-    display: none; /* Se activa con JS */
-    position: fixed;
-    top: 50px;     /* Ajusta según la altura de tu barra superior */
-    right: 20px;
-    width: 320px;
-    max-height: 450px;
-    background-color: var(--bg-panel);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-    z-index: 10001;
-    flex-direction: column;
-    overflow: hidden;
-    animation: slideInNotifications 0.2s ease-out;
+.badge-global-mp {
+    display: none; position: absolute; top: -6px; right: -6px; 
+    background: #e74c3c; color: white; font-size: 11px; font-weight: bold; 
+    padding: 2px 6px; border-radius: 10px; border: 1px solid #c0392b; z-index: 10;
 }
 
-@keyframes slideInNotifications {
-    from { opacity: 0; transform: translateY(-10px); }
-    to { opacity: 1; transform: translateY(0); }
+.dropdown-container { position: relative; display: inline-block; }
+.right-group { display: flex; align-items: center; gap: 8px; margin-right: 15px; position: relative; }
+.live-players-container { display: flex; align-items: center; margin-right: 5px; }
+
+.btn-profile-top {
+    width: 28px; height: 28px; border-radius: 50%; padding: 0; cursor: pointer; 
+    overflow: hidden; background: var(--input-bg, #1e1e1e); flex-shrink: 0; 
+    display: flex; justify-content: center; align-items: center; 
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2); border: none; 
 }
 
-/* El triangulito de arriba */
-#mp-notifications-flyout::before {
-    content: "";
-    position: absolute;
-    top: -6px;
-    right: 15px;
-    width: 12px;
-    height: 12px;
-    background-color: var(--bg-panel);
-    border-left: 1px solid var(--border);
-    border-top: 1px solid var(--border);
-    transform: rotate(45deg);
-}
+.img-profile-top { width: 100%; height: 100%; object-fit: cover; image-rendering: auto; }
+.btn-news { font-size: 14px; font-weight: bold; }
+.toolbar-separator { width: 80%; height: 1px; background: #444; margin: 4px auto; }
 
-.flyout-header {
-    padding: 12px;
-    border-bottom: 1px solid var(--border);
-    font-weight: bold;
-    color: var(--text-title);
-    font-family: 'Pixeltype', sans-serif;
-    font-size: 24px;
-    display: flex;
-    justify-content: space-between;
-}
+.ribbon-tabs-container { display: flex; width: 100%; background: var(--bg-header); padding-top: 5px; padding-left: 8px; }
 
-.flyout-content {
-    overflow-y: auto;
-    flex: 1;
-    padding: 5px;
+.btn-ribbon-export {
+    margin-left: auto; margin-bottom: 4px; align-self: flex-end; 
+    background: var(--input-bg, #1e1e1e); color: var(--text, white); 
+    border: 1px solid var(--border, #333); padding: 4px 12px; font-weight: bold; 
+    border-radius: 4px; cursor: pointer; display: flex; align-items: center; 
+    gap: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); transition: background 0.2s;
 }
+.btn-ribbon-export:hover { background: var(--input-hover, #2a2a2a); }
 
-/* Ocultar barra de scroll para estética limpia */
-.flyout-content::-webkit-scrollbar { width: 0px; }
+.btn-ribbon-info { margin-left: 10px; margin-right: 16px; color: var(--text, white); opacity: 0.5; cursor: not-allowed; transition: background-color 0.2s ease; }
+
+.rg-flex-gap8 { display: flex; gap: 8px; }
+.rg-flex-gap10 { display: flex; gap: 10px; align-items: center; }
+.rg-flex-gap12 { display: flex; gap: 12px; align-items: center; justify-content: center; }
+.rg-flex-gap15 { display: flex; gap: 15px; align-items: center; justify-content: center; }
+.rg-col-center { display: flex; flex-direction: column; justify-content: center; }
+.rg-row-center { display: flex; align-items: center; }
+.rg-row-between { display: flex; justify-content: space-between; align-items: center; gap: 5px; }
+
+.gap-2 { gap: 2px; }
+.gap-4 { gap: 4px; }
+.gap-5 { gap: 5px; }
+
+.lbl-small { font-size: 12px; }
+.lbl-tiny { font-size: 11px; text-align: center; margin-top: 2px; line-height: 1; }
+.lbl-check-small { font-size: 12px; cursor: pointer; display: flex; align-items: center; }
+.text-danger { color: #ff5555; font-weight: bold; }
+.text-accent { color: var(--accent, #3498db); font-weight: bold; }
+
+.input-tiny { font-size: 11px; padding: 1px; text-align: center; }
+.input-stat { text-align: center; font-size: 12px; border: 1px solid #555; padding: 2px; margin-top: auto; }
+.input-disabled { background: #a0a0a0; border: 1px inset #555; color: #333; cursor: not-allowed; }
+.w-40 { width: 40px; }
+.w-52 { width: 52px; }
+.w-60 { width: 60px; }
+.w-auto { width: auto; }
+
+.btn-ribbon-save-struct {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: transparent; height: auto; border: none; cursor: pointer; padding: 4px; opacity: 0.5;
+}
+.btn-ribbon-save-struct:not([disabled]) { opacity: 1; }
+.btn-ribbon-save-struct .icon-text { font-size: 20px; }
+.btn-ribbon-save-struct .text-multiline { font-size: 12px; line-height: 1; text-align: center; }
+
+.mini-arrow-btn {
+    margin-left: 1px; width: 20px; background: #999; display: flex; 
+    align-items: center; justify-content: center; cursor: pointer; 
+    padding: 0; border: 1px solid #555;
+}
+.mini-arrow-btn span { font-size: 14px; font-weight: bold; color: #333; }
+.mini-arrow-btn:hover { background: #bbb; }
+.arrow-top { height: 48px; vertical-align: top; display: inline-flex; }
+.arrow-tall { height: 66px; }
+
+.recent-ribbon-container { display: flex; align-items: center; }
+.empty-text { font-size: 10px; color: #555; }
+.vertical-divider { width: 1px; height: 35px; background: #555; margin: 0 5px; }
+.gamerule-item { display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%; }
+
+.pixel-icon { object-fit: contain; margin-bottom: 0px; image-rendering: pixelated; }
+.icon-16 { width: 16px; height: 16px; object-fit: contain; }
+.icon-18 { font-size: 18px; line-height: 1; }
+.icon-24 { font-size: 24px; line-height: 1; text-align: center; margin: 0 auto; }
+.icon-28 { width: 28px; height: 28px; }
+.icon-32 { width: 32px; height: 32px; }
+.m-auto { margin: 0 auto; }
+.mt-2 { margin-top: 2px; }
+.pointer { cursor: pointer; }
+
+.mp-limit-btn {
+    width: 45px; height: 45px; background: #34495e; color: white;
+    border: 2px solid #7f8c8d; border-radius: 5px;
+    font-family: 'Pixeltype', sans-serif; font-size: 24px;
+    cursor: pointer; transition: 0.2s;
+}
+.mp-limit-btn:hover { background: #7f8c8d; }
+.selected-limit { background: #f1c40f !important; color: black; border-color: #f39c12; transform: scale(1.1); }
+
+.m-0 { margin: 0; }
+.text-dark { color: #333; }
+.text-gray { color: gray; }
+.font-18 { font-size: 18px; }
+.font-normal { font-weight: normal; }
+.no-select { user-select: none; -webkit-user-select: none; }
+
+.btn-close-large { cursor: pointer; font-size: 20px; font-weight: bold; }
+.btn-close-bold { cursor: pointer; font-size: 20px; font-weight: bold; }
+.modal-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+
+.mbw-modal-overlay { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
+.inv-modal-window { margin: 5% auto; width: max-content; background: #373737; border: 4px solid #555; color: #FFF; display: flex; flex-direction: column; }
+.inv-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #c6c6c6; }
+.inv-search-container { display: flex; gap: 10px; align-items: center; }
+.inv-search-input { padding: 5px; background: #111; color: #FFF; border: 1px solid #555; }
+
+.inv-main-columns { display: flex; flex-direction: row; }
+.inv-left-col { display: flex; flex-direction: column; width: 584px; }
+.inv-right-col { background: #C6C6C6; padding: 15px; width: 584px; }
+
+.inv-grid-wrapper { display: flex; flex-direction: column; height: 372px; }
+.inv-tabs-sidebar { background: #c6c6c6; display: flex; flex-direction: row; gap: 8px; padding: 8px 10px 0px 10px; overflow-x: auto; overflow-y: hidden; align-items: flex-end; border-bottom: 3px solid #111; min-height: 38px; }
+.inv-main-grid { flex-grow: 1; overflow-y: auto; background: #373737; }
+
+.modal-hotbar-grid { background: #c6c6c6; padding: 15px 10px; display: grid; grid-template-columns: repeat(9, 48px); gap: 0px; justify-content: center; }
+
+.inv-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.input-chest-name { padding: 5px; border: 2px inset #FFF; background: #8B8B8B; color: #FFF; font-weight: bold; width: 130px; }
+.btn-save-chest { padding: 5px 10px; background: #8B8B8B; border: 2px outset #FFF; cursor: pointer; font-weight: bold; color: white; }
+.chest-builder-grid { display: grid; grid-template-columns: repeat(9, 64px); gap: 0px; justify-content: center; }
+
+.ci-builder-container { display: flex; flex-direction: column; position: relative; border-left: 4px solid #555; height: 100%; box-sizing: border-box; }
+.ci-main-area { display: flex; flex-direction: row; gap: 20px; flex: 1; min-height: 0; }
+.ci-preview-col { display: flex; flex-direction: column; align-items: center; width: 220px; gap: 15px; }
+.ci-preview-title { margin: 0; text-align: center; color: #333; font-size: 16px; font-weight: bold; background: rgba(255,255,255,0.5); border: 2px inset #999; outline: none; width: 100%; font-family: inherit; box-sizing: border-box; padding: 4px; }
+.ci-preview-slot { width: 128px; height: 128px; background: #8B8B8B; border: 6px inset #FFF; display: flex; justify-content: center; align-items: center; position: relative; }
+.ci-canvas { width: 96px; height: 96px; image-rendering: pixelated; }
+
+.ci-enchant-col { flex: 1; background: #8B8B8B; border: 4px inset #FFF; display: flex; flex-direction: column; overflow: hidden; height: 356px; }
+.ci-enchant-header { background: #555; color: white; text-align: center; padding: 4px; font-weight: bold; font-size: 14px; border-bottom: 4px solid #373737; }
+.ci-enchant-list { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; padding: 8px; flex: 1; align-items: stretch; }
+
+.struct-saved-actions { display: none; gap: 5px; }
+.struct-subtabs-row { display: none; justify-content: space-between; align-items: center; margin-top: 10px; margin-bottom: 10px; width: 100%; }
+.struct-select { padding: 5px; border-radius: 4px; background: #FFF; color: #000; border: 1px solid #555; }
+.btn-gen-chest { padding: 5px 10px; cursor: pointer; border-radius: 4px; background: #FFF; color: #000; border: 1px solid #555; display: flex; align-items: center; gap: 6px; font-family: inherit; }
+.struct-chest-preview { display: none; justify-content: center; width: 100%; margin-bottom: 15px; transform: scale(0.9); }
+
+.mobs-modal-window { width: 750px; height: 576px; background: #C6C6C6; border: 2px solid #555; padding: 0; display: flex; flex-direction: row; overflow: hidden; }
+.mobs-grid-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0px; overflow-y: auto; background: #8B8B8B; padding: 0px; border: 2px solid #373737; border-top: none; border-right-color: #FFF; border-bottom-color: #FFF; flex: 1; align-content: start; }
+.mob-preview-box { width: 220px; height: 220px; background: #8B8B8B; border: 2px solid #373737; margin-bottom: 15px; display: flex; justify-content: center; align-items: center; }
+.mob-preview-img { width: 220px; max-height: 220px; object-fit: contain; image-rendering: pixelated; }
+.mob-info-title { margin: 0 0 5px 0; font-size: 20px; color: #000; }
+.mob-info-hp { margin: 0; color: #333; font-size: 14px; font-weight: bold; }
+.btn-spawn-mob { font-size: 18px; padding: 12px 0; }

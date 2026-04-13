@@ -5,6 +5,15 @@ window.mySpectators = new Set(); // Rastrea quién NOS está viendo a nosotros
 window.toggleSpectatorMode = function(targetPeerId, targetName) {
     const myName = localStorage.getItem('mbw_username') || "Player";
 
+    // ✨ NUEVO: Escudo Anti-Bucle (Inception)
+    // Si intentamos encender la cámara hacia alguien que YA nos está viendo...
+    if (window.spectatingTargetId !== targetPeerId && window.mySpectators && window.mySpectators.has(targetName)) {
+        if (typeof showDesktopNotification === 'function') {
+            showDesktopNotification("🚫 No puedes", targetName + " ya te está especteando a ti.", "assets/default pfp.png");
+        }
+        return; // 🛑 Detenemos la función aquí, no hace nada más.
+    }
+
     if (window.spectatingTargetId === targetPeerId) {
         // 🔴 APAGAR: Le avisamos al objetivo que ya no lo vemos
         if (typeof enviarMensajeEnRed === 'function') {
@@ -124,11 +133,15 @@ window.showDesktopNotification = function(title, body, icon, onClickCallback) {
 window.renderLivePlayers = function() {
     const container = document.getElementById('mp-live-players');
     if (!container) return;
-    container.innerHTML = '';
-    if (!isMultiplayer && !isHost) return; 
+    
+    if (!isMultiplayer && !isHost) {
+        container.innerHTML = '';
+        return; 
+    }
 
     const myUID = localStorage.getItem('mbw_uid');
     let drawnCount = 0; 
+    let htmlBuilder = ''; // ✨ FIX: Creamos el buffer en memoria
 
     window.roomPlayers.forEach((p) => {
         if (p.uid === myUID) return; 
@@ -136,13 +149,13 @@ window.renderLivePlayers = function() {
         let marginLeft = drawnCount > 0 ? '-10px' : '0';
         let zIndex = 100 - drawnCount; 
 
-        // ✨ MAGIA: Checamos si lo estamos espectando para ponerle borde rojo
         let isSpectating = (window.spectatingTargetId === p.peerId);
-        let borderColor = isSpectating ? '#e74c3c' : 'var(--bg-header)';
+        let borderColor = isSpectating ? '#e74c3c' : 'var(--bg-header, #2b2d31)';
         let borderWidth = isSpectating ? '3px' : '2px';
         let scale = isSpectating ? 'scale(1.15)' : 'scale(1)';
 
-        container.innerHTML += `
+        // Añadimos al buffer, NO al DOM
+        htmlBuilder += `
             <div title="Click to spectate ${p.name}" 
                  onclick="toggleSpectatorMode('${p.peerId}', '${p.name.replace(/'/g, "\\'")}')"
                  style="
@@ -156,6 +169,9 @@ window.renderLivePlayers = function() {
         `;
         drawnCount++;
     });
+    
+    // ✨ FIX: Inyectamos todo de un solo golpe
+    container.innerHTML = htmlBuilder; 
 };
 
 // ==========================================
@@ -432,10 +448,29 @@ window.hostMultiplayerSession = function() {
     });
 };
 
+// ✨ Variable global para el candado anti-spam
+window.isConnecting = false; 
+
 window.joinMultiplayerSession = function(directId = null) {
+    // 🔒 1. Candado Anti-Spam: Si ya está conectando, ignoramos el clic
+    if (window.isConnecting) {
+        console.log("Ya hay una conexión en proceso, ignorando clic...");
+        return; 
+    }
+
     const inputEl = document.getElementById('join-peer-id');
     const hostId = directId || (inputEl ? inputEl.value.trim() : null);
     if (!hostId) { alert("Please enter a Room ID!"); return; }
+
+    // 🔒 2. Activamos el candado
+    window.isConnecting = true; 
+
+    // Limpieza de seguridad: Si ya estábamos en un server, nos desconectamos limpiamente
+    if (isMultiplayer) {
+        if (miConexionAlHost) miConexionAlHost.close();
+        if (peer) peer.destroy();
+        isMultiplayer = false;
+    }
 
     const statusText = document.getElementById('multiplayer-status');
     if (statusText) {
@@ -445,17 +480,76 @@ window.joinMultiplayerSession = function(directId = null) {
     }
 
     isHost = false;
+    
+    // Destruimos cualquier peer viejo que se haya quedado atascado
+    if (peer) peer.destroy(); 
     peer = new Peer(); 
 
     peer.on('open', function() {
+        window.isConnecting = false; // 🔓 Quitamos el candado
         miConexionAlHost = peer.connect(hostId);
         setupClientConnection(miConexionAlHost);
     });
 
-    peer.on('error', function() {
+    peer.on('error', function(err) {
+        window.isConnecting = false; // 🔓 Quitamos el candado si hay error
         if (statusText) { statusText.innerText = "Status: Connection Error"; statusText.style.color = "#e74c3c"; }
         alert("Could not connect. The room might be closed or full.");
+        console.error("Error de PeerJS:", err);
     });
+};
+
+// ✨ FIX FASE 5: DESCONEXIÓN TOTAL Y LIMPIEZA DE MEMORIA
+window.disconnectFromMultiplayer = function() {
+    console.log("Iniciando protocolo de desconexión limpia...");
+
+    // 1. Apagar conexiones P2P (PeerJS)
+    if (miConexionAlHost) {
+        miConexionAlHost.close();
+        miConexionAlHost = null;
+    }
+    
+    if (misClientes && misClientes.length > 0) {
+        misClientes.forEach(c => c.close());
+        misClientes = [];
+    }
+
+    if (peer) {
+        peer.destroy();
+        peer = null;
+    }
+
+    // 2. Borrar mi sala de Firebase si yo era el Host
+    if (isHost && window.myRoomRef) {
+        window.myRoomRef.remove();
+        window.myRoomRef = null;
+    }
+
+    // 3. Limpiar variables globales (Basura en RAM)
+    isMultiplayer = false;
+    isHost = false;
+    window.currentRoomId = null;
+    window.roomPlayers = [];
+    window.networkCursors = {}; // ¡Matamos los cursores fantasmas!
+    window.spectatingTargetId = null;
+    window.mySpectators.clear();
+
+    // 4. Limpiar la Interfaz Visual
+    window.renderLivePlayers(); 
+    if (typeof window.renderPresenceList === 'function') window.renderPresenceList(); 
+    
+    const statusText = document.getElementById('multiplayer-status');
+    if (statusText) {
+        statusText.style.display = 'none';
+        statusText.innerText = "";
+    }
+
+    // 5. Regresar al jugador a su mundo local (opcional)
+    // if (typeof loadLocalWorld === 'function') loadLocalWorld();
+
+    if (typeof showDesktopNotification === 'function') {
+        showDesktopNotification("Desconectado", "Has salido del servidor de forma segura.", "assets/default pfp.png");
+    }
 };
 
 function setupHostConnection(conn) {
@@ -481,8 +575,15 @@ function setupHostConnection(conn) {
     });
 
     conn.on('close', function() {
+        // ✨ FIX FASE 5: Borrar de las listas y limpiar memoria del cursor
         misClientes = misClientes.filter(c => c.peer !== conn.peer);
         window.roomPlayers = window.roomPlayers.filter(p => p.peerId !== conn.peer);
+        
+        // 🗑️ ¡Eliminar el cursor fantasma!
+        if (window.networkCursors && window.networkCursors[conn.peer]) {
+            delete window.networkCursors[conn.peer];
+        }
+
         renderLivePlayers();
         enviarMensajeEnRed({ tipo: "sync_players", players: window.roomPlayers });
 
@@ -507,12 +608,25 @@ function setupClientConnection(conn) {
 
     conn.on('data', function(data) {
         if (data.tipo === "error_conexion") { alert(data.mensaje); conn.close(); return; }
+        
+        // ✨ NUEVO: Si recibimos la señal de expulsión, nos desconectamos
+        if (data.tipo === "kicked") { 
+            alert(data.mensaje); 
+            if (peer) peer.destroy(); // Esto rompe la conexión totalmente
+            return; 
+        }
+        
         recibirMensajeDeRed(data);
     });
 
     conn.on('close', function() {
-        isMultiplayer = false; miConexionAlHost = null;
+        // ✨ FIX FASE 5: Limpieza total al perder conexión con el Host
+        isMultiplayer = false; 
+        miConexionAlHost = null;
         window.roomPlayers = []; 
+        window.networkCursors = {}; // Borramos todos los cursores porque el server cerró
+        window.spectatingTargetId = null;
+
         renderLivePlayers();
         const statusText = document.getElementById('multiplayer-status');
         if (statusText) { statusText.innerText = "Status: Disconnected 🔴"; statusText.style.color = "#e74c3c"; }
@@ -528,7 +642,6 @@ window.loadPublicServers = function() {
     database.ref('servers').off('value');
     database.ref('servers').on('value', (snapshot) => {
         const servers = snapshot.val();
-        listDiv.innerHTML = ''; 
 
         if (!servers) {
             listDiv.innerHTML = '<p style="text-align: center; color: #95a5a6; font-size: 24px; margin-top: 15px;">No public servers available right now.</p>';
@@ -536,6 +649,7 @@ window.loadPublicServers = function() {
         }
 
         const myUID = localStorage.getItem('mbw_uid'); 
+        let htmlBuilder = ''; // ✨ FIX: Buffer de memoria
 
         for (let id in servers) {
             let s = servers[id];
@@ -565,7 +679,7 @@ window.loadPublicServers = function() {
             }
 
             let thumbUrl = s.mapThumb || 'assets/Superflat World.png';
-            listDiv.innerHTML += `
+            htmlBuilder += `
                 <div style="background: rgba(52, 73, 94, 0.8); padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #7f8c8d; gap: 12px; margin-bottom: 5px;">
                     <div style="display: flex; align-items: center; gap: 15px;">
                         <div style="width: 80px; height: 50px; background-image: url('${thumbUrl}'); background-size: cover; background-position: center; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); image-rendering: pixelated; flex-shrink: 0;"></div>
@@ -581,6 +695,9 @@ window.loadPublicServers = function() {
                 </div>
             `;
         }
+        
+        // ✨ FIX: Inyección única
+        listDiv.innerHTML = htmlBuilder; 
     });
 }
 
@@ -602,11 +719,13 @@ function recibirMensajeDeRed(datos) {
         }
         renderLivePlayers(); 
         enviarMensajeEnRed({ tipo: "sync_players", players: window.roomPlayers }); 
+        if (typeof window.renderPresenceList === 'function') window.renderPresenceList(); // ✨ FIX: Refrescar botones
     }
     
     if (datos.tipo === "sync_players") {
         window.roomPlayers = datos.players;
         renderLivePlayers();
+        if (typeof window.renderPresenceList === 'function') window.renderPresenceList(); // ✨ FIX: Refrescar botones
     }
 
     if (datos.tipo === "chat") { 
@@ -713,13 +832,23 @@ function initPresenceSystem(isReload = false) {
     if (!isReload) {
         connectedRef.on('value', (snap) => {
             if (snap.val() === true) {
-                // ✨ FIX: Usamos tu UID como la llave única en la base de datos
                 myPresenceRef = database.ref('online_users/' + myUID);
                 
+                // ✨ NUEVO: El Latido (Heartbeat) de Estado persistente
+                const myStatusRef = database.ref('users_status/' + myUID);
+                myStatusRef.onDisconnect().update({
+                    isOnline: false,
+                    lastSeen: firebase.database.ServerValue.TIMESTAMP
+                });
+                myStatusRef.update({
+                    isOnline: true,
+                    lastSeen: firebase.database.ServerValue.TIMESTAMP
+                });
+
                 myPresenceRef.onDisconnect().remove().then(() => {
                     const myName = localStorage.getItem('mbw_username') || "Player";
                     const myPfp = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
-                    
+					
                     // Sobrescribimos el registro si ya existía
                     myPresenceRef.set({ 
                         uid: myUID, 
@@ -738,52 +867,57 @@ function initPresenceSystem(isReload = false) {
     });
 }
 
+// ✨ FIX: FUNCIÓN RESTAURADA PARA MOSTRAR JUGADORES ONLINE Y ABRIR CHATS
 window.renderPresenceList = function() {
     const users = window.lastKnownUsers;
     const listContainer = document.getElementById('mp-online-users-list');
     if (listContainer) listContainer.innerHTML = '';
     if (!users) return;
 
-    // ✨ AQUÍ ESTÁ EL FIX: Leemos tu ID para que el código sepa quién eres tú
     const myUID = localStorage.getItem('mbw_uid');
-
-    let htmlContent = '';
+    let htmlBuilder = '';
     const now = Date.now();
 
     for (let key in users) {
         const u = users[key];
-        // Ahora sí, esta línea no va a fallar
         const isMe = (myUID && key === myUID);
-        const isFriend = misAmigosConfirmados.includes(u.uid);
+        const isFriend = typeof misAmigosConfirmados !== 'undefined' && misAmigosConfirmados.includes(u.uid);
         
-        let inviteBtn = '';
+        let isInMyRoom = window.roomPlayers && window.roomPlayers.some(p => p.uid === u.uid);
+
+        let actionBtn = '';
         if (isHost && window.currentRoomId && !isMe) {
-            if (window.inviteCooldowns[u.uid] && now < window.inviteCooldowns[u.uid]) {
-                inviteBtn = `<button style="background: #7f8c8d; border: none; padding: 6px 10px; border-radius: 4px; cursor: not-allowed; color: white; font-size: 16px;" disabled>⏳ Wait...</button>`;
+            if (isInMyRoom) {
+                actionBtn = `<button onclick="kickPlayer('${u.uid}', '${window.escapeHTML ? window.escapeHTML(u.username) : u.username}')" style="background: #e74c3c; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#c0392b'" onmouseout="this.style.background='#e74c3c'" title="Expulsar del servidor">🥾 Kick</button>`;
             } else {
-                inviteBtn = `<button onclick="sendServerInvite('${u.uid}', '${u.username}', event)" style="background: #9b59b6; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#8e44ad'" onmouseout="this.style.background='#9b59b6'" title="Invite to server">🎮 Invite</button>`;
+                if (window.inviteCooldowns[u.uid] && now < window.inviteCooldowns[u.uid]) {
+                    actionBtn = `<button style="background: #7f8c8d; border: none; padding: 6px 10px; border-radius: 4px; cursor: not-allowed; color: white; font-size: 16px;" disabled>⏳ Wait...</button>`;
+                } else {
+                    actionBtn = `<button onclick="sendServerInvite('${u.uid}', '${window.escapeHTML ? window.escapeHTML(u.username) : u.username}', event)" style="background: #9b59b6; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#8e44ad'" onmouseout="this.style.background='#9b59b6'" title="Invitar al servidor">🎮 Invite</button>`;
+                }
             }
         }
 
         const borderColor = (isMe || isFriend) ? '#1e293b' : '#34495e';
+        const safeName = window.escapeHTML ? window.escapeHTML(u.username) : u.username;
 
-        htmlContent += `
+        htmlBuilder += `
             <div style="background: rgba(0,0,0,0.4); border: 2px solid ${borderColor}; padding: 10px; display: flex; align-items: center; gap: 12px; border-radius: 6px;">
                 <div style="width: 40px; height: 40px; border-radius: 50%; background-image: url('${u.pfp}'); background-size: cover; background-position: center; border: 2px solid #bdc3c7;"></div>
-                <span style="color: white; font-family: 'Pixeltype', sans-serif; font-size: 26px;">${u.username}</span>
+                <span style="color: white; font-family: 'Pixeltype', sans-serif; font-size: 26px;">${safeName}</span>
                 ${isMe ? 
                     '<span style="color: #2ecc71; font-size: 16px; margin-left: auto; font-weight: bold;">(You)</span>' 
                     : 
                     `<div style="margin-left: auto; display: flex; gap: 8px;">
-                        ${inviteBtn}
-                        ${!isFriend ? `<button onclick="sendFriendRequest('${u.uid}', '${u.username}')" style="background: #e67e22; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#d35400'" onmouseout="this.style.background='#e67e22'">➕ Add</button>` : ''}
-                        ${isFriend ? `<button onclick="openPrivateChat('${u.uid}', '${u.username}', '${u.pfp}')" style="background: transparent; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#2980b9'" onmouseout="this.style.background='transparent'">💬</button>` : ''}
+                        ${actionBtn}
+                        ${!isFriend ? `<button onclick="sendFriendRequest('${u.uid}', '${safeName}')" style="background: #e67e22; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#d35400'" onmouseout="this.style.background='#e67e22'">➕ Add</button>` : ''}
+                        ${isFriend ? `<button onclick="openMpSidebar('chats'); setTimeout(() => openPrivateChat('${u.uid}', '${safeName}', '${u.pfp}'), 50);" style="background: transparent; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#2980b9'" onmouseout="this.style.background='transparent'">💬</button>` : ''}
                     </div>`
                 }
             </div>
         `;
     }
-    if (listContainer) listContainer.innerHTML = htmlContent;
+    if (listContainer) listContainer.innerHTML = htmlBuilder;
 };
 
 // ==========================================
@@ -819,6 +953,33 @@ window.declineServerInvite = function(senderUid) {
     const myUID = localStorage.getItem('mbw_uid');
     database.ref('server_invites/' + myUID + '/' + senderUid).remove(); 
 };
+// ==========================================
+// ✨ EXPULSAR JUGADOR (KICK)
+// ==========================================
+window.kickPlayer = function(targetUid, targetName) {
+    if (!isHost) return;
+    
+    // Preguntamos por seguridad
+    if (!confirm(`¿Estás seguro de que quieres expulsar a ${targetName} de tu servidor?`)) return;
+
+    // 1. Buscamos su PeerID
+    const player = window.roomPlayers.find(p => p.uid === targetUid);
+    if (player && player.peerId) {
+        // 2. Buscamos su conexión directa
+        const conn = misClientes.find(c => c.peer === player.peerId);
+        if (conn) {
+            // 3. Le mandamos la señal de expulsión
+            conn.send({ tipo: "kicked", mensaje: "Has sido expulsado del servidor por el Host." });
+            
+            // 4. Cerramos su conexión
+            setTimeout(() => conn.close(), 500); 
+            
+            if (typeof showDesktopNotification === 'function') {
+                showDesktopNotification("Jugador Expulsado", `Has expulsado a ${targetName}`, "assets/default pfp.png");
+            }
+        }
+    }
+};
 
 // ==========================================
 // ✨ AMIGOS Y PETICIONES
@@ -852,69 +1013,106 @@ window.declineFriendRequest = function(senderUid) {
 let currentSidebarMode = ''; 
 
 window.openMpSidebar = function(mode) {
+    // 1. Aseguramos que el menú Backstage esté abierto y en Multiplayer
     if (typeof openFileMenu === 'function') {
-        const fileMenu = document.getElementById('file-menu');
-        if (fileMenu && fileMenu.style.display === 'none') openFileMenu();
+        const backstageMenu = document.getElementById('backstage-menu');
+        if (!backstageMenu || backstageMenu.style.display === 'none') {
+            openFileMenu(); 
+        }
     }
-    if (typeof switchBackstageTab === 'function') switchBackstageTab('multiplayer');
+    if (typeof switchBackstageTab === 'function') {
+        switchBackstageTab('multiplayer');
+    }
 
     currentSidebarMode = mode;
 
     if (mode !== 'chats') {
         currentChatPartner = null;
-        // ✨ FIX: Destruir el radar fantasma si cambiamos a la pestaña de Amigos o Servidores
         if (currentChatListener && currentChatId) {
             database.ref('private_chats/' + currentChatId).off('child_added', currentChatListener);
             database.ref('private_chats/' + currentChatId).off('child_changed');
             currentChatListener = null;
             currentChatId = null;
         }
-    }
-    
-    const serversView = document.getElementById('mp-servers-view');
-    const fullChatView = document.getElementById('mp-full-chat-view');
-    const sidebar = document.getElementById('mp-right-sidebar');
-    const title = document.getElementById('sidebar-title');
-    const content = document.getElementById('sidebar-content');
-
-    if (mode === 'chats') {
-        if (serversView) serversView.style.display = 'none';
-        if (sidebar) sidebar.style.display = 'none';
-        if (fullChatView) fullChatView.style.display = 'flex';
-        
-        const listContainer = document.getElementById('full-chat-list-container');
-        if (listContainer) renderChatList(listContainer);
-    } else {
-        if (serversView) serversView.style.display = 'flex'; 
-        if (fullChatView) fullChatView.style.display = 'none';
-        if (sidebar) sidebar.style.display = 'flex';
-
-        if (mode === 'friends') {
-            if (title) title.innerText = '👥 Friend requests';
-            if (content) renderFriendRequests(content);
-            const badgeFriends = document.getElementById('badge-friends');
-            if (badgeFriends) badgeFriends.style.display = 'none'; 
-        } else if (mode === 'invites') {
-            if (title) title.innerText = '🔔 Notifications';
-            if (content) renderServerInvites(content);
-            const badgeInv = document.getElementById('badge-invites');
-            if (badgeInv) badgeInv.style.display = 'none';
+        if (window.statusListener && window.lastChatStatusRef) {
+            window.lastChatStatusRef.off('value', window.statusListener);
+            window.statusListener = null;
         }
     }
+
+    // 2. Acomodamos las vistas con un retraso para que cargue el HTML
+    setTimeout(() => {
+        const serversView = document.getElementById('mp-servers-view');
+        const fullChatView = document.getElementById('mp-full-chat-view');
+        const sidebar = document.getElementById('mp-right-sidebar');
+        const title = document.getElementById('sidebar-title');
+        const content = document.getElementById('sidebar-content');
+        
+        const placeholder = document.getElementById('full-chat-placeholder');
+        const activeChat = document.getElementById('full-chat-active');
+
+        if (mode === 'chats') {
+            // Modo Chats: Ocultar servidores y sidebar, mostrar UI de chats
+            if (serversView) serversView.style.display = 'none';
+            if (sidebar) sidebar.style.display = 'none';
+            if (fullChatView) fullChatView.style.display = 'flex';
+            
+            // ✨ FIX: Mostrar el placeholder al inicio, ocultar caja de chat activa hasta elegir alguien
+            if (placeholder) placeholder.style.display = 'flex';
+            if (activeChat) activeChat.style.display = 'none';
+            
+            const listContainer = document.getElementById('full-chat-list-container');
+            if (listContainer && typeof renderChatList === 'function') renderChatList(listContainer);
+        } else {
+            // Modo Amigos/Invitaciones: Mostrar servidores y sidebar derecho
+            if (serversView) serversView.style.display = 'flex'; 
+            if (fullChatView) fullChatView.style.display = 'none';
+            if (sidebar) sidebar.style.display = 'flex';
+
+            if (mode === 'friends') {
+                if (title) title.innerText = '👥 Solicitudes de amistad';
+                if (content && typeof renderFriendRequests === 'function') renderFriendRequests(content);
+                const badgeFriends = document.getElementById('badge-friends');
+                if (badgeFriends) badgeFriends.style.display = 'none'; 
+            } else if (mode === 'invites') {
+                if (title) title.innerText = '🔔 Invitaciones';
+                if (content && typeof renderServerInvites === 'function') renderServerInvites(content);
+                const badgeInv = document.getElementById('badge-invites');
+                if (badgeInv) badgeInv.style.display = 'none';
+            }
+        }
+    }, 20);
 };
 
 window.closeMpSidebar = function() {
-    const sidebar = document.getElementById('mp-right-sidebar');
-    if (sidebar) sidebar.style.display = 'none';
-    
+    // 1. LIMPIEZA DE MEMORIA (Memory Leaks)
     currentChatPartner = null;
-    // ✨ FIX: Destruir el radar fantasma al cerrar el menú lateral
+    currentSidebarMode = '';
+
+    // Apagamos la antena de mensajes de este chat
     if (currentChatListener && currentChatId) {
         database.ref('private_chats/' + currentChatId).off('child_added', currentChatListener);
         database.ref('private_chats/' + currentChatId).off('child_changed');
         currentChatListener = null;
         currentChatId = null;
     }
+    
+    // Apagamos la antena de "En línea / Escribiendo..."
+    if (window.statusListener && window.lastChatStatusRef) {
+        window.lastChatStatusRef.off('value', window.statusListener);
+        window.statusListener = null;
+    }
+
+    // 2. RESTAURAR LA INTERFAZ VISUAL
+    const serversView = document.getElementById('mp-servers-view');
+    const fullChatView = document.getElementById('mp-full-chat-view');
+    const sidebar = document.getElementById('mp-right-sidebar');
+
+    if (fullChatView) fullChatView.style.display = 'none';
+    if (sidebar) sidebar.style.display = 'none';
+    
+    // Volvemos a mostrar la lista de servidores
+    if (serversView) serversView.style.display = 'flex'; 
 };
 
 window.renderServerInvites = function(container) {
@@ -1123,61 +1321,107 @@ window.sendPrivateMessage = function() {
     input.focus();
 };
 
-window.renderChatList = function(container) {
+window.renderSocialFriendRequests = function(container) {
     const myUID = localStorage.getItem('mbw_uid');
+    database.ref('friend_requests/' + myUID).once('value', (snapshot) => {
+        const requests = snapshot.val();
+        
+        if (!requests) { 
+            container.innerHTML = '<div class="social-empty">No hay solicitudes pendientes</div>'; 
+            return; 
+        }
+
+        let count = 0;
+        let htmlBuilder = ''; // ✨ FIX: Buffer
+
+        Object.keys(requests).reverse().forEach(senderUid => {
+            let req = requests[senderUid];
+            if (req.status) return; 
+            count++;
+            
+            htmlBuilder += `
+                <div class="social-list-card" onclick="showSocialDetail('friend', '${senderUid}', '${req.username}', '${req.pfp}')">
+                    <div class="social-card-pfp" style="background-image: url('${req.pfp}');"></div>
+                    <div class="social-card-text">
+                        <strong>${req.username}</strong>
+                        <span>Quiere ser tu amigo</span>
+                    </div>
+                </div>
+            `;
+        });
+        
+        // ✨ FIX: Inyección única
+        container.innerHTML = count === 0 ? '<div class="social-empty">No hay solicitudes pendientes</div>' : htmlBuilder;
+    });
+};
+
+window.renderChatList = function(container) {
+    if (!container) return;
+    const myUID = localStorage.getItem('mbw_uid');
+    if (!myUID) return;
+
     database.ref('friends/' + myUID).once('value', (friendsSnap) => {
         const friends = friendsSnap.val() || {};
         database.ref('user_chats/' + myUID).once('value', (snapshot) => {
             const myChats = snapshot.val() || {};
-            container.innerHTML = '';
             let chatEntries = {};
             
+            // Unificamos chats existentes y amigos
             for (let uid in myChats) { chatEntries[uid] = myChats[uid]; }
             for (let uid in friends) {
                 if (!chatEntries[uid]) {
-                    let friendName = "User"; let friendPfp = "assets/default pfp.png";
+                    let friendName = "User"; 
+                    let friendPfp = "assets/default pfp.png";
                     if (window.lastKnownUsers && window.lastKnownUsers[uid]) {
-                        friendName = window.lastKnownUsers[uid].username; friendPfp = window.lastKnownUsers[uid].pfp;
+                        friendName = window.lastKnownUsers[uid].username; 
+                        friendPfp = window.lastKnownUsers[uid].pfp;
                     }
                     chatEntries[uid] = { name: friendName, pfp: friendPfp, lastMsg: "", timestamp: 0, unreadCount: 0 };
                 }
             }
 
             const sorted = Object.keys(chatEntries).map(uid => ({uid, ...chatEntries[uid]})).sort((a, b) => b.timestamp - a.timestamp);
-            if (sorted.length === 0) { container.innerHTML = '<p style="color: #bdc3c7; text-align: center; font-size: 24px; margin-top: 20px;">No friends or active chats.</p>'; return; }
+            
+            if (sorted.length === 0) { 
+                container.innerHTML = '<div style="padding: 20px; text-align: center; color: #bdc3c7; font-family: Arial; font-size: 18px; opacity: 0.6;">No hay chats ni amigos disponibles.</div>'; 
+                return; 
+            }
+
+            let htmlBuilder = ''; // ✨ Buffer de optimización
 
             sorted.forEach(chat => {
-                let unreadBadge = (chat.unreadCount && chat.unreadCount > 0) ? `<div style="background: var(--danger, #e74c3c); color: white; font-size: 14px; font-weight: bold; padding: 2px 8px; border-radius: 12px; margin-left: auto; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${chat.unreadCount}</div>` : '';
-                let msgStyle = chat.lastMsg === "" ? "font-style: italic; opacity: 0.6;" : "";
+                let unreadBadge = (chat.unreadCount && chat.unreadCount > 0) ? `<div style="background: #e74c3c; color: white; font-size: 14px; font-weight: bold; padding: 2px 8px; border-radius: 12px; margin-left: auto; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${chat.unreadCount}</div>` : '';
+                let msgStyle = chat.lastMsg === "" ? "font-style: italic; opacity: 0.5;" : "";
                 
-                let isActive = currentChatPartner && currentChatPartner.uid === chat.uid;
-                let bgStyle = isActive ? 'var(--bg-hover, rgba(255,255,255,0.1))' : 'transparent';
-                let borderStyle = isActive ? '4px solid var(--accent, #f1c40f)' : '4px solid transparent';
+                let isActive = typeof currentChatPartner !== 'undefined' && currentChatPartner && currentChatPartner.uid === chat.uid;
+                let bgStyle = isActive ? 'rgba(255,255,255,0.1)' : 'transparent';
+                let borderStyle = isActive ? '4px solid #4DA6FF' : '4px solid transparent';
 
-                let safeName = chat.name.replace(/'/g, "\\'");
-
-                // ✨ NUEVO: Detectar si está online
+                // ✨ FIX SEGURIDAD: Protección contra nombres nulos
+                let displayName = chat.name || "Unknown User";
+                let safeName = displayName.replace(/'/g, "\\'");
+                
                 let isOnline = window.lastKnownUsers && window.lastKnownUsers[chat.uid];
-                let statusColor = isOnline ? 'var(--success, #2ecc71)' : 'var(--text-muted, #7f8c8d)';
+                let statusColor = isOnline ? '#2ecc71' : '#7f8c8d';
 
-                container.innerHTML += `
-                    <div style="background: ${bgStyle}; padding: 12px; display: flex; align-items: center; gap: 12px; border-radius: 0px; border-left: ${borderStyle}; border-bottom: 1px solid var(--border); cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='var(--bg-hover, rgba(255,255,255,0.1))'" onmouseout="this.style.background='${bgStyle}'" onclick="openPrivateChat('${chat.uid}', '${safeName}', '${chat.pfp}')">
-                        
+                htmlBuilder += `
+                    <div style="background: ${bgStyle}; padding: 12px; display: flex; align-items: center; gap: 12px; border-left: ${borderStyle}; border-bottom: 1px solid #1a252f; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='${bgStyle}'" onclick="openPrivateChat('${chat.uid}', '${safeName}', '${chat.pfp}')">
                         <div style="position: relative; width: 45px; height: 45px; flex-shrink: 0;">
-                            <div style="width: 100%; height: 100%; border-radius: 50%; background-image: url('${chat.pfp}'); background-size: cover; background-position: center; border: 2px solid var(--border);"></div>
-                            <div style="position: absolute; bottom: -2px; right: -2px; width: 14px; height: 14px; background-color: ${statusColor}; border: 3px solid var(--bg-panel); border-radius: 50%; box-sizing: border-box; box-shadow: 0 1px 2px rgba(0,0,0,0.3);"></div>
+                            <div style="width: 100%; height: 100%; border-radius: 50%; background-image: url('${chat.pfp}'); background-size: cover; background-position: center; border: 2px solid #555;"></div>
+                            <div style="position: absolute; bottom: -2px; right: -2px; width: 14px; height: 14px; background-color: ${statusColor}; border: 3px solid #34495e; border-radius: 50%; box-sizing: border-box;"></div>
                         </div>
-
                         <div style="flex: 1; overflow: hidden; display: flex; align-items: center;">
                             <div style="flex: 1; overflow: hidden;">
-                                <div style="color: var(--text-title, white); font-size: 24px; font-family: 'Pixeltype', sans-serif;">${chat.name}</div>
-                                <div style="color: var(--text-muted, #bdc3c7); font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: Arial; ${msgStyle}">${chat.lastMsg}</div>
+                                <div style="color: white; font-size: 24px; font-weight: bold; font-family: 'Pixeltype', sans-serif;">${displayName}</div>
+                                <div style="color: #bdc3c7; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: Arial; ${msgStyle}">${chat.lastMsg || "Sin mensajes"}</div>
                             </div>
                             ${unreadBadge}
                         </div>
                     </div>
                 `;
             });
+
+            container.innerHTML = htmlBuilder;
         });
     });
 };
@@ -1253,9 +1497,41 @@ window.saveRecentEmote = function(emoteName) {
 // ==========================================
 // ✨ EL CHAT Y EL PANEL DISCORD (CONSOLIDADO)
 // ==========================================
+
+// ✨ NUEVO: Convertidor de tiempo extendido (Minutos, Horas, Días, Meses, Años)
+window.formatTimeAgo = function(timestamp) {
+    // Si el usuario nunca en su vida ha entrado desde que pusiste esta actualización
+    if (!timestamp) return "Desconectado"; 
+
+    const diff = Date.now() - timestamp;
+    const mins = Math.floor(diff / 60000);
+
+    if (mins < 1) return "Activo hace un momento";
+    if (mins < 60) return `Activo hace ${mins} min`;
+
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `Activo hace ${hours} hora${hours !== 1 ? 's' : ''}`;
+
+    const days = Math.floor(hours / 24);
+    if (days === 1) return "Activo ayer";
+    if (days < 30) return `Activo hace ${days} días`;
+
+    const months = Math.floor(days / 30);
+    if (months < 12) return `Activo hace ${months} mes${months !== 1 ? 'es' : ''}`;
+
+    const years = Math.floor(days / 365);
+    return `Activo hace ${years} año${years !== 1 ? 's' : ''}`;
+};
+
 window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/default pfp.png") {
     
-    // 1. Limpieza de listeners anteriores
+    // 1. ✨ FIX: FORZAR LA UI (Mostrar el chat activo y ocultar el placeholder de "Selecciona un chat")
+    const placeholder = document.getElementById('full-chat-placeholder');
+    const activeChat = document.getElementById('full-chat-active');
+    if (placeholder) placeholder.style.display = 'none';
+    if (activeChat) activeChat.style.display = 'flex';
+
+    // 2. Limpieza de listeners anteriores
     if (currentChatListener && currentChatId) {
         database.ref('private_chats/' + currentChatId).off('child_added', currentChatListener);
         database.ref('private_chats/' + currentChatId).off('child_changed');
@@ -1263,51 +1539,78 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
     if (window.typingListener && currentChatId && currentChatPartner) {
         database.ref('typing_status/' + currentChatId + '/' + currentChatPartner.uid).off('value', window.typingListener);
     }
+    if (window.statusListener && window.lastChatStatusRef) {
+        window.lastChatStatusRef.off('value', window.statusListener);
+        window.statusListener = null;
+    }
 
-    if (typeof window.openMpSidebar === 'function') window.openMpSidebar('chats');
-
-    // 2. Configuración inicial del chat actual
+    // 3. Configuración de IDs y compañero
     const myUID = localStorage.getItem('mbw_uid');
     currentChatId = myUID < otherUid ? myUID + "_" + otherUid : otherUid + "_" + myUID;
     currentChatPartner = { uid: otherUid, name: otherName, pfp: otherPfp };
 
-    // Reiniciar contador de no leídos
+    // Poner contadores de no leídos a 0
     database.ref('user_chats/' + myUID + '/' + otherUid).update({ unreadCount: 0 });
 
-    const placeholder = document.getElementById('full-chat-placeholder');
-    const activePanel = document.getElementById('full-chat-active');
+    // 4. Actualizar Cabecera Visual
     const headerName = document.getElementById('full-chat-header-name');
     const headerPfp = document.getElementById('full-chat-header-pfp');
     const messagesContainer = document.getElementById('full-dm-messages');
     const dmInput = document.getElementById('full-dm-input');
 
-    if (placeholder) placeholder.style.display = 'none';
-    if (activePanel) activePanel.style.display = 'flex';
-    if (headerName) headerName.innerText = otherName;
+    if (headerName) {
+        headerName.innerHTML = `
+            <div style="line-height: 1.1;">${otherName}</div>
+            <div style="font-size: 14px; font-family: Arial, sans-serif; font-weight: normal; margin-top: 3px; display: flex; align-items: center; gap: 5px;">
+                <span id="chat-status-dot" style="width: 10px; height: 10px; border-radius: 50%; background: #95a5a6; display: inline-block; border: 2px solid var(--bg-panel, #2b2d31); box-sizing: border-box;"></span>
+                <span id="chat-header-status-text" style="color: #bdc3c7;">Cargando...</span>
+            </div>
+        `;
+    }
+
     if (headerPfp) headerPfp.style.backgroundImage = `url('${otherPfp}')`;
     if (messagesContainer) messagesContainer.innerHTML = ''; 
 
-    const listContainer = document.getElementById('full-chat-list-container');
-    if (listContainer) renderChatList(listContainer);
+    // 5. Listener de Estado (Activo hace X tiempo)
+    window.lastChatStatusRef = database.ref('users_status/' + otherUid);
+    window.statusListener = window.lastChatStatusRef.on('value', (snap) => {
+        const status = snap.val();
+        const textEl = document.getElementById('chat-header-status-text');
+        const dotEl = document.getElementById('chat-status-dot');
+        if (!textEl || !dotEl) return;
 
-    // 3. ✨ BOTÓN FLOTANTE DE SCROLL (NUEVOS MENSAJES)
+        if (status && status.isOnline) {
+            textEl.innerText = "Activo ahora";
+            textEl.style.color = "#2ecc71";
+            dotEl.style.background = "#2ecc71";
+        } else {
+            textEl.innerText = status ? (typeof window.formatTimeAgo === 'function' ? window.formatTimeAgo(status.lastSeen) : "Desconectado") : "Desconectado";
+            textEl.style.color = "#95a5a6";
+            dotEl.style.background = "#95a5a6";
+        }
+    });
+
+    // 6. Actualizar lista de la izquierda
+    const listContainer = document.getElementById('full-chat-list-container');
+    if (listContainer && typeof renderChatList === 'function') renderChatList(listContainer);
+
+    // 7. Botón de Scroll
+    const activePanel = document.getElementById('mp-full-chat-view');
     let scrollBtn = document.getElementById('chat-scroll-bottom-btn');
     if (!scrollBtn) {
         scrollBtn = document.createElement('button');
         scrollBtn.id = 'chat-scroll-bottom-btn';
         scrollBtn.innerHTML = '⬇️ Nuevos';
-        scrollBtn.style.cssText = 'display: none; position: absolute; bottom: 80px; right: 20px; background: var(--accent, #3498db); color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.4); font-weight: bold; font-family: Arial; z-index: 100; transition: transform 0.2s;';
+        scrollBtn.style.cssText = 'display: none; position: absolute; bottom: 80px; right: 20px; background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.4); font-weight: bold; font-family: Arial; z-index: 100; transition: transform 0.2s;';
         scrollBtn.onmouseover = () => scrollBtn.style.transform = 'scale(1.05)';
         scrollBtn.onmouseout = () => scrollBtn.style.transform = 'scale(1)';
         scrollBtn.onclick = () => {
             if (messagesContainer) messagesContainer.scrollTop = messagesContainer.scrollHeight;
             scrollBtn.style.display = 'none';
         };
-        const mainView = document.getElementById('mp-full-chat-view');
-        if (mainView) mainView.appendChild(scrollBtn);
+        if (activePanel) activePanel.appendChild(scrollBtn);
     }
 
-    // Detectar cuando el usuario hace scroll manual para ocultar el botón
     if (messagesContainer) {
         messagesContainer.onscroll = () => {
             let isAtBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < 20;
@@ -1315,14 +1618,14 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
         };
     }
 
-    // 4. Semáforo de historial y fechas
+    // 8. Cargar historial
     let isHistoryLoaded = false;
     const chatRef = database.ref('private_chats/' + currentChatId);
     chatRef.once('value').then(() => { isHistoryLoaded = true; });
 
     let lastRenderedDate = ""; 
     
-    // 5. ✨ CONSTRUCTOR DE BURBUJAS DE MENSAJE (CON REACCIONES Y RESPUESTAS)
+    // 9. Función Render Bubble
     const renderBubble = (msg, msgKey) => {
         const isMe = msg.sender === myUID;
         const date = new Date(msg.timestamp || Date.now());
@@ -1331,35 +1634,36 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
         let textToRender = "";
         let extraStyle = "";
 
-        // Sanitización y Parseo
         if (msg.isDeleted) {
             textToRender = "🚫 Este mensaje fue eliminado";
             extraStyle = "font-style: italic; opacity: 0.6;";
         } else {
-            let safeText = window.escapeHTML(msg.text);
-            let emotedText = window.parseEmotes(safeText); 
+            let safeText = typeof window.escapeHTML === 'function' ? window.escapeHTML(msg.text) : msg.text;
+            let emotedText = typeof window.parseEmotes === 'function' ? window.parseEmotes(safeText) : safeText; 
             textToRender = emotedText.replace(/(?:x:\s*)?(-?\d+)\s*(?:,|y:)\s*(-?\d+)/gi, 
-                '<span style="color: var(--accent, #3498db); text-decoration: underline; font-weight: bold; cursor: pointer;" onclick="if(window.camera !== undefined){camera.x=$1; camera.y=$2; window.worldDirty=true;} event.stopPropagation();" title="Teletransportar">[$1, $2]</span>'
+                '<span style="color: #3498db; text-decoration: underline; font-weight: bold; cursor: pointer;" onclick="if(window.camera !== undefined){camera.x=$1; camera.y=$2; window.worldDirty=true;} event.stopPropagation();" title="Teletransportar">[$1, $2]</span>'
             );
             if (msg.isEdited) textToRender += ' <span style="font-size: 11px; opacity: 0.6; margin-left: 6px;">(editado)</span>';
         }
 
-        // Respuestas (Reply)
         let replyHtml = '';
         if (msg.replyTo) {
+            let safeReplyName = typeof window.escapeHTML === 'function' ? window.escapeHTML(msg.replyTo.senderName) : msg.replyTo.senderName;
+            let safeReplyText = typeof window.escapeHTML === 'function' ? window.escapeHTML(msg.replyTo.text) : msg.replyTo.text;
+            let parsedReplyText = typeof window.parseEmotes === 'function' ? window.parseEmotes(safeReplyText) : safeReplyText;
+            
             replyHtml = `
-                <div style="background: rgba(0,0,0,0.15); border-left: 3px solid var(--accent, #f1c40f); padding: 5px 8px; margin-bottom: 8px; border-radius: 4px; font-family: Arial;">
-                    <b style="display: block; font-size: 11px; color: var(--accent, #f1c40f);">${window.escapeHTML(msg.replyTo.senderName)}</b>
-                    <span style="display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; font-size: 13px; opacity: 0.8;">${window.parseEmotes(window.escapeHTML(msg.replyTo.text))}</span>
+                <div style="background: rgba(0,0,0,0.15); border-left: 3px solid #f1c40f; padding: 5px 8px; margin-bottom: 8px; border-radius: 4px; font-family: Arial;">
+                    <b style="display: block; font-size: 11px; color: #f1c40f;">${safeReplyName}</b>
+                    <span style="display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; font-size: 13px; opacity: 0.8;">${parsedReplyText}</span>
                 </div>
             `;
         }
 
-        // ✨ MAGIA: RENDERIZAR REACCIONES (AFUERA Y CLICKEABLES)
         let reactionsHtml = '';
         if (msg.reactions && !msg.isDeleted) {
             let counts = {};
-            let myReacts = {}; // Rastrear qué puse yo
+            let myReacts = {}; 
             for (let uid in msg.reactions) {
                 let e = msg.reactions[uid];
                 counts[e] = (counts[e] || 0) + 1;
@@ -1367,16 +1671,13 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
             }
             let badges = '';
             for (let e in counts) {
-                // Si yo puse la reacción, se pinta con el color de acento
-                let highlight = myReacts[e] ? 'border-color: var(--accent, #3498db); background: var(--bg-dark, #1e1e1e);' : 'border-color: var(--border, #3e3e42); background: var(--bg-panel, #252526);';
-                
+                let highlight = myReacts[e] ? 'border-color: #3498db; background: #1e1e1e;' : 'border-color: #3e3e42; background: #252526;';
                 badges += `<span onclick="window.toggleReaction('${msgKey}', '${e}'); event.stopPropagation();" style="${highlight} border-width: 1px; border-style: solid; border-radius: 12px; padding: 2px 6px; font-size: 11px; display: inline-flex; align-items: center; gap: 3px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: transform 0.1s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">${e} <span style="font-size: 10px; opacity: 0.8;">${counts[e]}</span></span>`;
             }
-            // Posicionamiento absoluto afuera de la burbuja
             reactionsHtml = `<div style="position: absolute; bottom: -12px; right: -5px; display: flex; flex-wrap: wrap; gap: 4px; z-index: 5;">${badges}</div>`;
         }
 
-        let ticksHtml = isMe ? `<span id="ticks-${msgKey}" style="color: ${msg.status === 'read' ? 'var(--accent, #3498db)' : 'var(--text-muted, #bdc3c7)'}; font-size: 13px; margin-left: 4px; font-weight: bold;">✓✓</span>` : '';
+        let ticksHtml = isMe ? `<span id="ticks-${msgKey}" style="color: ${msg.status === 'read' ? '#3498db' : '#bdc3c7'}; font-size: 13px; margin-left: 4px; font-weight: bold;">✓✓</span>` : '';
 
         return `
             ${replyHtml}
@@ -1388,19 +1689,17 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
         `;
     };
 
-    // 6. ✨ RECEPCIÓN DE MENSAJES (Nuevos)
+    // 10. Listener de nuevos mensajes
     currentChatListener = chatRef.on('child_added', (snap) => {
         const msg = snap.val();
         const msgKey = snap.key;
         const isMe = msg.sender === myUID;
 
-        // Marcar como leído si estoy viendo el chat
         if (!isMe && activePanel && activePanel.offsetWidth > 0 && currentChatPartner.uid === otherUid) {
             if (msg.status !== 'read') database.ref('private_chats/' + currentChatId + '/' + msgKey).update({ status: 'read' });
             if (isHistoryLoaded && typeof audioManager !== 'undefined') audioManager.playTone(600, 'sine', 0.05, 0.1);
         }
 
-        // Separador de Fechas
         const date = new Date(msg.timestamp || Date.now());
         const today = new Date();
         const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
@@ -1413,22 +1712,20 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
         if (dateString !== lastRenderedDate) {
             const sepDiv = document.createElement('div');
             sepDiv.style.textAlign = 'center'; sepDiv.style.margin = '15px 0'; sepDiv.style.width = '100%';
-            sepDiv.innerHTML = `<span style="background: var(--bg-panel, rgba(0,0,0,0.5)); color: var(--text, #ecf0f1); padding: 4px 12px; border-radius: 12px; font-size: 11px; font-family: Arial, sans-serif; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.4); text-transform: capitalize;">${dateString}</span>`;
+            sepDiv.innerHTML = `<span style="background: rgba(0,0,0,0.5); color: #ecf0f1; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-family: Arial, sans-serif; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.4); text-transform: capitalize;">${dateString}</span>`;
             if (messagesContainer) messagesContainer.appendChild(sepDiv);
             lastRenderedDate = dateString; 
         }
 
-        // ✨ FIX: Dejamos más espacio abajo (margin-bottom: 22px) si hay reacciones para que no choquen
         const hasReactions = msg.reactions && !msg.isDeleted;
         const msgRow = document.createElement('div');
         msgRow.style.cssText = `display: flex; align-items: flex-end; gap: 8px; margin-bottom: ${hasReactions ? '22px' : '10px'}; width: 100%; flex-direction: ${isMe ? 'row-reverse' : 'row'}; transition: margin 0.2s;`;
         
         const avatarDiv = document.createElement('div');
-        avatarDiv.style.cssText = `width: 32px; height: 32px; border-radius: 50%; background-image: url('${isMe ? localStorage.getItem('mbw_profile_pic') : currentChatPartner.pfp}'); background-size: cover; flex-shrink: 0; border: 1px solid var(--border);`;
+        avatarDiv.style.cssText = `width: 32px; height: 32px; border-radius: 50%; background-image: url('${isMe ? localStorage.getItem('mbw_profile_pic') : currentChatPartner.pfp}'); background-size: cover; flex-shrink: 0; border: 1px solid #333;`;
 
         const bubbleDiv = document.createElement('div');
-        // ✨ FIX: position: relative y overflow: visible para permitir que la reacción flote afuera de la burbuja
-        bubbleDiv.style.cssText = `position: relative; overflow: visible; background: ${isMe ? 'var(--input-bg, #0f172a)' : 'var(--bg-panel, #243341)'}; color: var(--text, white); padding: 8px 12px 4px 12px; border-radius: ${isMe ? '15px 15px 0 15px' : '15px 15px 15px 0'}; max-width: 210px; font-family: Arial; font-size: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); word-wrap: break-word; cursor: pointer; border: 1px solid var(--border, transparent);`;
+        bubbleDiv.style.cssText = `position: relative; overflow: visible; background: ${isMe ? '#1a252f' : '#34495e'}; color: white; padding: 8px 12px 4px 12px; border-radius: ${isMe ? '15px 15px 0 15px' : '15px 15px 15px 0'}; max-width: 210px; font-family: Arial; font-size: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); word-wrap: break-word; cursor: pointer;`;
         
         bubbleDiv.innerHTML = renderBubble(msg, msgKey);
 
@@ -1442,7 +1739,6 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
         if (messagesContainer) {
             messagesContainer.appendChild(msgRow);
             
-            // Auto-scroll Inteligente
             let isAtBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < 60;
             if (isMe || isAtBottom || !isHistoryLoaded) {
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -1453,159 +1749,32 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
         }
     });
 
-    // 7. ✨ ACTUALIZACIÓN DE MENSAJES (Ediciones, Borrados, Lecturas, Reacciones)
+    // 11. Listener de edición/borrado de mensajes
     chatRef.on('child_changed', (snap) => {
         const msg = snap.val();
         if (msg.sender === myUID) {
             const tick = document.getElementById(`ticks-${snap.key}`);
-            if (tick) tick.style.color = msg.status === 'read' ? 'var(--accent, #3498db)' : 'var(--text-muted, #bdc3c7)';
+            if (tick) tick.style.color = msg.status === 'read' ? '#3498db' : '#bdc3c7';
         }
         const bubble = document.getElementById(`msg-text-${snap.key}`);
         if (bubble && bubble.parentElement) {
             bubble.parentElement.innerHTML = renderBubble(msg, snap.key);
-            
-            // ✨ FIX: Ajustar el margen del renglón si agregaron/quitaron reacciones
             const hasReactions = msg.reactions && !msg.isDeleted;
             bubble.parentElement.parentElement.style.marginBottom = hasReactions ? '22px' : '10px';
         }
     });
 
-    // 8. ✨ PANEL DISCORD Y BOTÓN DE EMOJIS (Fix de .innerHTML)
-    if (dmInput && !document.getElementById('dm-emoji-btn')) {
-        let emojiBtn = document.createElement('button');
-        emojiBtn.id = 'dm-emoji-btn';
-        emojiBtn.innerHTML = '😀';
-        emojiBtn.style.cssText = "background: transparent; border: none; font-size: 22px; cursor: pointer; padding: 5px 10px; transition: 0.2s; filter: grayscale(100%) opacity(0.7); outline: none;";
-        emojiBtn.onmouseover = () => emojiBtn.style.filter = 'grayscale(0%) opacity(1)';
-        emojiBtn.onmouseout = () => emojiBtn.style.filter = 'grayscale(100%) opacity(0.7)';
-        dmInput.parentNode.insertBefore(emojiBtn, dmInput.nextSibling);
-        dmInput.parentNode.style.position = 'relative';
-
-        const picker = document.createElement('div');
-        picker.id = 'dm-emoji-picker';
-        picker.style.cssText = "display: none; position: absolute; bottom: 60px; right: 20px; width: 432px; height: 350px; background: var(--bg-panel, #2b2d31); border: 1px solid var(--border, #1e1f22); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.6); z-index: 10000; flex-direction: column; overflow: hidden; font-family: Arial;";
-        
-        picker.innerHTML = `
-            <div style="display: flex; background: var(--bg-dark, #1e1f22); border-bottom: 1px solid var(--border, #000);">
-                <div id="tab-btn-emotes" style="flex:1; padding: 10px; text-align: center; color: var(--text, #fff); cursor: pointer; background: var(--bg-panel, #313338); font-weight: bold; border-bottom: 2px solid var(--accent, #5865F2);">Emotes</div>
-                <div id="tab-btn-emojis" style="flex:1; padding: 10px; text-align: center; color: var(--text-muted, #aaa); cursor: pointer; border-bottom: 2px solid transparent;">Emojis</div>
-            </div>
-            
-            <div id="view-emotes" style="flex: 1; overflow-y: auto; padding: 10px; display: block;">
-                <div style="font-size: 11px; font-weight: bold; color: var(--text-muted, #949ba4); margin-bottom: 8px;">Most used</div>
-                <div id="emotes-recents-grid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0px; justify-items: stretch;"></div>
-                
-                <div style="height: 1px; background: var(--border, #3f4147); margin: 10px 0;"></div>
-                
-                <div style="font-size: 11px; font-weight: bold; color: var(--text-muted, #949ba4); margin-bottom: 8px;">All emotes</div>
-                <div id="emotes-all-grid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0px; justify-items: stretch;"></div>
-            </div>
-
-            <div id="view-emojis" style="flex: 1; overflow-y: hidden; display: none; flex-direction: column;">
-                <div id="emoji-subtabs" style="display: flex; background: var(--bg-panel, #2b2d31); padding: 5px; border-bottom: 1px solid var(--border, #1e1f22); gap: 0px; overflow-x: auto;"></div>
-                <div id="emoji-scroll-area" style="flex: 1; overflow-y: auto; padding: 10px;"></div>
-            </div>
-        `;
-        dmInput.parentNode.appendChild(picker);
-
-        const tEmotes = picker.querySelector('#tab-btn-emotes');
-        const tEmojis = picker.querySelector('#tab-btn-emojis');
-        const vEmotes = picker.querySelector('#view-emotes');
-        const vEmojis = picker.querySelector('#view-emojis');
-
-        tEmotes.onclick = () => { 
-            tEmotes.style.color = 'var(--text)'; tEmotes.style.background = 'var(--bg-panel)'; tEmotes.style.borderBottom = '2px solid var(--accent)'; 
-            tEmojis.style.color = 'var(--text-muted)'; tEmojis.style.background = 'transparent'; tEmojis.style.borderBottom = '2px solid transparent'; 
-            vEmotes.style.display = 'block'; vEmojis.style.display = 'none'; 
-        };
-        tEmojis.onclick = () => { 
-            tEmojis.style.color = 'var(--text)'; tEmojis.style.background = 'var(--bg-panel)'; tEmojis.style.borderBottom = '2px solid var(--accent)'; 
-            tEmotes.style.color = 'var(--text-muted)'; tEmotes.style.background = 'transparent'; tEmotes.style.borderBottom = '2px solid transparent'; 
-            vEmojis.style.display = 'flex'; vEmotes.style.display = 'none'; 
-        };
-
-        const renderEmotesGrid = () => {
-            const allGrid = picker.querySelector('#emotes-all-grid');
-            const recGrid = picker.querySelector('#emotes-recents-grid');
-            allGrid.innerHTML = ''; recGrid.innerHTML = '';
-            
-            const createBtn = (name) => {
-                let div = document.createElement('div');
-                div.style.cssText = "width: 48px; height: 48px; display: flex; justify-content: center; align-items: center; cursor: pointer; border-radius: 6px; transition: 0.1s;";
-                div.innerHTML = `<img src="${window.customEmotes[name]}" style="max-width: 32px; max-height: 32px; pointer-events: none;" title=":${name}:" onerror="this.src='assets/default pfp.png';">`;
-                div.onmouseover = () => div.style.background = 'var(--bg-hover, #404249)';
-                div.onmouseout = () => div.style.background = 'transparent';
-                
-                div.onclick = () => {
-                    // ✨ FIX APLICADO: Ahora inyecta HTML visual al DIV editable
-                    let imgHtml = `<img src="${window.customEmotes[name]}" alt=":${name}:" style="width: 24px; height: 24px; vertical-align: -6px; margin: 0 2px; display: inline-block;">`;
-                    dmInput.innerHTML += imgHtml + "&nbsp;"; 
-                    
-                    window.saveRecentEmote(name);
-                    renderEmotesGrid(); 
-                    picker.style.display = 'none'; 
-                    if (typeof window.moveCursorToEnd === 'function') window.moveCursorToEnd(dmInput);
-                };
-                return div;
-            };
-
-            Object.keys(window.customEmotes).forEach(name => allGrid.appendChild(createBtn(name)));
-            let recents = JSON.parse(localStorage.getItem('mbw_recent_emotes') || "[]");
-            if(recents.length === 0) recGrid.innerHTML = '<span style="color:var(--text-muted); font-size:12px; grid-column: span 6;">No hay recientes</span>';
-            recents.forEach(name => { if(window.customEmotes[name]) recGrid.appendChild(createBtn(name)); });
-        };
-        renderEmotesGrid();
-
-        const subTabs = picker.querySelector('#emoji-subtabs');
-        const scrollArea = picker.querySelector('#emoji-scroll-area');
-        window.emojiCategories.forEach(cat => {
-            let st = document.createElement('div');
-            st.innerHTML = cat.icon;
-            st.style.cssText = "padding: 5px; cursor: pointer; font-size: 16px; border-radius: 4px; transition: 0.2s;";
-            st.title = cat.name;
-            st.onmouseover = () => st.style.background = 'var(--bg-hover, #404249)';
-            st.onmouseout = () => st.style.background = 'transparent';
-            st.onclick = () => { scrollArea.querySelector(`#cat-${cat.id}`).scrollIntoView({behavior: 'smooth'}); };
-            subTabs.appendChild(st);
-
-            let title = document.createElement('div');
-            title.id = `cat-${cat.id}`;
-            title.innerText = cat.name.toUpperCase();
-            title.style.cssText = "font-size: 11px; font-weight: bold; color: var(--text-muted, #949ba4); margin: 10px 0 8px 0;";
-            scrollArea.appendChild(title);
-
-            let grid = document.createElement('div');
-            grid.style.cssText = "display: grid; grid-template-columns: repeat(9, 1fr); gap: 0px;";
-            cat.items.forEach(emo => {
-                let eSpan = document.createElement('span');
-                eSpan.innerText = emo;
-                eSpan.style.cssText = "font-size: 32px; cursor: pointer; padding: 0px; border-radius: 4px; text-align: center;";
-                eSpan.onmouseover = () => eSpan.style.background = 'var(--bg-hover, #404249)';
-                eSpan.onmouseout = () => eSpan.style.background = 'transparent';
-                eSpan.onclick = () => { 
-                    // ✨ FIX APLICADO: Para emojis nativos
-                    dmInput.innerHTML += emo; 
-                    picker.style.display = 'none'; 
-                    if (typeof window.moveCursorToEnd === 'function') window.moveCursorToEnd(dmInput);
-                };
-                grid.appendChild(eSpan);
-            });
-            scrollArea.appendChild(grid);
-        });
-
-        emojiBtn.onclick = (e) => { e.preventDefault(); e.stopPropagation(); picker.style.display = picker.style.display === 'none' ? 'flex' : 'none'; };
-        document.addEventListener('click', (e) => { if (e.target !== emojiBtn && !picker.contains(e.target)) picker.style.display = 'none'; });
-    }
-
-    // 9. ✨ INDICADOR DE ESCRIBIENDO (Typing Indicator)
+    // 12. Escribiendo... (Typing indicator)
     let typingIndicator = document.getElementById('dm-typing-indicator');
     if (!typingIndicator) {
         typingIndicator = document.createElement('div');
         typingIndicator.id = 'dm-typing-indicator';
-        typingIndicator.style.cssText = `position: absolute; bottom: 65px; left: 0; width: 100%; padding: 40px 15px 10px 15px; color: var(--success, #2ecc71); font-size: 22px; font-style: italic; font-family: 'Pixeltype', sans-serif; background: linear-gradient(to top, var(--bg-dark, rgba(0,0,0,0.7)) 0%, transparent 100%); pointer-events: none; box-sizing: border-box; text-shadow: 2px 2px 2px #000; z-index: 99; display: none; transition: opacity 0.3s;`;
-        if (activePanel) {
-            activePanel.style.position = 'relative'; 
-            activePanel.appendChild(typingIndicator);
+        typingIndicator.style.cssText = `position: absolute; bottom: 65px; left: 0; width: 100%; padding: 40px 15px 10px 15px; color: #2ecc71; font-size: 26px; font-style: italic; font-family: 'Pixeltype', sans-serif; background: linear-gradient(to top, rgba(44,62,80,0.9) 0%, transparent 100%); pointer-events: none; box-sizing: border-box; text-shadow: 2px 2px 2px #000; z-index: 99; display: none; transition: opacity 0.3s;`;
+        
+        const chatActiveContainer = document.getElementById('full-chat-active');
+        if (chatActiveContainer) {
+            chatActiveContainer.style.position = 'relative'; 
+            chatActiveContainer.appendChild(typingIndicator);
         }
     }
 
@@ -1773,7 +1942,7 @@ if (document.readyState === "loading") {
 
 
 // ==========================================
-// ✨ CHAT PÚBLICO (ESTILO MINECRAFT CON LA TECLA T)
+// ✨ CHAT PÚBLICO UNIVERSAL (ONLINE & OFFLINE)
 // ==========================================
 let chatFadeTimeout;
 
@@ -1783,18 +1952,35 @@ window.agregarMensajeChatPublico = function(autor, texto) {
     const input = document.getElementById('chat-input');
     if (!messagesDiv || !container) return;
 
-    // Crear el mensaje
     const msgDiv = document.createElement('div');
-    msgDiv.innerHTML = `<span style="color: #f1c40f; font-weight:bold;">&lt;${autor}&gt;</span> <span style="color: white;">${texto}</span>`;
+    // Le forzamos el estilo base para que no dependa de otras clases
+    msgDiv.style.cssText = "margin-bottom: 4px; font-family: 'Pixeltype', sans-serif; font-size: 20px; text-shadow: 1px 1px 0 #000;";
+
+    // Limpiamos la palabra por si se coló un espacio en blanco ("Sistema " en vez de "Sistema")
+    const cleanAutor = autor.trim();
+
+    if (cleanAutor === "Sistema") {
+        // ✨ FUERZA BRUTA: Usamos !important para obligar al navegador a pintarlo gris
+        msgDiv.innerHTML = `<span style="color: gray !important; font-style: italic;">[Sistema] ${texto}</span>`;
+    } 
+    else if (cleanAutor === "Error") {
+        msgDiv.innerHTML = `<span style="color: #ff5555 !important; font-style: italic;">[Error] ${texto}</span>`;
+    } 
+    else {
+        // Mensajes de jugadores normales
+        const isCommand = texto.startsWith('/');
+        const textColor = isCommand ? '#f1c40f' : 'white'; 
+        msgDiv.innerHTML = `<span style="color: #4DA6FF !important; font-weight:bold;">&lt;${cleanAutor}&gt;</span> <span style="color: ${textColor} !important;">${texto}</span>`;
+    }
+
     messagesDiv.appendChild(msgDiv);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
 
-    // Mostrar el contenedor. Si no estamos escribiendo en este momento, ocultamos la caja de texto.
+    // Mostrar el contenedor
     container.style.display = 'block';
     if (document.activeElement !== input) {
         input.style.display = 'none';
         
-        // Auto-ocultar el chat entero después de 6 segundos de inactividad
         clearTimeout(chatFadeTimeout);
         chatFadeTimeout = setTimeout(() => {
             container.style.display = 'none';
@@ -1806,31 +1992,45 @@ window.enviarChatPublico = function() {
     const input = document.getElementById('chat-input');
     const text = input.value.trim();
     
-    // Solo enviar si hay texto y estamos conectados a un servidor
-    if (text && isMultiplayer) {
+    if (text) {
         const myName = localStorage.getItem('mbw_username') || "Player";
-        enviarMensajeEnRed({ tipo: "chat", autor: myName, texto: text });
-        window.agregarMensajeChatPublico(myName, text); // Imprimir nuestro propio mensaje
+        
+        // 1. ✨ LO MOSTRAMOS SIEMPRE (No importa si estás solo o en server)
+        window.agregarMensajeChatPublico(myName, text);
+        
+        // 2. ✨ SI ES UN COMANDO, INTENTAMOS EJECUTARLO LOCALMENTE
+        if (text.startsWith('/')) {
+            if (typeof processLocalCommand === 'function') {
+                processLocalCommand(text); // Para el futuro sistema de comandos
+            } else {
+                // Pequeño guiño si intentas usar comandos sin haberlos programado aún
+                setTimeout(() => window.agregarMensajeChatPublico("", "Comandos aún no programados."), 100);
+            }
+        } 
+        // 3. 🌐 SI NO ES UN COMANDO Y ESTÁS ONLINE, LO ENVÍAS AL RESTO DE JUGADORES
+        else if (typeof isMultiplayer !== 'undefined' && isMultiplayer && typeof enviarMensajeEnRed === 'function') {
+            enviarMensajeEnRed({ tipo: "chat", autor: myName, texto: text });
+        }
     }
     
+    // Limpiamos y ocultamos el input
     input.value = '';
     input.blur();
     input.style.display = 'none';
     
-    // Iniciar el temporizador para que el chat desaparezca después de enviar
     clearTimeout(chatFadeTimeout);
     chatFadeTimeout = setTimeout(() => {
         document.getElementById('chat-container').style.display = 'none';
     }, 6000);
 };
 
-// --- EL RADAR DEL TECLADO ---
+// --- EL RADAR DEL TECLADO PARA EL CHAT ---
 document.addEventListener('keydown', function(e) {
     const input = document.getElementById('chat-input');
     const container = document.getElementById('chat-container');
     if (!input || !container) return;
 
-    // 1. Si el usuario está escribiendo en cualquier otro lado (buscando bloques, guardando mapas), lo ignoramos.
+    // 1. Si el usuario ya está escribiendo, lo ignoramos para no interrumpir
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
         if (e.target.id === 'chat-input') {
             if (e.key === 'Enter') window.enviarChatPublico();
@@ -1843,20 +2043,17 @@ document.addEventListener('keydown', function(e) {
         return;
     }
 
-    // 2. Si presiona 'T' y está en un servidor multijugador
-    if ((e.key === 't' || e.key === 'T') && isMultiplayer) {
-        e.preventDefault(); // Evitamos que la letra "t" se escriba solita
+    // 2. ✨ FIX: Si presiona 'T' (o Enter) EN CUALQUIER MUNDO (Ya no exige isMultiplayer)
+    if (e.key === 't' || e.key === 'T' || e.key === 'Enter') {
+        e.preventDefault(); // Evitamos que la letra "t" se escriba en el chat de golpe
         
         container.style.display = 'block';
         input.style.display = 'block';
         
-        // Detenemos el auto-ocultado mientras el jugador piensa qué escribir
         clearTimeout(chatFadeTimeout); 
-        
         setTimeout(() => input.focus(), 10);
     }
 });
-
 
 // ==========================================
 // ✨ MENÚ CONTEXTUAL DE CHAT (VERSIÓN CORREGIDA)
@@ -1978,3 +2175,131 @@ window.showChatContextMenu = function(x, y, msgKey, msg, isMe) {
     menu.style.top = `${y}px`;
     menu.style.display = 'flex';
 };
+
+
+// ✨ FIX FASE 5: OPTIMIZACIÓN DE RED (THROTTLING)
+window.lastCursorSendTime = 0;
+
+window.sendNetworkCursorOptimized = function(exactWorldX, exactWorldY) {
+    if (!isMultiplayer) return;
+
+    const now = Date.now();
+    // Solo enviamos datos si han pasado al menos 50 milisegundos (aprox 20 FPS para el cursor)
+    if (now - window.lastCursorSendTime > 16) { 
+        const myName = localStorage.getItem('mbw_username') || "Player";
+        enviarMensajeEnRed({
+            tipo: "cursor",
+            autor: myName,
+            x: exactWorldX,
+            y: exactWorldY
+        });
+        window.lastCursorSendTime = now;
+    }
+};
+
+
+// ==========================================
+// ✨ SISTEMA DE AUTOCOMPLETADO DE COMANDOS
+// ==========================================
+
+// 1. Lista maestra de comandos (puedes agregar más en el futuro)
+const COMMAND_SUGGESTIONS = [
+    "/help",
+    "/gamemode 0", "/gamemode 1", "/gamemode 2", "/gamemode 3",
+    "/gm 0", "/gm 1", "/gm 2", "/gm 3",
+    "/time set day", "/time set night",
+    "/clear", 
+    "/tp " // Tiene un espacio al final a propósito para escribir las coordenadas rápido
+];
+
+function initCommandAutocomplete() {
+    const chatInput = document.getElementById('chat-input');
+    const messagesDiv = document.getElementById('chat-messages'); // ✨ 1. Obtenemos el contenedor de mensajes
+    if (!chatInput || !messagesDiv) return;
+
+    // ✨ 2. PREPARAR EL CONTENEDOR: Le damos position relative para que 
+    // atrape a nuestra caja flotante y no se salga de la pantalla.
+    messagesDiv.style.position = 'relative';
+
+    let suggestionsBox = document.getElementById('chat-suggestions');
+    if (!suggestionsBox) {
+        suggestionsBox = document.createElement('div');
+        suggestionsBox.id = 'chat-suggestions';
+        
+        // ✨ 3. MAGIA CSS: position: absolute hace que FLOTE. 
+        // bottom: 0 lo pega a la parte más baja de los mensajes.
+        // z-index: 1000 asegura que esté por encima de las letras.
+        suggestionsBox.style.cssText = `
+            position: absolute;
+            bottom: 0; 
+            left: 0;
+            width: 100%;
+            max-height: 150px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.85);
+            border: 2px solid #333;
+            color: #f1c40f;
+            display: none;
+            z-index: 1000;
+            font-family: 'Pixeltype', sans-serif;
+            font-size: 20px;
+            text-shadow: 1px 1px 0 #000;
+            box-sizing: border-box;
+        `;
+        
+        // ✨ 4. Lo metemos DENTRO de chat-messages
+        messagesDiv.appendChild(suggestionsBox);
+    }
+
+    // Vigilar cada letra que el jugador escribe
+    chatInput.addEventListener('input', function() {
+        const text = this.value;
+
+        // Si no empieza con "/", ocultamos la lista
+        if (!text.startsWith('/')) {
+            suggestionsBox.style.display = 'none';
+            return;
+        }
+
+        // Filtrar la lista
+        const matches = COMMAND_SUGGESTIONS.filter(cmd => cmd.toLowerCase().startsWith(text.toLowerCase()));
+
+        if (matches.length > 0) {
+            suggestionsBox.innerHTML = ''; 
+            
+            matches.forEach(cmd => {
+                const item = document.createElement('div');
+                item.textContent = cmd;
+                item.style.cssText = "padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #333; transition: background 0.1s;";
+                
+                item.onmouseover = () => item.style.background = "rgba(255, 255, 255, 0.2)";
+                item.onmouseout = () => item.style.background = "transparent";
+                
+                item.onclick = () => {
+                    chatInput.value = cmd.endsWith(' ') ? cmd : cmd + ' ';
+                    chatInput.focus(); 
+                    suggestionsBox.style.display = 'none'; 
+                };
+                
+                suggestionsBox.appendChild(item);
+            });
+            
+            suggestionsBox.style.display = 'block'; 
+            
+            // ✨ FIX DE SCROLL: Forzamos la caja de mensajes hacia abajo 
+            // para asegurar que la lista flotante siempre se vea al escribir
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        } else {
+            suggestionsBox.style.display = 'none';
+        }
+    });
+
+    // Ocultar la lista si presionan Enter o Escape
+    chatInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' || e.key === 'Escape') {
+            suggestionsBox.style.display = 'none';
+        }
+    });
+}
+// Arrancamos el sistema (con un pequeño retraso para asegurar que la página ya cargó el chat)
+setTimeout(initCommandAutocomplete, 500);

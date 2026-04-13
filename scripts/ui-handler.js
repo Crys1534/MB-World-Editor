@@ -950,19 +950,6 @@ function renderHotbarUI() {
         slotDiv.appendChild(cvs);
         container.appendChild(slotDiv);
     });
-
-    // --- AQUÍ AÑADIMOS TU BOTÓN EXACTO AL FINAL DE LA HOTBAR ---
-    const invBtn = document.createElement('button');
-    invBtn.className = 'ribbon-btn-small';
-    invBtn.onclick = toggleInventory;
-    invBtn.title = "Open Inventory (E)";
-    
-    // Usé tu estilo exacto. Solo cambié el "height" a 34px para que coincida 
-    // con la altura de los slots de tu hotbar, pero si lo quieres más alto ponle 66px.
-    invBtn.style.cssText = "margin-left: 2px; height: 34px; width: 20px; background: #999; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 2px outset #FFF; box-sizing: border-box;";
-    invBtn.innerHTML = '<span style="font-size:14px; font-weight: bold; color: #333;">»</span>';
-    
-    container.appendChild(invBtn);
 }
 
 function updateHotbarSelection() {
@@ -1000,24 +987,30 @@ function toggleHardcore(isHardcore) {
 
 function openCreateChestModal() {
     isBuildingChest = true;
+    if (typeof isCreatingCustomItem !== 'undefined') isCreatingCustomItem = false;
+    
     customChestInventory = new Array(27).fill(null); 
     
     const modal = document.getElementById('inventory-modal');
     const chestPanel = document.getElementById('chest-builder-panel');
+    const customPanel = document.getElementById('custom-item-builder-panel'); // ✨ FIX: Agregamos la referencia
     const title = document.getElementById('inventory-modal-title');
     
     modal.style.display = 'block';
     
     if (title) title.innerText = "Create Loot Chest";
+    
+    // ✨ FIX: Apagamos el Item y Encendemos el Cofre
+    if (customPanel) customPanel.style.display = 'none';
     if (chestPanel) chestPanel.style.display = 'block'; 
     
     const nameInput = document.getElementById('custom-chest-name');
     if (nameInput) nameInput.value = 'Loot Chest';
 
-    renderInventoryTabs(); 
-    populateInventory();
-    renderChestBuilder(); 
-    renderModalHotbar(); 
+    if (typeof renderInventoryTabs === 'function') renderInventoryTabs(); 
+    if (typeof populateInventory === 'function') populateInventory();
+    if (typeof renderChestBuilder === 'function') renderChestBuilder(); 
+    if (typeof renderModalHotbar === 'function') renderModalHotbar(); 
 }
 
 function renderChestBuilder() {
@@ -2223,8 +2216,8 @@ let recentMobsList = ['zombie', 'skeleton', 'creeper'];
 
 // Lista de todos los mobs soportados
 const ALL_MOBS_DB = [
-    "zombie", "skeleton", "creeper", "spider", "slime", "pig", "cow", "chicken", "sheep",
-    "zombiepigman", "ghast", "blaze", "magmacube", "nethereye", "enderman", "enderdragon", "snowgolem", "bat", "rabbit"
+    "zombie", "skeleton", "creeper", "spider", "slime", "pig", "cow", "cowctus cow", "mushroom cow", "chicken", "sheep",
+    "zombiepigman", "ghast", "blaze", "magmacube", "nethereye", "enderman", "enderdragon", "snowgolem", "bat", "rabbit", "squid", "zombie_supremo",
 ];
 
 // 1. Dibuja los botones en el menú superior (Estilo Estructuras)
@@ -2291,13 +2284,14 @@ const MOBS_HP_DB = {
     "chicken": 4, "snowgolem": 4, "bat": 6, "rabbit": 3,
     "sheep": 8, "pig": 8, "cow": 10, "ghast": 10, "slime": 16, "magmacube": 16,
     "zombie": 20, "skeleton": 20, "creeper": 20, "spider": 20, "zombiepigman": 20, "blaze": 20,
-    "enderman": 40, "enderdragon": 333, "nethereye": 20
+    "enderman": 40, "enderdragon": 333, "nethereye": 20,
+	"zombie_supremo": 500 // ✨ SU VIDA DE JEFE
 };
 
 // Mobs organizados por dimensión
 const MOBS_BY_DIMENSION = {
-	"Animals": ["pig", "cow", "chicken", "sheep", "rabbit", "bat"],
-    "Overworld": ["zombie", "skeleton", "creeper", "spider", "slime", "snowgolem"],
+	"Animals": ["pig", "cow", "cowctus cow", "mushroom cow", "chicken", "sheep", "rabbit", "bat", "wolf", "dog"],
+    "Overworld": ["zombie", "skeleton", "creeper", "spider", "slime", "snowgolem", "zombie_supremo"],
     "Nether": ["zombiepigman", "ghast", "blaze", "magmacube", "nethereye"],
     "End": ["enderman", "enderdragon"]
 };
@@ -2362,7 +2356,7 @@ function previewMob(mob) {
     const imgEl = document.getElementById('mob-preview-image');
     if (imgEl) {
         imgEl.src = imgSrc;
-        imgEl.onerror = function() { this.src = `assets/${mob}.png`; }; 
+        imgEl.onerror = function() { this.src = `assets/mobs/${mob}.png`; }; 
     }
     
     // Actualizamos los textos
@@ -2373,6 +2367,11 @@ function previewMob(mob) {
     if (hpEl) {
         let hp = MOBS_HP_DB[mob] || 20; 
         hpEl.innerText = `Health: ${hp} HP`;
+    }
+
+    // ✨ NUEVO: Disparamos el sonido del mob al previsualizarlo
+    if (typeof audioManager !== 'undefined') {
+        audioManager.playMobSound(mob);
     }
 }
 

@@ -81,6 +81,8 @@ function openCustomItemsModal() {
     
     modal.style.display = 'block';
     if (title) title.innerText = "Create Custom Item";
+    
+    // ✨ FIX: Apagamos el Cofre y Encendemos el Item
     if (chestPanel) chestPanel.style.display = 'none';
     if (customPanel) customPanel.style.display = 'flex';
     

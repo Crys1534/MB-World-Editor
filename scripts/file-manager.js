@@ -271,7 +271,7 @@ const fileManager = {
 
     const knownMobs = [
         "zombie", "skeleton", "creeper", "spider", "slime", "pig", "cow", "chicken", "sheep",
-        "zombiepigman", "ghast", "blaze", "magmacube", "nethereye", "enderman", "enderdragon", "snowgolem", "bat", "rabbit"
+        "zombiepigman", "ghast", "blaze", "magmacube", "nethereye", "enderman", "enderdragon", "snowgolem", "bat", "rabbit",
     ];
 
     mbwom.world.mobs1 = {}; mbwom.world.mobs2 = {}; mbwom.world.mobs3 = {};
@@ -374,6 +374,8 @@ if (fileManager.input) {
 
 function limpiarMundoParaGuardar() {
     let eliminados = 0;
+    
+    // 1. Limpieza de bloques de aire y nulos en el escenario
     for (let s = 1; s <= 3; s++) {
         let scene = mbwom.world["scene" + s];
         if (!scene) continue;
@@ -398,7 +400,23 @@ function limpiarMundoParaGuardar() {
             }
         }
     }
-    console.log(`🧹 ¡Limpieza profunda! Se purgaron ${eliminados} bloques inútiles.`);
+
+    // 2. ✨ NUEVA LIMPIEZA: Eliminar basura acumulada en "toGrow" (LA QUE FALTABA)
+    let toGrowEliminados = 0;
+    for (let s = 1; s <= 3; s++) {
+        let toGrow = mbwom.world["toGrow" + s];
+        if (toGrow) {
+            for (let key in toGrow) {
+                // Si la coordenada está vacía (null), la borramos del registro por completo
+                if (toGrow[key] === null) {
+                    delete toGrow[key];
+                    toGrowEliminados++;
+                }
+            }
+        }
+    }
+    
+    console.log(`🧹 ¡Limpieza profunda! Se purgaron ${eliminados} bloques inútiles y ${toGrowEliminados} datos nulos de crecimiento.`);
 }
 
 // ==========================================

@@ -113,6 +113,11 @@ window.addEventListener("keydown", function (event) {
     if (event.code === 'Delete' || event.code === 'Backspace') {
         if (typeof currentTool !== 'undefined' && currentTool === 'move' && selectedMobKey && typeof mbwom !== 'undefined' && mbwom.mobs && mbwom.mobs[selectedMobKey]) {
             
+	// ✨ ADD HISTORY: Borrar Mob
+            historyManager.startAction();
+            historyManager.recordMobChange(selectedMobKey, mbwom.mobs[selectedMobKey], null);
+            historyManager.commitAction();
+			
             // ==========================================
             // ✨ MULTIPLAYER C: Avisar que borramos el Mob
             // ==========================================
@@ -168,6 +173,11 @@ window.addEventListener("keydown", function (event) {
                 newMob.y = -mouse.worldY; 
                 newMob.id = newId;
                 
+				// ✨ ADD HISTORY: Pegar Mob
+                historyManager.startAction();
+                historyManager.recordMobChange(newId, null, newMob);
+                historyManager.commitAction();
+				
                 mbwom.mobs[newId] = newMob;
                 if (typeof worldDirty !== 'undefined') worldDirty = true;
             }
@@ -213,15 +223,13 @@ canvas.addEventListener("mousemove", (event) => {
     mouse.gridX = Math.floor(mouse.canvasX / tileSize);
     mouse.gridY = Math.floor(mouse.canvasY / tileSize);
     mouse.calculateCoordinates(); 
-// ✨ MULTIPLAYER: Enviar posición del cursor (Máximo 20 veces por segundo para no dar lag)
-    if (typeof isMultiplayer !== 'undefined' && isMultiplayer) {
-        if (!window.lastCursorSend) window.lastCursorSend = 0;
-        if (Date.now() - window.lastCursorSend > 16) { 
-            let miNombre = localStorage.getItem('mbw_username') || "Player";
-            enviarMensajeEnRed({ tipo: "cursor", autor: miNombre, x: mouse.worldX, y: mouse.worldY });
-            window.lastCursorSend = Date.now();
-        }
+
+    // ✨ FIX FASE 5: Usamos la función optimizada de red (Throttling)
+    if (typeof window.sendNetworkCursorOptimized === 'function') {
+        window.sendNetworkCursorOptimized(mouse.worldX, mouse.worldY);
     }
+    
+    // (A partir de aquí sigue lo de arrastrar mobs, etc.)
     if (typeof currentTool !== 'undefined' && currentTool === 'move' && isDraggingMob && draggedMob) {
         let exactWorldX = camera.x + (mouse.canvasX / tileSize);
         let exactWorldY = camera.y + (mouse.canvasY / tileSize);
@@ -487,6 +495,9 @@ canvas.addEventListener("mousedown", function (event) {
                     draggedMob = m;
                     isDraggingMob = true;
                     clickedOnMob = true;
+					
+					// ✨ ADD HISTORY: Tomar foto inicial antes de arrastrar
+                    window.mobInitialStateForHistory = JSON.parse(JSON.stringify(m));
                     
                     dragOffset.x = Number(m.x) - exactWorldX;
                     dragOffset.y = -Number(m.y) - exactWorldY;
@@ -589,8 +600,27 @@ canvas.addEventListener("mousedown", function (event) {
                 "saddleItem": ["air", 1, 0, {}]
             };
 
-            // Clonamos la plantilla universal perfecta para inyectarla al nivel
-            mbwom.mobs[newId] = JSON.parse(JSON.stringify(BASE_MOB_TEMPLATE));
+            // 1. Buscamos la plantilla en nuestra nueva base de datos
+            const template = MOB_TEMPLATES[currentMobToSpawn];
+
+            if (template) {
+                // 2. Clonamos la plantilla para que cada mob sea único
+                mbwom.mobs[newId] = JSON.parse(JSON.stringify(template));
+                
+                // 3. Ajustamos su posición e ID
+                mbwom.mobs[newId].x = mouse.worldX;
+                mbwom.mobs[newId].y = -mouse.worldY;
+                mbwom.mobs[newId].id = newId;
+
+                // ✨ ADD HISTORY: Crear Mob Nuevo
+                historyManager.startAction();
+                historyManager.recordMobChange(newId, null, mbwom.mobs[newId]);
+                historyManager.commitAction();
+                
+                console.log(`Spawned ${currentMobToSpawn} with template!`);
+            } else {
+                console.error(`Error: No existe una plantilla para el mob: ${currentMobToSpawn}`);
+            }
 
             if (typeof worldDirty !== 'undefined') worldDirty = true; 
             console.log("Mob generated from Perfect Preset:", baseType);
@@ -626,6 +656,16 @@ canvas.addEventListener("mousedown", function (event) {
 window.addEventListener("mouseup", function (event) {
     if (typeof isDraggingMob !== 'undefined' && isDraggingMob) {
         
+		// ✨ ADD HISTORY: Tomar foto final y guardar el movimiento
+        if (window.mobInitialStateForHistory) {
+            if (window.mobInitialStateForHistory.x !== draggedMob.x || window.mobInitialStateForHistory.y !== draggedMob.y) {
+                historyManager.startAction();
+                historyManager.recordMobChange(selectedMobKey, window.mobInitialStateForHistory, draggedMob);
+                historyManager.commitAction();
+            }
+            window.mobInitialStateForHistory = null; // Limpiar para el siguiente
+        }
+		
         // ==========================================
         // ✨ MULTIPLAYER B: Avisar posición final del Mob
         // ==========================================

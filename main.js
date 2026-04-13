@@ -31,7 +31,7 @@ let tileSize = BASE_TILE_SIZE;
 
 // --- IMÁGENES GLOBALES ---
 // Agrega aquí los nombres de los PNGs que vayas metiendo a la carpeta assets/
-window.images = { names: ["blocks", "hotbar", "slot", "zombie", "skeleton", "creeper", "enderman", "nethereye", "enderdragon", "pig", "cow", "chicken", "Player",] };
+window.images = { names: ["blocks", "hotbar", "slot", "zombie", "skeleton", "creeper", "enderman", "nethereye", "enderdragon", "pig", "cow", "chicken", "Player", "slime", "magmacube", "chicken", "blaze", "squid", "ghast", "rabbit", "cowctus cow", "mushroom cow", "dog", "sheep", "snowgolem", "wolf", "spider", "snowgolem", "zombiepigman", "bat", "zombie_supremo"] };
 
 window.images.names.forEach((name) => {
     window.images[name] = new Image();
@@ -258,12 +258,21 @@ function drawMobs() {
             
             let mobWidth = tileSize * 1;
             let mobHeight = tileSize * 2;
-            if (mob.type === 'chicken' || mob.type === 'pig' || mob.type === 'spider' || mob.type === 'slime') mobHeight = tileSize * 1;
-            if (mob.type === 'enderdragon') { mobWidth = tileSize * 24; mobHeight = tileSize * 8; }
-            if (mob.type === 'nethereye') { mobWidth = tileSize * 0.75; mobHeight = tileSize * 0.75; }
-            if (mob.type === 'pig') { mobWidth = tileSize * 2; mobHeight = tileSize * 1.2; }
-            if (mob.type === 'enderman') { mobWidth = tileSize * 1.2; mobHeight = tileSize * 3; }
-            if (mob.type === 'cow') { mobWidth = tileSize * 2.6; mobHeight = tileSize * 2; }
+		if (mob.type === 'chicken' || mob.type === 'pig' || mob.type === 'slime') { 
+		mobWidth = tileSize * 1; mobHeight = tileSize * 1; }
+            if (mob.type === 'enderdragon') { 
+			mobWidth = tileSize * 24; mobHeight = tileSize * 8; }
+			
+            if (mob.type === 'nethereye' || mob.type === 'rabbit') { 
+			mobWidth = tileSize * 0.75; mobHeight = tileSize * 0.75; }
+			
+            if (mob.type === 'pig' || mob.type === 'dog' || mob.type === 'wolf' || mob.type === 'spider') { 
+			mobWidth = tileSize * 2; mobHeight = tileSize * 1.2; }
+			
+            if (mob.type === 'enderman') { 
+			mobWidth = tileSize * 1.2; mobHeight = tileSize * 3; }
+			
+            if (mob.type === 'cow' || mob.type === 'cowctus cow' || mob.type === 'mushroom cow') { mobWidth = tileSize * 2.6; mobHeight = tileSize * 2; }
             
             let mobImg = window.images[mob.type];
 
@@ -309,18 +318,25 @@ function drawMobs() {
             ctx.shadowBlur = 0; 
             
             // Barra de Vida
-            if (mob.health !== undefined) {
-                let maxHp = mob.maxHealth || ((typeof MOBS_DB !== 'undefined' && MOBS_DB[mob.type]) ? MOBS_DB[mob.type].hp : 20);
-                if (mob.type === 'enderdragon' && !mob.maxHealth) maxHp = 333;
-                if (mob.type === 'enderman' && !mob.maxHealth) maxHp = 40;
-                
-                let hpPercent = Math.max(0, Math.min(1, Number(mob.health) / Number(maxHp))); 
-                
-                ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-                ctx.fillRect(screenX - (mobWidth/2), screenY - mobHeight - 4, mobWidth, 4);
-                ctx.fillStyle = hpPercent > 0.3 ? "#00FF00" : "#FF0000";
-                ctx.fillRect(screenX - (mobWidth/2), screenY - mobHeight - 4, mobWidth * hpPercent, 4);
-            }
+if (mob.health !== undefined) {
+    // 1. Buscamos en tu base de datos de ui-handler.js
+    // Si no está ahí, asume 20 por defecto para evitar errores
+    let maxHp = mob.maxHealth || (typeof MOBS_HP_DB !== 'undefined' ? MOBS_HP_DB[mob.type] : 20) || 20;
+    
+    // 2. Redondear la vida actual para evitar decimales extraños
+    let currentHealth = Math.ceil(Number(mob.health));
+
+    // 4. Calcular el porcentaje
+    let hpPercent = Math.max(0, Math.min(1, currentHealth / maxHp)); 
+    
+    // 5. Dibujar el fondo oscuro de la barra
+    ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+    ctx.fillRect(screenX - (mobWidth/2), screenY - mobHeight - 4, mobWidth, 4);
+    
+    // 6. Dibujar la barra verde/roja
+    ctx.fillStyle = hpPercent > 0.3 ? "#00FF00" : "#FF0000";
+    ctx.fillRect(screenX - (mobWidth/2), screenY - mobHeight - 4, mobWidth * hpPercent, 4);
+}
 			
 			// ==========================================
             // ✨ INDICADOR MULTIJUGADOR (MOB BLOQUEADO)

@@ -1,11 +1,12 @@
 /* 🔊 MB WORLD EDIT - AUDIO MANAGER (Web Audio API Synthesizer)
-   Genera efectos de sonido estilo 8-bits procedimentalmente.
+   Genera efectos de sonido estilo 8-bits procedimentalmente y reproduce audios externos.
 */
 
 const audioManager = {
     ctx: null,
     enabled: true,
     masterVolume: 0.3,
+    audioCache: {}, // ✨ NUEVO: Para guardar los MP3 cargados
 
     init: function() {
         try {
@@ -25,7 +26,7 @@ const audioManager = {
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
 
-        osc.type = type; // 'sine', 'square', 'sawtooth', 'triangle'
+        osc.type = type; 
         osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
         
         if (slide !== 0) {
@@ -42,7 +43,7 @@ const audioManager = {
         osc.stop(this.ctx.currentTime + duration);
     },
 
-    // Función para generar ruido (para romper bloques y efecto basura)
+    // Función para generar ruido 
     playNoise: function(duration, vol = 1) {
         if (!this.enabled || !this.ctx) return;
         
@@ -66,80 +67,50 @@ const audioManager = {
         noise.start();
     },
 
+// ✨ NUEVO: FUNCIÓN PARA REPRODUCIR SONIDOS DE MOBS (MP3) ✨
+    playMobSound: function(mobName) {
+        if (!this.enabled) return;
+
+        // Usamos el reproductor nativo de HTML5 (que sí funciona en file:///)
+        const audioUrl = `assets/sfx/${mobName}.mp3`;
+        const mobAudio = new Audio(audioUrl);
+        
+        mobAudio.volume = this.masterVolume * 1; // Ajustamos el volumen
+        
+        // Reproducimos el sonido
+        mobAudio.play().catch(e => {
+            // Si el archivo MP3 no existe, simplemente lo ignoramos en silencio
+            console.log(`AudioManager: No hay sonido para el mob: ${mobName}`);
+        });
+    },
+	
     // --- EFECTOS ESPECÍFICOS ---
 
     playSound: function(name) {
         switch (name) {
-            case 'ui_click':
-                // Click agudo tipo "bip"
-                this.playTone(800, 'square', 0.05, 0.5);
-                break;
-            
-            case 'ui_hover':
-                // Click muy suave
-                this.playTone(1200, 'sine', 0.03, 0.1);
-                break;
-
-            case 'ui_open':
-                // Sonido ascendente
-                this.playTone(400, 'triangle', 0.2, 0.4, 400); 
-                break;
-
-            case 'ui_close':
-                // Sonido descendente
-                this.playTone(600, 'triangle', 0.15, 0.4, -300);
-                break;
-
-            case 'ui_error':
-                // Tono grave "buzz"
-                this.playTone(150, 'sawtooth', 0.3, 0.6, -50);
-                break;
-
+            case 'ui_click': this.playTone(800, 'square', 0.05, 0.5); break;
+            case 'ui_hover': this.playTone(1200, 'sine', 0.03, 0.1); break;
+            case 'ui_open': this.playTone(400, 'triangle', 0.2, 0.4, 400); break;
+            case 'ui_close': this.playTone(600, 'triangle', 0.15, 0.4, -300); break;
+            case 'ui_error': this.playTone(150, 'sawtooth', 0.3, 0.6, -50); break;
             case 'ui_success':
-                // Arpegio rápido
                 this.playTone(880, 'square', 0.1, 0.4);
                 setTimeout(() => this.playTone(1100, 'square', 0.2, 0.4), 100);
                 break;
-
-            case 'tool_switch':
-                // Sonido metálico corto
-                this.playTone(1500, 'sine', 0.05, 0.3);
-                break;
-
-            case 'place_block':
-                // Sonido percusivo "Pock"
-                this.playTone(300, 'square', 0.08, 0.6, -100);
-                break;
-
-            case 'break_block':
-                // Ruido blanco "Krsh"
-                this.playNoise(0.12, 0.7);
-                break;
-
-            case 'paint':
-                // Sonido suave repetitivo para spray/bucket
-                this.playTone(400 + Math.random()*100, 'sine', 0.1, 0.3);
-                break;
-                
-            case 'teleport':
-                // Sonido de ciencia ficción
-                this.playTone(200, 'sawtooth', 0.4, 0.5, 1000);
-                break;
-
+            case 'tool_switch': this.playTone(1500, 'sine', 0.05, 0.3); break;
+            case 'place_block': this.playTone(300, 'square', 0.08, 0.6, -100); break;
+            case 'break_block': this.playNoise(0.12, 0.7); break;
+            case 'paint': this.playTone(400 + Math.random()*100, 'sine', 0.1, 0.3); break;
+            case 'teleport': this.playTone(200, 'sawtooth', 0.4, 0.5, 1000); break;
             case 'trash':
-                // Simulación de papel arrugado (3 ráfagas rápidas de ruido)
-                // Ráfaga 1: Inicial fuerte
                 this.playNoise(0.05, 0.8);
-                // Ráfaga 2: Crujido medio (ligero retraso)
                 setTimeout(() => this.playNoise(0.08, 0.6), 60);
-                // Ráfaga 3: Final suave (más retraso)
                 setTimeout(() => this.playNoise(0.12, 0.4), 140);
                 break;
         }
     }
 };
 
-// Iniciar al cargar (o al primer clic del usuario para cumplir políticas de navegador)
 window.addEventListener('click', () => {
     if (!audioManager.ctx) audioManager.init();
 }, { once: true });
