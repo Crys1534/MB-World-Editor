@@ -312,35 +312,6 @@
  </style>
 </head>
 <body>
-
-<div id="win-update-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 100000; justify-content: center; align-items: center;">
-    
-    <div style="width: 380px; background: #c0c0c0; border: 2px solid; border-color: #dfdfdf #000000 #000000 #dfdfdf; font-family: 'Tahoma', sans-serif; box-shadow: 2px 2px 10px rgba(0,0,0,0.8);">
-        <div style="background: #000080; color: white; padding: 4px 6px; font-weight: bold; font-size: 13px; letter-spacing: 0.5px;">
-            Actualización del Sistema
-        </div>
-        
-        <div style="padding: 15px;">
-            <div style="display: flex; gap: 15px; margin-bottom: 15px;">
-                <img src="assets/fav.png" style="width: 32px; height: 32px; image-rendering: pixelated;" onerror="this.style.display='none'">
-                <div>
-                    <p style="margin: 0; font-size: 13px; color: black;">Descargando nueva versión del Editor...</p>
-                    <p style="margin: 5px 0 0 0; font-size: 13px; color: black; font-weight: bold;">Actualizando a <span id="update-version-text">v0.0.0</span></p>
-                </div>
-            </div>
-            
-            <div id="update-progress-container" style="margin: 20px 0 10px 0;">
-                <p id="update-status" style="font-size: 12px; margin: 0 0 4px 0; color: black;">Conectando con el servidor...</p>
-                <div style="width: 100%; height: 20px; background: #fff; border: 2px solid; border-color: #808080 #fff #fff #808080; padding: 2px; box-sizing: border-box;">
-                    <div id="update-progress-bar" style="width: 0%; height: 100%; background: #000080; transition: width 0.2s;"></div>
-                </div>
-            </div>
-            
-            <p style="font-size: 11px; color: #666; text-align: right; margin-top: 10px;">Por favor, no apague el equipo.</p>
-        </div>
-    </div>
-</div>
-
  <div id="drag-overlay">
         <div class="drag-content">
             <h1 style="font-size: 3rem; margin: 0;">📁 Drop your world file here!</h1>
@@ -1360,8 +1331,8 @@ window.addEventListener('DOMContentLoaded', () => {
             </p>
             
             <div style="position: absolute; bottom: 10px; left: 15px; font-size: 11px; color: gray; font-family: monospace;">
-                Last Update: April 10, 2026<br>
-                v2.3 - Snapshot 24
+                Last Update: April 17, 2026<br>
+                v2.3 - Snapshot 26
             </div>
             <div style="position: absolute; bottom: 10px; right: 15px; font-size: 12px; color: gray; font-weight: bold;">
                 2026
