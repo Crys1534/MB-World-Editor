@@ -18,7 +18,7 @@
 	
     /* --- ESTILOS GENERALES Y CORRECCIONES --- */
     #inventory-modal .modal-content {
-        background: #C6C6C6; border: 2px solid #555; width: 583px; padding: 0;   
+        background: #C6C6C6; border: 2px solid #555; width: 1190px; padding: 0;   
         color: #000; display: flex; flex-direction: column; height: 504px; 
     }
     .inventory-layout { display: flex; flex-direction: column; flex: 1; overflow: hidden; padding: 10px; }
@@ -312,6 +312,35 @@
  </style>
 </head>
 <body>
+
+<div id="win-update-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.5); z-index: 100000; justify-content: center; align-items: center;">
+    
+    <div style="width: 380px; background: #c0c0c0; border: 2px solid; border-color: #dfdfdf #000000 #000000 #dfdfdf; font-family: 'Tahoma', sans-serif; box-shadow: 2px 2px 10px rgba(0,0,0,0.8);">
+        <div style="background: #000080; color: white; padding: 4px 6px; font-weight: bold; font-size: 13px; letter-spacing: 0.5px;">
+            Actualización del Sistema
+        </div>
+        
+        <div style="padding: 15px;">
+            <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                <img src="assets/fav.png" style="width: 32px; height: 32px; image-rendering: pixelated;" onerror="this.style.display='none'">
+                <div>
+                    <p style="margin: 0; font-size: 13px; color: black;">Descargando nueva versión del Editor...</p>
+                    <p style="margin: 5px 0 0 0; font-size: 13px; color: black; font-weight: bold;">Actualizando a <span id="update-version-text">v0.0.0</span></p>
+                </div>
+            </div>
+            
+            <div id="update-progress-container" style="margin: 20px 0 10px 0;">
+                <p id="update-status" style="font-size: 12px; margin: 0 0 4px 0; color: black;">Conectando con el servidor...</p>
+                <div style="width: 100%; height: 20px; background: #fff; border: 2px solid; border-color: #808080 #fff #fff #808080; padding: 2px; box-sizing: border-box;">
+                    <div id="update-progress-bar" style="width: 0%; height: 100%; background: #000080; transition: width 0.2s;"></div>
+                </div>
+            </div>
+            
+            <p style="font-size: 11px; color: #666; text-align: right; margin-top: 10px;">Por favor, no apague el equipo.</p>
+        </div>
+    </div>
+</div>
+
  <div id="drag-overlay">
         <div class="drag-content">
             <h1 style="font-size: 3rem; margin: 0;">📁 Drop your world file here!</h1>
@@ -541,6 +570,7 @@
             </div>
             <div class="ribbon-group-label">Game Rules</div>
         </div>
+		
         <div class="separator"></div>
 
         <div class="ribbon-group">
@@ -574,7 +604,9 @@
             </button>
             <div class="ribbon-group-label">Chests</div>
         </div>
+		
         <div class="separator"></div>
+		
         <div class="ribbon-group">
             <button class="ribbon-btn-large" onclick="openCustomItemsModal()">
                 <img src="assets/Create Item.png" alt="Create Item" class="pixel-icon icon-32">
@@ -582,6 +614,17 @@
             </button>
             <div class="ribbon-group-label">Custom Items</div>
         </div>
+		
+		<div class="separator"></div>
+
+		<div class="ribbon-group">
+            <button class="ribbon-btn-large" onclick="openCustomMobBuilder()">
+                <img src="assets/zombie.png" alt="Custom Mob Icon">
+                <span>Crustom<br>Mobs</span>
+            </button>
+            <div class="ribbon-group-label">Custom Mobs</div>
+        </div>
+
     </div>
     
     <div id="tab-view" class="tab-pane">
@@ -861,6 +904,7 @@
             
             <div class="mob-tabs-container">
                 <div class="mob-tabs">
+					<div id="tab-mob-custom" class="mob-tab" onclick="filterMobs('Custom')">Custom</div>
                     <div id="tab-mob-animals" class="mob-tab" onclick="filterMobs('Animals')">Animals</div>
                     <div id="tab-mob-overworld" class="mob-tab active" onclick="filterMobs('Overworld')">Overworld</div>
                     <div id="tab-mob-nether" class="mob-tab" onclick="filterMobs('Nether')">Nether</div>
@@ -1327,7 +1371,141 @@ window.addEventListener('DOMContentLoaded', () => {
     </div>
 </div>
 
+<div id="create-mob-modal" class="modal" style="display: none;">
+    <div class="modal-content mobs-modal-window">
+        
+        <div class="mob-main">
+            <div class="modal-header-row">
+                <h3 class="m-0 text-gray no-select">Custom Mob Creator</h3>
+                <span class="close-modal btn-close-bold text-dark" onclick="closeModal('create-mob-modal')">×</span>
+            </div>
+            
+            <div class="mob-tabs-container">
+                <div class="mob-tabs">
+                    <div id="tab-cmob-custom" class="mob-tab" onclick="filterCustomMobs('Custom')">Custom</div>
+					<div id="tab-cmob-animals" class="mob-tab" onclick="filterCustomMobs('Animals')">Animals</div>
+                    <div id="tab-cmob-overworld" class="mob-tab active" onclick="filterCustomMobs('Overworld')">Overworld</div>
+                    <div id="tab-cmob-nether" class="mob-tab" onclick="filterCustomMobs('Nether')">Nether</div>
+                    <div id="tab-cmob-end" class="mob-tab" onclick="filterCustomMobs('End')">End</div>
+                </div>
+            </div>
 
+            <div id="cmobs-grid" class="mobs-grid-container">
+                </div>
+        </div>
+
+        <div class="custommob-sidebar mob-sidebar">
+            <div class="mob-preview-box">
+                <img id="cmob-preview-image" class="mob-preview-img" src="assets/zombie.png" onerror="this.onerror=null; this.src='assets/zombie.png'">
+            </div>
+            
+            <div class="mob-info">
+    <h3 id="cmob-info-title" class="mob-info-title" style="color: black;">Zombie</h3>
+    
+    <div style="display: flex; flex-direction: column; margin-top: 4px; text-align: left;">
+        <div>
+            <label style="font-size: 13px; color: black;">Custom Name:</label>
+            <input type="text" id="cmob-name" placeholder="Leave empty" style="width: 100%; box-sizing: border-box; border: 1px solid #333; color: gray; padding: 4px; font-family: 'Pixeltype', sans-serif; font-size: 16px;">
+        </div>
+        <div>
+            <label style="font-size: 13px; color: black;">Max Health (HP):</label>
+            <input type="number" id="cmob-hp" value="20" style="width: 100%; box-sizing: border-box; border: 1px solid #333; color: gray; padding: 4px; font-family: 'Pixeltype', sans-serif; font-size: 16px;">
+        </div>
+
+        <div id="cmob-armor-section" style="display: none; ">
+    <p style="font-size: 18px; color: black; margin-bottom: 4px; font-family: 'Arial', sans-serif; margin-top: 4px;">Armor:</p>
+    
+    <div style="display: flex; flex-direction: column; gap: 0px;">
+        
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <div style="flex: 1;">
+                
+                <select id="cmob-helmet" class="armor-select" style="width: 100%; color: white; border: 1px solid #333; font-family: 'Pixeltype', sans-serif; font-size: 18px;" onchange="window.updateArmorPreview('cmob-helmet', 'prev-helmet')"></select>
+            </div>
+            <div style="width: 32px; height: 32px; background: white; border: 1px solid #444; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
+                <div id="prev-helmet" style="width: 32px; height: 32px; image-rendering: pixelated;"></div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 3px; flex-shrink: 0;">
+                <input type="number" id="cmob-drop-helmet" value="100" min="0" max="100" style="width: 45px; border: 1px solid #333; color: black; padding: 4px; font-family: 'Pixeltype', sans-serif; font-size: 18px; text-align: center;">
+                <span style="color: black; font-size: 20px; font-family: 'Pixeltype', sans-serif;">%</span>
+            </div>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <div style="flex: 1;">
+                
+                <select id="cmob-shirt" class="armor-select" style="width: 100%; color: white; border: 1px solid #333; font-family: 'Pixeltype', sans-serif; font-size: 18px;" onchange="window.updateArmorPreview('cmob-shirt', 'prev-shirt')"></select>
+            </div>
+            <div style="width: 32px; height: 32px; background: white; border: 1px solid #444; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
+                <div id="prev-shirt" style="width: 32px; height: 32px; image-rendering: pixelated;"></div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 3px; flex-shrink: 0;">
+                <input type="number" id="cmob-drop-shirt" value="100" min="0" max="100" style="width: 45px; border: 1px solid #333; color: black; padding: 4px; font-family: 'Pixeltype', sans-serif; font-size: 18px; text-align: center;">
+                <span style="color: black; font-size: 20px; font-family: 'Pixeltype', sans-serif;">%</span>
+            </div>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <div style="flex: 1;">
+                
+                <select id="cmob-pants" class="armor-select" style="width: 100%; color: white; border: 1px solid #333; font-family: 'Pixeltype', sans-serif; font-size: 18px;" onchange="window.updateArmorPreview('cmob-pants', 'prev-pants')"></select>
+            </div>
+            <div style="width: 32px; height: 32px; background: white; border: 1px solid #444; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
+                <div id="prev-pants" style="width: 32px; height: 32px; image-rendering: pixelated;"></div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 3px; flex-shrink: 0;">
+                <input type="number" id="cmob-drop-pants" value="100" min="0" max="100" style="width: 45px; border: 1px solid #333; color: black; padding: 4px; font-family: 'Pixeltype', sans-serif; font-size: 18px; text-align: center;">
+                <span style="color: black; font-size: 20px; font-family: 'Pixeltype', sans-serif;">%</span>
+            </div>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <div style="flex: 1;">
+                
+                <select id="cmob-shoes" class="armor-select" style="width: 100%; color: white; border: 1px solid #333; font-family: 'Pixeltype', sans-serif; font-size: 18px;" onchange="window.updateArmorPreview('cmob-shoes', 'prev-shoes')"></select>
+            </div>
+            <div style="width: 32px; height: 32px; background: white; border: 1px solid #444; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
+                <div id="prev-shoes" style="width: 32px; height: 32px; image-rendering: pixelated;"></div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 3px; flex-shrink: 0;">
+                <input type="number" id="cmob-drop-shoes" value="100" min="0" max="100" style="width: 45px; border: 1px solid #333; color: black; padding: 4px; font-family: 'Pixeltype', sans-serif; font-size: 18px; text-align: center;">
+                <span style="color: black; font-size: 20px; font-family: 'Pixeltype', sans-serif;">%</span>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+        <div style="margin-top: 5px;">
+            <label style="font-size: 14px; color: black; display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                <input type="checkbox" id="cmob-persists" checked> Never Despawn
+            </label>
+			<label style="font-size: 14px; color: black; display: flex; align-items: center; gap: 5px; cursor: pointer;">
+        <input type="checkbox" id="cmob-default-drops" checked> defaultDrops
+    </label>
+        </div>
+		
+		<div style="margin-top: 15px; border-top: 1px solid #333; padding-top: 10px;">
+            <p style="font-size: 14px; color: #f1c40f; margin-bottom: 8px; font-family: 'Pixeltype', sans-serif;">Custom Drops (Inventory):</p>
+            
+            <div id="cmob-inventory-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px;"></div>
+            
+            <button onclick="window.addMobInventorySlot()" style="width: 100%; background: #161616; border: 1px dashed #555; color: #aaa; padding: 6px; cursor: pointer; font-family: 'Pixeltype', sans-serif; font-size: 16px; transition: 0.2s;">
+                + Add Item Slot
+            </button>
+        </div>
+    </div>
+</div>
+
+            <div class="mob-actions-container">
+                <button class="btn-load-struct btn-spawn-mob" onclick="injectCustomMob()">Spawn Custom Mob</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+ <script src="scripts/version.js"></script>
  <script src="scripts/ui-handler.js"></script>
  <script src="scripts/mbwom.js"></script>
  <script src="scripts/textures.js"></script>

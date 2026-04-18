@@ -1705,9 +1705,9 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/defaul
         const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
 
         let dateString = "";
-        if (date.toDateString() === today.toDateString()) dateString = "Hoy";
-        else if (date.toDateString() === yesterday.toDateString()) dateString = "Ayer";
-        else dateString = date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+        if (date.toDateString() === today.toDateString()) dateString = "Today";
+        else if (date.toDateString() === yesterday.toDateString()) dateString = "Yesterday";
+        else dateString = date.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
 
         if (dateString !== lastRenderedDate) {
             const sepDiv = document.createElement('div');

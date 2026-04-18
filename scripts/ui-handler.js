@@ -2217,7 +2217,7 @@ let recentMobsList = ['zombie', 'skeleton', 'creeper'];
 // Lista de todos los mobs soportados
 const ALL_MOBS_DB = [
     "zombie", "skeleton", "creeper", "spider", "slime", "pig", "cow", "cowctus cow", "mushroom cow", "chicken", "sheep",
-    "zombiepigman", "ghast", "blaze", "magmacube", "nethereye", "enderman", "enderdragon", "snowgolem", "bat", "rabbit", "squid", "zombie_supremo",
+    "zombiepigman", "ghast", "blaze", "magmacube", "nethereye", "enderman", "enderdragon", "snowgolem", "bat", "rabbit", "squid",
 ];
 
 // 1. Dibuja los botones en el menú superior (Estilo Estructuras)
@@ -2285,13 +2285,12 @@ const MOBS_HP_DB = {
     "sheep": 8, "pig": 8, "cow": 10, "ghast": 10, "slime": 16, "magmacube": 16,
     "zombie": 20, "skeleton": 20, "creeper": 20, "spider": 20, "zombiepigman": 20, "blaze": 20,
     "enderman": 40, "enderdragon": 333, "nethereye": 20,
-	"zombie_supremo": 500 // ✨ SU VIDA DE JEFE
 };
 
 // Mobs organizados por dimensión
 const MOBS_BY_DIMENSION = {
 	"Animals": ["pig", "cow", "cowctus cow", "mushroom cow", "chicken", "sheep", "rabbit", "bat", "wolf", "dog"],
-    "Overworld": ["zombie", "skeleton", "creeper", "spider", "slime", "snowgolem", "zombie_supremo"],
+    "Overworld": ["zombie", "skeleton", "creeper", "spider", "slime", "snowgolem"],
     "Nether": ["zombiepigman", "ghast", "blaze", "magmacube", "nethereye"],
     "End": ["enderman", "enderdragon"]
 };
@@ -2579,3 +2578,542 @@ function updateFPS() {
 
 // Iniciar el contador de FPS
 requestAnimationFrame(updateFPS);
+
+
+// ==========================================
+// 🧬 LÓGICA DEL CUSTOM MOB CREATOR
+// ==========================================
+
+let activeCustomTab = 'Overworld';
+let selectedCustomMob = 'zombie';
+
+// 1. Abre el nuevo modal
+window.openCustomMobBuilder = function() {
+    document.getElementById('create-mob-modal').style.display = 'block';
+    filterCustomMobs(activeCustomTab); 
+};
+
+// 2. Filtra los mobs y llena el grid (Ahora soporta la pestaña Custom)
+window.filterCustomMobs = function(dimension) {
+    activeCustomTab = dimension;
+    
+    // Actualizar pestañas
+    const tabs = ['Custom', 'Animals', 'Overworld', 'Nether', 'End'];
+    tabs.forEach(tab => {
+        let btn = document.getElementById('tab-cmob-' + tab.toLowerCase());
+        if (btn) {
+            if (tab === dimension) btn.classList.add('active');
+            else btn.classList.remove('active');
+        }
+    });
+
+    const container = document.getElementById('cmobs-grid');
+    if (!container) return;
+    container.innerHTML = ''; 
+    
+    let mobsToShow = [];
+    let isCustomTab = (dimension === 'Custom');
+
+    if (isCustomTab) {
+        mobsToShow = Object.keys(window.CUSTOM_MOBS_DB || {}); 
+    } else {
+        mobsToShow = MOBS_BY_DIMENSION[dimension] || [];
+    }
+
+    if (mobsToShow.length === 0 && isCustomTab) {
+        container.innerHTML = `<p style="color: #888; text-align: center; width: 100%; margin-top: 40px; font-family: 'Pixeltype', sans-serif; font-size: 24px;">No bases found.</p>`;
+        return;
+    }
+    
+    mobsToShow.forEach(mobId => {
+        let niceName, imgSrc, baseMob;
+
+        if (isCustomTab) {
+            let customData = window.CUSTOM_MOBS_DB[mobId];
+            niceName = customData.name;
+            baseMob = customData.baseMob;
+        } else {
+            niceName = mobId.charAt(0).toUpperCase() + mobId.slice(1);
+            baseMob = mobId;
+        }
+
+        imgSrc = (window.images && window.images[baseMob] && window.images[baseMob].src) 
+                 ? window.images[baseMob].src : `assets/mobs/${baseMob}.png`;
+
+        container.innerHTML += `
+        <div class="mob-item" onclick="previewCustomMob('${mobId}')" title="${niceName}" style="margin: 0; height: 156px; border-bottom: 2px solid #272727; border-right: 2px solid #272727;">
+            <img src="${imgSrc}" style="width: 90%; height: 90%; object-fit: contain; image-rendering: pixelated;" onerror="this.onerror=null; this.src='assets/mobs/${baseMob}.png'">
+            <span class="mob-name" style="font-size: 11px; margin-top: 5px;">${niceName}</span>
+        </div>
+        `;
+    });
+
+    if (mobsToShow.length > 0) previewCustomMob(mobsToShow[0]);
+};
+
+
+// ==========================================
+// 💾 SISTEMA DE GUARDADO: MOBS CUSTOM
+// ==========================================
+
+// 1. Inicializamos la Base de Datos (Carga desde LocalStorage)
+window.CUSTOM_MOBS_DB = JSON.parse(localStorage.getItem('mbw_custom_mobs')) || {};
+
+// 2. Parcheamos filterMobs para que lea la base de datos en la pestaña Custom
+window.filterMobs = function(dimension) {
+    activeMobTab = dimension;
+    
+    // A) Actualizar el CSS de las pestañas
+    const tabs = ['Custom', 'Animals', 'Overworld', 'Nether', 'End'];
+    tabs.forEach(tab => {
+        let btn = document.getElementById('tab-mob-' + tab.toLowerCase());
+        if (btn) {
+            if (tab === dimension) btn.classList.add('active');
+            else btn.classList.remove('active');
+        }
+    });
+
+    // B) Llenar la cuadrícula
+    const container = document.getElementById('mobs-grid');
+    if (!container) return;
+    container.innerHTML = ''; 
+
+    let mobsToShow = [];
+    let isCustomTab = (dimension === 'Custom');
+
+    if (isCustomTab) {
+        mobsToShow = Object.keys(window.CUSTOM_MOBS_DB); // Trae los IDs guardados
+    } else {
+        mobsToShow = MOBS_BY_DIMENSION[dimension] || [];
+    }
+    
+    // Mensaje si no hay custom mobs
+    if (mobsToShow.length === 0 && isCustomTab) {
+        container.innerHTML = `<p style="color: #888; text-align: center; width: 100%; margin-top: 40px; font-family: 'Pixeltype', sans-serif; font-size: 24px;">No custom mobs yet.<br>Go to Create > Custom Mob!</p>`;
+        return;
+    }
+
+    // Dibujar los items
+    mobsToShow.forEach(mobId => {
+        let niceName, imgSrc, baseMob;
+
+        if (isCustomTab) {
+            let customData = window.CUSTOM_MOBS_DB[mobId];
+            niceName = customData.name;
+            baseMob = customData.baseMob;
+        } else {
+            niceName = mobId.charAt(0).toUpperCase() + mobId.slice(1);
+            baseMob = mobId;
+        }
+
+        imgSrc = (window.images && window.images[baseMob] && window.images[baseMob].src) 
+                 ? window.images[baseMob].src : `assets/mobs/${baseMob}.png`;
+
+        container.innerHTML += `
+        <div class="mob-item" onclick="previewMob('${mobId}')" title="${niceName}" style="margin: 0; height: 156px; border-bottom: 2px solid #272727; border-right: 2px solid #272727;">
+            <img src="${imgSrc}" style="width: 90%; height: 90%; object-fit: contain; image-rendering: pixelated;" onerror="this.onerror=null; this.src='assets/mobs/${baseMob}.png'">
+            <span class="mob-name" style="font-size: 11px; margin-top: 5px;">${niceName}</span>
+        </div>
+        `;
+    });
+
+    // Auto-seleccionar el primero
+    if (mobsToShow.length > 0) previewMob(mobsToShow[0]);
+};
+
+// 4. Parcheamos el Spawn para que diferencie entre Mobs normales y Custom
+window.spawnPreviewedMob = function() {
+    if (!currentlyPreviewedMob) return;
+
+    if (window.CUSTOM_MOBS_DB[currentlyPreviewedMob]) {
+        // Spawnear el Custom Mob
+        let customData = window.CUSTOM_MOBS_DB[currentlyPreviewedMob];
+        let newMob = JSON.parse(JSON.stringify(customData.template));
+        
+        let worldInstanceId = 'inst_' + Date.now();
+        newMob.id = worldInstanceId; // Le damos un ID único en el mundo
+        
+        if (typeof camera !== 'undefined') {
+            newMob.x = camera.x;
+            newMob.y = -camera.y;
+        }
+
+        if (typeof mbwom !== 'undefined' && mbwom.world) {
+            if (!mbwom.mobs) mbwom.mobs = {};
+            mbwom.mobs[worldInstanceId] = newMob;
+            
+            try { closeModal('mobs-modal'); } catch(e){}
+            if (typeof agregarMensajeChatPublico !== 'undefined') {
+                agregarMensajeChatPublico("Sistema", `⚡ Has spawneado tu creación: ${customData.name}!`);
+            }
+        }
+    } else {
+        // Spawnear Mob Normal (Tu código original)
+        if (typeof selectMobToSpawn === 'function') selectMobToSpawn(currentlyPreviewedMob);
+    }
+};
+
+// ==========================================
+// 🛡️ DICCIONARIO Y LÓGICA DE ARMADURAS
+// ==========================================
+const ARMOR_DATA = {
+    caps: ['air', 'LeatherCap', 'IronCap', 'GoldCap', 'DiamondCap', 'DragonCap'],
+    shirts: ['air', 'LeatherShirt', 'IronShirt', 'GoldShirt', 'DiamondShirt', 'DragonShirt'],
+    pants: ['air', 'LeatherPants', 'IronPants', 'GoldPants', 'DiamondPants', 'DragonPants'],
+    shoes: ['air', 'LeatherShoes', 'IronShoes', 'GoldShoes', 'DiamondShoes', 'DragonShoes']
+};
+
+// ==========================================
+// 🎒 SISTEMA DE INVENTARIO DEL MOB
+// ==========================================
+// Lista de los items más comunes para soltar (puedes agregar más a esta lista luego)
+const INVENTORY_ITEMS = [
+    'Apple', 'Arrow', 'Beef', 'Bone', 'Bow', 'Bread', 'Coal', 'Cobblestone', 
+    'Diamond', 'DiamondSword', 'Dirt', 'Emerald', 'GoldIngot', 'GoldenApple', 
+    'Gunpowder', 'IronIngot', 'RottenFlesh', 'Slimeball', 'SpiderEye', 'Stick', 'String', 'Wood'
+];
+
+window.addMobInventorySlot = function(itemName = 'Diamond', qty = 1) {
+    const list = document.getElementById('cmob-inventory-list');
+    if (!list) return;
+
+    // Crear un ID único para poder borrar esta fila específica si nos arrepentimos
+    const slotId = 'inv-slot-' + Date.now() + Math.floor(Math.random() * 1000);
+
+    // Generar las opciones del selector
+    const optionsHtml = INVENTORY_ITEMS.map(item => {
+        let niceName = item.replace(/([A-Z])/g, ' $1').trim();
+        return `<option value="${item}" ${item === itemName ? 'selected' : ''}>${niceName}</option>`;
+    }).join('');
+
+    const row = document.createElement('div');
+    row.id = slotId;
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.justifyContent = 'space-between';
+    row.style.gap = '5px';
+
+    row.innerHTML = `
+        <select class="inv-item-select" style="flex: 1; background: #111; color: white; border: 1px solid #333; font-family: 'Pixeltype', sans-serif; font-size: 16px; padding: 2px;" onchange="window.updateArmorPreview(this.id, 'img-${slotId}')" id="sel-${slotId}">
+            ${optionsHtml}
+        </select>
+        
+        <div style="width: 26px; height: 26px; background: #000; border: 1px solid #444; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
+            <div id="img-${slotId}" style="width: 24px; height: 24px; image-rendering: pixelated; background-image: url('assets/${itemName}.png'); background-size: contain; background-position: center; background-repeat: no-repeat;"></div>
+        </div>
+        
+        <input type="number" class="inv-item-qty" value="${qty}" min="1" max="64" title="Quantity" style="width: 40px; background: #111; border: 1px solid #333; color: white; font-family: 'Pixeltype', sans-serif; font-size: 16px; text-align: center; padding: 2px;">
+        
+        <button onclick="document.getElementById('${slotId}').remove()" style="background: #500; color: white; border: 1px solid #f55; cursor: pointer; padding: 2px 6px; font-family: 'Arial'; font-size: 12px; font-weight: bold;">X</button>
+    `;
+    
+    list.appendChild(row);
+    
+    // Forzamos la actualización de la imagen aprovechando nuestra función existente!
+    if (typeof window.updateArmorPreview === 'function') {
+        window.updateArmorPreview(`sel-${slotId}`, `img-${slotId}`);
+    }
+};
+
+// Actualiza la imagen cargando directamente el archivo individual (.png)
+window.updateArmorPreview = function(selectId, previewBoxId) {
+    const itemName = document.getElementById(selectId).value; // Ej: "LeatherCap"
+    const boxEl = document.getElementById(previewBoxId);
+    
+    if (!boxEl) return;
+
+    if (itemName === 'air') {
+        boxEl.style.backgroundImage = 'none'; 
+        return; 
+    }
+
+    // 1. Convertimos "LeatherCap" a "Leather Cap" para que coincida con tu archivo
+    const fileName = itemName.replace(/([A-Z])/g, ' $1').trim();
+
+    // 2. Cargamos la imagen directamente desde la carpeta assets
+    boxEl.style.backgroundImage = `url('assets/${fileName}.png')`;
+    boxEl.style.backgroundPosition = "center";
+    boxEl.style.backgroundSize = "contain"; 
+    boxEl.style.backgroundRepeat = "no-repeat";
+};
+
+window.setupArmorSelectors = function() {
+    const fill = (id, list, previewId) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.innerHTML = list.map(item => `<option value="${item}">${item === 'air' ? 'None' : item.replace(/[A-Z]/g, ' $&').trim()}</option>`).join('');
+        // Forzamos actualización de la imagen inicial
+        window.updateArmorPreview(id, previewId);
+    };
+    
+    fill('cmob-helmet', ARMOR_DATA.caps, 'prev-helmet');
+    fill('cmob-shirt', ARMOR_DATA.shirts, 'prev-shirt');
+    fill('cmob-pants', ARMOR_DATA.pants, 'prev-pants');
+    fill('cmob-shoes', ARMOR_DATA.shoes, 'prev-shoes');
+};
+
+// Actualizamos previewCustomMob para reiniciar las vistas previas
+const originalPreviewCustomMob = window.previewCustomMob;
+
+// ==========================================
+// 🧬 PREVISUALIZACIÓN DE MOB CUSTOM
+// ==========================================
+window.previewCustomMob = function(mobId) {
+    selectedCustomMob = mobId; 
+    
+    let niceName, imgSrc, baseMob, defaultHp;
+
+    // A) Determinar si es un mob guardado o una plantilla base
+    if (window.CUSTOM_MOBS_DB && window.CUSTOM_MOBS_DB[mobId]) {
+        let customData = window.CUSTOM_MOBS_DB[mobId];
+        niceName = customData.name;
+        baseMob = customData.baseMob;
+        defaultHp = customData.health;
+    } else {
+        niceName = mobId.charAt(0).toUpperCase() + mobId.slice(1);
+        baseMob = mobId;
+        defaultHp = (typeof MOBS_HP_DB !== 'undefined' && MOBS_HP_DB[mobId]) ? MOBS_HP_DB[mobId] : 20;
+    }
+
+    // B) Actualizar Interfaz (Imagen, Título y Stats básicos)
+    imgSrc = (window.images && window.images[baseMob] && window.images[baseMob].src) 
+                 ? window.images[baseMob].src : `assets/mobs/${baseMob}.png`;
+    document.getElementById('cmob-preview-image').src = imgSrc;
+    document.getElementById('cmob-info-title').innerText = niceName;
+    document.getElementById('cmob-hp').value = defaultHp;
+    document.getElementById('cmob-name').value = window.CUSTOM_MOBS_DB[mobId] ? niceName + " V2" : ''; 
+
+    // C) Resetear Checkboxes
+    if (document.getElementById('cmob-persists')) document.getElementById('cmob-persists').checked = true;
+    if (document.getElementById('cmob-default-drops')) document.getElementById('cmob-default-drops').checked = true;
+
+    // D) Limpiar y Cargar Inventario (Drops)
+    const invList = document.getElementById('cmob-inventory-list');
+    if (invList) invList.innerHTML = ''; 
+
+    if (window.CUSTOM_MOBS_DB && window.CUSTOM_MOBS_DB[mobId] && window.CUSTOM_MOBS_DB[mobId].template.drops) {
+        // Diccionario inverso para que el editor sepa de qué item se trata
+        const REVERSE_IDS = { 'dm':'Diamond', 'gi':'GoldIngot', 'ii':'IronIngot', 'em':'Emerald', 'c':'Coal', 'rf':'RottenFlesh', 'bo':'Bone', 'a':'Arrow', 'gp':'Gunpowder', 'st':'String', 'se':'SpiderEye', 'sl':'Slimeball', 's':'Stick', 'ap':'Apple', 'gap':'GoldenApple', 'br':'Bread', 'bf':'Beef', 'w':'Wood', 'cb':'Cobblestone' };
+
+        window.CUSTOM_MOBS_DB[mobId].template.drops.forEach(dropData => {
+            // Convertimos el "dm" de vuelta a "Diamond" para la UI
+            let itemNiceName = REVERSE_IDS[dropData.type] ? REVERSE_IDS[dropData.type] : dropData.type;
+            if (typeof window.addMobInventorySlot === 'function') {
+                window.addMobInventorySlot(itemNiceName, dropData.quantity);
+            }
+        });
+        
+        // Cargar estado de defaultDrops si estaba guardado
+        if (typeof window.CUSTOM_MOBS_DB[mobId].template.defaultDrops !== 'undefined') {
+            document.getElementById('cmob-default-drops').checked = window.CUSTOM_MOBS_DB[mobId].template.defaultDrops;
+        }
+    }
+
+    // E) Mostrar/Ocultar Armadura (Solo Zombies)
+    const armorSection = document.getElementById('cmob-armor-section');
+    if (armorSection) {
+        if (baseMob === 'zombie') {
+            armorSection.style.display = 'block';
+            if (typeof window.setupArmorSelectors === 'function') window.setupArmorSelectors();
+            
+            // Cargar porcentajes si existen (de decimal a entero)
+            let drops = [100, 100, 100, 100];
+            if (window.CUSTOM_MOBS_DB && window.CUSTOM_MOBS_DB[mobId] && window.CUSTOM_MOBS_DB[mobId].template.armorDropChances) {
+                drops = window.CUSTOM_MOBS_DB[mobId].template.armorDropChances.map(val => Math.round(val * 100));
+            }
+            if (document.getElementById('cmob-drop-helmet')) document.getElementById('cmob-drop-helmet').value = drops[0];
+            if (document.getElementById('cmob-drop-shirt')) document.getElementById('cmob-drop-shirt').value = drops[1];
+            if (document.getElementById('cmob-drop-pants')) document.getElementById('cmob-drop-pants').value = drops[2];
+            if (document.getElementById('cmob-drop-shoes')) document.getElementById('cmob-drop-shoes').value = drops[3];
+        } else {
+            armorSection.style.display = 'none';
+        }
+    }
+};
+
+// ==========================================
+// ⚡ INYECCIÓN DE MUTACIÓN (GUARDAR Y SPAWNEAR)
+// ==========================================
+window.injectCustomMob = function() {
+    try {
+        if (!window.CUSTOM_MOBS_DB) window.CUSTOM_MOBS_DB = JSON.parse(localStorage.getItem('mbw_custom_mobs')) || {};
+        if (typeof selectedCustomMob === 'undefined' || !selectedCustomMob) window.selectedCustomMob = 'zombie';
+
+        let templateMob, baseMobName;
+
+        // A) Determinar el ADN base
+        if (window.CUSTOM_MOBS_DB[selectedCustomMob]) {
+            templateMob = JSON.parse(JSON.stringify(window.CUSTOM_MOBS_DB[selectedCustomMob].template));
+            baseMobName = window.CUSTOM_MOBS_DB[selectedCustomMob].baseMob;
+        } else if (typeof MOB_TEMPLATES !== 'undefined' && MOB_TEMPLATES[selectedCustomMob]) {
+            templateMob = JSON.parse(JSON.stringify(MOB_TEMPLATES[selectedCustomMob]));
+            baseMobName = selectedCustomMob;
+        } else {
+            alert("Error: No encontré la plantilla de " + selectedCustomMob);
+            return;
+        }
+
+        // B) Leer valores de UI
+        const customName = document.getElementById('cmob-name').value.trim();
+        const hp = Number(document.getElementById('cmob-hp').value) || 20;
+        let displayName = customName || "Mutant " + baseMobName;
+
+        templateMob.name = displayName;
+        templateMob.health = hp;
+        templateMob.maxHealth = hp; 
+        
+        templateMob.persists = document.getElementById('cmob-persists') ? document.getElementById('cmob-persists').checked : false;
+        templateMob.defaultDrops = document.getElementById('cmob-default-drops') ? document.getElementById('cmob-default-drops').checked : true;
+
+        // C) LEER EL INVENTARIO DINÁMICO (Drops)
+        templateMob.drops = []; 
+        const ITEM_IDS = { 'Diamond':'dm', 'GoldIngot':'gi', 'IronIngot':'ii', 'Emerald':'em', 'Coal':'c', 'RottenFlesh':'rf', 'Bone':'bo', 'Arrow':'a', 'Gunpowder':'gp', 'String':'st', 'SpiderEye':'se', 'Slimeball':'sl', 'Stick':'s', 'Apple':'ap', 'GoldenApple':'gap', 'Bread':'br', 'Beef':'bf', 'Wood':'w', 'Cobblestone':'cb' };
+
+        const invRows = document.getElementById('cmob-inventory-list') ? document.getElementById('cmob-inventory-list').children : [];
+        for (let i = 0; i < invRows.length; i++) {
+            const selectEl = invRows[i].querySelector('.inv-item-select');
+            const qtyEl = invRows[i].querySelector('.inv-item-qty');
+            
+            if (selectEl && qtyEl) {
+                let rawItemName = selectEl.value;
+                let gameItemId = ITEM_IDS[rawItemName] ? ITEM_IDS[rawItemName] : rawItemName;
+                
+                templateMob.drops.push({
+                    "type": gameItemId,
+                    "quantity": Number(qtyEl.value),
+                    "randomBonus": 0,
+                    "lootBonus": 0,
+                    "extras": {},
+                    "properties": {}
+                });
+            }
+        }
+
+        // D) EQUIPAR ARMADURA Y CONVERTIR PORCENTAJES (Solo Zombies)
+        if (baseMobName === 'zombie') {
+            const cap = document.getElementById('cmob-helmet') ? document.getElementById('cmob-helmet').value : 'air';
+            const shirt = document.getElementById('cmob-shirt') ? document.getElementById('cmob-shirt').value : 'air';
+            const pants = document.getElementById('cmob-pants') ? document.getElementById('cmob-pants').value : 'air';
+            const shoes = document.getElementById('cmob-shoes') ? document.getElementById('cmob-shoes').value : 'air';
+
+            templateMob.armor = [
+                [cap, 1, 0, {}],
+                [shirt, 1, 0, {}],
+                [pants, 1, 0, {}],
+                [shoes, 1, 0, {}]
+            ];
+            
+            // Convertir porcentaje de UI a decimales para el motor del juego
+            const dropCap = (Number(document.getElementById('cmob-drop-helmet').value) || 0) / 100;
+            const dropShirt = (Number(document.getElementById('cmob-drop-shirt').value) || 0) / 100;
+            const dropPants = (Number(document.getElementById('cmob-drop-pants').value) || 0) / 100;
+            const dropShoes = (Number(document.getElementById('cmob-drop-shoes').value) || 0) / 100;
+
+            templateMob.armorDropChances = [dropCap, dropShirt, dropPants, dropShoes];
+        }
+
+        // E) GUARDAR EN LOCALSTORAGE
+        const dbId = 'cmob_' + Date.now();
+        window.CUSTOM_MOBS_DB[dbId] = {
+            baseMob: baseMobName,
+            name: displayName,
+            health: hp,
+            template: templateMob 
+        };
+        localStorage.setItem('mbw_custom_mobs', JSON.stringify(window.CUSTOM_MOBS_DB));
+
+        // F) SPAWNEAR EN EL MUNDO
+        const worldMob = JSON.parse(JSON.stringify(templateMob));
+        worldMob.id = 'inst_' + Date.now();
+        
+        if (typeof camera !== 'undefined') {
+            worldMob.x = camera.x;
+            worldMob.y = -camera.y;
+        } else {
+            worldMob.x = 0; worldMob.y = 0;
+        }
+
+        if (typeof mbwom !== 'undefined' && mbwom.world) {
+            if (!mbwom.mobs) mbwom.mobs = {};
+            mbwom.mobs[worldMob.id] = worldMob;
+            
+            const modal = document.getElementById('create-mob-modal');
+            if (modal) modal.style.display = 'none';
+            
+            if (typeof agregarMensajeChatPublico !== 'undefined') {
+                agregarMensajeChatPublico("Sistema", `⚡ Creado y guardado: ${displayName}`);
+            }
+        }
+    } catch(error) {
+        console.error("🔥 Error en injectCustomMob:", error);
+    }
+};
+
+
+// ==========================================
+// 🪟 SISTEMA DE ACTUALIZACIONES AUTOMÁTICO
+// ==========================================
+
+// Leemos la versión guardada (si es la primera vez, asume 1.0.0)
+const CURRENT_LOCAL_VERSION = localStorage.getItem('mbw_app_version') || '1.0.0';
+let LATEST_FETCHED_VERSION = CURRENT_LOCAL_VERSION;
+
+window.checkForUpdates = function() {
+    // Evitamos el caché de GitHub Pages agregando la hora exacta a la petición
+    const url = 'version.json?t=' + new Date().getTime();
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            if (data.version && data.version !== CURRENT_LOCAL_VERSION) {
+                // ¡Hay nueva versión! Bloqueamos la pantalla y arrancamos.
+                LATEST_FETCHED_VERSION = data.version;
+                document.getElementById('update-version-text').innerText = 'v' + data.version;
+                
+                // Usamos 'flex' porque el contenedor ahora cubre toda la pantalla
+                document.getElementById('win-update-modal').style.display = 'flex'; 
+                
+                // Esperamos medio segundo por estética y empezamos a descargar
+                setTimeout(window.startAutomaticUpdate, 500);
+            }
+        })
+        .catch(err => console.log("No se detectaron actualizaciones."));
+};
+
+window.startAutomaticUpdate = function() {
+    const bar = document.getElementById('update-progress-bar');
+    const status = document.getElementById('update-status');
+    
+    let progress = 0;
+    
+    // Animación de "Descarga e Instalación"
+    let updateInterval = setInterval(() => {
+        // Sube a una velocidad irregular (entre 2% y 12%) para parecer una descarga real
+        progress += Math.floor(Math.random() * 10) + 2; 
+        if (progress >= 100) progress = 100;
+        
+        bar.style.width = progress + '%';
+        
+        // Mensajes dinámicos de sistema retro
+        if (progress > 10) status.innerText = "Updating the main files...";
+        if (progress > 40) status.innerText = "Overwritting textures...";
+        if (progress > 70) status.innerText = "Deleting cache memory...";
+        if (progress > 90) status.innerText = "Loading...";
+        
+        if (progress === 100) {
+            clearInterval(updateInterval);
+            status.innerText = "Update completed! Restarting...";
+            
+            // Guardamos la nueva versión para que no se repita el ciclo
+            localStorage.setItem('mbw_app_version', LATEST_FETCHED_VERSION);
+            
+            // Forzamos la recarga de la página saltando el caché del navegador
+            setTimeout(() => {
+                window.location.reload(true);
+            }, 1200);
+        }
+    }, 350); // Se actualiza la barra cada 350 milisegundos
+};
+
+// El radar escanea 2 segundos después de que el usuario entra a la página
+setTimeout(window.checkForUpdates, 2000);
