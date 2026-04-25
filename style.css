@@ -556,8 +556,8 @@ body {
 #workspace {
     position: absolute;
     top: 204px;   
-    left: 55px;   
-    width: calc(100% - 55px); 
+    left: 47px;   
+    width: calc(100% - 47px); 
     bottom: 28px; 
     background-color: #1a1a1a;
     overflow: hidden;

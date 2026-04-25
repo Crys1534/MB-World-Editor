@@ -74,12 +74,17 @@ function openCustomItemsModal() {
     isCreatingCustomItem = true;
     
     const modal = document.getElementById('inventory-modal');
+    const modalContent = modal.querySelector('.modal-content'); // ✨ NUEVO: Buscamos la caja gris principal
     const chestPanel = document.getElementById('chest-builder-panel');
     const customPanel = document.getElementById('custom-item-builder-panel');
     const title = document.getElementById('inventory-modal-title');
     const hotbarContainer = document.getElementById('modal-hotbar-container');
     
     modal.style.display = 'block';
+    
+    // ✨ NUEVO: Estiramos la ventana a 2 columnas (1190px) para que quepa el panel de items
+    if (modalContent) modalContent.style.width = '1190px';
+
     if (title) title.innerText = "Create Custom Item";
     
     // ✨ FIX: Apagamos el Cofre y Encendemos el Item

@@ -206,6 +206,7 @@ let isCreatingCustomItem = false; // ✨ NUEVA
 
 function toggleInventory() {
     const modal = document.getElementById('inventory-modal');
+    const modalContent = modal.querySelector('.modal-content'); // ✨ NUEVO: Selecciona la caja principal
     const chestPanel = document.getElementById('chest-builder-panel');
     const customPanel = document.getElementById('custom-item-builder-panel'); // ✨
     const title = document.getElementById('inventory-modal-title');
@@ -224,6 +225,9 @@ function toggleInventory() {
         if (chestPanel) chestPanel.style.display = 'none'; 
         if (customPanel) customPanel.style.display = 'none'; // ✨
         if (hotbarContainer) hotbarContainer.style.display = 'grid'; // Mostramos la hotbar
+
+        // ✨ NUEVO: Encogemos la ventana a 1 columna (584px)
+        if (modalContent) modalContent.style.width = '584px';
 
         const searchInput = document.getElementById('inventory-search');
         if(searchInput) {
@@ -992,11 +996,15 @@ function openCreateChestModal() {
     customChestInventory = new Array(27).fill(null); 
     
     const modal = document.getElementById('inventory-modal');
+    const modalContent = modal.querySelector('.modal-content'); // ✨ NUEVO: Buscamos la caja
     const chestPanel = document.getElementById('chest-builder-panel');
     const customPanel = document.getElementById('custom-item-builder-panel'); // ✨ FIX: Agregamos la referencia
     const title = document.getElementById('inventory-modal-title');
     
     modal.style.display = 'block';
+    
+    // ✨ NUEVO: Estiramos la ventana a 2 columnas (1190px)
+    if (modalContent) modalContent.style.width = '1190px';
     
     if (title) title.innerText = "Create Loot Chest";
     

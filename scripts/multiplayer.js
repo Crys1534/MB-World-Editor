@@ -1380,7 +1380,10 @@ window.renderChatList = function(container) {
                 }
             }
 
-            const sorted = Object.keys(chatEntries).map(uid => ({uid, ...chatEntries[uid]})).sort((a, b) => b.timestamp - a.timestamp);
+            // ✨ FIX: Ordenamiento forzado. Si un chat no tiene timestamp (null/undefined), se trata como 0
+            const sorted = Object.keys(chatEntries)
+                .map(uid => ({uid, ...chatEntries[uid]}))
+                .sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0));
             
             if (sorted.length === 0) { 
                 container.innerHTML = '<div style="padding: 20px; text-align: center; color: #bdc3c7; font-family: Arial; font-size: 18px; opacity: 0.6;">No hay chats ni amigos disponibles.</div>'; 
@@ -2234,7 +2237,7 @@ function initCommandAutocomplete() {
             bottom: 0; 
             left: 0;
             width: 100%;
-            max-height: 150px;
+            height: 197px;
             overflow-y: auto;
             background: rgba(0, 0, 0, 0.85);
             border: 2px solid #333;
@@ -2303,3 +2306,173 @@ function initCommandAutocomplete() {
 }
 // Arrancamos el sistema (con un pequeño retraso para asegurar que la página ya cargó el chat)
 setTimeout(initCommandAutocomplete, 500);
+
+
+// ==========================================
+// 🤩 BOTÓN Y MENÚ DE EMOJIS (TIPO WHATSAPP)
+// ==========================================
+
+window.restoreDMEmojiButton = function() {
+    const dmInput = document.getElementById('full-dm-input');
+    
+    // Si la ventana no está abierta o el botón ya existe, salimos
+    if (!dmInput || document.getElementById('btn-dm-emoji')) return; 
+
+    const parent = dmInput.parentNode;
+
+    // 1. Envolver en burbuja
+    const flexBox = document.createElement('div');
+    flexBox.style.cssText = 'display: flex; align-items: center; width: 100%; background: rgba(0,0,0,0.5); border-radius: 20px; padding: 2px 10px; border: 1px solid #555; box-sizing: border-box; margin-top: 5px; position: relative;';
+    
+    // 2. Limpiar input
+    dmInput.style.border = 'none';
+    dmInput.style.background = 'transparent';
+    dmInput.style.outline = 'none';
+    dmInput.style.flex = '1';
+    dmInput.style.padding = '8px 5px';
+    dmInput.style.color = 'white';
+    dmInput.style.fontSize = '14px';
+
+    // 3. Crear el botón de Emoji
+    const emojiBtn = document.createElement('div');
+    emojiBtn.id = 'btn-dm-emoji';
+    emojiBtn.innerHTML = '😀';
+    emojiBtn.title = "Insertar Emoji";
+    emojiBtn.style.cssText = 'font-size: 22px; cursor: pointer; padding-right: 8px; filter: grayscale(100%) opacity(0.6); transition: 0.2s; user-select: none;';
+    
+    emojiBtn.onmouseenter = () => emojiBtn.style.filter = 'grayscale(0%) opacity(1)';
+    emojiBtn.onmouseleave = () => emojiBtn.style.filter = 'grayscale(100%) opacity(0.6)';
+
+    // 4. Qué pasa al darle clic al botón (Abrir/Cerrar el panel)
+    emojiBtn.onclick = (e) => {
+        e.stopPropagation();
+        const panel = document.getElementById('dm-emoji-panel');
+        if (panel) {
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        } else {
+            createEmojiPanel(flexBox, dmInput);
+        }
+    };
+
+    // 5. Ensamblar
+    parent.insertBefore(flexBox, dmInput);
+    flexBox.appendChild(emojiBtn);
+    flexBox.appendChild(dmInput);
+};
+
+// --- EL CEREBRO DEL MENÚ FLOTANTE (VERSIÓN FULL) ---
+function createEmojiPanel(parentBox, targetInput) {
+    const panel = document.createElement('div');
+    panel.id = 'dm-emoji-panel';
+    // Hacemos el panel un poco más grande para que quepan bien todas las categorías
+    panel.style.cssText = 'position: absolute; bottom: 45px; left: 0; width: 320px; height: 250px; background: #2A2A2A; border: 2px solid #555; border-radius: 8px; display: flex; flex-direction: column; z-index: 10000; box-shadow: 0 4px 10px rgba(0,0,0,0.5); overflow: hidden;';
+
+    // Cerrar si se da click fuera del panel
+    document.addEventListener('click', (e) => {
+        if (panel.style.display === 'block' && e.target.id !== 'btn-dm-emoji' && !panel.contains(e.target)) {
+            panel.style.display = 'none';
+        }
+    });
+
+    // 1. ÁREA DE CONTENIDO (Donde van los emojis, con scroll)
+    const contentArea = document.createElement('div');
+    contentArea.style.cssText = 'flex: 1; overflow-y: auto; padding: 10px; padding-bottom: 5px; height: 197px;';
+    
+    // Función para dibujar una categoría específica
+    const renderCategory = (catId) => {
+        contentArea.innerHTML = ''; // Limpiamos
+        
+        // A) Primero cargamos Custom Emotes si eligieron la primera pestaña ("peo" o creamos una especial)
+        if (catId === 'custom') {
+            let html = `<p style="margin: 0 0 5px 0; color: gray; font-size: 12px; font-family: sans-serif;">Custom Emotes</p>`;
+            html += `<div style="display: flex; flex-wrap: wrap; gap: 5px;">`;
+            if (window.customEmotes) {
+                Object.keys(window.customEmotes).forEach(emoteKey => {
+                    html += `<img src="${window.customEmotes[emoteKey]}" title=":${emoteKey}:" class="emj-clickable-custom" data-tag=":${emoteKey}:" style="width: 32px; height: 32px; cursor: pointer; object-fit: contain; image-rendering: pixelated; padding: 2px; border-radius: 4px; transition: 0.1s;">`;
+                });
+            }
+            html += `</div>`;
+            contentArea.innerHTML = html;
+        } 
+        // B) Si es una categoría normal de tu base de datos
+        else {
+            const category = window.emojiCategories.find(c => c.id === catId);
+            if (category) {
+                let html = `<p style="margin: 0 0 5px 0; color: gray; font-size: 12px; font-family: sans-serif;">${category.name}</p>`;
+                html += `<div style="display: flex; flex-wrap: wrap; gap: 4px;">`;
+                category.items.forEach(emj => {
+                    html += `<span class="emj-clickable" style="font-size: 24px; cursor: pointer; padding: 2px; border-radius: 4px; transition: 0.1s; user-select: none;">${emj}</span>`;
+                });
+                html += `</div>`;
+                contentArea.innerHTML = html;
+            }
+        }
+
+        // Re-asignar eventos de clic cada vez que dibujamos la grilla
+        const insertText = (text) => {
+            targetInput.value += text; // Insertamos sin espacio extra, como WhatsApp
+            targetInput.focus();
+        };
+
+        contentArea.querySelectorAll('.emj-clickable').forEach(el => {
+            el.onmouseenter = () => el.style.background = '#444';
+            el.onmouseleave = () => el.style.background = 'transparent';
+            el.onclick = () => insertText(el.innerText);
+        });
+
+        contentArea.querySelectorAll('.emj-clickable-custom').forEach(el => {
+            el.onmouseenter = () => el.style.background = '#444';
+            el.onmouseleave = () => el.style.background = 'transparent';
+            el.onclick = () => {
+                insertText(el.getAttribute('data-tag') + " ");
+                panel.style.display = 'none'; // Auto-cerrar al enviar Custom Emote
+            };
+        });
+    };
+
+    // 2. BARRA DE NAVEGACIÓN INFERIOR (Pestañas)
+    const navBar = document.createElement('div');
+    navBar.style.cssText = 'display: flex; justify-content: space-around; background: #222; padding: 5px; border-top: 1px solid #444;';
+    
+    // Botón especial para Custom Emotes
+    const customTab = document.createElement('div');
+    customTab.innerHTML = '⭐';
+    customTab.title = 'Custom Emotes';
+    customTab.style.cssText = 'font-size: 20px; cursor: pointer; filter: grayscale(100%); transition: 0.2s;';
+    customTab.onclick = () => {
+        navBar.querySelectorAll('div').forEach(d => d.style.filter = 'grayscale(100%)');
+        customTab.style.filter = 'none';
+        renderCategory('custom');
+    };
+    navBar.appendChild(customTab);
+
+    // Creamos las pestañas basándonos en tu lista (People, Nature, Food, etc.)
+    window.emojiCategories.forEach((cat, index) => {
+        const tab = document.createElement('div');
+        tab.innerHTML = cat.icon;
+        tab.title = cat.name;
+        tab.style.cssText = 'font-size: 20px; cursor: pointer; filter: grayscale(100%); transition: 0.2s;';
+        
+        tab.onclick = () => {
+            navBar.querySelectorAll('div').forEach(d => d.style.filter = 'grayscale(100%)');
+            tab.style.filter = 'none'; // Iluminamos la pestaña activa
+            renderCategory(cat.id);
+        };
+        navBar.appendChild(tab);
+        
+        // Si es el primero (People), lo dejamos encendido por defecto
+        if (index === 0) {
+            tab.style.filter = 'none';
+        }
+    });
+
+    // Ensamblamos el panel
+    panel.appendChild(contentArea);
+    panel.appendChild(navBar);
+    parentBox.appendChild(panel);
+
+    // Carga inicial (Abrimos la pestaña 'peo' de Personas por defecto)
+    renderCategory('peo');
+}
+// Inicializar el radar
+setInterval(window.restoreDMEmojiButton, 500);
