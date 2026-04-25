@@ -984,7 +984,6 @@ function toggleHardcore(isHardcore) {
 }
 
 
-
 // ==========================================
 // 🎁 CREADOR DE COFRES (CHEST BUILDER)
 // ==========================================
@@ -1156,8 +1155,6 @@ async function saveCustomChest() {
     }
 }
 
-
-
 document.getElementById('console-input').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') {
         const command = this.value.trim();
@@ -1197,8 +1194,6 @@ document.getElementById('console-input').addEventListener('keydown', function(e)
         }
     }
 });
-
-
 
 // --- DICCIONARIO Y FORMATEO GLOBAL DE ENCANTAMIENTOS ---
 const enchantTranslations = {
@@ -1483,7 +1478,6 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 
-
 // ========================================================
 // --- SISTEMA DE TOOLTIPS FLOTANTES GLOBALES (CORREGIDO Y UNIFICADO) ---
 // ========================================================
@@ -1576,6 +1570,60 @@ document.addEventListener('mousemove', (e) => {
 // ==========================================
 const newsDatabase = [
 
+{
+        id: 4,
+        title: "v2.3 - Multiplayer Update",
+        date: "April 25, 2026", 
+        image: "https://i.imgur.com/HLeNf8x.png", 
+        excerpt: "Create a map with friends, chat with them, and more!",
+        content: `
+            <h3 style="margin-top: 0; color: #333;">Changelog:</h3>
+            <ul class="pixel-list">
+                <li><b>🌐 Multiplayer!</b></li>
+                    <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
+                        <li>up to 6 players</li>
+                        <li>spectator mode!</li>
+						<li>server chat</li>
+						<li>server invites</li>
+						<li>kick players</li>
+						<li>🔔Notifications, 👥Friend Requests and ✉MDs</li>
+						<li>reply, edit and delete messages</li>
+						<li>reactions to messages</li>
+						<li>emojis & emotes</li>
+					</ul>
+				<li><b>Menu</b></li>
+                    <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
+                        <li>saved worlds</li>
+                        <li>world templates</li>
+					</ul>
+				<li><code class="code-tag">[beta]</code>🐷Mobs!</li>
+                <li><code class="code-tag">[beta]</code>🎒Inventory</li>
+					<ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
+						<li>food</li>
+						<li>new items</li>
+					</ul>
+				<li>💾 auto-save</li>
+                <li>🎨 new theme: Pastel 2 (Cool)</li>
+				<li>weather animation</li>
+				<li>day & night animation</li>
+				<li>now you can see your position in the world</li>
+                <li><code class="code-tag">[change]</code>  the magic wand now selects more area and works up to x=6000</li>
+                <li><code class="code-tag">[change]</code>  configuration</li>
+					<ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
+						<li>volume</li>
+						<li>auto-save</li>
+					</ul>
+                <li><code class="code-tag">[fixed]</code>  enchantments for fishing rod</li>
+            </ul>
+        `,
+		
+		gallery: [
+            "https://i.imgur.com/OGBQD83.gif", 
+            "https://i.imgur.com/5hObGAo.png", 
+            "https://i.imgur.com/q8VDWc4.png",
+			"https://i.imgur.com/My2zgUi.png"
+        ]
+    },
 {
         id: 3,
         title: "v2.2 - Chests Update",
