@@ -15,7 +15,7 @@
         font-weight: normal;
         font-style: normal;
     }
-	
+    
     /* --- ESTILOS GENERALES Y CORRECCIONES --- */
     #inventory-modal .modal-content {
     background: #C6C6C6; border: 2px solid #555; width: 584px; padding: 0;   
@@ -42,7 +42,7 @@
         display: grid; grid-template-columns: repeat(9, 1fr); gap: 2px; overflow-y: auto;
         background: #8B8B8B; padding: 5px; border: 2px solid #373737; border-top: 2px solid #373737; 
         border-bottom-color: #c6c6c6; border-right-color: #c6c6c6; flex: 1; min-height: 0;
-		border-right-width: 6px;
+        border-right-width: 6px;
     }
     .inv-item {
         width: 100%; aspect-ratio: 1; background: #8B8B8B; border: 1px solid transparent;
@@ -87,7 +87,7 @@
         opacity: 0;
         pointer-events: none;
     }
-	
+    
     /* --- ESTILOS DE ESTRUCTURAS --- */
     .icon-btn:disabled, .icon-btn[disabled] { opacity: 0.4; cursor: not-allowed; filter: grayscale(100%); }
 
@@ -105,7 +105,7 @@
     .struct-tab {
         padding: 8px 15px; background: #8B8B8B; border: 2px solid #373737; border-bottom: 2px solid #FFF;
         cursor: pointer; font-weight: bold; color: #000;
-		user-select: none;
+        user-select: none;
         -webkit-user-select: none; /* Soporte para navegadores basados en WebKit como Safari/Chrome antiguo */
     }
     .struct-tab.active {
@@ -135,7 +135,7 @@
         flex: 1;
         align-content: start;
     }
-	
+    
     .struct-item {
         background: #555; border: 2px solid #272727; aspect-ratio: 1; display: flex; flex-direction: column;
         align-items: center; justify-content: center; cursor: pointer;
@@ -163,7 +163,7 @@
     .struct-info { width: 100%; text-align: left;}
     .struct-info h3 { margin: 0 0 5px 0; font-size: 18px; color: #000; } 
     .struct-info p { margin: 0; color: #000; font-size: 14px; font-weight: bold; } 
-	/* --- ESTILOS EXCLUSIVOS PARA EL MOB BROWSER --- */
+    /* --- ESTILOS EXCLUSIVOS PARA EL MOB BROWSER --- */
     .mob-main { flex: 1; display: flex; flex-direction: column; padding: 10px; border-right: 2px solid #555; }
     .mob-tabs-container {
         display: flex; justify-content: space-between; align-items: center; 
@@ -245,8 +245,8 @@
     .confirm-actions { display: flex; justify-content: center; gap: 15px; margin-top: 10px; }
     .btn-yes, .btn-confirm-save { padding: 4px 15px; font-size: 12px; }
     .btn-no, .btn-cancel { padding: 4px 15px; font-size: 12px; }
-	
-	
+    
+    
 /* --- ENCHANTMENT EFFECTS (Brillo Reluciente) --- */
     .enchanted-slot {
         border: 2px solid #a200ff !important;
@@ -305,9 +305,9 @@
         pointer-events: none; 
 
     }
-	
-	
-	.enchanted-slot:hover .enchant-tooltip {
+    
+    
+    .enchanted-slot:hover .enchant-tooltip {
         display: block;
     }
  </style>
@@ -315,20 +315,20 @@
 <body>
  <div id="drag-overlay">
         <div class="drag-content">
-            <h1 style="font-size: 3rem; margin: 0;">📁 Drop your world file here!</h1>
-            <p style="font-size: 1.5rem; color: #ccc;">Drop the .mbw file anywhere</p>
+            <h1 style="font-size: 3rem; margin: 0;" data-i18n="drag_drop_title">📁 Drop your world file here!</h1>
+            <p style="font-size: 1.5rem; color: #ccc;" data-i18n="drag_drop_subtitle">Drop the .mbw file anywhere</p>
         </div>
     </div>
-	
+    
 <div id="top-bar" class="top-bar">
   <div class="left-group">
    <img src="favicon.ico" class="app-icon" alt="App Icon">
-   <button class="icon-btn" onclick="openFileMenu()">File</button>
+   <button class="icon-btn" onclick="openFileMenu()" data-i18n="btn_file">File</button>
    <button class="icon-btn" onclick="document.getElementById('file-input').click()">📂</button>
    
    <div class="ms-switch-container">
-    <button class="menu-btn btn-save-quick" onclick="fileManager.saveLocal()" title="Guardar Ahora">💾</button>
-    <span class="ms-switch-label" onclick="document.getElementById('autosave-toggle').click()">Auto save</span>
+    <button class="menu-btn btn-save-quick" onclick="fileManager.saveLocal()" data-i18n-title="tooltip_save_now" title="Guardar Ahora">💾</button>
+    <span class="ms-switch-label" onclick="document.getElementById('autosave-toggle').click()" data-i18n="lbl_auto_save">Auto save</span>
     <label class="ms-switch">
         <input type="checkbox" id="autosave-toggle" onchange="toggleAutoSave()">
         <span class="ms-slider"></span>
@@ -336,23 +336,23 @@
    </div>
    
    <button class="icon-btn btn-multiplayer" onclick="openFileMenu(); setTimeout(() => switchBackstageTab('multiplayer'), 10);">
-    🌐 Multiplayer
+    🌐 <span data-i18n="btn_multiplayer">Multiplayer</span>
     <div id="global-mp-badge" class="badge-global-mp">0</div>
    </button>
 
    <div class="dropdown-container">
-        <button class="icon-btn" onclick="toggleHelpMenu()">Help</button>
+        <button class="icon-btn" onclick="toggleHelpMenu()" data-i18n="btn_help">Help</button>
         <div id="help-dropdown" class="dropdown-content">
-            <a href="#" onclick="openModal('settings-modal'); closeHelpMenu();">⚙️ Configuration</a>
-            <a href="https://discord.gg/GHJutHJ" target="_blank" onclick="closeHelpMenu();">👾 Join our community!</a>
-            <a href="#" onclick="openModal('about-modal'); closeHelpMenu();">ℹ️ About...</a>
+            <a href="#" onclick="openModal('settings-modal'); closeHelpMenu();">⚙️ <span data-i18n="menu_configuration">Configuration</span></a>
+            <a href="https://discord.gg/GHJutHJ" target="_blank" onclick="closeHelpMenu();">👾 <span data-i18n="menu_join_discord">Join our community!</span></a>
+            <a href="#" onclick="openModal('about-modal'); closeHelpMenu();">ℹ️ <span data-i18n="menu_about">About...</span></a>
         </div>
     </div>
    
    <div class="separator"></div>
    
-   <button class="icon-btn" onclick="historyManager.undo()" title="Undo (Ctrl+Z)">↶</button>
-   <button class="icon-btn" onclick="historyManager.redo()" title="Redo (Ctrl+Y)">↷</button>
+   <button class="icon-btn" onclick="historyManager.undo()" data-i18n-title="tooltip_undo" title="Undo (Ctrl+Z)">↶</button>
+   <button class="icon-btn" onclick="historyManager.redo()" data-i18n-title="tooltip_redo" title="Redo (Ctrl+Y)">↷</button>
    <div class="separator"></div>
    
    <div class="filename-wrapper">
@@ -368,7 +368,7 @@
             <img id="top-profile-img" class="img-profile-top" src="assets/default pfp.png">
         </button>
 
-        <button class="icon-btn btn-news" id="news-btn" onclick="openNewsModal()" title="Updates & Changelog">📰 News</button>
+        <button class="icon-btn btn-news" id="news-btn" onclick="openNewsModal()" data-i18n-title="tooltip_news" title="Updates & Changelog">📰 <span data-i18n="btn_news">News</span></button>
     </div>
 </div>
  <div id="ui-collapse-wrapper" class="collapsible-wrapper">
@@ -379,13 +379,13 @@
 <div id="ribbon">
   
   <div class="ribbon-tabs-container">
-    <button class="tab-btn active" onclick="openTab('insert')" data-text="Insert">Insert</button>
-    <button class="tab-btn" onclick="openTab('settings')" data-text="World Settings">World Settings</button>
-    <button class="tab-btn" onclick="openTab('create')" data-text="Create">Create</button>
-    <button class="tab-btn" onclick="openTab('view')" data-text="View">View</button>
+    <button class="tab-btn active" onclick="openTab('insert')" data-i18n="tab_insert">Insert</button>
+    <button class="tab-btn" onclick="openTab('settings')" data-i18n="tab_world_settings">World Settings</button>
+    <button class="tab-btn" onclick="openTab('create')" data-i18n="tab_create">Create</button>
+    <button class="tab-btn" onclick="openTab('view')" data-i18n="tab_view">View</button>
     
-    <button class="btn-ribbon-export" onclick="fileManager.export()">💾 Export</button>
-    <button id="btn-world-info" class="tab-btn btn-ribbon-info" onclick="toggleWorldInfo()" disabled>ℹ️ World Info</button>
+    <button class="btn-ribbon-export" onclick="fileManager.export()">💾 <span data-i18n="btn_export">Export</span></button>
+    <button id="btn-world-info" class="tab-btn btn-ribbon-info" onclick="toggleWorldInfo()" disabled>ℹ️ <span data-i18n="btn_world_info">World Info</span></button>
   </div>
 
   <div class="tab-content">
@@ -394,69 +394,69 @@
         
         <div class="ribbon-group">
             <div class="ribbon-group-content">
-                <button class="ribbon-btn-large" onclick="activatePasteMode()" title="Paste (Ctrl+V)">
-                    <span class="icon">📋</span><span class="text">Paste</span>
+                <button class="ribbon-btn-large" onclick="activatePasteMode()" data-i18n-title="tooltip_paste" title="Paste (Ctrl+V)">
+                    <span class="icon">📋</span><span class="text" data-i18n="btn_paste">Paste</span>
                 </button>
                 <div class="ribbon-btn-col">
-                    <button class="ribbon-btn-small" onclick="cutSelection()" title="Cut (Ctrl+X)"><span>✂️</span></button>
-                    <button class="ribbon-btn-small" onclick="copySelection()" title="Copy (Ctrl+C)"><span>📄</span></button>
+                    <button class="ribbon-btn-small" onclick="cutSelection()" data-i18n-title="tooltip_cut" title="Cut (Ctrl+X)"><span>✂️</span></button>
+                    <button class="ribbon-btn-small" onclick="copySelection()" data-i18n-title="tooltip_copy" title="Copy (Ctrl+C)"><span>📄</span></button>
                 </div>
             </div>
-            <div class="ribbon-group-label">Clipboard</div>
+            <div class="ribbon-group-label" data-i18n="lbl_clipboard">Clipboard</div>
         </div>
         <div class="separator"></div>
-		
+        
         <div class="ribbon-group">
             <div class="ribbon-group-content rg-flex-gap8">
                 <div class="rg-col-center gap-4">
                     <div class="rg-row-center gap-5">
-                        <label class="lbl-small">Size</label>
+                        <label class="lbl-small" data-i18n="lbl_size">Size</label>
                         <select id="tool-size-select" class="input-tiny" onchange="updateToolSize(this.value)">
                             <option value="1">1</option><option value="2">2</option><option value="3">3</option>
                             <option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
                         </select>
                     </div>
                     <label class="lbl-check-small">
-                        <input type="checkbox" id="tool-rounded-checkbox" onchange="updateToolRounded(this.checked)"> Rounded
+                        <input type="checkbox" id="tool-rounded-checkbox" onchange="updateToolRounded(this.checked)"> <span data-i18n="lbl_rounded">Rounded</span>
                     </label>
                 </div>
-                <button class="ribbon-btn-large" id="btn-tool-spray" onclick="toggleSpray(this)" title="Toggle Spray Mode">
+                <button class="ribbon-btn-large" id="btn-tool-spray" onclick="toggleSpray(this)" data-i18n-title="tooltip_spray" title="Toggle Spray Mode">
                     <img src="assets/tool_spray.png" class="pixel-icon icon-32">
-                    <span class="text">Spray</span>
+                    <span class="text" data-i18n="btn_spray">Spray</span>
                 </button>
             </div>
-            <div class="ribbon-group-label">Brush Settings</div>
+            <div class="ribbon-group-label" data-i18n="lbl_brush_settings">Brush Settings</div>
         </div>
         <div class="separator"></div>
 
         <div class="ribbon-group">
             <div class="ribbon-group-content">
                 <div id="hotbar-container"></div>
-				<button class="mini-arrow-btn arrow-top" onclick="toggleInventory()" title="Open Inventory (E)"><span>»</span></button>
+                <button class="mini-arrow-btn arrow-top" onclick="toggleInventory()" data-i18n-title="tooltip_inventory" title="Open Inventory (E)"><span>»</span></button>
             </div>
-            <div class="ribbon-group-label">Inventory (E)</div>
+            <div class="ribbon-group-label" data-i18n="lbl_inventory">Inventory (E)</div>
         </div>
         <div class="separator"></div>
         
         <div class="ribbon-group">
             <div class="ribbon-group-content">
-				<button id="btn-save-struct" class="btn-ribbon-save-struct" onclick="openSaveStructureModal()" disabled title="Select an area first">
+                <button id="btn-save-struct" class="btn-ribbon-save-struct" onclick="openSaveStructureModal()" disabled data-i18n-title="tooltip_save_struct" title="Select an area first">
                     <span class="icon-text">💾</span>
-                    <span class="text-multiline">Save<br>Structure</span>
+                    <span class="text-multiline" data-i18n="btn_save_structure_multiline">Save<br>Structure</span>
                 </button>
-                <div id="recent-structures-ribbon" class="recent-ribbon-container"><span class="empty-text">Empty</span></div>
-                <button class="mini-arrow-btn arrow-tall" onclick="openStructuresModal()" title="Open Library / See All"><span>»</span></button>
+                <div id="recent-structures-ribbon" class="recent-ribbon-container"><span class="empty-text" data-i18n="lbl_empty">Empty</span></div>
+                <button class="mini-arrow-btn arrow-tall" onclick="openStructuresModal()" data-i18n-title="tooltip_structures" title="Open Library / See All"><span>»</span></button>
             </div>
-            <div class="ribbon-group-label">Structures (R)</div>
+            <div class="ribbon-group-label" data-i18n="lbl_structures_tab">Structures (R)</div>
         </div>
-		<div class="separator"></div>
+        <div class="separator"></div>
         
         <div class="ribbon-group">
             <div class="ribbon-group-content rg-row-center">
-                <div id="recent-mobs-ribbon" class="recent-ribbon-container"><span class="empty-text">Empty</span></div>
-                <button class="mini-arrow-btn arrow-tall" onclick="openMobModal()" title="Open Mob Browser"><span>»</span></button>
+                <div id="recent-mobs-ribbon" class="recent-ribbon-container"><span class="empty-text" data-i18n="lbl_empty">Empty</span></div>
+                <button class="mini-arrow-btn arrow-tall" onclick="openMobModal()" data-i18n-title="tooltip_mobs" title="Open Mob Browser"><span>»</span></button>
             </div>
-            <div class="ribbon-group-label">Mobs (M)</div>
+            <div class="ribbon-group-label" data-i18n="lbl_mobs_tab">Mobs (M)</div>
         </div>
    </div>
 
@@ -467,47 +467,47 @@
                 
                 <div class="rg-col-center gap-5">
                     <div class="rg-row-between">
-                        <label class="lbl-small">Gamemode:</label>
+                        <label class="lbl-small" data-i18n="lbl_gamemode">Gamemode:</label>
                         <select id="gamemode" class="input-tiny w-auto">
-                            <option value="0">Survival</option><option value="1">Creative</option>
-                            <option value="2">Adventure</option><option value="3">Spectator</option>
+                            <option value="0" data-i18n="gm_survival">Survival</option><option value="1" data-i18n="gm_creative">Creative</option>
+                            <option value="2" data-i18n="gm_adventure">Adventure</option><option value="3" data-i18n="gm_spectator">Spectator</option>
                         </select>
                     </div>
                     <div class="rg-row-between">
-                        <label class="lbl-small">Difficulty:</label>
+                        <label class="lbl-small" data-i18n="lbl_difficulty">Difficulty:</label>
                         <select id="gr-difficulty" class="input-tiny w-auto">
-                            <option value="0">Peaceful</option><option value="1">Easy</option>
-                            <option value="2" selected>Normal</option><option value="3">Hard</option>
+                            <option value="0" data-i18n="diff_peaceful">Peaceful</option><option value="1" data-i18n="diff_easy">Easy</option>
+                            <option value="2" selected data-i18n="diff_normal">Normal</option><option value="3" data-i18n="diff_hard">Hard</option>
                         </select>
                     </div>
                 </div>
                 
                 <div class="rg-col-center gap-5">
-                    <label class="lbl-check-small"><input type="checkbox" id="cheats"> Cheats</label>
-                    <label class="lbl-check-small text-danger"><input type="checkbox" id="hardcore" onchange="toggleHardcore(this.checked)"> Hardcore</label>
+                    <label class="lbl-check-small"><input type="checkbox" id="cheats"> <span data-i18n="lbl_cheats">Cheats</span></label>
+                    <label class="lbl-check-small text-danger"><input type="checkbox" id="hardcore" onchange="toggleHardcore(this.checked)"> <span data-i18n="lbl_hardcore">Hardcore</span></label>
                 </div>
 
                 <div class="vertical-divider"></div>
 
                 <div class="rg-col-center gap-5">
                     <div class="rg-row-between">
-                        <label class="lbl-small">Day:</label>
-                        <input type="text" id="gr-day" value="1" disabled title="Days passed (Read Only)" class="input-tiny input-disabled w-40">
+                        <label class="lbl-small" data-i18n="lbl_day">Day:</label>
+                        <input type="text" id="gr-day" value="1" disabled data-i18n-title="tooltip_days_passed" title="Days passed (Read Only)" class="input-tiny input-disabled w-40">
                     </div>
                     <div class="rg-row-between">
-                        <label class="lbl-small">Time:</label>
+                        <label class="lbl-small" data-i18n="lbl_time">Time:</label>
                         <input type="number" id="gr-time" min="0" max="99" value="0" class="input-tiny w-40">
-		                <label class="lbl-check-small text-accent"><input type="checkbox" id="live-time-toggle" onchange="toggleLiveTime(this)"> ⏱️ Live Time</label>
+                        <label class="lbl-check-small text-accent"><input type="checkbox" id="live-time-toggle" onchange="toggleLiveTime(this)"> ⏱️ <span data-i18n="lbl_live_time">Live Time</span></label>
                     </div>
                     <div class="rg-row-between">
-                        <label class="lbl-small">Weather:</label>
+                        <label class="lbl-small" data-i18n="lbl_weather">Weather:</label>
                         <select id="gr-weather" class="input-tiny w-60">
-                            <option value="clear" selected>Clear</option><option value="rain">Rain</option><option value="thunder">Thunder</option>
+                            <option value="clear" selected data-i18n="weather_clear">Clear</option><option value="rain" data-i18n="weather_rain">Rain</option><option value="thunder" data-i18n="weather_thunder">Thunder</option>
                         </select>
                     </div>
                 </div>
             </div>
-            <div class="ribbon-group-label">World Settings</div>
+            <div class="ribbon-group-label" data-i18n="lbl_world_settings">World Settings</div>
         </div>
         <div class="separator"></div>
 
@@ -515,55 +515,55 @@
             <div class="ribbon-group-content">
                 <button class="ribbon-btn-large" onclick="openModal('achievements-modal')">
                     <img src="assets/Achievements.png" alt="Achievements" class="pixel-icon icon-32">
-                    <span>Manage<br>Achievs.</span>
+                    <span data-i18n="btn_manage_achievements">Manage<br>Achievs.</span>
                 </button>
             </div>
-            <div class="ribbon-group-label">Achievements</div>
+            <div class="ribbon-group-label" data-i18n="lbl_achievements">Achievements</div>
         </div>
         <div class="separator"></div>
 
         <div class="ribbon-group">
             <div class="ribbon-group-content rg-flex-gap12">
                 <div class="gamerule-item">
-                    <span class="icon-18">🎒</span><label class="lbl-tiny">Keep<br>Inv.</label><input type="checkbox" id="gr-keepinventory">
+                    <span class="icon-18">🎒</span><label class="lbl-tiny" data-i18n="lbl_keep_inv">Keep<br>Inv.</label><input type="checkbox" id="gr-keepinventory">
                 </div>
                 <div class="gamerule-item">
-                    <span class="icon-18">☀️</span><label class="lbl-tiny">Daylight<br>Cycle</label><input type="checkbox" id="gr-dodaylightcycle" checked>
+                    <span class="icon-18">☀️</span><label class="lbl-tiny" data-i18n="lbl_daylight_cycle">Daylight<br>Cycle</label><input type="checkbox" id="gr-dodaylightcycle" checked>
                 </div>
                 <div class="gamerule-item">
-                    <span class="icon-18">💥</span><label class="lbl-tiny">Mob<br>Griefing</label><input type="checkbox" id="gr-mobgriefing" checked>
+                    <span class="icon-18">💥</span><label class="lbl-tiny" data-i18n="lbl_mob_griefing">Mob<br>Griefing</label><input type="checkbox" id="gr-mobgriefing" checked>
                 </div>
                 <div class="gamerule-item">
-                    <span class="icon-18">🥩</span><label class="lbl-tiny">Mob<br>Loot</label><input type="checkbox" id="gr-domobloot" checked>
+                    <span class="icon-18">🥩</span><label class="lbl-tiny" data-i18n="lbl_mob_loot">Mob<br>Loot</label><input type="checkbox" id="gr-domobloot" checked>
                 </div>
                 <div class="gamerule-item">
-                    <span class="icon-18">🔥</span><label class="lbl-tiny">Fire<br>Tick</label><input type="checkbox" id="gr-dofiretick" checked>
+                    <span class="icon-18">🔥</span><label class="lbl-tiny" data-i18n="lbl_fire_tick">Fire<br>Tick</label><input type="checkbox" id="gr-dofiretick" checked>
                 </div>
             </div>
-            <div class="ribbon-group-label">Game Rules</div>
+            <div class="ribbon-group-label" data-i18n="lbl_gamerules">Game Rules</div>
         </div>
-		
+        
         <div class="separator"></div>
 
         <div class="ribbon-group">
             <div class="ribbon-group-content rg-flex-gap15">
-				<div class="gamerule-item">
-					<img src="assets/HEALTH.png" alt="Health" class="pixel-icon icon-28">
-					<label class="lbl-small mt-2">Health</label>
-					<input type="number" id="player-health" min="0" max="20" value="20" class="input-stat w-40">
-				</div>
-				<div class="gamerule-item">
-					<img src="assets/HUNGER.png" alt="Hunger" class="pixel-icon icon-28">
-					<label class="lbl-small mt-2">Hunger</label>
-					<input type="number" id="player-hunger" min="0" max="20" value="20" class="input-stat w-40">
-				</div>
-				<div class="gamerule-item">
-					<img src="assets/XP.png" alt="XP" class="pixel-icon icon-28">
-					<label class="lbl-small mt-2">XP</label>
-					<input type="number" id="player-xp" min="0" max="10000" value="20" class="input-stat w-52">
-				</div>
+                <div class="gamerule-item">
+                    <img src="assets/HEALTH.png" alt="Health" class="pixel-icon icon-28">
+                    <label class="lbl-small mt-2" data-i18n="lbl_health">Health</label>
+                    <input type="number" id="player-health" min="0" max="20" value="20" class="input-stat w-40">
+                </div>
+                <div class="gamerule-item">
+                    <img src="assets/HUNGER.png" alt="Hunger" class="pixel-icon icon-28">
+                    <label class="lbl-small mt-2" data-i18n="lbl_hunger">Hunger</label>
+                    <input type="number" id="player-hunger" min="0" max="20" value="20" class="input-stat w-40">
+                </div>
+                <div class="gamerule-item">
+                    <img src="assets/XP.png" alt="XP" class="pixel-icon icon-28">
+                    <label class="lbl-small mt-2" data-i18n="lbl_xp">XP</label>
+                    <input type="number" id="player-xp" min="0" max="10000" value="20" class="input-stat w-52">
+                </div>
             </div>
-            <div class="ribbon-group-label">Player</div>
+            <div class="ribbon-group-label" data-i18n="lbl_player">Player</div>
         </div>
 
     </div>
@@ -572,25 +572,21 @@
         <div class="ribbon-group">
             <button class="ribbon-btn-large" onclick="openCreateChestModal()">
                 <img src="assets/Create Loot Chest.png" alt="Loot Chest" class="pixel-icon icon-32">
-                <span>Create<br>Loot Chest</span>
+                <span data-i18n="btn_create_chest">Create<br>Loot Chest</span>
             </button>
-            <div class="ribbon-group-label">Chests</div>
+            <div class="ribbon-group-label" data-i18n="lbl_chests">Chests</div>
         </div>
-		
+        
         <div class="separator"></div>
-		
+        
         <div class="ribbon-group">
             <button class="ribbon-btn-large" onclick="openCustomItemsModal()">
                 <img src="assets/Create Item.png" alt="Create Item" class="pixel-icon icon-32">
-                <span>Create<br>Item</span>
+                <span data-i18n="btn_create_item">Create<br>Item</span>
             </button>
-            <div class="ribbon-group-label">Custom Items</div>
+            <div class="ribbon-group-label" data-i18n="lbl_custom_items">Custom Items</div>
         </div>
-		
-		<div class="separator"></div>
-
-
-
+        
     </div>
     
     <div id="tab-view" class="tab-pane">
@@ -599,10 +595,10 @@
                 <img src="assets/Grid.png" class="icon-img m-auto" alt="Grid">
                 <div class="rg-row-center gap-5 lbl-small">
                     <input type="checkbox" id="show-grid" onchange="toggleGrid(this.checked)"> 
-                    <span>Show Grid</span>
+                    <span data-i18n="lbl_show_grid">Show Grid</span>
                 </div>
             </label>
-            <div class="ribbon-group-label">Grid</div>
+            <div class="ribbon-group-label" data-i18n="lbl_grid">Grid</div>
         </div>
         <div class="separator"></div>
 
@@ -610,22 +606,22 @@
             <div class="ribbon-group-content">
                 <button class="ribbon-btn-large" onclick="openModal('dimensions-modal')">
                     <img id="current-dim-icon" src="assets/Overworld icon.png" class="icon-img" alt="Dim">
-                    <span class="text">Change<br>Dimension</span>
+                    <span class="text" data-i18n="btn_change_dim">Change<br>Dimension</span>
                 </button>
             </div>
-            <div class="ribbon-group-label">Dimensions</div>
+            <div class="ribbon-group-label" data-i18n="lbl_dimensions">Dimensions</div>
         </div>
-		<div class="separator"></div>
+        <div class="separator"></div>
 
         <div class="ribbon-group">
             <label class="ribbon-group-content rg-col-center gap-2 pointer">
                 <span class="icon-24 m-auto">🌦️</span>
                 <div class="rg-row-center gap-5 lbl-small">
                     <input type="checkbox" id="show-weather-anim" checked onchange="toggleWeatherAnimation(this.checked)"> 
-                    <span>Weather<br>Animation</span>
+                    <span data-i18n="lbl_weather_anim">Weather<br>Animation</span>
                 </div>
             </label>
-            <div class="ribbon-group-label">Weather</div>
+            <div class="ribbon-group-label" data-i18n="lbl_weather">Weather</div>
         </div>
     </div>
 
@@ -633,18 +629,18 @@
 </div>
 
 <div id="toolbar-sidebar">
-    <button class="tool-btn" id="tool-move" onclick="selectTool('move')" title="Move Tool">👆</button>
-    <button class="tool-btn active" id="tool-pencil" onclick="selectTool('pencil')" title="Pencil">✏️</button>
-    <button class="tool-btn" id="tool-eraser" onclick="selectTool('eraser')" title="Eraser">🧼</button>
-    <button class="tool-btn" id="tool-bucket" onclick="selectTool('bucket')" title="Bucket">🪣</button>
-    <button class="tool-btn" id="tool-select" onclick="selectTool('select')" title="Select">🔳</button>
-    <button class="tool-btn" id="tool-magic" onclick="selectTool('magic')" title="Magic Wand">🪄</button>
-    <button class="tool-btn" id="tool-lasso" onclick="selectTool('lasso')" title="Free form">➰</button>
-    <button class="tool-btn" id="tool-eyedropper" onclick="selectTool('eyedropper')" title="Gotero">💧</button>
+    <button class="tool-btn" id="tool-move" onclick="selectTool('move')" data-i18n-title="tooltip_tool_move" title="Move Tool">👆</button>
+    <button class="tool-btn active" id="tool-pencil" onclick="selectTool('pencil')" data-i18n-title="tooltip_tool_pencil" title="Pencil">✏️</button>
+    <button class="tool-btn" id="tool-eraser" onclick="selectTool('eraser')" data-i18n-title="tooltip_tool_eraser" title="Eraser">🧼</button>
+    <button class="tool-btn" id="tool-bucket" onclick="selectTool('bucket')" data-i18n-title="tooltip_tool_bucket" title="Bucket">🪣</button>
+    <button class="tool-btn" id="tool-select" onclick="selectTool('select')" data-i18n-title="tooltip_tool_select" title="Select">🔳</button>
+    <button class="tool-btn" id="tool-magic" onclick="selectTool('magic')" data-i18n-title="tooltip_tool_magic" title="Magic Wand">🪄</button>
+    <button class="tool-btn" id="tool-lasso" onclick="selectTool('lasso')" data-i18n-title="tooltip_tool_lasso" title="Free form">➰</button>
+    <button class="tool-btn" id="tool-eyedropper" onclick="selectTool('eyedropper')" data-i18n-title="tooltip_tool_eyedropper" title="Gotero">💧</button>
     
     <div class="toolbar-separator"></div>
     
-    <button class="tool-btn" onclick="takeScreenshot()" title="Screenshot">📷</button>
+    <button class="tool-btn" onclick="takeScreenshot()" data-i18n-title="tooltip_screenshot" title="Screenshot">📷</button>
 </div>
 
  <div id="workspace">
@@ -687,75 +683,82 @@
   padding-bottom: 16px;
   padding-top: 4px;">
      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid var(--border); padding-bottom: 5px;">
-         <h3 style="margin: 0; font-size: 16px;">World Info</h3>
+         <h3 style="margin: 0; font-size: 16px;" data-i18n="side_info_title">World Info</h3>
          <span onclick="toggleWorldInfo()" style="cursor: pointer; font-size: 20px; font-weight: bold;">&times;</span>
      </div>
      <div style="display: flex; flex-direction: column; gap: 10px; font-size: 12px;">
-         <label style="font-weight: bold; margin-bottom: -5px;">World Name:</label>
+         <label style="font-weight: bold; margin-bottom: -5px;" data-i18n="side_info_name">World Name:</label>
          <input type="text" id="sidebar-world-name" oninput="updateFilename(this.value)" style="padding: 4px; background-color: var(--input-bg); color: var(--text); font-weight: bold; border: 1px solid var(--border); border-radius: 3px; outline: none;">
-		 <label style="font-weight: bold; margin-bottom: -5px;">Author:</label>
-				<input type="text" id="sidebar-world-author" placeholder="" style="padding: 4px; background-color: var(--input-bg); color: var(--text); font-weight: bold; border: 1px solid var(--border); border-radius: 3px; outline: none;">
-         <label style="font-weight: bold; margin-bottom: -5px;">Version:</label>
+         <label style="font-weight: bold; margin-bottom: -5px;" data-i18n="side_info_author">Author:</label>
+                <input type="text" id="sidebar-world-author" placeholder="" style="padding: 4px; background-color: var(--input-bg); color: var(--text); font-weight: bold; border: 1px solid var(--border); border-radius: 3px; outline: none;">
+         <label style="font-weight: bold; margin-bottom: -5px;" data-i18n="side_info_version">Version:</label>
          <input type="text" id="sidebar-world-version" disabled style="padding: 4px; background-color: var(--bg-dark); color: var(--text); border: 1px solid var(--border); border-radius: 3px; cursor: not-allowed; opacity: 0.8;">
-         <label style="font-weight: bold; margin-bottom: -5px;">Seed:</label>
+         <label style="font-weight: bold; margin-bottom: -5px;" data-i18n="side_info_seed">Seed:</label>
          <input type="text" id="sidebar-world-seed" oninput="updateSeed(this.value)" style="padding: 4px; background-color: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 3px; outline: none;">
          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px; padding: 5px; background-color: var(--bg-dark); border: 1px solid var(--border); border-radius: 3px;">
-             <label style="font-weight: bold; margin: 0;">Cheats Enabled:</label>
+             <label style="font-weight: bold; margin: 0;" data-i18n="side_info_cheats">Cheats Enabled:</label>
              <span id="sidebar-world-cheats" style="font-weight: bold;">-</span>
          </div>
          <div style="display: flex; justify-content: space-between; align-items: center; padding: 5px; background-color: var(--bg-dark); border: 1px solid var(--border); border-radius: 3px;">
-             <label style="font-weight: bold; margin: 0;">Defeated Enderdragon:</label>
+             <label style="font-weight: bold; margin: 0;" data-i18n="side_info_dragon">Defeated Enderdragon:</label>
              <span id="sidebar-world-ender" style="font-weight: bold;">-</span>
          </div>
-		 <p style="margin-top: 2px;"><b>File Size: </b><span id="world-info-size" style="font-weight: normal;">-</span></p>
+         <p style="margin-top: 2px;"><b data-i18n="side_info_size">File Size: </b><span id="world-info-size" style="font-weight: normal;">-</span></p>
      </div>
  </div>
 
- <div id="settings-modal" class="modal">
+<div id="settings-modal" class="modal">
     <div class="modal-content mbw-standard-modal" style="width: 400px;">
         <div class="mbw-modal-header">
-            <h3>Configuration</h3>
+            <h3 data-i18n="config_title">Configuration</h3>
             <span class="mbw-close-btn" onclick="closeModal('settings-modal')">&times;</span>
         </div>
         <div class="mbw-modal-body">
             <div class="settings-row">
-                <label>Theme</label>
+                
+                <label data-i18n="config_language">Language</label>
+                <select id="lang-select" onchange="setLanguage(this.value)" style="margin-bottom: 15px;">
+                    <option value="en">🇺🇸 English</option>
+                    <option value="es">🇪🇸 Español [??%]</option>
+                </select>
+                <br>
+
+                <label data-i18n="config_theme">Theme</label>
                 <select id="theme-select" onchange="setTheme(this.value)">
                     <option value="dark">⚫ Dark (Default)</option>
                     <option value="white">⚪ White</option>
                     <option value="pastel">🌸 Pastel</option>
-					<option value="pastel2">🌸 Pastel 2 (Cool)</option>
+                    <option value="pastel2">🌸 Pastel 2 (Cool)</option>
                     <option value="darkblue">🔵 Dark Blue</option>
-					<option value="winxp">🪟 Windows XP</option>
+                    <option value="winxp">🪟 Windows XP</option>
+                </select>
+                <br>
 
-					</select>
-<br>
-				<label>Auto-Save Interval</label>
-				<select id="autosave-interval" onchange="applyAutoSaveSettings()" style="padding: 2px 5px; border: 1px solid #555;">
-					<option value="0">Off (Disabled)</option>
-					<option value="1">Every 1 minute</option>
-					<option value="5">Every 5 minutes</option>
-					<option value="10">Every 10 minutes</option>
-				</select>
-<br>
-		  		<label style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 5px;">
-					<span>🔊 Master Volume</span>
-					<span id="volume-display">100%</span>
-				</label>
-            <input type="range" id="volume-slider" min="0" max="100" value="100" oninput="changeVolume(this.value)" style="width: 100%; cursor: pointer;">
-            
-			
-			</div>
+                <label data-i18n="config_autosave">Auto-Save Interval</label>
+                <select id="autosave-interval" onchange="applyAutoSaveSettings()" style="padding: 2px 5px; border: 1px solid #555;">
+                    <option value="0" data-i18n="config_off">Off (Disabled)</option>
+                    <option value="1" data-i18n="config_1m">Every 1 minute</option>
+                    <option value="5" data-i18n="config_5m">Every 5 minutes</option>
+                    <option value="10" data-i18n="config_10m">Every 10 minutes</option>
+                </select>
+                <br>
+
+                <label style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 5px;">
+                    <span data-i18n="config_volume">Master Volume</span>
+                    <span id="volume-display">100%</span>
+                </label>
+                <input type="range" id="volume-slider" min="0" max="100" value="100" oninput="changeVolume(this.value)" style="width: 100%; cursor: pointer;">
+            </div>
         </div>
     </div>
- </div>
+</div>
 
 <div id="inventory-modal" class="modal mbw-modal-overlay">
     <div id="inventory-modal-content" class="modal-content inv-modal-window">
         <div class="inv-modal-header">
-            <h3 id="inventory-modal-title" class="m-0 text-dark">Inventory</h3>
+            <h3 id="inventory-modal-title" class="m-0 text-dark" data-i18n="modal_inventory">Inventory</h3>
             <div class="inv-search-container">
-                <input type="text" id="inventory-search" class="inv-search-input" placeholder="Search..." onkeyup="filterInventory(this.value)">
+                <input type="text" id="inventory-search" class="inv-search-input" data-i18n-placeholder="pl_search" placeholder="Search..." onkeyup="filterInventory(this.value)">
                 <span onclick="toggleInventory()" class="btn-close-large">&times;</span>
             </div>
         </div>
@@ -771,10 +774,10 @@
 
             <div id="chest-builder-panel" class="inv-right-col" style="display: none;">
                 <div class="inv-panel-header">
-                    <h4 class="m-0 text-dark font-18">Loot Chest Content</h4>
+                    <h4 class="m-0 text-dark font-18" data-i18n="chest_content_title">Loot Chest Content</h4>
                     <div class="rg-flex-gap10">
-                        <input type="text" id="custom-chest-name" class="input-chest-name" placeholder="Chest Name...">
-                        <button onclick="saveCustomChest()" class="btn-save-chest">Save Chest</button>
+                        <input type="text" id="custom-chest-name" class="input-chest-name" data-i18n-placeholder="pl_chest_name" placeholder="Chest Name...">
+                        <button onclick="saveCustomChest()" class="btn-save-chest" data-i18n="btn_save_chest">Save Chest</button>
                     </div>
                 </div>
                 <div id="chest-builder-grid" class="chest-builder-grid"></div>
@@ -782,18 +785,18 @@
             
             <div id="custom-item-builder-panel" class="inv-right-col ci-builder-container" style="display: none;">
                 <div class="inv-panel-header">
-                    <h4 class="m-0 text-dark font-18">Custom Item Creator</h4>
-                    <button id="save-custom-item" class="btn-confirm-save" style="padding: 5px 15px; display: none;" onclick="saveCustomItem()">💾 Save Item</button>
+                    <h4 class="m-0 text-dark font-18" data-i18n="item_creator_title">Custom Item Creator</h4>
+                    <button id="save-custom-item" class="btn-confirm-save" style="padding: 5px 15px; display: none;" onclick="saveCustomItem()" data-i18n="btn_save_item">💾 Save Item</button>
                 </div>
                 <div class="ci-main-area">
                     <div class="ci-preview-col">
-                        <input type="text" id="ci-preview-title" class="ci-preview-title" value="Select an item" disabled>
+                        <input type="text" id="ci-preview-title" class="ci-preview-title" value="Select an item" disabled data-i18n-value="msg_select_first">
                         <div id="ci-preview-slot" class="ci-preview-slot">
                             <canvas id="ci-preview-canvas" width="64" height="64" class="ci-canvas"></canvas>
                         </div>
                     </div>
                     <div class="ci-enchant-col">
-                        <div class="ci-enchant-header">Enchantments</div>
+                        <div class="ci-enchant-header" data-i18n="lbl_enchantments">Enchantments</div>
                         <div id="ci-enchantments-list" class="ci-enchant-list"></div>
                     </div>
                 </div>
@@ -806,36 +809,36 @@
     <div class="modal-content">
         <div class="struct-main">
             <div class="modal-header-row">
-                <h3 class="m-0 text-gray no-select">Structures Browser</h3>
+                <h3 class="m-0 text-gray no-select" data-i18n="struct_browser_title">Structures Browser</h3>
                 <span class="close-modal text-dark" onclick="closeModal('structures-modal')">&times;</span>
             </div>
             
             <div class="struct-tabs-container">
                 <div class="struct-tabs">
                     <div id="tab-struct-favs" class="struct-tab" onclick="filterStructures('favs')">⭐</div>
-                    <div id="tab-struct-saved" class="struct-tab" onclick="filterStructures('saved')">Saved</div>
-                    <div id="tab-struct-vanilla" class="struct-tab active" onclick="filterStructures('vanilla')">Vanilla</div>
-                    <div id="tab-struct-community" class="struct-tab" onclick="filterStructures('community')">Community</div>
+                    <div id="tab-struct-saved" class="struct-tab" onclick="filterStructures('saved')" data-i18n="tab_saved">Saved</div>
+                    <div id="tab-struct-vanilla" class="struct-tab active" onclick="filterStructures('vanilla')" data-i18n="tab_vanilla">Vanilla</div>
+                    <div id="tab-struct-community" class="struct-tab" onclick="filterStructures('community')" data-i18n="tab_community">Community</div>
                 </div>
                 <div id="struct-saved-actions" class="struct-saved-actions">
-                    <button class="mini-btn btn-import" onclick="importStructures()" title="Import JSON">📥 Import</button>
-                    <button class="mini-btn btn-export" onclick="exportSavedStructures()" title="Export JSON">💾 Export</button>
-                    <button class="mini-btn btn-reset" onclick="resetSavedStructures()" title="Delete All Saved">⚠️ Reset</button>
+                    <button class="mini-btn btn-import" onclick="importStructures()" data-i18n-title="tooltip_import_json" title="Import JSON" data-i18n="btn_import_mini">📥 Import</button>
+                    <button class="mini-btn btn-export" onclick="exportSavedStructures()" data-i18n-title="tooltip_export_json" title="Export JSON" data-i18n="btn_export_mini">💾 Export</button>
+                    <button class="mini-btn btn-reset" onclick="resetSavedStructures()" data-i18n-title="tooltip_delete_all" title="Delete All Saved" data-i18n="btn_reset_mini">⚠️ Reset</button>
                 </div>
             </div>
 
             <div id="struct-subtabs" class="struct-subtabs-row">
                 <select id="struct-subcategory-select" class="struct-select" onchange="filterSubCategory(this.value)">
-                    <option value="all">All</option>
-                    <option value="Structure">Structures</option>
-                    <option value="Chests">Chests</option>
-                    <option value="Houses">Houses</option>
-                    <option value="PixelArt">Pixel Art</option>
-                    <option value="Other">Other</option>
+                    <option value="all" data-i18n="sub_all">All</option>
+                    <option value="Structure" data-i18n="sub_structures">Structures</option>
+                    <option value="Chests" data-i18n="sub_chests">Chests</option>
+                    <option value="Houses" data-i18n="sub_houses">Houses</option>
+                    <option value="PixelArt" data-i18n="sub_pixel_art">Pixel Art</option>
+                    <option value="Other" data-i18n="sub_other">Other</option>
                 </select>
                 <button id="btn-generate-chest" class="btn-gen-chest" onclick="generateRandomLootChest()">
                     <img src="assets/Create Loot Chest.png" class="icon-16 pixel-icon">
-                    Generate Chest
+                    <span data-i18n="btn_gen_chest">Generate Chest</span>
                 </button>
             </div>
 
@@ -845,15 +848,15 @@
             <canvas id="struct-preview-canvas" width="96" height="96"></canvas>
             <div id="struct-chest-preview" class="struct-chest-preview"></div>
             <div class="struct-info">
-                <h3 id="struct-info-title">Select an item</h3>
-                <p id="struct-author-row">Author: <span id="struct-info-author" class="font-normal">-</span></p>
-                <p>Category: <span id="struct-info-sub" class="font-normal">-</span></p>
+                <h3 id="struct-info-title" data-i18n="msg_select_first">Select an item</h3>
+                <p id="struct-author-row"><span data-i18n="lbl_author">Author:</span> <span id="struct-info-author" class="font-normal">-</span></p>
+                <p><span data-i18n="lbl_category">Category:</span> <span id="struct-info-sub" class="font-normal">-</span></p>
             </div>
             <div class="struct-actions-container">
-                <button class="btn-load-struct" onclick="loadStructureToClipboard()">Load Structure</button>
+                <button class="btn-load-struct" onclick="loadStructureToClipboard()" data-i18n="btn_load_struct">Load Structure</button>
                 <div id="struct-edit-actions" class="struct-actions-row">
-                    <button class="btn-action-text btn-edit-action" onclick="openEditInfoModal()" title="Edit Info"><span>✏️</span> Edit</button>
-                    <button class="btn-action-text btn-delete-action" onclick="deleteSavedStructure()" title="Delete"><span>🗑️</span> Delete</button>
+                    <button class="btn-action-text btn-edit-action" onclick="openEditInfoModal()" data-i18n-title="tooltip_edit_info" title="Edit Info"><span>✏️</span> <span data-i18n="btn_edit">Edit</span></button>
+                    <button class="btn-action-text btn-delete-action" onclick="deleteSavedStructure()" data-i18n-title="tooltip_delete" title="Delete"><span>🗑️</span> <span data-i18n="btn_delete">Delete</span></button>
                 </div>
             </div>
         </div>
@@ -864,17 +867,17 @@
     <div class="modal-content mobs-modal-window">
         <div class="mob-main">
             <div class="modal-header-row">
-                <h3 class="m-0 text-gray no-select">Mob Browser</h3>
+                <h3 class="m-0 text-gray no-select" data-i18n="mob_browser_title">Mob Browser</h3>
                 <span class="close-modal btn-close-bold text-dark" onclick="closeModal('mobs-modal')">&times;</span>
             </div>
             
             <div class="mob-tabs-container">
                 <div class="mob-tabs">
-					<div id="tab-mob-custom" class="mob-tab" onclick="filterMobs('Custom')">Custom</div>
-                    <div id="tab-mob-animals" class="mob-tab" onclick="filterMobs('Animals')">Animals</div>
-                    <div id="tab-mob-overworld" class="mob-tab active" onclick="filterMobs('Overworld')">Overworld</div>
-                    <div id="tab-mob-nether" class="mob-tab" onclick="filterMobs('Nether')">Nether</div>
-                    <div id="tab-mob-end" class="mob-tab" onclick="filterMobs('End')">End</div>
+                    
+                    <div id="tab-mob-animals" class="mob-tab" onclick="filterMobs('Animals')" data-i18n="tab_animals">Animals</div>
+                    <div id="tab-mob-overworld" class="mob-tab active" onclick="filterMobs('Overworld')" data-i18n="tab_overworld">Overworld</div>
+                    <div id="tab-mob-nether" class="mob-tab" onclick="filterMobs('Nether')" data-i18n="tab_nether">Nether</div>
+                    <div id="tab-mob-end" class="mob-tab" onclick="filterMobs('End')" data-i18n="tab_end">End</div>
                 </div>
             </div>
 
@@ -888,11 +891,11 @@
             
             <div class="mob-info">
                 <h3 id="mob-info-title" class="mob-info-title">Zombie</h3>
-                <p id="mob-info-hp" class="mob-info-hp">Health: 20 HP</p>
+                <p id="mob-info-hp" class="mob-info-hp" data-i18n="lbl_health_hp">Health: 20 HP</p>
             </div>
 
             <div class="mob-actions-container">
-                <button class="btn-load-struct btn-spawn-mob" onclick="spawnPreviewedMob()">Spawn Mob</button>
+                <button class="btn-load-struct btn-spawn-mob" onclick="spawnPreviewedMob()" data-i18n="btn_spawn_mob">Spawn Mob</button>
             </div>
         </div>
     </div>
@@ -901,36 +904,36 @@
 <div id="save-structure-modal" class="modal">
     <div class="modal-content">
         <div style="display: flex; justify-content: center; align-items: center; position: relative; margin-bottom: 5px;">
-            <h3 style="margin: 0; text-align: center; color: black;">Save New Structure</h3>
+            <h3 style="margin: 0; text-align: center; color: black;" data-i18n="modal_save_struct_title">Save New Structure</h3>
             <span class="close-modal" onclick="closeModal('save-structure-modal')" style="position: absolute; right: 0; top: -2px; cursor:pointer; font-weight:bold; color:black; font-size: 20px; line-height: 1;">&times;</span>
         </div>
         <canvas id="struct-save-preview" width="460" height="295"></canvas>
         <div class="save-form-row">
-            <label>Title</label>
-            <input type="text" id="input-struct-title" placeholder="Text">
+            <label data-i18n="lbl_title">Title</label>
+            <input type="text" id="input-struct-title" data-i18n-placeholder="pl_text" placeholder="Text">
         </div>
         <div class="save-form-row">
-            <label>Author</label>
-            <input type="text" id="input-struct-author" placeholder="Username">
+            <label data-i18n="lbl_author">Author</label>
+            <input type="text" id="input-struct-author" data-i18n-placeholder="pl_username" placeholder="Username">
         </div>
         <div class="save-form-row" style="display: none;">
-            <label>Category</label>
+            <label data-i18n="lbl_category_hidden">Category</label>
             <input type="text" id="input-struct-category" value="saved" readonly>
         </div>
         <div class="save-form-row">
-            <label>Tag</label>
+            <label data-i18n="lbl_tag">Tag</label>
             <select id="input-struct-subcategory">
-                <option value="Structure">Structure</option>
-                <option value="House">House</option>
-                <option value="Chests">Chests</option>
-                <option value="PixelArt">Pixel Art</option>
-                <option value="Vehicle">Vehicle</option>
-                <option value="Other" selected>Other</option>
+                <option value="Structure" data-i18n="sub_structure">Structure</option>
+                <option value="House" data-i18n="sub_house">House</option>
+                <option value="Chests" data-i18n="sub_chests">Chests</option>
+                <option value="PixelArt" data-i18n="sub_pixel_art">Pixel Art</option>
+                <option value="Vehicle" data-i18n="sub_vehicle">Vehicle</option>
+                <option value="Other" selected data-i18n="sub_other">Other</option>
             </select>
         </div>
         <div class="save-actions">
-            <button class="btn-cancel" onclick="closeModal('save-structure-modal')">Cancel</button>
-            <button class="btn-confirm-save" onclick="saveNewStructure()">Save</button>
+            <button class="btn-cancel" onclick="closeModal('save-structure-modal')" data-i18n="btn_cancel">Cancel</button>
+            <button class="btn-confirm-save" onclick="saveNewStructure()" data-i18n="btn_save">Save</button>
         </div>
     </div>
  </div>
@@ -938,61 +941,61 @@
  <div id="achievements-modal" class="modal">
   <div class="modal-content mbw-standard-modal" style="width: 500px; height: 500px;">
    <div class="mbw-modal-header">
-       <h3>Achievements</h3>
+       <h3 data-i18n="achiev_title">Achievements</h3>
        <span class="mbw-close-btn" onclick="closeModal('achievements-modal')">&times;</span>
    </div>
    <div class="mbw-modal-body" style="display: flex; flex-direction: column;">
        <div class="modal-actions" style="margin-bottom: 10px; display: flex; gap: 10px; justify-content: center;">
-        <button class="mini-btn btn-import" onclick="toggleAchievements(true)">Unlock All</button>
-        <button class="mini-btn btn-reset" onclick="toggleAchievements(false)">Reset All</button>
+        <button class="mini-btn btn-import" onclick="toggleAchievements(true)" data-i18n="btn_unlock_all">Unlock All</button>
+        <button class="mini-btn btn-reset" onclick="toggleAchievements(false)" data-i18n="btn_reset_all">Reset All</button>
        </div>
        <div id="achievements-list" style="overflow-y: auto; flex: 1; border: 2px solid #373737; background: #8B8B8B; padding: 5px;">
-        <label><input type="checkbox" data-index="44"> Breed two animals</label>
-        <label><input type="checkbox" data-index="43"> Brew a potion</label>
-        <label><input type="checkbox" data-index="3"> Craft a crafting table</label>
-        <label><input type="checkbox" data-index="5"> Craft a stone pickaxe</label>
-        <label><input type="checkbox" data-index="4"> Craft a wooden pickaxe</label>
-        <label><input type="checkbox" data-index="6"> Craft an iron pickaxe</label>
-        <label><input type="checkbox" data-index="22"> Defeat a flaming chicken</label>
-        <label><input type="checkbox" data-index="25"> Eat some food</label>
-        <label><input type="checkbox" data-index="45"> Enchant an item</label>
-        <label><input type="checkbox" data-index="33"> Fire a bow</label>
-        <label><input type="checkbox" data-index="39"> Fish a fish</label>
-        <label><input type="checkbox" data-index="23"> Grow a farm</label>
-        <label><input type="checkbox" data-index="10"> Grow a tree</label>
-        <label><input type="checkbox" data-index="24"> Make a cake</label>
-        <label><input type="checkbox" data-index="7"> Make a furnace</label>
-        <label><input type="checkbox" data-index="8"> Make an iron ingot</label>
-        <label><input type="checkbox" data-index="30"> Make portal stone</label>
-        <label><input type="checkbox" data-index="9"> Make some torches</label>
-        <label><input type="checkbox" data-index="0"> Mine a block of wood</label>
-        <label><input type="checkbox" data-index="29"> Mine diamonds</label>
-        <label><input type="checkbox" data-index="28"> Mine gold</label>
-        <label><input type="checkbox" data-index="27"> Mine obsidian</label>
-        <label><input type="checkbox" data-index="32"> Open a door with wiring</label>
-        <label><input type="checkbox" data-index="2"> Open the inventory</label>
-        <label><input type="checkbox" data-index="1"> Place a block</label>
-        <label><input type="checkbox" data-index="19"> Slay a blaze</label>
-        <label><input type="checkbox" data-index="13"> Slay a cow</label>
-        <label><input type="checkbox" data-index="21"> Slay a creeper</label>
-        <label><input type="checkbox" data-index="42"> Slay a ghast by its fireball</label>
-        <label><input type="checkbox" data-index="38"> Slay a magma cube</label>
-        <label><input type="checkbox" data-index="18"> Slay a nethereye</label>
-        <label><input type="checkbox" data-index="12"> Slay a pig</label>
-        <label><input type="checkbox" data-index="14"> Slay a sheep</label>
-        <label><input type="checkbox" data-index="16"> Slay a skeleton</label>
-        <label><input type="checkbox" data-index="37"> Slay a slime</label>
-        <label><input type="checkbox" data-index="17"> Slay a spider</label>
-        <label><input type="checkbox" data-index="15"> Slay a zombie</label>
-        <label><input type="checkbox" data-index="41"> Slay a zombie pigman</label>
-        <label><input type="checkbox" data-index="20"> Slay an enderman</label>
-        <label><input type="checkbox" data-index="36"> Slay the ender dragon</label>
-        <label><input type="checkbox" data-index="11"> Tame a dog</label>
-        <label><input type="checkbox" data-index="34"> Teleport with enderpearl</label>
-        <label><input type="checkbox" data-index="31"> Travel to the nether</label>
-        <label><input type="checkbox" data-index="35"> Unlock the ender portal</label>
-        <label><input type="checkbox" data-index="26"> Use a bed</label>
-        <label><input type="checkbox" data-index="40"> Use an anvil</label>
+        <label><input type="checkbox" data-index="44"> <span data-i18n="ach_breed">Breed two animals</span></label>
+        <label><input type="checkbox" data-index="43"> <span data-i18n="ach_brew">Brew a potion</span></label>
+        <label><input type="checkbox" data-index="3"> <span data-i18n="ach_crafting">Craft a crafting table</span></label>
+        <label><input type="checkbox" data-index="5"> <span data-i18n="ach_stone_pick">Craft a stone pickaxe</span></label>
+        <label><input type="checkbox" data-index="4"> <span data-i18n="ach_wood_pick">Craft a wooden pickaxe</span></label>
+        <label><input type="checkbox" data-index="6"> <span data-i18n="ach_iron_pick">Craft an iron pickaxe</span></label>
+        <label><input type="checkbox" data-index="22"> <span data-i18n="ach_flaming_chicken">Defeat a flaming chicken</span></label>
+        <label><input type="checkbox" data-index="25"> <span data-i18n="ach_eat">Eat some food</span></label>
+        <label><input type="checkbox" data-index="45"> <span data-i18n="ach_enchant">Enchant an item</span></label>
+        <label><input type="checkbox" data-index="33"> <span data-i18n="ach_bow">Fire a bow</span></label>
+        <label><input type="checkbox" data-index="39"> <span data-i18n="ach_fish">Fish a fish</span></label>
+        <label><input type="checkbox" data-index="23"> <span data-i18n="ach_farm">Grow a farm</span></label>
+        <label><input type="checkbox" data-index="10"> <span data-i18n="ach_tree">Grow a tree</span></label>
+        <label><input type="checkbox" data-index="24"> <span data-i18n="ach_cake">Make a cake</span></label>
+        <label><input type="checkbox" data-index="7"> <span data-i18n="ach_furnace">Make a furnace</span></label>
+        <label><input type="checkbox" data-index="8"> <span data-i18n="ach_iron_ingot">Make an iron ingot</span></label>
+        <label><input type="checkbox" data-index="30"> <span data-i18n="ach_portal_stone">Make portal stone</span></label>
+        <label><input type="checkbox" data-index="9"> <span data-i18n="ach_torches">Make some torches</span></label>
+        <label><input type="checkbox" data-index="0"> <span data-i18n="ach_mine_wood">Mine a block of wood</span></label>
+        <label><input type="checkbox" data-index="29"> <span data-i18n="ach_mine_diamond">Mine diamonds</span></label>
+        <label><input type="checkbox" data-index="28"> <span data-i18n="ach_mine_gold">Mine gold</span></label>
+        <label><input type="checkbox" data-index="27"> <span data-i18n="ach_mine_obsidian">Mine obsidian</span></label>
+        <label><input type="checkbox" data-index="32"> <span data-i18n="ach_door_wiring">Open a door with wiring</span></label>
+        <label><input type="checkbox" data-index="2"> <span data-i18n="ach_open_inv">Open the inventory</span></label>
+        <label><input type="checkbox" data-index="1"> <span data-i18n="ach_place_block">Place a block</span></label>
+        <label><input type="checkbox" data-index="19"> <span data-i18n="ach_slay_blaze">Slay a blaze</span></label>
+        <label><input type="checkbox" data-index="13"> <span data-i18n="ach_slay_cow">Slay a cow</span></label>
+        <label><input type="checkbox" data-index="21"> <span data-i18n="ach_slay_creeper">Slay a creeper</span></label>
+        <label><input type="checkbox" data-index="42"> <span data-i18n="ach_slay_ghast">Slay a ghast by its fireball</span></label>
+        <label><input type="checkbox" data-index="38"> <span data-i18n="ach_slay_magma">Slay a magma cube</span></label>
+        <label><input type="checkbox" data-index="18"> <span data-i18n="ach_slay_nethereye">Slay a nethereye</span></label>
+        <label><input type="checkbox" data-index="12"> <span data-i18n="ach_slay_pig">Slay a pig</span></label>
+        <label><input type="checkbox" data-index="14"> <span data-i18n="ach_slay_sheep">Slay a sheep</span></label>
+        <label><input type="checkbox" data-index="16"> <span data-i18n="ach_slay_skeleton">Slay a skeleton</span></label>
+        <label><input type="checkbox" data-index="37"> <span data-i18n="ach_slay_slime">Slay a slime</span></label>
+        <label><input type="checkbox" data-index="17"> <span data-i18n="ach_slay_spider">Slay a spider</span></label>
+        <label><input type="checkbox" data-index="15"> <span data-i18n="ach_slay_zombie">Slay a zombie</span></label>
+        <label><input type="checkbox" data-index="41"> <span data-i18n="ach_slay_zpigman">Slay a zombie pigman</span></label>
+        <label><input type="checkbox" data-index="20"> <span data-i18n="ach_slay_enderman">Slay an enderman</span></label>
+        <label><input type="checkbox" data-index="36"> <span data-i18n="ach_slay_dragon">Slay the ender dragon</span></label>
+        <label><input type="checkbox" data-index="11"> <span data-i18n="ach_tame_dog">Tame a dog</span></label>
+        <label><input type="checkbox" data-index="34"> <span data-i18n="ach_tp_pearl">Teleport with enderpearl</span></label>
+        <label><input type="checkbox" data-index="31"> <span data-i18n="ach_travel_nether">Travel to the nether</span></label>
+        <label><input type="checkbox" data-index="35"> <span data-i18n="ach_unlock_end">Unlock the ender portal</span></label>
+        <label><input type="checkbox" data-index="26"> <span data-i18n="ach_use_bed">Use a bed</span></label>
+        <label><input type="checkbox" data-index="40"> <span data-i18n="ach_use_anvil">Use an anvil</span></label>
        </div>
    </div> 
   </div>
@@ -1001,16 +1004,16 @@
  <div id="dimensions-modal" class="modal">
     <div class="modal-content" style="width: 550px; height: auto;">
         <span class="close-modal" onclick="closeModal('dimensions-modal')">&times;</span>
-        <h3 style="color:gray; margin-top: 0;">Select Dimension</h3>
+        <h3 style="color:gray; margin-top: 0;" data-i18n="dim_title">Select Dimension</h3>
         <div class="dimensions-grid">
             <div class="dim-item" onclick="changeDimension(1)">
-                <img src="assets/Overworld icon.png" class="dim-preview"><span class="dim-name">Overworld</span> 
+                <img src="assets/Overworld icon.png" class="dim-preview"><span class="dim-name" data-i18n="tab_overworld">Overworld</span> 
             </div>
             <div class="dim-item" onclick="changeDimension(2)">
-                <img src="assets/Nether icon.png" class="dim-preview"><span class="dim-name">Nether</span>
+                <img src="assets/Nether icon.png" class="dim-preview"><span class="dim-name" data-i18n="tab_nether">Nether</span>
             </div>
             <div class="dim-item" onclick="changeDimension(3)">
-                <img src="assets/End icon.png" class="dim-preview"><span class="dim-name">End</span>
+                <img src="assets/End icon.png" class="dim-preview"><span class="dim-name" data-i18n="tab_end">End</span>
             </div>
         </div>
     </div>
@@ -1020,34 +1023,34 @@
  <input type="file" id="import-struct-input" accept=".json" style="display: none;" onchange="handleImportFile(this)">
 
  <div id="edit-info-modal" class="modal" style="z-index: 2500;">
-    <div class="modal-content mbw-standard-modal" style="width: 500px; height: auto;">
+    <div class="modal-content mbw-standard-modal" style="width: 500px; height: auto !important; min-height: auto;">
         <div class="mbw-modal-header">
-            <h3>Edit Structure Info</h3>
+            <h3 data-i18n="edit_info_title">Edit Structure Info</h3>
             <span class="mbw-close-btn" onclick="closeModal('edit-info-modal')">&times;</span>
         </div>
         <div class="mbw-modal-body">
             <div class="save-form-row">
-                <label>Title</label>
+                <label data-i18n="lbl_title">Title</label>
                 <input type="text" id="edit-struct-title">
             </div>
             <div class="save-form-row">
-                <label>Author</label>
+                <label data-i18n="lbl_author">Author</label>
                 <input type="text" id="edit-struct-author">
             </div>
             <div class="save-form-row">
-                <label>Tag</label>
+                <label data-i18n="lbl_tag">Tag</label>
                 <select id="edit-struct-subcategory">
-                    <option value="Structure">Structure</option>
-                    <option value="House">House</option>
-                    <option value="Chests">Chests</option>
-                    <option value="PixelArt">Pixel Art</option>
-                    <option value="Vehicle">Vehicle</option>
-                    <option value="Other">Other</option>
+                    <option value="Structure" data-i18n="sub_structure">Structure</option>
+                    <option value="House" data-i18n="sub_house">House</option>
+                    <option value="Chests" data-i18n="sub_chests">Chests</option>
+                    <option value="PixelArt" data-i18n="sub_pixel_art">Pixel Art</option>
+                    <option value="Vehicle" data-i18n="sub_vehicle">Vehicle</option>
+                    <option value="Other" data-i18n="sub_other">Other</option>
                 </select>
             </div>
             <div class="save-actions">
-                <button class="btn-cancel" onclick="closeModal('edit-info-modal')">Cancel</button>
-                <button class="btn-confirm-save" onclick="saveEditedInfo()">Update</button>
+                <button class="btn-cancel" onclick="closeModal('edit-info-modal')" data-i18n="btn_cancel">Cancel</button>
+                <button class="btn-confirm-save" onclick="saveEditedInfo()" data-i18n="btn_update">Update</button>
             </div>
         </div>
     </div>
@@ -1056,14 +1059,14 @@
 <div id="custom-confirm-modal" class="modal" style="z-index: 3000;">
     <div class="modal-content mbw-standard-modal" style="width: 250px; height: auto; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); margin: 0;">
         <div class="mbw-modal-header">
-            <h3>Confirm Action</h3>
+            <h3 data-i18n="confirm_title">Confirm Action</h3>
             <span class="mbw-close-btn" onclick="closeModal('custom-confirm-modal')">&times;</span>
         </div>
         <div class="mbw-modal-body" style="text-align: center; padding-bottom: 15px;">
-            <p id="confirm-msg" style="margin: 10px 0 15px 0; font-weight: bold;">Are you sure?</p>
+            <p id="confirm-msg" style="margin: 10px 0 15px 0; font-weight: bold;" data-i18n="confirm_msg">Are you sure?</p>
             <div class="confirm-actions">
-                <button class="btn-yes" id="btn-confirm-yes" style="width: 80px;">Yes</button>
-                <button class="btn-no" onclick="closeModal('custom-confirm-modal')" style="width: 80px;">No</button>
+                <button class="btn-yes" id="btn-confirm-yes" style="width: 80px;" data-i18n="btn_yes">Yes</button>
+                <button class="btn-no" onclick="closeModal('custom-confirm-modal')" style="width: 80px;" data-i18n="btn_no">No</button>
             </div>
         </div>
     </div>
@@ -1072,7 +1075,7 @@
  <div id="news-modal" class="modal" style="z-index: 3500;">
     <div class="modal-content mbw-standard-modal" style="width: 600px; height: 500px;">
         <div class="mbw-modal-header">
-            <h3 id="news-modal-title">📰 Updates</h3>
+            <h3 id="news-modal-title" data-i18n="news_title">📰 Updates</h3>
             <span class="mbw-close-btn" onclick="closeModal('news-modal')">&times;</span>
         </div>
         <div class="mbw-modal-body" style="padding: 0; display: flex; flex-direction: column; overflow: hidden;">
@@ -1082,7 +1085,7 @@
             <div id="news-detail-view" style="flex: 1; overflow-y: auto; padding: 5px 15px; background: #C6C6C6; display: none;">
                 <div style="width: 100%; height: 262px; background: #373737; border: 4px inset #FFF; display: flex; justify-content: center; align-items: center; overflow: hidden; margin-bottom: 15px; position: relative;">
 <button id="news-back-btn" onclick="showNewsList()">
-    ⬅️ Back
+    ⬅️ <span data-i18n="btn_back">Back</span>
 </button>
                     <img id="news-detail-image" src="" style="max-width: 100%; max-height: 100%; image-rendering: auto;">
                 </div>
@@ -1096,7 +1099,7 @@
 </div>
 
 <div id="lightbox-modal" onclick="closeLightbox()" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:4000; justify-content:center; align-items:center;">
-    <span class="lightbox-close" title="Cerrar" style="position:absolute; top:20px; right:30px; font-size:40px; color:white; cursor:pointer;">&times;</span>
+    <span class="lightbox-close" data-i18n-title="tooltip_close" title="Cerrar" style="position:absolute; top:20px; right:30px; font-size:40px; color:white; cursor:pointer;">&times;</span>
     <img id="lightbox-img" src="" style="max-width:90%; max-height:90%;">
 </div>
 
@@ -1118,7 +1121,7 @@
  
 <div id="loading-overlay">
         <div class="loading-box">
-            <h2 id="loading-text">Cargando Mundo...</h2>
+            <h2 id="loading-text" data-i18n="loading_world">Cargando Mundo...</h2>
             <div class="progress-bar-container">
                 <div id="loading-progress" class="progress-bar-fill">
                     <div class="bubble b1"></div>
@@ -1132,28 +1135,28 @@
 <div id="chat-container" style="display: none; position: absolute; bottom: 48px; left: 64px; width: 300px; z-index: 5000; font-family: 'Pixeltype', sans-serif;">
     <div id="chat-messages" style="height: 150px; overflow-y: auto; background: rgba(0,0,0,0.6); color: white; padding: 10px; border-radius: 5px 5px 0 0; font-size: 20px; display: flex; flex-direction: column; gap: 4px; text-shadow: 1px 1px 0 #000; pointer-events: auto;">
         </div>
-    <input type="text" id="chat-input" placeholder="Press Enter to chat..." style="width: 284px; padding: 8px; border: none; background: rgba(255,255,255,0.9); border-radius: 0 0 5px 5px; outline: none; font-size: 24px; font-family: Pixeltpe; pointer-events: auto;">
+    <input type="text" id="chat-input" data-i18n-placeholder="pl_chat" placeholder="Press Enter to chat..." style="width: 284px; padding: 8px; border: none; background: rgba(255,255,255,0.9); border-radius: 0 0 5px 5px; outline: none; font-size: 24px; font-family: Pixeltpe; pointer-events: auto;">
 </div>
 
 
 <div id="status-bar">
     <div class="status-left">
-        <span id="fps-display" title="Frames Per Second">60 FPS</span>
+        <span id="fps-display" data-i18n-title="tooltip_fps" title="Frames Per Second">60 FPS</span>
         <div class="status-divider"></div>
-        <span>Ready</span>
+        <span data-i18n="status_ready">Ready</span>
     </div>
 
     <div class="status-right">
-        <button class="status-btn" onclick="zoomHUD(-1)" title="Zoom Out">-</button>
+        <button class="status-btn" onclick="zoomHUD(-1)" data-i18n-title="tooltip_zoom_out" title="Zoom Out">-</button>
         
         <input type="range" id="zoom-slider" min="0" max="7" step="1" value="3" oninput="updateZoomSlider(this.value)">
         
-        <button class="status-btn" onclick="zoomHUD(1)" title="Zoom In">+</button>
-        <span id="zoom-value" title="Click to Reset" onclick="resetZoomHUD()">100%</span>
+        <button class="status-btn" onclick="zoomHUD(1)" data-i18n-title="tooltip_zoom_in" title="Zoom In">+</button>
+        <span id="zoom-value" data-i18n-title="tooltip_zoom_reset" title="Click to Reset" onclick="resetZoomHUD()">100%</span>
         
         <div class="status-divider"></div>
         
-        <button class="status-btn" id="fullscreen-btn" onclick="toggleFullscreenHUD()" title="Fullscreen">⛶</button>
+        <button class="status-btn" id="fullscreen-btn" onclick="toggleFullscreenHUD()" data-i18n-title="tooltip_fullscreen" title="Fullscreen">⛶</button>
     </div>
 </div>
 
@@ -1184,19 +1187,19 @@
 <div id="unified-profile-modal" class="modal" style="z-index: 9999999;">
     <div class="modal-content mbw-standard-modal" style="width: 300px; height: auto; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); margin: 0;">
         <div class="mbw-modal-header">
-            <h3>Mi Perfil</h3>
+            <h3 data-i18n="profile_title">Mi Perfil</h3>
             <span class="mbw-close-btn" onclick="closeModal('unified-profile-modal')">&times;</span>
         </div>
         <div class="mbw-modal-body" style="display: flex; flex-direction: column; align-items: center; padding: 20px;">
             
             <div class="profile-pic-container" onclick="document.getElementById('global-profile-upload').click()" style="position: relative; width: 100px; height: 100px; border-radius: 50%; overflow: hidden; cursor: pointer; border: 4px solid #FFF; box-shadow: 0 4px 8px rgba(0,0,0,0.3); margin-bottom: 20px;">
-				<img id="modal-global-pfp" src="assets/default pfp.png" style="width: 100%; height: 100%; object-fit: cover;">
-				<div class="profile-pic-overlay">✏️</div>
-			</div>
+                <img id="modal-global-pfp" src="assets/default pfp.png" style="width: 100%; height: 100%; object-fit: cover;">
+                <div class="profile-pic-overlay">✏️</div>
+            </div>
             <input type="file" id="global-profile-upload" accept="image/*" style="display: none;" onchange="handleGlobalProfileUpload(event)">
             
-            <label style="font-size: 12px; font-weight: bold; color: #333; margin-bottom: 5px; width: 100%; text-align: left;">Nombre de Usuario:</label>
-            <input type="text" id="global-profile-username" value="" oninput="handleGlobalUsernameChange(this.value)" placeholder="Tu nombre..." style="width: 100%; padding: 8px; border: 2px solid #555; border-radius: 4px; font-size: 16px; font-weight: bold; text-align: center; font-family: inherit; color: black;">
+            <label style="font-size: 12px; font-weight: bold; color: #333; margin-bottom: 5px; width: 100%; text-align: left;" data-i18n="lbl_username">Nombre de Usuario:</label>
+            <input type="text" id="global-profile-username" value="" oninput="handleGlobalUsernameChange(this.value)" data-i18n-placeholder="pl_username" placeholder="Tu nombre..." style="width: 100%; padding: 8px; border: 2px solid #555; border-radius: 4px; font-size: 16px; font-weight: bold; text-align: center; font-family: inherit; color: black;">
         </div>
     </div>
 </div>
@@ -1307,7 +1310,7 @@ window.addEventListener('DOMContentLoaded', () => {
     <div class="modal-content mbw-standard-modal" style="width: 450px; height: auto; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); margin: 0;">
         
         <div class="mbw-modal-header">
-            <h3>About MB World Editor</h3>
+            <h3 data-i18n="menu_about">About MB World Editor</h3>
             <span class="mbw-close-btn" onclick="closeModal('about-modal')">&times;</span>
         </div>
         
@@ -1321,13 +1324,13 @@ window.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
             
-            <p style="text-align: center; color: #555; font-size: 14px; margin-bottom: 20px; line-height: 1.6; border-top: 1px solid #eee; padding-top: 15px;">
+            <p style="text-align: center; color: #555; font-size: 14px; margin-bottom: 20px; line-height: 1.6; border-top: 1px solid #eee; padding-top: 15px;" data-i18n="about_desc">
                 A Mine Blocks web-tool to design, edit, and share your favorite worlds directly from your browser.
             </p>
             
             <div style="position: absolute; bottom: 10px; left: 15px; font-size: 11px; color: gray; font-family: monospace;">
-                Last Update: April 25, 2026<br>
-                v2.3
+                <span data-i18n="about_last_update">Last Update:</span> April 27, 2026<br>
+                v2.4 - Snapshot 1
             </div>
             <div style="position: absolute; bottom: 10px; right: 15px; font-size: 12px; color: gray; font-weight: bold;">
                 2026
@@ -1337,139 +1340,7 @@ window.addEventListener('DOMContentLoaded', () => {
     </div>
 </div>
 
-<div id="create-mob-modal" class="modal" style="display: none;">
-    <div class="modal-content mobs-modal-window">
-        
-        <div class="mob-main">
-            <div class="modal-header-row">
-                <h3 class="m-0 text-gray no-select">Custom Mob Creator</h3>
-                <span class="close-modal btn-close-bold text-dark" onclick="closeModal('create-mob-modal')">×</span>
-            </div>
-            
-            <div class="mob-tabs-container">
-                <div class="mob-tabs">
-                    <div id="tab-cmob-custom" class="mob-tab" onclick="filterCustomMobs('Custom')">Custom</div>
-					<div id="tab-cmob-animals" class="mob-tab" onclick="filterCustomMobs('Animals')">Animals</div>
-                    <div id="tab-cmob-overworld" class="mob-tab active" onclick="filterCustomMobs('Overworld')">Overworld</div>
-                    <div id="tab-cmob-nether" class="mob-tab" onclick="filterCustomMobs('Nether')">Nether</div>
-                    <div id="tab-cmob-end" class="mob-tab" onclick="filterCustomMobs('End')">End</div>
-                </div>
-            </div>
-
-            <div id="cmobs-grid" class="mobs-grid-container">
-                </div>
-        </div>
-
-        <div class="custommob-sidebar mob-sidebar">
-            <div class="mob-preview-box">
-                <img id="cmob-preview-image" class="mob-preview-img" src="assets/zombie.png" onerror="this.onerror=null; this.src='assets/zombie.png'">
-            </div>
-            
-            <div class="mob-info">
-    <h3 id="cmob-info-title" class="mob-info-title" style="color: black;">Zombie</h3>
-    
-    <div style="display: flex; flex-direction: column; margin-top: 4px; text-align: left;">
-        <div>
-            <label style="font-size: 13px; color: black;">Custom Name:</label>
-            <input type="text" id="cmob-name" placeholder="Leave empty" style="width: 100%; box-sizing: border-box; border: 1px solid #333; color: gray; padding: 4px; font-family: 'Pixeltype', sans-serif; font-size: 16px;">
-        </div>
-        <div>
-            <label style="font-size: 13px; color: black;">Max Health (HP):</label>
-            <input type="number" id="cmob-hp" value="20" style="width: 100%; box-sizing: border-box; border: 1px solid #333; color: gray; padding: 4px; font-family: 'Pixeltype', sans-serif; font-size: 16px;">
-        </div>
-
-        <div id="cmob-armor-section" style="display: none; ">
-    <p style="font-size: 18px; color: black; margin-bottom: 4px; font-family: 'Arial', sans-serif; margin-top: 4px;">Armor:</p>
-    
-    <div style="display: flex; flex-direction: column; gap: 0px;">
-        
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-            <div style="flex: 1;">
-                
-                <select id="cmob-helmet" class="armor-select" style="width: 100%; color: white; border: 1px solid #333; font-family: 'Pixeltype', sans-serif; font-size: 18px;" onchange="window.updateArmorPreview('cmob-helmet', 'prev-helmet')"></select>
-            </div>
-            <div style="width: 32px; height: 32px; background: white; border: 1px solid #444; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
-                <div id="prev-helmet" style="width: 32px; height: 32px; image-rendering: pixelated;"></div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 3px; flex-shrink: 0;">
-                <input type="number" id="cmob-drop-helmet" value="100" min="0" max="100" style="width: 45px; border: 1px solid #333; color: black; padding: 4px; font-family: 'Pixeltype', sans-serif; font-size: 18px; text-align: center;">
-                <span style="color: black; font-size: 20px; font-family: 'Pixeltype', sans-serif;">%</span>
-            </div>
-        </div>
-
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-            <div style="flex: 1;">
-                
-                <select id="cmob-shirt" class="armor-select" style="width: 100%; color: white; border: 1px solid #333; font-family: 'Pixeltype', sans-serif; font-size: 18px;" onchange="window.updateArmorPreview('cmob-shirt', 'prev-shirt')"></select>
-            </div>
-            <div style="width: 32px; height: 32px; background: white; border: 1px solid #444; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
-                <div id="prev-shirt" style="width: 32px; height: 32px; image-rendering: pixelated;"></div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 3px; flex-shrink: 0;">
-                <input type="number" id="cmob-drop-shirt" value="100" min="0" max="100" style="width: 45px; border: 1px solid #333; color: black; padding: 4px; font-family: 'Pixeltype', sans-serif; font-size: 18px; text-align: center;">
-                <span style="color: black; font-size: 20px; font-family: 'Pixeltype', sans-serif;">%</span>
-            </div>
-        </div>
-
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-            <div style="flex: 1;">
-                
-                <select id="cmob-pants" class="armor-select" style="width: 100%; color: white; border: 1px solid #333; font-family: 'Pixeltype', sans-serif; font-size: 18px;" onchange="window.updateArmorPreview('cmob-pants', 'prev-pants')"></select>
-            </div>
-            <div style="width: 32px; height: 32px; background: white; border: 1px solid #444; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
-                <div id="prev-pants" style="width: 32px; height: 32px; image-rendering: pixelated;"></div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 3px; flex-shrink: 0;">
-                <input type="number" id="cmob-drop-pants" value="100" min="0" max="100" style="width: 45px; border: 1px solid #333; color: black; padding: 4px; font-family: 'Pixeltype', sans-serif; font-size: 18px; text-align: center;">
-                <span style="color: black; font-size: 20px; font-family: 'Pixeltype', sans-serif;">%</span>
-            </div>
-        </div>
-
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-            <div style="flex: 1;">
-                
-                <select id="cmob-shoes" class="armor-select" style="width: 100%; color: white; border: 1px solid #333; font-family: 'Pixeltype', sans-serif; font-size: 18px;" onchange="window.updateArmorPreview('cmob-shoes', 'prev-shoes')"></select>
-            </div>
-            <div style="width: 32px; height: 32px; background: white; border: 1px solid #444; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
-                <div id="prev-shoes" style="width: 32px; height: 32px; image-rendering: pixelated;"></div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 3px; flex-shrink: 0;">
-                <input type="number" id="cmob-drop-shoes" value="100" min="0" max="100" style="width: 45px; border: 1px solid #333; color: black; padding: 4px; font-family: 'Pixeltype', sans-serif; font-size: 18px; text-align: center;">
-                <span style="color: black; font-size: 20px; font-family: 'Pixeltype', sans-serif;">%</span>
-            </div>
-        </div>
-
-    </div>
-</div>
-
-        <div style="margin-top: 5px;">
-            <label style="font-size: 14px; color: black; display: flex; align-items: center; gap: 5px; cursor: pointer;">
-                <input type="checkbox" id="cmob-persists" checked> Never Despawn
-            </label>
-			<label style="font-size: 14px; color: black; display: flex; align-items: center; gap: 5px; cursor: pointer;">
-        <input type="checkbox" id="cmob-default-drops" checked> defaultDrops
-    </label>
-        </div>
-		
-		<div style="margin-top: 15px; border-top: 1px solid #333; padding-top: 10px;">
-            <p style="font-size: 14px; color: #f1c40f; margin-bottom: 8px; font-family: 'Pixeltype', sans-serif;">Custom Drops (Inventory):</p>
-            
-            <div id="cmob-inventory-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px;"></div>
-            
-            <button onclick="window.addMobInventorySlot()" style="width: 100%; background: #161616; border: 1px dashed #555; color: #aaa; padding: 6px; cursor: pointer; font-family: 'Pixeltype', sans-serif; font-size: 16px; transition: 0.2s;">
-                + Add Item Slot
-            </button>
-        </div>
-    </div>
-</div>
-
-            <div class="mob-actions-container">
-                <button class="btn-load-struct btn-spawn-mob" onclick="injectCustomMob()">Spawn Custom Mob</button>
-            </div>
-        </div>
-    </div>
-</div>
-
+<script src="scripts/lang.js"></script>
 
  <script src="scripts/ui-handler.js"></script>
  <script src="scripts/mbwom.js"></script>
