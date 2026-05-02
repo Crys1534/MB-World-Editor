@@ -327,7 +327,7 @@
    <button class="icon-btn" onclick="document.getElementById('file-input').click()">📂</button>
    
    <div class="ms-switch-container">
-    <button class="menu-btn btn-save-quick" onclick="fileManager.saveLocal()" data-i18n-title="tooltip_save_now" title="Guardar Ahora">💾</button>
+    <button class="menu-btn btn-save-quick" onclick="fileManager.saveLocal()" data-i18n-title="tooltip_save_now" title="Save Now">💾</button>
     <span class="ms-switch-label" onclick="document.getElementById('autosave-toggle').click()" data-i18n="lbl_auto_save">Auto save</span>
     <label class="ms-switch">
         <input type="checkbox" id="autosave-toggle" onchange="toggleAutoSave()">
@@ -385,7 +385,7 @@
     <button class="tab-btn" onclick="openTab('view')" data-i18n="tab_view">View</button>
     
     <button class="btn-ribbon-export" onclick="fileManager.export()">💾 <span data-i18n="btn_export">Export</span></button>
-    <button id="btn-world-info" class="tab-btn btn-ribbon-info" onclick="toggleWorldInfo()" disabled>ℹ️ <span data-i18n="btn_world_info">World Info</span></button>
+    <button id="btn-world-info" class="tab-btn btn-ribbon-info" onclick="toggleWorldInfo()" disabled><span data-i18n="btn_world_info">World Info</span></button>
   </div>
 
   <div class="tab-content">
@@ -477,7 +477,7 @@
                         <label class="lbl-small" data-i18n="lbl_difficulty">Difficulty:</label>
                         <select id="gr-difficulty" class="input-tiny w-auto">
                             <option value="0" data-i18n="diff_peaceful">Peaceful</option><option value="1" data-i18n="diff_easy">Easy</option>
-                            <option value="2" selected data-i18n="diff_normal">Normal</option><option value="3" data-i18n="diff_hard">Hard</option>
+                            <option value="2" data-i18n="diff_normal" selected>Normal</option><option value="3" data-i18n="diff_hard">Hard</option>
                         </select>
                     </div>
                 </div>
@@ -502,7 +502,7 @@
                     <div class="rg-row-between">
                         <label class="lbl-small" data-i18n="lbl_weather">Weather:</label>
                         <select id="gr-weather" class="input-tiny w-60">
-                            <option value="clear" selected data-i18n="weather_clear">Clear</option><option value="rain" data-i18n="weather_rain">Rain</option><option value="thunder" data-i18n="weather_thunder">Thunder</option>
+                            <option value="clear" data-i18n="weather_clear" selected>Clear</option><option value="rain" data-i18n="weather_rain">Rain</option><option value="thunder" data-i18n="weather_thunder">Thunder</option>
                         </select>
                     </div>
                 </div>
@@ -565,7 +565,31 @@
             </div>
             <div class="ribbon-group-label" data-i18n="lbl_player">Player</div>
         </div>
+        
+        
+        <div class="separator"></div>
 
+        <div class="ribbon-group">
+            <div class="ribbon-group-content rg-flex-gap15">
+                
+<!-- Current Position -->
+<div class="rg-col-center gap-2">
+    <label class="lbl-small" style="font-weight: bold; text-align: center; margin-bottom: 2px;" data-i18n="lbl_current_pos">Current Pos.</label>
+    <div class="rg-row-center gap-2">
+        <label class="lbl-small" style="color: #4DA6FF; font-weight: bold;">X</label>
+        <input type="number" id="player-pos-x" class="input-stat w-52" onchange="updatePlayerPos('x', this.value)" step="0.1">
+    </div>
+    <div class="rg-row-center gap-2">
+        <label class="lbl-small" style="color: #2ecc71; font-weight: bold;">Y</label>
+        <input type="number" id="player-pos-y" class="input-stat w-52" onchange="updatePlayerPos('y', this.value)" step="0.1">
+    </div>
+</div>
+
+
+            </div>
+            <div class="ribbon-group-label" data-i18n="lbl_location">Location</div>
+        </div>
+        
     </div>
 
     <div id="tab-create" class="tab-pane">
@@ -587,6 +611,10 @@
             <div class="ribbon-group-label" data-i18n="lbl_custom_items">Custom Items</div>
         </div>
         
+        <div class="separator"></div>
+
+
+
     </div>
     
     <div id="tab-view" class="tab-pane">
@@ -707,7 +735,7 @@
      </div>
  </div>
 
-<div id="settings-modal" class="modal">
+ <div id="settings-modal" class="modal">
     <div class="modal-content mbw-standard-modal" style="width: 400px;">
         <div class="mbw-modal-header">
             <h3 data-i18n="config_title">Configuration</h3>
@@ -715,14 +743,15 @@
         </div>
         <div class="mbw-modal-body">
             <div class="settings-row">
-                
-                <label data-i18n="config_language">Language</label>
+            
+                            <label data-i18n="config_language">Language</label>
                 <select id="lang-select" onchange="setLanguage(this.value)" style="margin-bottom: 15px;">
                     <option value="en">🇺🇸 English</option>
                     <option value="es">🇪🇸 Español [??%]</option>
+					<option value="pt">🇧🇷 Português [??%]</option>
                 </select>
                 <br>
-
+                
                 <label data-i18n="config_theme">Theme</label>
                 <select id="theme-select" onchange="setTheme(this.value)">
                     <option value="dark">⚫ Dark (Default)</option>
@@ -731,9 +760,9 @@
                     <option value="pastel2">🌸 Pastel 2 (Cool)</option>
                     <option value="darkblue">🔵 Dark Blue</option>
                     <option value="winxp">🪟 Windows XP</option>
-                </select>
-                <br>
 
+                    </select>
+<br>
                 <label data-i18n="config_autosave">Auto-Save Interval</label>
                 <select id="autosave-interval" onchange="applyAutoSaveSettings()" style="padding: 2px 5px; border: 1px solid #555;">
                     <option value="0" data-i18n="config_off">Off (Disabled)</option>
@@ -741,17 +770,18 @@
                     <option value="5" data-i18n="config_5m">Every 5 minutes</option>
                     <option value="10" data-i18n="config_10m">Every 10 minutes</option>
                 </select>
-                <br>
-
-                <label style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 5px;">
-                    <span data-i18n="config_volume">Master Volume</span>
+<br>
+                  <label style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 5px;">
+                    <span data-i18n="config_volume">🔊 Master Volume</span>
                     <span id="volume-display">100%</span>
                 </label>
-                <input type="range" id="volume-slider" min="0" max="100" value="100" oninput="changeVolume(this.value)" style="width: 100%; cursor: pointer;">
+            <input type="range" id="volume-slider" min="0" max="100" value="100" oninput="changeVolume(this.value)" style="width: 100%; cursor: pointer;">
+            
+            
             </div>
         </div>
     </div>
-</div>
+ </div>
 
 <div id="inventory-modal" class="modal mbw-modal-overlay">
     <div id="inventory-modal-content" class="modal-content inv-modal-window">
@@ -790,7 +820,7 @@
                 </div>
                 <div class="ci-main-area">
                     <div class="ci-preview-col">
-                        <input type="text" id="ci-preview-title" class="ci-preview-title" value="Select an item" disabled data-i18n-value="msg_select_first">
+                        <input type="text" id="ci-preview-title" class="ci-preview-title" value="Select an item" data-i18n="msg_select_first" disabled>
                         <div id="ci-preview-slot" class="ci-preview-slot">
                             <canvas id="ci-preview-canvas" width="64" height="64" class="ci-canvas"></canvas>
                         </div>
@@ -821,9 +851,9 @@
                     <div id="tab-struct-community" class="struct-tab" onclick="filterStructures('community')" data-i18n="tab_community">Community</div>
                 </div>
                 <div id="struct-saved-actions" class="struct-saved-actions">
-                    <button class="mini-btn btn-import" onclick="importStructures()" data-i18n-title="tooltip_import_json" title="Import JSON" data-i18n="btn_import_mini">📥 Import</button>
-                    <button class="mini-btn btn-export" onclick="exportSavedStructures()" data-i18n-title="tooltip_export_json" title="Export JSON" data-i18n="btn_export_mini">💾 Export</button>
-                    <button class="mini-btn btn-reset" onclick="resetSavedStructures()" data-i18n-title="tooltip_delete_all" title="Delete All Saved" data-i18n="btn_reset_mini">⚠️ Reset</button>
+                    <button class="mini-btn btn-import" onclick="importStructures()" data-i18n-title="tooltip_import_json" title="Import JSON">📥 <span data-i18n="btn_import_mini">Import</span></button>
+                    <button class="mini-btn btn-export" onclick="exportSavedStructures()" data-i18n-title="tooltip_export_json" title="Export JSON">💾 <span data-i18n="btn_export_mini">Export</span></button>
+                    <button class="mini-btn btn-reset" onclick="resetSavedStructures()" data-i18n-title="tooltip_delete_all" title="Delete All Saved">⚠️ <span data-i18n="btn_reset_mini">Reset</span></button>
                 </div>
             </div>
 
@@ -928,7 +958,7 @@
                 <option value="Chests" data-i18n="sub_chests">Chests</option>
                 <option value="PixelArt" data-i18n="sub_pixel_art">Pixel Art</option>
                 <option value="Vehicle" data-i18n="sub_vehicle">Vehicle</option>
-                <option value="Other" selected data-i18n="sub_other">Other</option>
+                <option value="Other" data-i18n="sub_other" selected>Other</option>
             </select>
         </div>
         <div class="save-actions">
@@ -1023,7 +1053,7 @@
  <input type="file" id="import-struct-input" accept=".json" style="display: none;" onchange="handleImportFile(this)">
 
  <div id="edit-info-modal" class="modal" style="z-index: 2500;">
-    <div class="modal-content mbw-standard-modal" style="width: 500px; height: auto !important; min-height: auto;">
+    <div class="modal-content mbw-standard-modal" style="width: 500px; height: auto;">
         <div class="mbw-modal-header">
             <h3 data-i18n="edit_info_title">Edit Structure Info</h3>
             <span class="mbw-close-btn" onclick="closeModal('edit-info-modal')">&times;</span>
@@ -1199,7 +1229,7 @@
             <input type="file" id="global-profile-upload" accept="image/*" style="display: none;" onchange="handleGlobalProfileUpload(event)">
             
             <label style="font-size: 12px; font-weight: bold; color: #333; margin-bottom: 5px; width: 100%; text-align: left;" data-i18n="lbl_username">Nombre de Usuario:</label>
-            <input type="text" id="global-profile-username" value="" oninput="handleGlobalUsernameChange(this.value)" data-i18n-placeholder="pl_username" placeholder="Tu nombre..." style="width: 100%; padding: 8px; border: 2px solid #555; border-radius: 4px; font-size: 16px; font-weight: bold; text-align: center; font-family: inherit; color: black;">
+            <input type="text" id="global-profile-username" value="" oninput="handleGlobalUsernameChange(this.value)" placeholder="Tu nombre..." style="width: 100%; padding: 8px; border: 2px solid #555; border-radius: 4px; font-size: 16px; font-weight: bold; text-align: center; font-family: inherit; color: black;">
         </div>
     </div>
 </div>
@@ -1329,8 +1359,8 @@ window.addEventListener('DOMContentLoaded', () => {
             </p>
             
             <div style="position: absolute; bottom: 10px; left: 15px; font-size: 11px; color: gray; font-family: monospace;">
-                <span data-i18n="about_last_update">Last Update:</span> April 27, 2026<br>
-                v2.4 - Snapshot 1
+                <span data-i18n="about_last_update">Last Update:</span> May 1, 2026<br>
+                v2.4 - Snapshot 2
             </div>
             <div style="position: absolute; bottom: 10px; right: 15px; font-size: 12px; color: gray; font-weight: bold;">
                 2026
@@ -1340,8 +1370,141 @@ window.addEventListener('DOMContentLoaded', () => {
     </div>
 </div>
 
-<script src="scripts/lang.js"></script>
+<div id="create-mob-modal" class="modal" style="display: none;">
+    <div class="modal-content mobs-modal-window">
+        
+        <div class="mob-main">
+            <div class="modal-header-row">
+                <h3 class="m-0 text-gray no-select">Custom Mob Creator</h3>
+                <span class="close-modal btn-close-bold text-dark" onclick="closeModal('create-mob-modal')">×</span>
+            </div>
+            
+            <div class="mob-tabs-container">
+                <div class="mob-tabs">
+                    <div id="tab-cmob-custom" class="mob-tab" onclick="filterCustomMobs('Custom')" data-i18n="cat_custom">Custom</div>
+                    <div id="tab-cmob-animals" class="mob-tab" onclick="filterCustomMobs('Animals')" data-i18n="tab_animals">Animals</div>
+                    <div id="tab-cmob-overworld" class="mob-tab active" onclick="filterCustomMobs('Overworld')" data-i18n="tab_overworld">Overworld</div>
+                    <div id="tab-cmob-nether" class="mob-tab" onclick="filterCustomMobs('Nether')" data-i18n="tab_nether">Nether</div>
+                    <div id="tab-cmob-end" class="mob-tab" onclick="filterCustomMobs('End')" data-i18n="tab_end">End</div>
+                </div>
+            </div>
 
+            <div id="cmobs-grid" class="mobs-grid-container">
+                </div>
+        </div>
+
+        <div class="custommob-sidebar mob-sidebar">
+            <div class="mob-preview-box">
+                <img id="cmob-preview-image" class="mob-preview-img" src="assets/zombie.png" onerror="this.onerror=null; this.src='assets/zombie.png'">
+            </div>
+            
+            <div class="mob-info">
+    <h3 id="cmob-info-title" class="mob-info-title" style="color: black;">Zombie</h3>
+    
+    <div style="display: flex; flex-direction: column; margin-top: 4px; text-align: left;">
+        <div>
+            <label style="font-size: 13px; color: black;">Custom Name:</label>
+            <input type="text" id="cmob-name" placeholder="Leave empty" style="width: 100%; box-sizing: border-box; border: 1px solid #333; color: gray; padding: 4px; font-family: 'Pixeltype', sans-serif; font-size: 16px;">
+        </div>
+        <div>
+            <label style="font-size: 13px; color: black;">Max Health (HP):</label>
+            <input type="number" id="cmob-hp" value="20" style="width: 100%; box-sizing: border-box; border: 1px solid #333; color: gray; padding: 4px; font-family: 'Pixeltype', sans-serif; font-size: 16px;">
+        </div>
+
+        <div id="cmob-armor-section" style="display: none; ">
+    <p style="font-size: 18px; color: black; margin-bottom: 4px; font-family: 'Arial', sans-serif; margin-top: 4px;">Armor:</p>
+    
+    <div style="display: flex; flex-direction: column; gap: 0px;">
+        
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <div style="flex: 1;">
+                
+                <select id="cmob-helmet" class="armor-select" style="width: 100%; color: white; border: 1px solid #333; font-family: 'Pixeltype', sans-serif; font-size: 18px;" onchange="window.updateArmorPreview('cmob-helmet', 'prev-helmet')"></select>
+            </div>
+            <div style="width: 32px; height: 32px; background: white; border: 1px solid #444; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
+                <div id="prev-helmet" style="width: 32px; height: 32px; image-rendering: pixelated;"></div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 3px; flex-shrink: 0;">
+                <input type="number" id="cmob-drop-helmet" value="100" min="0" max="100" style="width: 45px; border: 1px solid #333; color: black; padding: 4px; font-family: 'Pixeltype', sans-serif; font-size: 18px; text-align: center;">
+                <span style="color: black; font-size: 20px; font-family: 'Pixeltype', sans-serif;">%</span>
+            </div>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <div style="flex: 1;">
+                
+                <select id="cmob-shirt" class="armor-select" style="width: 100%; color: white; border: 1px solid #333; font-family: 'Pixeltype', sans-serif; font-size: 18px;" onchange="window.updateArmorPreview('cmob-shirt', 'prev-shirt')"></select>
+            </div>
+            <div style="width: 32px; height: 32px; background: white; border: 1px solid #444; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
+                <div id="prev-shirt" style="width: 32px; height: 32px; image-rendering: pixelated;"></div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 3px; flex-shrink: 0;">
+                <input type="number" id="cmob-drop-shirt" value="100" min="0" max="100" style="width: 45px; border: 1px solid #333; color: black; padding: 4px; font-family: 'Pixeltype', sans-serif; font-size: 18px; text-align: center;">
+                <span style="color: black; font-size: 20px; font-family: 'Pixeltype', sans-serif;">%</span>
+            </div>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <div style="flex: 1;">
+                
+                <select id="cmob-pants" class="armor-select" style="width: 100%; color: white; border: 1px solid #333; font-family: 'Pixeltype', sans-serif; font-size: 18px;" onchange="window.updateArmorPreview('cmob-pants', 'prev-pants')"></select>
+            </div>
+            <div style="width: 32px; height: 32px; background: white; border: 1px solid #444; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
+                <div id="prev-pants" style="width: 32px; height: 32px; image-rendering: pixelated;"></div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 3px; flex-shrink: 0;">
+                <input type="number" id="cmob-drop-pants" value="100" min="0" max="100" style="width: 45px; border: 1px solid #333; color: black; padding: 4px; font-family: 'Pixeltype', sans-serif; font-size: 18px; text-align: center;">
+                <span style="color: black; font-size: 20px; font-family: 'Pixeltype', sans-serif;">%</span>
+            </div>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <div style="flex: 1;">
+                
+                <select id="cmob-shoes" class="armor-select" style="width: 100%; color: white; border: 1px solid #333; font-family: 'Pixeltype', sans-serif; font-size: 18px;" onchange="window.updateArmorPreview('cmob-shoes', 'prev-shoes')"></select>
+            </div>
+            <div style="width: 32px; height: 32px; background: white; border: 1px solid #444; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
+                <div id="prev-shoes" style="width: 32px; height: 32px; image-rendering: pixelated;"></div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 3px; flex-shrink: 0;">
+                <input type="number" id="cmob-drop-shoes" value="100" min="0" max="100" style="width: 45px; border: 1px solid #333; color: black; padding: 4px; font-family: 'Pixeltype', sans-serif; font-size: 18px; text-align: center;">
+                <span style="color: black; font-size: 20px; font-family: 'Pixeltype', sans-serif;">%</span>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+        <div style="margin-top: 5px;">
+            <label style="font-size: 14px; color: black; display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                <input type="checkbox" id="cmob-persists" checked> Never Despawn
+            </label>
+            <label style="font-size: 14px; color: black; display: flex; align-items: center; gap: 5px; cursor: pointer;">
+        <input type="checkbox" id="cmob-default-drops" checked> defaultDrops
+    </label>
+        </div>
+        
+        <div style="margin-top: 15px; border-top: 1px solid #333; padding-top: 10px;">
+            <p style="font-size: 14px; color: #f1c40f; margin-bottom: 8px; font-family: 'Pixeltype', sans-serif;">Custom Drops (Inventory):</p>
+            
+            <div id="cmob-inventory-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px;"></div>
+            
+            <button onclick="window.addMobInventorySlot()" style="width: 100%; background: #161616; border: 1px dashed #555; color: #aaa; padding: 6px; cursor: pointer; font-family: 'Pixeltype', sans-serif; font-size: 16px; transition: 0.2s;">
+                + Add Item Slot
+            </button>
+        </div>
+    </div>
+</div>
+
+            <div class="mob-actions-container">
+                <button class="btn-load-struct btn-spawn-mob" onclick="injectCustomMob()">Spawn Custom Mob</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+ <script src="scripts/lang.js"></script>
  <script src="scripts/ui-handler.js"></script>
  <script src="scripts/mbwom.js"></script>
  <script src="scripts/textures.js"></script>
@@ -1349,7 +1512,7 @@ window.addEventListener('DOMContentLoaded', () => {
 <script src="scripts/structures.js"></script>
  <script src="scripts/mbw-algorithm.js"></script>
  <script src="scripts/history.js"></script>
- <script src="scripts/mob-templates.js"></script> <script src="scripts/tools.js"></script>
+ <script src="scripts/mob-templates.js"></script>
  <script src="scripts/input.js"></script>
  <script src="scripts/file-manager.js"></script>
  <script src="scripts/rendering.js"></script>

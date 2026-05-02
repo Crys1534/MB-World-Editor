@@ -2820,665 +2820,27 @@ const ARMOR_DATA = {
 };
 
 // ==========================================
-// 📖 DICCIONARIO DE ALIAS Y LISTA NEGRA
+// 🎒 SISTEMA DE INVENTARIO DEL MOB
 // ==========================================
-
-const ITEM_DICTIONARY = {
-	'br': 'Bedrock',
-	'dt': 'Dirt',
-	'dt_1': 'Grass Dirt',
-	'myc': 'Mycelium',
-	'gdt': 'Gold Soil Dirt',
-	'cdt': 'ITEM',
-	'r': 'Stone',
-	'cs': 'Cobblestone',
-	'ms': 'Moo Stone',
-	'sb': 'Stone Bricks',
-	'clore': 'ITEM',
-	'in': 'ITEM',
-    'gd': 'ITEM',
-    'dmore': 'ITEM', 
-    'rs': 'ITEM', 
-    'os': 'ITEM', 
-    'lap': 'ITEM',
-    'to': 'ITEM', 
-    'egem': 'ITEM', 
-    'wd1': 'ITEM', 
-    'wd_1': 'ITEM', 
-    'wp': 'ITEM', 
-    'bbb': 'ITEM', 
-    'top': 'ITEM', 
-    'ib': 'ITEM',
-    'gb': 'ITEM', 
-    'db': 'ITEM', 
-    'lapb': 'ITEM', 
-    'clb': 'ITEM', 
-    'sd': 'ITEM', 
-    'ss': 'ITEM', 
-    'cy1': 'ITEM', 
-    'bricks': 'ITEM', 
-    'books': 'ITEM',
-    'b': 'ITEM', 
-    'magma': 'ITEM', 
-    'j': 'ITEM', 
-    'snowblock': 'ITEM', 
-    'ice': 'ITEM', 
-    'fice': 'ITEM', 
-    'gv': 'ITEM',
-    'cloth_white': 'ITEM', 
-    'cloth_lightgray': 'ITEM', 
-    'cloth_gray': 'ITEM', 
-    'cloth_black': 'ITEM', 
-    'cloth_brown': 'ITEM', 
-    'cloth_purple': 'ITEM', 
-    'cloth_magenta': 'ITEM', 
-    'cloth_red': 'ITEM', 
-    'cloth_orange': 'ITEM', 
-    'cloth_pink': 'ITEM', 
-    'cloth_yellow': 'ITEM', 
-    'cloth_lightgreen': 'ITEM', 
-    'cloth_green': 'ITEM', 
-    'cloth_cyan': 'ITEM', 
-    'cloth_lightblue': 'ITEM', 
-    'cloth_blue': 'ITEM', 
-    'cloth_rainbow': 'ITEM', 
-    'gs': 'ITEM', 
-    'gs_white': 'ITEM', 
-    'gs_lightgray': 'ITEM', 
-    'gs_gray': 'ITEM', 
-    'gs_black': 'ITEM', 
-    'gs_brown': 'ITEM', 
-    'gs_purple': 'ITEM', 
-    'gs_magenta': 'ITEM', 
-    'gs_redg': 'ITEM', 
-    'gs_orange': 'ITEM', 
-    'gs_pink': 'ITEM', 
-    'gs_yellow': 'ITEM', 
-    'gs_lightgreen': 'ITEM', 
-    'gs_green': 'ITEM', 
-    'gs_cyan': 'ITEM', 
-    'gs_lightblue': 'ITEM', 
-    'gs_blue': 'ITEM', 
-    'bddt': 'ITEM', 
-    'bdr': 'ITEM', 
-    'bdcs': 'ITEM', 
-    'bdbbb': 'ITEM', 
-    'bdbricks': 'ITEM', 
-    'bdbooks': 'ITEM', 
-    'bdsb': 'ITEM', 
-    'bdcloth_white': 'ITEM', 
-    'bdcloth_lightgray': 'ITEM', 
-    'bdcloth_gray': 'ITEM', 
-    'bdcloth_black': 'ITEM',
-    'bdcloth_brown': 'ITEM', 
-    'bdcloth_purple': 'ITEM', 
-    'bdcloth_magenta': 'ITEM', 
-    'bdcloth_red': 'ITEM', 
-    'bdcloth_orange': 'ITEM', 
-    'bdcloth_pink': 'ITEM', 
-    'bdcloth_yellow': 'ITEM', 
-    'bdcloth_lightgreen': 'ITEM', 
-    'bdcloth_green': 'ITEM', 
-    'bdcloth_cyan': 'ITEM', 
-    'bdcloth_lightblue': 'ITEM', 
-    'bdcloth_blue': 'ITEM', 
-    'bdcloth_rainbow': 'ITEM', 
-    'bdgs': 'ITEM', 
-    'bdgs_white': 'ITEM', 
-    'bdgs_lightgray': 'ITEM', 
-    'bdgs_gray': 'ITEM', 
-    'bdgs_black': 'ITEM', 
-    'bdgs_brown': 'ITEM', 
-    'bdgs_purple': 'ITEM', 
-    'bdgs_magenta': 'ITEM', 
-    'bdwp': 'ITEM', 
-    'bdgs_redg': 'ITEM', 
-    'bdgs_orange': 'ITEM', 
-    'bdgs_pink': 'ITEM', 
-    'bdgs_yellow': 'ITEM', 
-    'bdgs_lightgreen': 'ITEM', 
-    'bdgs_green': 'ITEM', 
-    'bdgs_cyan': 'ITEM', 
-    'bdgs_lightblue': 'ITEM', 
-    'bdgs_blue': 'ITEM', 
-    'pk': 'ITEM', 
-    'pk_2': 'ITEM', 
-    'pk_3': 'ITEM', 
-    'pk_4': 'ITEM', 
-    'pk_5': 'ITEM', 
-    'pk_6': 'ITEM', 
-    'pk_7': 'ITEM', 
-    'pk_8': 'ITEM', 
-    'pk_9': 'ITEM', 
-    'pk_10': 'ITEM', 
-    'pk_11': 'ITEM', 
-    'hai_1': 'ITEM',
-    'stairr_1': 'ITEM',
-    'staircs_1': 'ITEM',
-    'stairsb_1': 'ITEM',
-    'stairob_1': 'ITEM',
-    'stairbr_1': 'ITEM',
-    'stairwp_1': 'ITEM',
-    'stairib_1': 'ITEM',
-    'stairgb_1': 'ITEM',
-    'stairdb_1': 'ITEM',
-    'stairbrick_1': 'ITEM',
-    'stairn_1': 'ITEM',
-    'stairbbb_1': 'ITEM',
-    'halfr_1': 'ITEM',
-    'halfcs_1': 'ITEM',
-    'halfsb_1': 'ITEM',
-    'halfob_1': 'ITEM',
-    'halfbr_1': 'ITEM',
-    'halfwp_1': 'ITEM',
-    'halfib_1': 'ITEM',
-    'halfgb_1': 'ITEM',
-    'halfdb_1': 'ITEM',
-    'halfbrick_1': 'ITEM',
-    'halfn_1': 'ITEM',
-    'halfbbb_1': 'ITEM',
-	
-	'egg': 'Egg',
-    'fireegg': 'Fire Egg',
-    'cegg': 'Cooked Egg',
-    'or': 'Orange',
-    'lemon': 'Lemon',
-    'gasd': 'ITEM',
-    'gap': 'Golden Apple',
-    'capple': 'Candy Apple',
-    'crml': 'Caramel',
-    'sugar': 'Sugar',
-    'icec': 'ITEM',
-    'potato': 'Potato',
-    'ppotato': 'Poisoned Potato',
-    'bsed': 'ITEM',
-    'beet': 'ITEM',
-    'wseed': 'ITEM',
-    'gmels': 'ITEM',
-    'pseed': 'ITEM',
-    'pkp': 'ITEM',
-    'carrot': 'Carrot',
-    'gcarrot': 'Golden Carrot',
-    'wheat': 'Wheat',
-    'bread': 'Bread',
-    'cookie': 'Cookie',
-    'ccane': 'Candy Cane',
-    'cake_1': 'Cake',
-    'ccake_1': 'Cactus Cake',
-    'nw': 'ITEM',
-    'seed': 'ITEM',
-    'carrot_1': 'ITEM',
-    'wseed_1': 'ITEM',
-    'pork': 'ITEM',
-    'cpork': 'ITEM',
-    'bacon': 'ITEM',
-    'cbacon': 'ITEM',
-    'beef': 'ITEM',
-    'cbeef': 'ITEM',
-    'chicken': 'ITEM',
-    'cchicken': 'Chicken Nugget',
-    'nugget': 'Golden Nugget',
-    'mutton': 'ITEM',
-    'cmutton': 'ITEM',
-    'rabbit': 'ITEM',
-    'crabbit': 'ITEM',
-    'fi': 'ITEM',
-    'cfi': 'ITEM',
-    'salmon': 'Salmon',
-    'csalmon': 'ITEM',
-    'clown': 'Clown Fish',
-    'puff': 'Puffer Fish',
-    'rf': 'ITEM',
-    'bowl': 'Bowl',
-    'soup': 'Soup',
-    'rabbitsoup': 'ITEM',
-    'beetsoup': 'ITEM',
-    'lade': 'ITEM',
-    'apade': 'ITEM',
-    'orade': 'ITEM',
-    'mbk': 'ITEM',
-	
-    'WoodenPickaxe': 'Wooden Pickaxe',
-    'StonePickaxe': 'Stone Pickaxe',
-    'IronPickaxe': 'Iron Pickaxe',
-    'GoldPickaxe': 'Gold Pickaxe',
-    'DiamondPickaxe': 'Diamond Pickaxe',
-    'ObsidianPickaxe': 'Obsidian Pickaxe',
-    'WoodenSword': 'Wooden Sword',
-    'StoneSword': 'Stone Sword',
-    'IronSword': 'Iron Sword',
-    'GoldSword': 'Gold Sword',
-    'DiamondSword': 'Diamond Sword',
-    'WoodenAxe': 'Wooden Axe',
-    'StoneAxe': 'Stone Axe',
-    'IronAxe': 'Iron Axe',
-    'GoldAxe': 'Gold Axe',
-    'DiamondAxe': 'Diamond Axe',
-    'WoodenShovel': 'Wooden Shovel',
-    'StoneShovel': 'Stone Shovel',
-    'IronShovel': 'Iron Shovel',
-    'GoldShovel': 'Gold Shovel',
-    'DiamondShovel': 'Diamond Shovel',
-    'WoodenHoe': 'Wooden Hoe',
-    'StoneHoe': 'Stone Hoe',
-    'IronHoe': 'Iron Hoe',
-    'GoldHoe': 'Gold Hoe',
-    'DiamondHoe': 'Diamond Hoe',
-	
-	'LeatherCap': 'Leather Cap',
-    'LeatherShirt': 'Leather Shirt',
-    'LeatherPants': 'Leather Pants',
-    'LeatherShoes': 'Leather Shoes',
-    'IronCap': 'Iron Cap',
-    'IronShirt': 'Iron Shirt',
-    'IronPants': 'Iron Pants',
-    'IronShoes': 'Iron Shoes',
-    'GoldCap': 'Gold Cap',
-    'GoldShirt': 'Gold Shirt',
-    'GoldPants': 'Gold Pants',
-    'GoldShoes': 'Gold Shoes',
-    'DiamondCap': 'Diamond Cap',
-    'DiamondShirt': 'Diamond Shirt',
-    'DiamondPants': 'Diamond Pants',
-    'DiamondShoes': 'Diamond Shoes',
-    'DragonCap': 'Dragon Cap',
-    'DragonShirt': 'Dragon Shirt',
-    'DragonPants': 'Dragon Pants',
-    'DragonShoes': 'Dragon Shoes',
-	
-};
-
-// ✨ NUEVO: Lista Negra. Pon aquí todas las IDs exactas de textures.js que NO quieres ver en el menú.
-const IGNORED_ITEMS = [
-    'missing', 
-    'stairr_3',
-    'stairr_1',
-    'staircs_3',
-    'staircs_1',
-    'ad_4n',
-    'ad_3n',
-    'ad_2n',
-    'ad_1n',
-    'ad_1',
-    'ad_2',
-    'ad_3',
-    'ad_4',
-    'la_4n',
-    'la_3n',
-    'la_2n',
-    'la_1n',
-    'la_1',
-    'la_2',
-    'la_3',
-    'la_4',
-    'wr_6n',
-    'wr_5n',
-    'wr_4n',
-    'wr_3n',
-    'wr_2n',
-    'wr_1n',
-    'wr_1',
-    'wr_2',
-    'wr_3',
-    'wr_4',
-    'wr_5',
-    'wr_6',
-    'stairsb_3',
-    'stairsb_1',
-    'stairob_3',
-    'stairob_1',
-    'stairbr_3',
-    'stairbr_1',
-    'stairwp_3',
-    'stairwp_1',
-    'stairib_3',
-    'stairib_1',
-    'stairgb_3',
-    'stairgb_1',
-    'stairdb_3',
-    'stairdb_1',
-    'stairbrick_3',
-    'stairbrick_1',
-    'stairn_3',
-    'stairn_1',
-    'stairbbb_3',
-    'stairbbb_1',
-    'halfr_2',
-    'halfr_1',
-    'halfcs_2',
-    'halfcs_1',
-    'halfsb_2',
-    'halfsb_1',
-    'halfob_2',
-    'halfob_1',
-    'halfbr_2',
-    'halfbr_1',
-    'halfwp_2',
-    'halfwp_1',
-    'halfib_2',
-    'halfib_1',
-    'halfgb_2',
-    'halfgb_1',
-    'halfdb_2',
-    'halfdb_1',
-    'halfbrick_2',
-    'halfbrick_1',
-    'halfn_2',
-    'halfn_1',
-    'halfbbb_2',
-    'halfbbb_1',
-    'fice_1',
-    'fice_2',
-    'fice_3',
-    'fice_4',
-    'stairr_4',
-    'stairr_2',
-    'staircs_4',
-    'staircs_2',
-    'stairsb_4',
-    'stairsb_2',
-    'stairob_4',
-    'stairob_2',
-    'stairbr_4',
-    'stairbr_2',
-    'stairwp_4',
-    'stairwp_2',
-    'stairib_4',
-    'stairib_2',
-    'stairgb_4',
-    'stairgb_2',
-    'stairdb_4',
-    'stairdb_2',
-    'stairbrick_4',
-    'stairbrick_2',
-    'stairn_4',
-    'stairn_2',
-    'stairbbb_4',
-    'stairbbb_2',
-    'oven_true',
-    'wd_1',
-    'wd_2',
-    'mh_1',
-    'mh_2',
-    'mh_3',
-    'mh_4',
-    'mh_5',
-    'mh_6',
-    'mh_7',
-    'mh_8',
-    'mh_9',
-    'rsd_1',
-    'bdgs_white',
-    'gs_white',
-    'bdcloth_white',
-    'cloth_white',
-    'carpet_white',
-    'bdgs_lightgray',
-    'gs_lightgray',
-    'bdcloth_lightgray',
-    'cloth_lightgray',
-    'carpet_lightgray',
-    'bdgs_gray',
-    'gs_gray',
-    'bdcloth_gray',
-    'cloth_gray',
-    'carpet_gray',
-    'bdgs_black',
-    'gs_black',
-    'bdcloth_black',
-    'cloth_black',
-    'carpet_black',
-    'bdgs_brown',
-    'gs_brown',
-    'bdcloth_brown',
-    'cloth_brown',
-    'carpet_brown',
-    'bdgs_purple',
-    'gs_purple',
-    'bdcloth_purple',
-    'cloth_purple',
-    'carpet_purple',
-    'bdgs_magenta',
-    'gs_magenta',
-    'bdcloth_magenta',
-    'cloth_magenta',
-    'carpet_magenta',
-    'bdgs_red',
-    'gs_red',
-    'bdcloth_red',
-    'cloth_red',
-    'carpet_red',
-    'bdgs_orange',
-    'gs_orange',
-    'bdcloth_orange',
-    'cloth_orange',
-    'carpet_orange',
-    'bdgs_pink',
-    'gs_pink',
-    'bdcloth_pink',
-    'cloth_pink',
-    'carpet_pink',
-    'bdgs_yellow',
-    'gs_yellow',
-    'bdcloth_yellow',
-    'cloth_yellow',
-    'carpet_yellow',
-    'bdgs_lightgreen',
-    'gs_lightgreen',
-    'bdcloth_lightgreen',
-    'cloth_lightgreen',
-    'carpet_lightgreen',
-    'bdgs_green',
-    'gs_green',
-    'bdcloth_green',
-    'cloth_green',
-    'carpet_green',
-    'bdgs_cyan',
-    'gs_cyan',
-    'bdcloth_cyan',
-    'cloth_cyan',
-    'carpet_cyan',
-    'bdgs_lightblue',
-    'gs_lightblue',
-    'bdcloth_lightblue',
-    'cloth_lightblue',
-    'carpet_lightblue',
-    'bdgs_blue',
-    'gs_blue',
-    'bdcloth_blue',
-    'cloth_blue',
-    'carpet_blue',
-    'bdcloth_rainbow',
-    'cloth_rainbow',
-    'carpet_rainbow',
-    'pf_2',
-    'dt_1',
-    'cmp_1',
-    'cmp_2',
-    'cmp_3',
-    'cmp_4',
-    'cmp_5',
-    'cauldron_1',
-    'cauldron_2',
-    'cauldron_3',
-    'brew_1',
-    'brew_2',
-    'brew_3',
-    'anvil_2',
-    'anvil_3',
-    'bed1_white',
-    'bed1_lightgray',
-    'bed1_gray',
-    'bed1_black',
-    'bed1_brown',
-    'bed1_purple',
-    'bed1_magenta',
-    'bed1_red',
-    'bed1_orange',
-    'bed1_pink',
-    'bed1_yellow',
-    'bed1_lightgreen',
-    'bed1_green',
-    'bed1_cyan',
-    'bed1_lightblue',
-    'bed1_blue',
-    'bed2_white',
-    'bed2_lightgray',
-    'bed2_gray',
-    'bed2_black',
-    'bed2_brown',
-    'bed2_purple',
-    'bed2_magenta',
-    'bed2_red',
-    'bed2_orange',
-    'bed2_pink',
-    'bed2_yellow',
-    'bed2_lightgreen',
-    'bed2_green',
-    'bed2_cyan',
-    'bed2_lightblue',
-    'bed2_blue',
-    'dr1_2',
-    'dr3_2',
-    'idr1_2',
-    'idr3_2',
-    'bdr1_2',
-    'bdr3_2',
-    'fncg_true',
-    'nfncg_true',
-    'th_3',
-    'ortorch_3',
-    'th_1',
-    'ortorch_1',
-    'th_2',
-    'ortorch_2',
-    'lant_3',
-    'lant_1',
-    'lant_2',
-    'cake_1',
-    'cake_2',
-    'cake_3',
-    'cake_4',
-    'cake_5',
-    'cake_6',
-    'cake_7',
-    'ccake_1',
-    'ccake_2',
-    'ccake_3',
-    'ccake_4',
-    'ccake_5',
-    'ccake_6',
-    'ccake_7',
-    'wseed_1',
-    'wseed_2',
-    'wseed_3',
-    'wseed_4',
-    'wseed_5',
-    'wseed_6',
-    'wseed_7',
-    'pseed_1',
-    'pseed_2',
-    'pseed_3',
-    'pseed_4',
-    'pseed_5',
-    'pseed_6',
-    'pseed_7',
-    'pk_2',
-    'pk_3',
-    'pk_4',
-    'pk_5',
-    'pk_6',
-    'pk_7',
-    'pk_8',
-    'pk_10',
-    'pk_11',
-    'nw_2',
-    'nw_3',
-    'nw_4',
-    'nw_5',
-    'nw_6',
-    'nw_7',
-    'seed_2',
-    'seed_3',
-    'seed_4',
-    'seed_5',
-    'seed_6',
-    'seed_7',
-    'carrot_1',
-    'carrot_2',
-    'carrot_3',
-    'carrot_4',
-    'carrot_5',
-    'carrot_6',
-    'carrot_7',
-    'pk_9',
-    'potato_2',
-    'potato_3',
-    'potato_4',
-    'potato_5',
-    'potato_6',
-    'potato_7',
-    'bseed_2',
-    'bseed_3',
-    'bseed_4',
-    'bseed_5',
-    'bseed_6',
-    'bseed_7',
-    'hay_1',
-    'hay_2',
-    'piston_2',
-    'piston_3',
-    'spiston_2',
-    'spiston_3',
-    'dispense_2',
-    'dispense_4',
-    'dropper_2',
-    'dropper_4',
-    'piston_4',
-    'piston_1',
-    'spiston_4',
-    'spiston_1',
-    'dispense_1',
-    'dispense_3',
-    'dropper_1',
-    'dropper_3',
-    'rail_1',
-    'rail_2',
-    'raila_1',
-    'raila_2',
-    'raild_1',
-    'raild_2',
-    'railp_1',
-    'railp_2',
-    'button_1',
-    'button_2',
-    'lever_1',
-    'lever_2'
+// Lista de los items más comunes para soltar (puedes agregar más a esta lista luego)
+const INVENTORY_ITEMS = [
+    'Apple', 'Arrow', 'Beef', 'Bone', 'Bow', 'Bread', 'Coal', 'Cobblestone', 
+    'Diamond', 'DiamondSword', 'Dirt', 'Emerald', 'GoldIngot', 'GoldenApple', 
+    'Gunpowder', 'IronIngot', 'RottenFlesh', 'Slimeball', 'SpiderEye', 'Stick', 'String', 'Wood'
 ];
 
-
-// ==========================================
-// 🎒 CREADOR DE SLOTS Y MENÚ INVENTARIO FLOTANTE
-// ==========================================
-
-window.editingInvSlot = null; // Memoria para saber qué slot estamos modificando
-
-// 1. DIBUJAR LA FILA DEL BOTÍN (SLOT)
-window.addMobInventorySlot = function(itemId = 'dm', qty = 1) {
+window.addMobInventorySlot = function(itemName = 'Diamond', qty = 1) {
     const list = document.getElementById('cmob-inventory-list');
     if (!list) return;
 
+    // Crear un ID único para poder borrar esta fila específica si nos arrepentimos
     const slotId = 'inv-slot-' + Date.now() + Math.floor(Math.random() * 1000);
 
-    // Obtener datos iniciales del ítem
-    let niceName = ITEM_DICTIONARY[itemId] || itemId.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').trim();
-    niceName = niceName.charAt(0).toUpperCase() + niceName.slice(1);
-    
-    let texX = 0, texY = 0;
-    if (window.texturesMap && window.texturesMap[itemId]) {
-        texX = window.texturesMap[itemId].x;
-        texY = window.texturesMap[itemId].y;
-    }
+    // Generar las opciones del selector
+    const optionsHtml = INVENTORY_ITEMS.map(item => {
+        let niceName = item.replace(/([A-Z])/g, ' $1').trim();
+        return `<option value="${item}" ${item === itemName ? 'selected' : ''}>${niceName}</option>`;
+    }).join('');
 
     const row = document.createElement('div');
     row.id = slotId;
@@ -3487,129 +2849,26 @@ window.addMobInventorySlot = function(itemId = 'dm', qty = 1) {
     row.style.justifyContent = 'space-between';
     row.style.gap = '5px';
 
-    // ✨ EL NUEVO DISEÑO: Un Input Oculto (para guardar datos) y un Botón Visual 
     row.innerHTML = `
-        <input type="hidden" class="inv-item-select" id="val-${slotId}" value="${itemId}">
+        <select class="inv-item-select" style="flex: 1; background: #111; color: white; border: 1px solid #333; font-family: 'Pixeltype', sans-serif; font-size: 16px; padding: 2px;" onchange="window.updateArmorPreview(this.id, 'img-${slotId}')" id="sel-${slotId}">
+            ${optionsHtml}
+        </select>
         
-        <div onclick="window.openItemPicker('${slotId}')" style="flex: 1; background: white; border: 1px solid #333; display: flex; align-items: center; padding: 2px 5px; cursor: pointer; transition: 0.2s;" onmouseenter="this.style.background='white'" onmouseleave="this.style.background='white'" title="Click to open Inventory">
-            <div style="width: 20px; height: 20px; background: white; border: 1px solid #444; display: flex; justify-content: center; align-items: center; flex-shrink: 0; overflow: hidden; margin-right: 8px;">
-                <div id="img-${slotId}" style="width: 16px; height: 16px; image-rendering: pixelated; 
-                    background-image: url('assets/blocks.png'); 
-                    background-position: -${texX}px -${texY}px; 
-                    background-repeat: no-repeat;
-                    transform: scale(1.2);">
-                </div>
-            </div>
-            <span id="name-${slotId}" style="color: black; font-family: 'Pixeltype', sans-serif; font-size: 16px;">${niceName}</span>
+        <div style="width: 26px; height: 26px; background: #000; border: 1px solid #444; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
+            <div id="img-${slotId}" style="width: 24px; height: 24px; image-rendering: pixelated; background-image: url('assets/${itemName}.png'); background-size: contain; background-position: center; background-repeat: no-repeat;"></div>
         </div>
         
-        <input type="number" class="inv-item-qty" value="${qty}" min="1" max="64" style="width: 40px; background: white; color: black; border: 1px solid #333; font-family: 'Pixeltype', sans-serif; font-size: 16px; text-align: center;">
+        <input type="number" class="inv-item-qty" value="${qty}" min="1" max="64" title="Quantity" style="width: 40px; background: #111; border: 1px solid #333; color: white; font-family: 'Pixeltype', sans-serif; font-size: 16px; text-align: center; padding: 2px;">
         
-        <button onclick="document.getElementById('${slotId}').remove()" style="background: #e74c3c; color: white; border: none; cursor: pointer; font-weight: bold; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-family: sans-serif;">X</button>
+        <button onclick="document.getElementById('${slotId}').remove()" style="background: #500; color: white; border: 1px solid #f55; cursor: pointer; padding: 2px 6px; font-family: 'Arial'; font-size: 12px; font-weight: bold;">X</button>
     `;
-
+    
     list.appendChild(row);
-};
-
-
-// 2. EL MENÚ INVENTARIO FLOTANTE
-window.openItemPicker = function(slotId) {
-    window.editingInvSlot = slotId; // Guardamos qué fila abrió el menú
-
-    let picker = document.getElementById('mbw-item-picker');
     
-    // Si el menú no existe, lo construimos con estética clásica
-    if (!picker) {
-        picker = document.createElement('div');
-        picker.id = 'mbw-item-picker';
-        picker.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 328px; background: #c6c6c6; border: 3px solid; border-top-color: #fff; border-left-color: #fff; border-bottom-color: #555; border-right-color: #555; z-index: 10000; box-shadow: 0 10px 30px rgba(0,0,0,0.5); font-family: Arial, sans-serif; padding: 10px; display: flex; flex-direction: column;';
-        
-        // Cabecera y Barra de Búsqueda
-        picker.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <span style="font-weight: bold; color: #333; font-size: 14px;">Creative Inventory</span>
-                <button onclick="document.getElementById('mbw-item-picker').style.display='none'" style="background: #e74c3c; border: none; color: white; font-weight: bold; cursor: pointer; padding: 2px 6px;">X</button>
-            </div>
-            <input type="text" id="mbw-item-search" placeholder="Search item... (e.g. Diamond)" onkeyup="window.filterItemPicker()" style="padding: 6px; margin-bottom: 8px; border: 1px solid #777; background: #fff; color: #000; font-family: 'Pixeltype', sans-serif; font-size: 18px;">
-            <div id="mbw-item-grid" style="display: flex; flex-wrap: wrap; overflow-y: auto; max-height: 250px; background: #8b8b8b; border: 2px solid; border-top-color: #555; border-left-color: #555; border-bottom-color: #fff; border-right-color: #fff;"></div>
-        `;
-        document.body.appendChild(picker);
+    // Forzamos la actualización de la imagen aprovechando nuestra función existente!
+    if (typeof window.updateArmorPreview === 'function') {
+        window.updateArmorPreview(`sel-${slotId}`, `img-${slotId}`);
     }
-
-    // Mostramos el menú y limpiamos la búsqueda anterior
-    picker.style.display = 'flex';
-    document.getElementById('mbw-item-search').value = ''; 
-    
-    // Rellenar la cuadrícula de ítems
-    const grid = document.getElementById('mbw-item-grid');
-    grid.innerHTML = '';
-
-    let availableItems = window.texturesMap ? Object.keys(window.texturesMap) : [];
-    availableItems = availableItems.filter(id => !IGNORED_ITEMS.includes(id)); // Usamos tu Lista Negra
-
-    availableItems.forEach(id => {
-        let niceName = ITEM_DICTIONARY[id] || id.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').trim();
-        niceName = niceName.charAt(0).toUpperCase() + niceName.slice(1);
-        
-        const texX = window.texturesMap[id].x;
-        const texY = window.texturesMap[id].y;
-
-        // Cada ítem es un botón cuadrado interactivo
-        const itemBox = document.createElement('div');
-        itemBox.className = 'picker-item-box';
-        itemBox.setAttribute('data-name', niceName.toLowerCase()); // Para el buscador
-        itemBox.title = niceName;
-        itemBox.style.cssText = 'width: 32px; height: 32px; border: 2px solid; border-top-color: #fff; border-left-color: #fff; border-bottom-color: #555; border-right-color: #555; display: flex; justify-content: center; align-items: center; cursor: pointer; overflow: hidden; transition: 0.1s;';
-        
-        itemBox.onmouseenter = () => itemBox.style.background = '#ddd';
-        itemBox.onmouseleave = () => itemBox.style.background = 'transparent';
-        
-        // Al hacer clic, pasamos los datos a la función final
-        itemBox.onclick = () => window.applyItemToSlot(id, niceName, texX, texY);
-
-        itemBox.innerHTML = `
-            <div style="width: 16px; height: 16px; image-rendering: pixelated; 
-                background-image: url('assets/blocks.png'); 
-                background-position: -${texX}px -${texY}px; 
-                background-repeat: no-repeat;
-                transform: scale(1.5);">
-            </div>
-        `;
-        grid.appendChild(itemBox);
-    });
-};
-
-// 3. MOTOR DE BÚSQUEDA EN TIEMPO REAL
-window.filterItemPicker = function() {
-    const query = document.getElementById('mbw-item-search').value.toLowerCase();
-    const items = document.querySelectorAll('.picker-item-box');
-    items.forEach(el => {
-        // Si el nombre del ítem incluye lo que escribiste, lo muestra. Si no, lo oculta.
-        if (el.getAttribute('data-name').includes(query)) {
-            el.style.display = 'flex';
-        } else {
-            el.style.display = 'none';
-        }
-    });
-};
-
-// 4. APLICAR EL ÍTEM SELECCIONADO AL SLOT
-window.applyItemToSlot = function(id, name, texX, texY) {
-    if (!window.editingInvSlot) return;
-    
-    // A) Actualizamos el "cerebro" (el input oculto que lee tu función de guardado)
-    const valInput = document.getElementById('val-' + window.editingInvSlot);
-    if (valInput) valInput.value = id;
-
-    // B) Actualizamos los visuales
-    const nameSpan = document.getElementById('name-' + window.editingInvSlot);
-    if (nameSpan) nameSpan.innerText = name;
-
-    const imgDiv = document.getElementById('img-' + window.editingInvSlot);
-    if (imgDiv) imgDiv.style.backgroundPosition = `-${texX}px -${texY}px`;
-
-    // C) Cerramos el inventario
-    document.getElementById('mbw-item-picker').style.display = 'none';
 };
 
 // Actualiza la imagen cargando directamente el archivo individual (.png)
@@ -3844,4 +3103,43 @@ window.injectCustomMob = function() {
     } catch(error) {
         console.error("🔥 Error en injectCustomMob:", error);
     }
+};
+
+
+// ==========================================
+// 📍 LÓGICA DE UBICACIÓN Y SPAWN POINT
+// ==========================================
+
+// Leer los datos del mundo y mostrarlos en los inputs
+window.populateLocationSettings = function() {
+    // ✨ FIX: Asegurarnos de buscar dentro de mbwom.world
+    if (typeof mbwom === 'undefined' || !mbwom || !mbwom.world) return;
+    
+    const posX = document.getElementById('player-pos-x');
+    const posY = document.getElementById('player-pos-y');
+    const spawnX = document.getElementById('world-spawn-x');
+    const spawnY = document.getElementById('world-spawn-y');
+
+    // Redondeamos a 1 decimal para que no se vea feo (ej: 500.4 en vez de 500.456915)
+    if (posX && mbwom.world.worldX !== undefined) posX.value = Math.round(mbwom.world.worldX * 10) / 10;
+    if (posY && mbwom.world.worldY !== undefined) posY.value = Math.round(mbwom.world.worldY * 10) / 10;
+
+    // Spawn Point (Es un array [x, y])
+    if (spawnX && mbwom.world.spawnPoint1) spawnX.value = Math.round(mbwom.world.spawnPoint1[0] * 10) / 10;
+    if (spawnY && mbwom.world.spawnPoint1) spawnY.value = Math.round(mbwom.world.spawnPoint1[1] * 10) / 10;
+};
+
+// Guardar la nueva posición del jugador (Sin mover la cámara del editor)
+window.updatePlayerPos = function(axis, value) {
+    if (typeof mbwom === 'undefined' || !mbwom || !mbwom.world) return;
+    const numValue = Number(value);
+    
+    if (axis === 'x') {
+        mbwom.world.worldX = numValue;
+    } else {
+        mbwom.world.worldY = numValue;
+    }
+    
+    // Le decimos al editor que hay cambios por si necesitas redibujar el icono del jugador
+    if (typeof worldDirty !== 'undefined') worldDirty = true; 
 };
