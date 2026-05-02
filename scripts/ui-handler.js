@@ -2345,10 +2345,10 @@ const MOBS_HP_DB = {
 
 // Mobs organizados por dimensión
 const MOBS_BY_DIMENSION = {
-	"Animals": ["pig", "cow", "cowctus cow", "mushroom cow", "chicken", "sheep", "rabbit", "bat", "wolf", "dog"],
-    "Overworld": ["zombie", "skeleton", "creeper", "spider", "slime", "snowgolem"],
-    "Nether": ["zombiepigman", "ghast", "blaze", "magmacube", "nethereye"],
-    "End": ["enderman", "enderdragon"]
+	"Animals": ["bat", "chicken", "pig", "cow", "cowctus cow", "mushroom cow", "rabbit", "sheep", "squid", "wolf"],
+	"Overworld": ["creeper", "skeleton", "slime", "snowgolem", "spider", "zombie"],
+	"Nether": ["blaze", "ghast", "magmacube", "nethereye", "zombiepigman"],
+	"End": ["enderman", "enderdragon"]
 };
 
 // Abre la ventana modal
@@ -3143,3 +3143,32 @@ window.updatePlayerPos = function(axis, value) {
     // Le decimos al editor que hay cambios por si necesitas redibujar el icono del jugador
     if (typeof worldDirty !== 'undefined') worldDirty = true; 
 };
+
+
+
+// ==========================================
+// ✨ PANTALLA DE INICIO (FILE MENU VS EDITOR)
+// ==========================================
+
+// 1. Guardar la configuración cuando el usuario cambia el dropdown
+window.updateStartupMenu = function(selectedValue) {
+    localStorage.setItem('mbw_startup_screen', selectedValue);
+};
+
+// 2. Revisar la configuración apenas cargue la página
+window.addEventListener('DOMContentLoaded', () => {
+    // Leemos qué prefirió el usuario (por defecto será 'editor')
+    const startupPreference = localStorage.getItem('mbw_startup_screen') || 'editor';
+    
+    // Asignamos el valor al dropdown en la ventana de Configuración
+    const startupSelect = document.getElementById('startup-screen-select');
+    if (startupSelect) startupSelect.value = startupPreference;
+    
+    // Si eligió el File Menu, lo abrimos automáticamente
+    if (startupPreference === 'filemenu' && typeof openFileMenu === 'function') {
+        // Le damos un pequeñísimo respiro de 300ms para que la UI termine de cargar los estilos
+        setTimeout(() => {
+            openFileMenu();
+        }, 300);
+    }
+});

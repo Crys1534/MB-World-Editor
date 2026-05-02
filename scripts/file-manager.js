@@ -621,9 +621,29 @@ async function deleteSavedLocalWorld(name) {
 }
 
 // ==============================================================
-// ✨ LÓGICA SINCRONIZADA DEL AUTOGUARDADO
+// ✨ LÓGICA SINCRONIZADA Y PERSISTENTE DEL AUTOGUARDADO
 // ==============================================================
 let autoSaveIntervalId = null;
+
+// 0. NUEVO: Leer la memoria al recargar la página
+window.addEventListener('DOMContentLoaded', () => {
+    // Revisamos qué guardó el usuario la última vez
+    const isEnabled = localStorage.getItem('mb_autosave_enabled') === 'true';
+    const savedInterval = parseInt(localStorage.getItem('mb_autosave_interval')) || 0;
+
+    const toggle = document.getElementById('autosave-toggle');
+    const select = document.getElementById('autosave-interval');
+
+    // Si estaba activado, restauramos los botones y encendemos el motor
+    if (isEnabled && savedInterval > 0) {
+        if (toggle) toggle.checked = true;
+        if (select) select.value = savedInterval.toString();
+        startAutoSaveInterval(savedInterval);
+    } else {
+        if (toggle) toggle.checked = false;
+        if (select) select.value = "0";
+    }
+});
 
 // 1. Se llama cuando haces clic en el switch de la barra superior
 window.toggleAutoSave = function() {
@@ -656,23 +676,66 @@ window.applyAutoSaveSettings = function() {
     }
 }
 
-// 3. El motor real que cuenta el tiempo
+// 3. El motor real que cuenta el tiempo (MEJORADO PARA TODOS LOS MUNDOS)
 function startAutoSaveInterval(minutes) {
-    stopAutoSaveInterval(); // Limpia cualquier reloj anterior para evitar dobles guardados
+    if (typeof stopAutoSaveInterval === 'function') stopAutoSaveInterval(); // Limpia cualquier reloj anterior
     
-    autoSaveIntervalId = setInterval(() => {
-        if (typeof mbwom !== 'undefined' && mbwom.world) {
-            fileManager.saveLocal(true); // true = Guardado silencioso
+    // Guardamos en la memoria del navegador para que sobreviva F5
+    localStorage.setItem('mb_autosave_enabled', 'true');
+    localStorage.setItem('mb_autosave_interval', minutes);
+    
+    autoSaveIntervalId = setInterval(async () => {
+        console.log(`⏳ [Autosave] Guardando TODOS los mundos abiertos...`);
+        
+        // Verificamos si existe el sistema de pestañas
+        if (typeof WorldTabsManager !== 'undefined' && WorldTabsManager.openWorlds && WorldTabsManager.openWorlds.length > 0) {
+            
+            // Recorremos cada pestaña abierta
+            for (let i = 0; i < WorldTabsManager.openWorlds.length; i++) {
+                let tab = WorldTabsManager.openWorlds[i];
+                let currentFileName = (typeof fileManager !== 'undefined' && fileManager.file) ? fileManager.file.name : "";
+                
+                // ✨ CASO A: Es la pestaña activa (la que el usuario está viendo ahora mismo)
+                if (tab.filename === currentFileName || tab.id === WorldTabsManager.activeWorldId) {
+                    if (typeof fileManager !== 'undefined') await fileManager.saveLocal(true);
+                } 
+                // ✨ CASO B: Es una pestaña inactiva (está en el fondo)
+                else {
+                    // FIX: Usamos tab.mbwomData.world, que es donde realmente guardas los datos del mundo[cite: 7]
+                    let backgroundWorldData = (tab.mbwomData && tab.mbwomData.world) ? tab.mbwomData.world : null; 
+                    
+                    if (backgroundWorldData && typeof localDB !== 'undefined') {
+                        // Preparamos los datos crudos del mundo
+                        let jsonString = JSON.stringify(backgroundWorldData);
+                        let textData = typeof mbwAlgorithm !== 'undefined' ? mbwAlgorithm.encode(jsonString) : jsonString;
+                        let cleanName = tab.filename.replace(/\.mbw$/i, "");
+                        
+                        // Guardado silencioso directo a la base de datos (sin foto para ahorrar memoria)
+                        await localDB.saveWorld(cleanName, textData, "", backgroundWorldData.fileInfo || {});
+                        console.log(`[Auto-Save] Mundo inactivo "${cleanName}" respaldado con éxito.`);
+                    } else {
+                         console.warn(`[Auto-Save] No se encontraron datos para guardar en la pestaña: ${tab.filename}`);
+                    }
+                }
+            }
+        } 
+        // Respaldo de seguridad: Si no detecta pestañas, guarda el mundo activo normal
+        else if (typeof fileManager !== 'undefined' && fileManager.saveLocal) {
+            await fileManager.saveLocal(true); 
         }
+        
     }, minutes * 60 * 1000); 
     
-    console.log(`⏱️ Auto save ON (Every ${minutes} mins).`);
+    console.log(`⏱️ Auto save ON (Cada ${minutes} mins). Protegiendo todos los mundos.`);
 }
 
 function stopAutoSaveInterval() {
+    // ✨ Borramos el estado de la memoria
+    localStorage.setItem('mb_autosave_enabled', 'false');
+    
     if (autoSaveIntervalId) {
         clearInterval(autoSaveIntervalId);
         autoSaveIntervalId = null;
     }
-    console.log("⏱️ Auto save disabled.");
+    console.log("⏱️ Auto save disabled y borrado de memoria.");
 }

@@ -777,7 +777,14 @@
                 </label>
             <input type="range" id="volume-slider" min="0" max="100" value="100" oninput="changeVolume(this.value)" style="width: 100%; cursor: pointer;">
             
-            
+            <br>
+                <!-- ✨ NUEVO: Pantalla de inicio (Dropdown) -->
+                <label data-i18n="config_startup" style="font-weight: bold; border-top: 1px solid #555; padding-top: 15px; margin-top: 15px; display: block;">Startup Screen</label>
+                <select id="startup-screen-select" onchange="updateStartupMenu(this.value)" style="width: 100%; padding: 8px; margin-bottom: 5px;">
+                    <option value="editor" data-i18n="startup_editor">Normal Editor</option>
+                    <option value="filemenu" data-i18n="startup_filemenu">File Menu</option>
+                </select>
+			
             </div>
         </div>
     </div>
@@ -1359,8 +1366,8 @@ window.addEventListener('DOMContentLoaded', () => {
             </p>
             
             <div style="position: absolute; bottom: 10px; left: 15px; font-size: 11px; color: gray; font-family: monospace;">
-                <span data-i18n="about_last_update">Last Update:</span> May 1, 2026<br>
-                v2.4 - Snapshot 2
+                <span data-i18n="about_last_update">Last Update:</span> May 2, 2026<br>
+                v2.4 - Snapshot 4
             </div>
             <div style="position: absolute; bottom: 10px; right: 15px; font-size: 12px; color: gray; font-weight: bold;">
                 2026

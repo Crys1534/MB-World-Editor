@@ -348,9 +348,19 @@ const i18n = {
         "mp_inbox": "Inbox",
         "fs_no_saved_worlds": "No saved worlds yet",
         "fs_start_template": "Start from a Template",
-        "tooltip_delete_world": "Delete World"
+        "tooltip_delete_world": "Delete World",
+		"config_startup": "Startup Screen",
+        "startup_editor": "Normal Editor",
+        "startup_filemenu": "File Menu",
     },
     
+	
+	
+	
+	
+	
+	
+	
     es: {
         // --- DRAG & DROP ---
         "drag_drop_title": "📁 ¡Suelta tu mundo aquí!",
@@ -697,8 +707,18 @@ const i18n = {
         "mp_inbox": "Bandeja",
         "fs_no_saved_worlds": "Aún no hay mundos guardados",
         "fs_start_template": "Comenzar desde una Plantilla",
-        "tooltip_delete_world": "Eliminar Mundo"
+        "tooltip_delete_world": "Eliminar Mundo",
+		"config_startup": "Pantalla de inicio",
+        "startup_editor": "Editor Normal",
+        "startup_filemenu": "Menú de Archivos",
     },
+	
+	
+	
+	
+	
+	
+	
 	
 	pt: {
         // --- DRAG & DROP ---
