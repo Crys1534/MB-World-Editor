@@ -251,7 +251,7 @@ window.handleSelectionInput = function(action, worldX, worldY, isCtrlPressed = f
         // Si no tenemos Ctrl presionado, borramos la selección anterior
         if (!isCtrlPressed) {
             window.selection = {
-                type: currentTool, 
+                type: 'rect', // ✨ FIX: Forzamos 'rect' para que main.js lo dibuje
                 p1: { x: worldX, y: worldY },
                 p2: { x: worldX, y: worldY },
                 subRects: [],
@@ -262,32 +262,41 @@ window.handleSelectionInput = function(action, worldX, worldY, isCtrlPressed = f
         } 
         // Si SÍ tenemos Ctrl presionado, guardamos el rectángulo actual y empezamos uno nuevo
         else {
-            if (!window.selection || !window.selection.type) {
-                // Por si acaso, si está vacío creamos uno nuevo de todos modos
-                window.selection = { type: currentTool, subRects: [], pointSet: new Set(), path: [] };
+            if (!window.selection || window.selection.type !== 'rect') {
+                window.selection = { 
+                    type: 'rect', 
+                    subRects: [], 
+                    pointSet: new Set(), 
+                    path: [],
+                    p1: { x: worldX, y: worldY },
+                    p2: { x: worldX, y: worldY },
+                    dragging: true 
+                };
+            } else {
+                // Guardamos el rectángulo que acabamos de terminar antes de empezar el nuevo
+                if (window.selection.p1 && window.selection.p2) {
+                    window.selection.subRects.push({ 
+                        p1: { ...window.selection.p1 }, 
+                        p2: { ...window.selection.p2 } 
+                    });
+                }
+                
+                // Iniciamos un nuevo punto de anclaje (p1) para el nuevo recuadro
+                window.selection.p1 = { x: worldX, y: worldY };
+                window.selection.p2 = { x: worldX, y: worldY };
+                window.selection.dragging = true;
             }
-            
-            // Guardamos el rectángulo que acabamos de terminar
-            if (window.selection.p1 && window.selection.p2) {
-                window.selection.subRects.push({ p1: window.selection.p1, p2: window.selection.p2 });
-            }
-            
-            // Iniciamos un nuevo punto de anclaje (p1) para el nuevo recuadro
-            window.selection.p1 = { x: worldX, y: worldY };
-            window.selection.p2 = { x: worldX, y: worldY };
-            window.selection.dragging = true;
         }
     } 
     else if (action === 'move' && window.selection && window.selection.dragging) {
         window.selection.p2 = { x: worldX, y: worldY };
-        worldDirty = true; // Forzar que se dibuje el recuadro nuevo
+        window.worldDirty = true; // ✨ IMPORTANTE: Usar window.worldDirty para asegurar acceso
     } 
     else if (action === 'end' && window.selection) {
         window.selection.dragging = false;
-        worldDirty = true;
+        window.worldDirty = true;
     }
 };
-
 function setSelectionPoint(point, x, y) {
     window.selection.type = 'rect'; 
     if (point === 1) window.selection.p1 = { x, y };
@@ -507,6 +516,7 @@ function eyedropper(x, y) {
      selectTool('pencil'); mouse.left = false; 
  }
 }
+
 // === HERRAMIENTA BORRADOR (ACTUALIZADA PARA MULTIJUGADOR) ===
 function eraser(cx, cy) {
     const range = toolSize - 1;
