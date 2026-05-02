@@ -635,8 +635,9 @@ canvas.addEventListener("mousedown", function (event) {
     }
     // HERRAMIENTAS DE BLOQUES
     else if ((currentTool === 'select' || currentTool === 'lasso') && mouse.left) {
-        handleSelectionInput('start', mouse.worldX, mouse.worldY);
-    } 
+        // Le pasamos el estado de Ctrl (event.ctrlKey || event.metaKey)
+        handleSelectionInput('start', mouse.worldX, mouse.worldY, (event.ctrlKey || event.metaKey));
+    }
     else if (currentTool === 'magic' && mouse.left) {
         magicWandSelect(mouse.worldX, mouse.worldY);
     }

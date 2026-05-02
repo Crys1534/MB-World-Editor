@@ -245,104 +245,48 @@ function getSelectionBounds() {
     return { minX, maxX, minY, maxY };
 }
 
-function handleSelectionInput(action, x, y) {
-    // --- Lógica de la herramienta Lasso ---
-    if (currentTool === 'lasso') {
-        if (action === 'start') {
-            window.selection.type = 'poly'; 
-            window.selection.subRects = []; 
-            window.selection.path = [{x, y}];
-            window.selection.dragging = true; 
-            window.selection.p1 = null; 
-            window.selection.p2 = null;
-            updateSelectionInfo(); checkSelectionState();
-        } else if (action === 'move' && window.selection.dragging) {
-            const last = window.selection.path[window.selection.path.length - 1];
-            
-            if (last.x !== x || last.y !== y) { 
-                let dx = Math.abs(x - last.x);
-                let dy = Math.abs(y - last.y);
-                let sx = (last.x < x) ? 1 : -1;
-                let sy = (last.y < y) ? 1 : -1;
-                let err = dx - dy;
-                let cx = last.x;
-                let cy = last.y;
-
-                while (true) {
-                    if (cx !== last.x || cy !== last.y) {
-                        window.selection.path.push({x: cx, y: cy});
-                    }
-                    if (cx === x && cy === y) break;
-                    let e2 = 2 * err;
-                    if (e2 > -dy) { err -= dy; cx += sx; }
-                    if (e2 < dx) { err += dx; cy += sy; }
-                }
-                updateSelectionInfo(); 
-            }
-
-        } else if (action === 'end') {
-            window.selection.dragging = false; 
-            if (window.selection.path.length > 2) {
-                const xs = window.selection.path.map(p => p.x);
-                const ys = window.selection.path.map(p => p.y);
-                window.selection.p1 = { x: Math.min(...xs), y: Math.min(...ys) };
-                window.selection.p2 = { x: Math.max(...xs), y: Math.max(...ys) };
-            }
-            updateSelectionInfo(); checkSelectionState();
-        }
-        return;
-    }
-    
-    // --- Lógica original de la herramienta Select (Rectangular) ---
-    window.selection.type = 'rect';
+// Agregamos un parámetro extra: isCtrlPressed
+window.handleSelectionInput = function(action, worldX, worldY, isCtrlPressed = false) {
     if (action === 'start') {
-        window.selection.path = []; 
-        if (!isShiftPressed) window.selection.subRects = [];
-        else if (window.selection.p1 && window.selection.p2) {
-            window.selection.subRects.push({ p1: window.selection.p1, p2: window.selection.p2 });
-        }
-        window.selection.p1 = { x, y }; 
-        window.selection.p2 = { x, y }; 
-        window.selection.dragging = true; 
-        updateSelectionInfo(); checkSelectionState(); 
-
-    } else if (action === 'move' && window.selection.dragging) {
-        
-        // ✨ LA MAGIA DEL CUADRADO (Shift presionado) ✨
-        if (isShiftPressed && window.selection.p1) {
-            let dx = x - window.selection.p1.x;
-            let dy = y - window.selection.p1.y;
+        // Si no tenemos Ctrl presionado, borramos la selección anterior
+        if (!isCtrlPressed) {
+            window.selection = {
+                type: currentTool, 
+                p1: { x: worldX, y: worldY },
+                p2: { x: worldX, y: worldY },
+                subRects: [],
+                pointSet: new Set(),
+                path: [{ x: worldX, y: worldY }],
+                dragging: true
+            };
+        } 
+        // Si SÍ tenemos Ctrl presionado, guardamos el rectángulo actual y empezamos uno nuevo
+        else {
+            if (!window.selection || !window.selection.type) {
+                // Por si acaso, si está vacío creamos uno nuevo de todos modos
+                window.selection = { type: currentTool, subRects: [], pointSet: new Set(), path: [] };
+            }
             
-            // Tomamos la distancia más larga y obligamos a que el otro lado mida lo mismo
-            let size = Math.max(Math.abs(dx), Math.abs(dy));
-            let signX = dx >= 0 ? 1 : -1;
-            let signY = dy >= 0 ? 1 : -1;
+            // Guardamos el rectángulo que acabamos de terminar
+            if (window.selection.p1 && window.selection.p2) {
+                window.selection.subRects.push({ p1: window.selection.p1, p2: window.selection.p2 });
+            }
             
-            x = window.selection.p1.x + (size * signX);
-            y = window.selection.p1.y + (size * signY);
+            // Iniciamos un nuevo punto de anclaje (p1) para el nuevo recuadro
+            window.selection.p1 = { x: worldX, y: worldY };
+            window.selection.p2 = { x: worldX, y: worldY };
+            window.selection.dragging = true;
         }
-
-        window.selection.p2 = { x, y }; 
-        updateSelectionInfo();
-        
-    } else if (action === 'end') {
+    } 
+    else if (action === 'move' && window.selection && window.selection.dragging) {
+        window.selection.p2 = { x: worldX, y: worldY };
+        worldDirty = true; // Forzar que se dibuje el recuadro nuevo
+    } 
+    else if (action === 'end' && window.selection) {
         window.selection.dragging = false;
-        
-        // Si soltó el clic manteniendo Shift, nos aseguramos de que el punto final sea cuadrado
-        if (isShiftPressed && window.selection.p1) {
-            let dx = x - window.selection.p1.x;
-            let dy = y - window.selection.p1.y;
-            let size = Math.max(Math.abs(dx), Math.abs(dy));
-            let signX = dx >= 0 ? 1 : -1;
-            let signY = dy >= 0 ? 1 : -1;
-            x = window.selection.p1.x + (size * signX);
-            y = window.selection.p1.y + (size * signY);
-        }
-
-        if (!window.selection.p2 && window.selection.p1) window.selection.p2 = { x, y };
-        updateSelectionInfo(); checkSelectionState();
+        worldDirty = true;
     }
-}
+};
 
 function setSelectionPoint(point, x, y) {
     window.selection.type = 'rect'; 

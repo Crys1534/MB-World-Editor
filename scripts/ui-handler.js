@@ -1198,7 +1198,7 @@ document.getElementById('console-input').addEventListener('keydown', function(e)
 // --- DICCIONARIO Y FORMATEO GLOBAL DE ENCANTAMIENTOS ---
 const enchantTranslations = {
     // Generales
-    "unbreaking1": "Unbreaking I", "unbreaking2": "Unbreaking II", "unbreaking3": "Unbreaking III",
+    
 
     // Herramientas y Armas
     "sharpness1": "Sharpness I", "sharpness2": "Sharpness II", "sharpness3": "Sharpness III", "sharpness4": "Sharpness IV", "sharpness5": "Sharpness V",
