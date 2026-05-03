@@ -502,6 +502,21 @@ function drawUI() {
         coordsDiv.innerText = `X: ${Math.floor(mouse.worldX)} Y: ${Math.floor(mouse.worldY)}`;
     }
     
+    // ✨ FIX: Mostrar Width y Height al usar la herramienta Select
+    const selDiv = document.getElementById('selection-overlay');
+    if (selDiv) {
+        // Verificamos si estamos arrastrando un cuadro de selección
+        if (window.selection && window.selection.type === 'rect' && window.selection.p1 && window.selection.p2) {
+            let w = Math.abs(window.selection.p2.x - window.selection.p1.x) + 1;
+            let h = Math.abs(window.selection.p2.y - window.selection.p1.y) + 1;
+            
+            selDiv.innerText = `W: ${w} H: ${h}`;
+            selDiv.style.display = 'block'; // Lo hacemos visible
+        } else {
+            selDiv.style.display = 'none'; // Lo ocultamos si no estamos seleccionando
+        }
+    }
+    
     // --- CURSOR INTELIGENTE (Contorno Limpio) ---
     if (currentTool !== 'paste' && currentTool !== 'select' && currentTool !== 'lasso') {
         const size = (typeof toolSize !== 'undefined') ? toolSize : 1;
@@ -588,8 +603,8 @@ function drawUI() {
         ctx.fillStyle = "rgba(0, 255, 255, 0.2)"; // Un rosa translúcido para identificar la magia
         ctx.strokeStyle = "#87CEFA"; // Borde rosa fuerte
         ctx.lineWidth = 2;
-		
-		// ✨ MAGIA DE PHOTOSHOP: Línea punteada en movimiento
+        
+        // ✨ MAGIA DE PHOTOSHOP: Línea punteada en movimiento
         ctx.setLineDash([6, 6]); // 6px de línea, 6px de espacio
         ctx.lineDashOffset = -(Date.now() / 50); // El tiempo hace que se mueva
 
@@ -625,8 +640,8 @@ function drawUI() {
         });
         
         ctx.stroke();
-		
-		// ✨ IMPORTANTE: Reiniciar la línea a normal para que no afecte otros dibujos
+        
+        // ✨ IMPORTANTE: Reiniciar la línea a normal para que no afecte otros dibujos
         ctx.setLineDash([]);
     }
 
@@ -655,14 +670,14 @@ function drawUI() {
 
             ctx.strokeStyle = "#87CEFA";
             ctx.lineWidth = 2;
-			
-			// ✨ MAGIA DE PHOTOSHOP
+            
+            // ✨ MAGIA DE PHOTOSHOP
             ctx.setLineDash([6, 6]);
             ctx.lineDashOffset = -(Date.now() / 50);
-			
+            
             ctx.strokeRect(screenX, screenY, screenW, screenH);
-			
-			// ✨ REINICIAR
+            
+            // ✨ REINICIAR
             ctx.setLineDash([]);
         });
     }
@@ -692,8 +707,8 @@ function drawUI() {
         
         ctx.stroke();
     }
-	
-	// ==========================================
+    
+    // ==========================================
     // ✨ PREVISUALIZACIÓN FANTASMA DEL MOB ✨
     // ==========================================
     if (typeof currentTool !== 'undefined' && currentTool === 'spawn_mob' && typeof currentMobToSpawn !== 'undefined' && currentMobToSpawn) {
@@ -732,8 +747,8 @@ function drawUI() {
             ctx.restore();
         }
     }
-	
-	// ✨ INDICADOR DE ESPECTADOR (OJO ROJO EN LA ESQUINA SUPERIOR DERECHA)
+    
+    // ✨ INDICADOR DE ESPECTADOR (OJO ROJO EN LA ESQUINA SUPERIOR DERECHA)
     if (typeof window.mySpectators !== 'undefined' && window.mySpectators.size > 0) {
         ctx.save();
         
