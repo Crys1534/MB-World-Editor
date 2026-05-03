@@ -247,11 +247,13 @@ function getSelectionBounds() {
 
 // Agregamos un parámetro extra: isCtrlPressed
 window.handleSelectionInput = function(action, worldX, worldY, isCtrlPressed = false) {
+    // Detectar dinámicamente si estamos usando Lasso o Select cuadrado
+    let selType = (typeof currentTool !== 'undefined' && currentTool === 'lasso') ? 'poly' : 'rect';
+
     if (action === 'start') {
-        // Si no tenemos Ctrl presionado, borramos la selección anterior
         if (!isCtrlPressed) {
             window.selection = {
-                type: 'rect', // ✨ FIX: Forzamos 'rect' para que main.js lo dibuje
+                type: selType, 
                 p1: { x: worldX, y: worldY },
                 p2: { x: worldX, y: worldY },
                 subRects: [],
@@ -260,43 +262,228 @@ window.handleSelectionInput = function(action, worldX, worldY, isCtrlPressed = f
                 dragging: true
             };
         } 
-        // Si SÍ tenemos Ctrl presionado, guardamos el rectángulo actual y empezamos uno nuevo
         else {
-            if (!window.selection || window.selection.type !== 'rect') {
+            if (!window.selection || window.selection.type !== selType) {
                 window.selection = { 
-                    type: 'rect', 
-                    subRects: [], 
-                    pointSet: new Set(), 
-                    path: [],
-                    p1: { x: worldX, y: worldY },
-                    p2: { x: worldX, y: worldY },
-                    dragging: true 
+                    type: selType, subRects: [], pointSet: new Set(), path: [{ x: worldX, y: worldY }],
+                    p1: { x: worldX, y: worldY }, p2: { x: worldX, y: worldY }, dragging: true 
                 };
             } else {
-                // Guardamos el rectángulo que acabamos de terminar antes de empezar el nuevo
-                if (window.selection.p1 && window.selection.p2) {
+                if (selType === 'rect' && window.selection.p1 && window.selection.p2) {
                     window.selection.subRects.push({ 
-                        p1: { ...window.selection.p1 }, 
-                        p2: { ...window.selection.p2 } 
+                        p1: { ...window.selection.p1 }, p2: { ...window.selection.p2 } 
                     });
                 }
-                
-                // Iniciamos un nuevo punto de anclaje (p1) para el nuevo recuadro
                 window.selection.p1 = { x: worldX, y: worldY };
                 window.selection.p2 = { x: worldX, y: worldY };
+                if (selType === 'poly') window.selection.path = [{ x: worldX, y: worldY }];
                 window.selection.dragging = true;
             }
         }
     } 
     else if (action === 'move' && window.selection && window.selection.dragging) {
         window.selection.p2 = { x: worldX, y: worldY };
-        window.worldDirty = true; // ✨ IMPORTANTE: Usar window.worldDirty para asegurar acceso
+        
+        // La magia del Lasso (Free Form)
+        if (window.selection.type === 'poly') {
+            let path = window.selection.path;
+            let lastPoint = path[path.length - 1];
+            if (!lastPoint || lastPoint.x !== worldX || lastPoint.y !== worldY) {
+                path.push({ x: worldX, y: worldY });
+            }
+        }
+        window.worldDirty = true;
     } 
     else if (action === 'end' && window.selection) {
         window.selection.dragging = false;
+        
+        // Auto-cerrar el Lasso
+        if (window.selection.type === 'poly' && window.selection.path.length > 2) {
+            let firstPoint = window.selection.path[0];
+            let lastPoint = window.selection.path[window.selection.path.length - 1];
+            if (firstPoint.x !== lastPoint.x || firstPoint.y !== lastPoint.y) {
+                window.selection.path.push({ x: firstPoint.x, y: firstPoint.y });
+            }
+        }
+        
         window.worldDirty = true;
+        if (typeof updateSelectionInfo === 'function') updateSelectionInfo();
+        if (typeof checkSelectionState === 'function') checkSelectionState();
     }
 };
+
+function setSelectionPoint(point, x, y) {
+    window.selection.type = 'rect'; 
+    if (point === 1) window.selection.p1 = { x, y };
+    if (point === 2) window.selection.p2 = { x, y };
+    updateSelectionInfo(); checkSelectionState(); 
+}
+
+function copySelection(keepSelection = false) {
+    const bounds = getSelectionBounds();
+    if (!bounds) { alert("Select an area."); return; }
+    if (window.selection.type === 'poly' && window.selection.path.length < 3) { alert("Invalid area."); return; }
+
+    const data = [];
+    for (let x = bounds.minX; x <= bounds.maxX; x++) {
+        for (let y = bounds.minY; y <= bounds.maxY; y++) {
+            
+            // MAGIA: Solo guarda en memoria los bloques de la silueta azul
+            if (!isPointSelected(x, y)) continue;
+
+            const state = mbwom.getBlockState(x, y);
+            let stateToSave = null;
+            if (state && state.type != null) stateToSave = structuredClone(state);
+            data.push({ dx: x - bounds.minX, dy: y - bounds.minY, state: stateToSave });
+        }
+    }
+    
+    window.clipboard = { width: bounds.maxX - bounds.minX + 1, height: bounds.maxY - bounds.minY + 1, data: data };
+    
+    if (!keepSelection) {
+        window.selection.p1 = null; window.selection.p2 = null; window.selection.path = []; window.selection.subRects = [];
+        const overlay = document.getElementById('selection-overlay');
+        if (overlay) overlay.style.display = 'none';
+        checkSelectionState(); 
+    }
+    console.log("Copied.");
+}
+
+function cutSelection() {
+    copySelection(true);
+    deleteSelection();
+}
+
+function deleteSelection(isFromNetwork = false, networkDeletedBlocks = [], networkDeletedMobs = []) {
+    if (isFromNetwork) {
+        if (typeof mbwom !== 'undefined' && mbwom.scene) {
+            networkDeletedBlocks.forEach(pos => {
+                if (mbwom.scene[pos.x] && mbwom.scene[pos.x][pos.y]) {
+                    delete mbwom.scene[pos.x][pos.y];
+                    if (typeof renderBlock === 'function') renderBlock(pos.x, pos.y);
+                }
+            });
+            networkDeletedMobs.forEach(key => { delete mbwom.mobs[key]; });
+            if (typeof worldDirty !== 'undefined') worldDirty = true;
+        }
+        return;
+    }
+
+    const bounds = getSelectionBounds();
+    if (!bounds && window.selection.type !== 'poly') return;
+
+    historyManager.startAction();
+    let changed = false;
+    let deletedBlocksToSync = [];
+    let deletedMobsToSync = [];
+
+    if (window.selection.type === 'poly') {
+        if (typeof mbwom !== 'undefined' && mbwom.mobs) {
+            for (let key in mbwom.mobs) {
+                let m = mbwom.mobs[key];
+                if (!m) continue;
+                let mobWorldX = Math.round(Number(m.x));
+                let mobWorldY = Math.round(-Number(m.y)); 
+                if (isPointSelected(mobWorldX, mobWorldY)) {
+                    delete mbwom.mobs[key]; 
+                    changed = true;
+                    deletedMobsToSync.push(key);
+                }
+            }
+        }
+        if (changed && typeof worldDirty !== 'undefined') worldDirty = true;
+
+    } else {
+        for (let x = bounds.minX; x <= bounds.maxX; x++) {
+            for (let y = bounds.minY; y <= bounds.maxY; y++) {
+                if (!isPointSelected(x, y)) continue;
+                changed = true; 
+                if (mbwom.scene[x] && mbwom.scene[x][y]) {
+                    historyManager.recordChange(x, y, mbwom.scene[x][y], null);
+                    delete mbwom.scene[x][y];
+                    renderBlock(x, y);
+                    deletedBlocksToSync.push({x: x, y: y});
+                }
+            }
+        }
+        if (changed && typeof mbwom !== 'undefined' && mbwom.scene) {
+            for (let x = bounds.minX; x <= bounds.maxX; x++) {
+                let col = mbwom.scene[x];
+                if (!col || !Array.isArray(col)) continue;
+                for (let y = bounds.minY; y <= bounds.maxY; y++) {
+                    if (isPointSelected(x, y)) {
+                        let b = col[y];
+                        if (b && (b.type === "air" || b.type === 0 || b.type === "0" || b.type === "")) col[y] = null; 
+                    }
+                }
+                while (col.length > 0) {
+                    let ultimoBloque = col[col.length - 1];
+                    if (!ultimoBloque || ultimoBloque.type === null || ultimoBloque.type === "air" || ultimoBloque.type === 0 || ultimoBloque.type === "") {
+                        col.pop(); 
+                    } else break; 
+                }
+            }
+            if (typeof worldDirty !== 'undefined') worldDirty = true;
+        }
+    }
+
+    if (typeof enviarMensajeEnRed === 'function') {
+        if (deletedBlocksToSync.length > 0 || deletedMobsToSync.length > 0) {
+            enviarMensajeEnRed({ tipo: "accion_borrar_seleccion", bloques: deletedBlocksToSync, mobs: deletedMobsToSync });
+        }
+    }
+
+    historyManager.commitAction();
+    const overlay = document.getElementById('selection-overlay');
+    if (overlay) overlay.style.display = 'none';
+    window.selection.p1 = null; window.selection.p2 = null; window.selection.path = []; window.selection.subRects = [];
+    checkSelectionState(); 
+}
+
+function activatePasteMode() {
+    if (!window.clipboard) { alert("Clipboard empty."); return; }
+    selectTool('paste');
+}
+
+function performPaste(targetX, targetY, replaceAir = false, isFromNetwork = false, networkClipboard = null) {
+    const currentClipboard = isFromNetwork ? networkClipboard : window.clipboard;
+    if (!currentClipboard) return;
+    historyManager.startAction();
+
+    // PEGAMOS LA ESTRUCTURA: Solo iteramos sobre los puntos exactos que fueron copiados (la forma azul)
+    currentClipboard.data.forEach(blockData => {
+        // Si NO está presionado Shift (!replaceAir), ignoramos el aire
+        // Si SÍ está presionado Shift (replaceAir), sobrescribimos SOLO los puntos de la selección azul
+        if (!replaceAir && (!blockData.state || blockData.state.type === "air" || blockData.state.type === "0" || blockData.state.type === 0)) return;
+
+        const absX = targetX + blockData.dx; 
+        const absY = targetY + blockData.dy;
+        const oldState = mbwom.getBlockState(absX, absY);
+        
+        // Ahorro de memoria: si en el destino hay aire y pegamos aire, no hacemos nada
+        if (!oldState && !blockData.state) return;
+        
+        historyManager.recordChange(absX, absY, oldState, blockData.state);
+        
+        if (blockData.state) {
+            mbwom.setBlockState(absX, absY, blockData.state);
+        } else {
+            if (mbwom.scene[absX]) delete mbwom.scene[absX][absY]; 
+        }
+        
+        if (typeof renderBlock === 'function') renderBlock(absX, absY);
+    });
+    
+    if (!isFromNetwork && typeof enviarMensajeEnRed === 'function') {
+        enviarMensajeEnRed({ 
+            tipo: "accion_pegar", x: targetX, y: targetY, replaceAir: replaceAir, clipboard: currentClipboard 
+        });
+    }
+    
+    if (typeof worldDirty !== 'undefined') worldDirty = true;
+    historyManager.commitAction();
+}
+
 function setSelectionPoint(point, x, y) {
     window.selection.type = 'rect'; 
     if (point === 1) window.selection.p1 = { x, y };
@@ -444,52 +631,36 @@ function activatePasteMode() {
     if (!window.clipboard) { alert("Clipboard empty."); return; }
     selectTool('paste');
 }
+
 function performPaste(targetX, targetY, replaceAir = false, isFromNetwork = false, networkClipboard = null) {
     // Si viene de la red, usamos la estructura que mandó el amigo, sino, usamos nuestro portapapeles
     const currentClipboard = isFromNetwork ? networkClipboard : window.clipboard;
     if (!currentClipboard) return;
     historyManager.startAction();
 
-    // 1. SI SHIFT ESTÁ PRESIONADO: Limpiamos toda el área primero
-    if (replaceAir) {
-        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-        currentClipboard.data.forEach(blockData => {
-            if (blockData.dx < minX) minX = blockData.dx;
-            if (blockData.dx > maxX) maxX = blockData.dx;
-            if (blockData.dy < minY) minY = blockData.dy;
-            if (blockData.dy > maxY) maxY = blockData.dy;
-        });
-
-        for (let x = minX; x <= maxX; x++) {
-            for (let y = minY; y <= maxY; y++) {
-                const absX = targetX + x;
-                const absY = targetY + y;
-                const oldState = mbwom.getBlockState(absX, absY);
-                if (oldState) {
-                    historyManager.recordChange(absX, absY, oldState, null);
-                    if (mbwom.scene[absX]) delete mbwom.scene[absX][absY];
-                    renderBlock(absX, absY);
-                }
-            }
-        }
-    }
-
-    // 2. PEGAMOS LA ESTRUCTURA
+    // ✨ PEGAMOS LA ESTRUCTURA: Solo iteramos sobre los puntos exactos que fueron copiados (la forma azul)
     currentClipboard.data.forEach(blockData => {
+        // Si NO está presionado Shift (!replaceAir), ignoramos el aire (Pegado Transparente)
+        // Si SÍ está presionado Shift (replaceAir), sobrescribimos el destino, pero SOLO en los puntos de la selección azul
         if (!replaceAir && (!blockData.state || blockData.state.type === "air" || blockData.state.type === "0" || blockData.state.type === 0)) return;
 
         const absX = targetX + blockData.dx; 
         const absY = targetY + blockData.dy;
         const oldState = mbwom.getBlockState(absX, absY);
         
+        // Si en el destino ya hay aire y lo que pegamos también es aire, no hacemos nada para ahorrar memoria
         if (!oldState && !blockData.state) return;
         
         historyManager.recordChange(absX, absY, oldState, blockData.state);
         
-        if (blockData.state) mbwom.setBlockState(absX, absY, blockData.state);
-        else if (mbwom.scene[absX]) delete mbwom.scene[absX][absY]; 
+        // Colocamos el bloque, o lo borramos si el punto azul copiado era aire
+        if (blockData.state) {
+            mbwom.setBlockState(absX, absY, blockData.state);
+        } else {
+            if (mbwom.scene[absX]) delete mbwom.scene[absX][absY]; 
+        }
         
-        renderBlock(absX, absY);
+        if (typeof renderBlock === 'function') renderBlock(absX, absY);
     });
     
     // ✨ MULTIPLAYER: Mandamos la estructura entera al amigo
@@ -503,6 +674,7 @@ function performPaste(targetX, targetY, replaceAir = false, isFromNetwork = fals
         });
     }
     
+    if (typeof worldDirty !== 'undefined') worldDirty = true;
     historyManager.commitAction();
 }
 
@@ -623,7 +795,7 @@ function magicWandSelect(startX, startY) {
         if (visited.has(key)) continue; 
         visited.add(key);
         
-        if (x < 0 || x > 6000 || y < 0 || y > 500) continue; 
+        if (x < 0 || x > 6000 || y < 0 || y > 1000) continue; 
 
         const currentBlock = mbwom.getBlockState(x, y);
         const currentType = currentBlock ? currentBlock.type : null;
@@ -661,30 +833,63 @@ function magicWandSelect(startX, startY) {
 function bucketFill(startX, startY, isFromNetwork = false, networkState = null) {
     // Si viene de la red, usa la pintura del amigo, si no, usa nuestra hotbar
     const targetState = isFromNetwork ? networkState : hotbar.slots[slotIndex];
+    
+    // ✨ FIX: Función auxiliar para unificar todos los tipos de "vacío" o "aire"
+    const isAir = (val) => val === undefined || val === null || val === "air" || val === 0 || val === "0" || val === "";
+    
     const startBlock = mbwom.getBlockState(startX, startY);
     const startType = startBlock ? startBlock.type : null;
-    if (targetState.type === startType) return;
+    const targetType = targetState ? targetState.type : null;
+
+    const isStartAir = isAir(startType);
+    const isTargetAir = isAir(targetType);
+
+    // Evitar bucles infinitos si pintamos con lo mismo que ya hay o si ambos son "aire"
+    if ((isStartAir && isTargetAir) || (!isStartAir && startType === targetType)) return;
     
     historyManager.startAction();
-    const maxPixels = 2000; let pixelsChanged = 0;
-    const queue = [[startX, startY]]; const visited = new Set();
+    const maxPixels = 2000; 
+    let pixelsChanged = 0;
+    const queue = [[startX, startY]]; 
+    const visited = new Set();
     
     while(queue.length > 0) {
         if (pixelsChanged > maxPixels) break;
         const [x, y] = queue.shift();
         const key = x + "," + y;
-        if (visited.has(key)) continue; visited.add(key);
-        if (x < 0 || x >= mbwom.scene.length || y < 0 || y > 500) continue;
+        
+        if (visited.has(key)) continue; 
+        visited.add(key);
+        
+        // ✨ FIX: Límites dinámicos correctos (Cambiamos el símbolo a Y > 2000)
+        const maxWidth = (mbwom.scene && mbwom.scene.length) ? mbwom.scene.length : 100000;
+        if (x < 0 || x >= maxWidth || y < 0 || y > 2000) continue;
+        
         const currentBlock = mbwom.getBlockState(x, y);
         const currentType = currentBlock ? currentBlock.type : null;
-        if (currentType === startType) {
+        const isCurrentAir = isAir(currentType);
+
+        // Verificamos si es el mismo bloque original o si ambos son tipos de "aire"
+        if ((isStartAir && isCurrentAir) || (!isStartAir && currentType === startType)) {
             historyManager.recordChange(x, y, currentBlock, targetState);
-            mbwom.setBlockState(x, y, targetState);
-            renderBlock(x, y);
+            
+            // Si el bloque que pintamos es "aire" (borrador), eliminamos la referencia limpia
+            if (isTargetAir) {
+                if (mbwom.scene[x]) delete mbwom.scene[x][y];
+            } else {
+                mbwom.setBlockState(x, y, targetState);
+            }
+            
+            if (typeof renderBlock === 'function') renderBlock(x, y);
             pixelsChanged++;
+            
+            // Agregamos los vecinos a la cola
             queue.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
         }
     }
+    
+    // Forzar redibujado
+    if (typeof worldDirty !== 'undefined') worldDirty = true;
     historyManager.commitAction();
 
     // ✨ MULTIPLAYER: Avisar a la red para que el amigo ejecute el balde
@@ -726,3 +931,5 @@ function toggleSetSpawnMode() {
         if (canvas) canvas.style.cursor = "default";
     }
 }
+
+
