@@ -67,7 +67,7 @@ const i18n = {
         "tooltip_days_passed": "Days passed (Read Only)",
         "lbl_time": "Time:",
         "lbl_live_time": "Live Time",
-        "lbl_weather": "Weather:",
+        "lbl_weather": "Weather",
         "weather_clear": "Clear",
         "weather_rain": "Rain",
         "weather_thunder": "Thunder",

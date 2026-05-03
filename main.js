@@ -31,7 +31,7 @@ let tileSize = BASE_TILE_SIZE;
 
 // --- IMÁGENES GLOBALES ---
 // Agrega aquí los nombres de los PNGs que vayas metiendo a la carpeta assets/
-window.images = { names: ["blocks", "hotbar", "slot", "zombie", "skeleton", "creeper", "enderman", "nethereye", "enderdragon", "pig", "cow", "chicken", "Player", "slime", "magmacube", "chicken", "blaze", "squid", "ghast", "rabbit", "cowctus cow", "mushroom cow", "dog", "sheep", "snowgolem", "wolf", "spider", "snowgolem", "zombiepigman", "bat", "zombie_supremo"] };
+window.images = { names: ["blocks", "hotbar", "slot", "nether-bg", "end-bg", "zombie", "skeleton", "creeper", "enderman", "nethereye", "enderdragon", "pig", "cow", "chicken", "Player", "slime", "magmacube", "chicken", "blaze", "squid", "ghast", "rabbit", "cowctus cow", "mushroom cow", "dog", "sheep", "snowgolem", "wolf", "spider", "snowgolem", "zombiepigman", "bat", "zombie_supremo"] };
 
 window.images.names.forEach((name) => {
     window.images[name] = new Image();
@@ -127,6 +127,14 @@ function toggleGrid(enabled) {
     worldDirty = true;
 }
 
+// ✨ VARIABLE Y FUNCIÓN PARA CONTROLAR LOS FONDOS
+window.showDimBackgrounds = true;
+
+window.toggleDimBackgrounds = function(enabled) {
+    window.showDimBackgrounds = enabled;
+    worldDirty = true; // Forzamos al motor a redibujar el canvas al instante
+};
+
 function initializeWorldCache() {
     window.worldCache = [];
     
@@ -163,9 +171,26 @@ function drawBlock(texture, values, targetCtx = ctx) {
 }
 
 function renderWorldToBuffer() {
-    offscreenCtx.fillStyle = "#778fa5";
+    offscreenCtx.fillStyle = "#778fa5"; // Color base por defecto
     offscreenCtx.fillRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
 
+    // 1. Detectamos la dimensión activa
+    let currentScene = 1;
+    if (typeof mbwom !== 'undefined') {
+        currentScene = mbwom.currentScene || 1; 
+    }
+
+    // ✨ 2. Dibujamos el fondo correcto SOLO si la casilla está activada
+    if (window.showDimBackgrounds) {
+        if (currentScene === 2 && window.images['nether-bg'] && window.images['nether-bg'].complete) {
+            offscreenCtx.drawImage(window.images['nether-bg'], 0, 0, offscreenCanvas.width, offscreenCanvas.height);
+        } 
+        else if (currentScene === 3 && window.images['end-bg'] && window.images['end-bg'].complete) {
+            offscreenCtx.drawImage(window.images['end-bg'], 0, 0, offscreenCanvas.width, offscreenCanvas.height);
+        }
+    }
+
+    // 3. Dibujamos los bloques
     for (let x = 0; x < grid.width; x++) {
         for (let y = 0; y < grid.height; y++) {
             const currentX = Math.floor(x + camera.x);
@@ -184,6 +209,7 @@ function renderWorldToBuffer() {
         }
     }
     
+    // 4. Dibujamos la cuadrícula si está activada
     if (showGrid) {
         offscreenCtx.strokeStyle = "rgba(255, 255, 255, 0.2)";
         offscreenCtx.lineWidth = 1;
@@ -201,7 +227,6 @@ function renderWorldToBuffer() {
         offscreenCtx.stroke();
     }
 }
-
 
 function drawWorld() {
     // Optimización: Aplicar Math.floor para redibujar el buffer solo al cruzar enteros
@@ -876,6 +901,10 @@ function changeDimension(sceneIndex) {
         // Verificar si la escena existe (scene1, scene2, scene3)
         if (mbwom.world["scene" + sceneIndex]) {
             mbwom.loadScene(sceneIndex);
+            
+            // ✨ AQUÍ ESTÁ EL CAMBIO: Le decimos al motor en qué dimensión estamos ✨
+            mbwom.currentScene = sceneIndex; 
+            
             initializeWorldCache(); // Recargar caché visual
             closeModal('dimensions-modal'); // Cerrar el modal
             
@@ -901,7 +930,6 @@ function changeDimension(sceneIndex) {
         }
     }
 }
-
 
 // ==========================================
 // ✨ LÓGICA DEL MODAL MULTIJUGADOR (WIZARD)

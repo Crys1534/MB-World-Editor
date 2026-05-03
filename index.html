@@ -500,7 +500,7 @@
                         <label class="lbl-check-small text-accent"><input type="checkbox" id="live-time-toggle" onchange="toggleLiveTime(this)"> ⏱️ <span data-i18n="lbl_live_time">Live Time</span></label>
                     </div>
                     <div class="rg-row-between">
-                        <label class="lbl-small" data-i18n="lbl_weather">Weather:</label>
+                        <label class="lbl-small" data-i18n="lbl_weather">Weather</label>
                         <select id="gr-weather" class="input-tiny w-60">
                             <option value="clear" data-i18n="weather_clear" selected>Clear</option><option value="rain" data-i18n="weather_rain">Rain</option><option value="thunder" data-i18n="weather_thunder">Thunder</option>
                         </select>
@@ -651,6 +651,21 @@
             </label>
             <div class="ribbon-group-label" data-i18n="lbl_weather">Weather</div>
         </div>
+		
+		<!-- ✨ NUEVO: SEPARADOR Y BOTÓN DE FONDOS DE DIMENSIÓN ✨ -->
+        <div class="separator"></div>
+		
+        <div class="ribbon-group">
+            <label class="ribbon-group-content rg-col-center gap-2 pointer">
+                <span class="icon-24 m-auto">🌌</span>
+                <div class="rg-row-center gap-5 lbl-small">
+                    <input type="checkbox" id="show-dim-bg" checked onchange="toggleDimBackgrounds(this.checked)"> 
+                    <span>Dims.<br>Backgrounds</span>
+                </div>
+            </label>
+            <div class="ribbon-group-label">Backgrounds</div>
+        </div>
+		
     </div>
 
   </div> 
@@ -1367,7 +1382,7 @@ window.addEventListener('DOMContentLoaded', () => {
             
             <div style="position: absolute; bottom: 10px; left: 15px; font-size: 11px; color: gray; font-family: monospace;">
                 <span data-i18n="about_last_update">Last Update:</span> May 2, 2026<br>
-                v2.4 - Snapshot 5
+                v2.4 - Snapshot 6
             </div>
             <div style="position: absolute; bottom: 10px; right: 15px; font-size: 12px; color: gray; font-weight: bold;">
                 2026
