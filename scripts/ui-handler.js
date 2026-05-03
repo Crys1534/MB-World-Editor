@@ -2079,7 +2079,7 @@ function toggleWeatherAnimation(isChecked) {
 // ==========================================
 
 // 1. Sincronizar el nombre en todas partes
-function updateFilename(newName) {
+window.updateFilename = function(newName) {
     // A) Actualizar el input de la barra superior (Top bar)
     const topInput = document.getElementById('filename-display');
     if (topInput && topInput.value !== newName) {
@@ -2092,18 +2092,33 @@ function updateFilename(newName) {
         sidebarInput.value = newName;
     }
     
-    // C) Actualizar la pestaña activa en world-tabs
-    const activeWorldTab = document.querySelector('#world-tabs .active');
-    if (activeWorldTab) {
-        // Asumiendo que el texto está directo en la pestaña. Si usas un span con clase, cámbialo aquí
-        activeWorldTab.textContent = newName; 
+    // ✨ C) EL FIX: Actualizar la memoria del sistema de pestañas
+    if (typeof WorldTabsManager !== 'undefined' && WorldTabsManager.activeWorldId) {
+        const activeWorld = WorldTabsManager.openWorlds.find(w => w.id === WorldTabsManager.activeWorldId);
+        if (activeWorld) {
+            // Guardamos el nuevo nombre en la memoria, asegurando que tenga su extensión .mbw
+            activeWorld.filename = newName.endsWith('.mbw') ? newName : newName + '.mbw';
+            
+            // Actualizamos la pestaña visual (buscando el span interno correcto)
+            const nameSpan = document.querySelector('.world-tab.active .world-tab-name');
+            if (nameSpan) {
+                nameSpan.innerText = activeWorld.filename;
+                nameSpan.title = activeWorld.filename; // Actualiza el tooltip al pasar el mouse
+            }
+        }
     }
     
-    // D) Actualizar la variable interna del mundo (si existe)
-    if (typeof fileInfo !== 'undefined' && fileInfo !== null) {
-        fileInfo.name = newName;
+    // D) Actualizar la variable global fileInfo
+    if (typeof window.fileInfo !== 'undefined' && window.fileInfo !== null) {
+        window.fileInfo.name = newName;
     }
-}
+    
+    // ✨ E) Doble seguro: Actualizar el fileInfo profundo del mundo para que se guarde en el archivo final
+    if (typeof mbwom !== 'undefined' && mbwom.world) {
+        if (!mbwom.world.fileInfo) mbwom.world.fileInfo = {};
+        mbwom.world.fileInfo.name = newName;
+    }
+};
 
 // 2. Editar la Semilla (Seed) en tiempo real
 function updateSeed(newSeed) {
