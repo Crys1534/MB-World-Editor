@@ -1332,9 +1332,20 @@ const WorldTabsManager = {
     // LÓGICA DE MEMORIA RAM (SAVE / LOAD)
     // ==========================================
 
-    saveCurrentWorldStateToMemory: function(id) {
+saveCurrentWorldStateToMemory: function(id) {
         const world = this.openWorlds.find(w => w.id === id);
         if (!world) return;
+
+        // ✨ FIX: Sincronizar el lienzo antes de cambiar de pestaña 
+        // para que el Auto-Save no guarde mapas obsoletos en el fondo
+        let currentScene = (typeof mbwom.currentScene !== 'undefined') ? mbwom.currentScene : 1;
+        if (typeof mbwom !== 'undefined' && mbwom.sceneList && mbwom.world) {
+            mbwom.sceneList.forEach(key => {
+                if (mbwom[key] !== undefined) {
+                    mbwom.world[key + currentScene] = mbwom[key];
+                }
+            });
+        }
 
         // Clonamos las variables del mundo de Mine Blocks
         world.mbwomData = this.cloneData(mbwom);
@@ -1344,7 +1355,7 @@ const WorldTabsManager = {
             world.cameraData = { x: camera.x, y: camera.y, zoom: camera.zoom };
         }
         
-        // Clonamos el historial (Para no perder los Ctrl+Z de esta pestaña)
+        // Clonamos el historial
         if (typeof historyManager !== 'undefined') {
             world.historyData = {
                 undoStack: this.cloneData(historyManager.undoStack),
@@ -1352,7 +1363,7 @@ const WorldTabsManager = {
             };
         }
     },
-
+	
     loadWorldStateFromMemory: function(id) {
         const world = this.openWorlds.find(w => w.id === id);
         if (!world) return;

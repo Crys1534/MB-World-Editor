@@ -1035,8 +1035,8 @@ button:hover {
 .world-tab {
     display: flex;
     align-items: center;
-    background-color: #2d2d2d; 
-    color: #999;
+    background-color: #1e293b80; 
+    color: #99999991;
     padding: 6px 12px;
     font-size: 12px;
     font-family: 'Segoe UI', sans-serif;
@@ -1052,7 +1052,7 @@ button:hover {
 }
 
 .world-tab:hover {
-    background-color: #383838;
+    background-color: #1e293b;
     color: #ccc;
 }
 

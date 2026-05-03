@@ -181,9 +181,20 @@ const fileManager = {
   }
  },
 
- // ✨ LA LÓGICA DE EMPAQUETADO
- prepareData: function() {
-    if (!mbwom.world) return null;
+prepareData: function() {
+    // ✨ FIX 1: Si empezamos un mundo de cero, creamos el contenedor para evitar bloqueos
+    if (!mbwom.world) mbwom.world = {};
+
+    // ✨ FIX 2 (CRÍTICO): Sincronizamos la RAM visual con el motor de guardado
+    // Esto repara el error donde los bloques no se guardaban al usar pestañas
+    let currentScene = (typeof mbwom.currentScene !== 'undefined') ? mbwom.currentScene : 1;
+    if (typeof mbwom !== 'undefined' && mbwom.sceneList) {
+        mbwom.sceneList.forEach(key => {
+            if (mbwom[key] !== undefined) {
+                mbwom.world[key + currentScene] = mbwom[key];
+            }
+        });
+    }
 
     const gamemodeEl = document.getElementById("gamemode");
     const cheatsEl = document.getElementById("cheats");
@@ -248,19 +259,17 @@ const fileManager = {
         baseName = filenameInput.value.trim();
     }
 
-    if (!window.fileInfo) window.fileInfo = { version: "", seed: "", author: "" };
+    if (!window.fileInfo) window.fileInfo = { version: "1.31.2", seed: "", author: "" };
     window.fileInfo.name = baseName;
     const authorInput = document.getElementById("sidebar-world-author");
     
-    // ✨ MAGIA DE AUTORÍA: 
-    // Intenta usar el autor escrito en el Sidebar. Si está vacío, usa el nombre del Perfil Global.
     let finalAuthor = "";
     if (authorInput && authorInput.value.trim() !== "") {
         finalAuthor = authorInput.value.trim();
     } else {
         const profileName = localStorage.getItem('mbw_username');
         if (profileName && profileName !== "Username") {
-            finalAuthor = profileName; // Asigna el nombre si no es el default "Username"
+            finalAuthor = profileName; 
         }
     }
     
@@ -308,7 +317,7 @@ const fileManager = {
     
     return { name: baseName, textData: text };
  },
-
+ 
  export: function () {
     const data = this.prepareData();
     if (!data) { alert("No hay mundo cargado."); return; }
@@ -384,7 +393,8 @@ function limpiarMundoParaGuardar() {
             if (!col || !Array.isArray(col)) continue;
             while (col.length > 0) {
                 let ultimoBloque = col[col.length - 1];
-                if (!ultimoBloque || ultimoBloque === null || ultimoBloque.type === null || ultimoBloque.type === "air" || ultimoBloque.type === 0 || ultimoBloque.type === "0") {
+                // ✨ FIX: En Mine Blocks el array scene contiene STRINGS puros, no objetos
+                if (!ultimoBloque || ultimoBloque === "air" || ultimoBloque === 0 || ultimoBloque === "0") {
                     col.pop(); 
                     eliminados++;
                 } else {
@@ -393,7 +403,8 @@ function limpiarMundoParaGuardar() {
             }
             for (let y = 0; y < col.length; y++) {
                 let b = col[y];
-                if (b && (b.type === "air" || b.type === 0 || b.type === "0" || b.type === "")) {
+                // ✨ FIX: Validación reparada
+                if (b === "air" || b === 0 || b === "0" || b === "") {
                     col[y] = null; 
                     eliminados++;
                 }
@@ -401,13 +412,12 @@ function limpiarMundoParaGuardar() {
         }
     }
 
-    // 2. ✨ NUEVA LIMPIEZA: Eliminar basura acumulada en "toGrow" (LA QUE FALTABA)
+    // 2. Limpieza de toGrow
     let toGrowEliminados = 0;
     for (let s = 1; s <= 3; s++) {
         let toGrow = mbwom.world["toGrow" + s];
         if (toGrow) {
             for (let key in toGrow) {
-                // Si la coordenada está vacía (null), la borramos del registro por completo
                 if (toGrow[key] === null) {
                     delete toGrow[key];
                     toGrowEliminados++;
