@@ -332,6 +332,38 @@ prepareData: function() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
  },
+ 
+ saveAs: async function() {
+    const data = this.prepareData();
+    if (!data) { alert("No hay mundo cargado para exportar."); return; }
+
+    try {
+        // Verificamos si el navegador soporta la API moderna de Guardar Como
+        if (window.showSaveFilePicker) {
+            const handle = await window.showSaveFilePicker({
+                suggestedName: data.name + ".mbw",
+                types: [{
+                    description: 'Mine Blocks World',
+                    accept: {'text/plain': ['.mbw']},
+                }],
+            });
+            const writable = await handle.createWritable();
+            await writable.write(data.textData);
+            await writable.close();
+            console.log("¡Archivo físico guardado con éxito en la PC!");
+        } else {
+            // Fallback: Si el usuario usa un navegador viejo (o Firefox), se descarga normalmente
+            alert("Tu navegador no soporta elegir la carpeta exacta. Se descargará en Descargas.");
+            this.export();
+        }
+    } catch (err) {
+        // Si el usuario cancela o cierra la ventana de Windows, lo ignoramos silenciosamente
+        if (err.name !== 'AbortError') {
+            console.error("Error en Save As:", err);
+            alert("Ocurrió un error al intentar guardar el archivo.");
+        }
+    }
+ },
 
 saveLocal: async function(isAutoSave = false) {
     const data = this.prepareData();
@@ -470,7 +502,7 @@ dropZone.addEventListener('drop', (e) => {
 });
 
 // ==============================================================
-// ✨ MOTOR DE BASE DE DATOS LOCAL (IndexedDB)
+// ✨ MOTOR DE BASE DE DATOS LOCAL (IndexedDB) CON BACKUPS
 // ==============================================================
 const localDB = {
     dbName: "MBEditorDB",
@@ -489,12 +521,47 @@ const localDB = {
             request.onerror = (e) => reject(e.target.error);
         });
     },
+    
     saveWorld: async function(name, dataString, thumbnail = "", fileInfo = {}) {
         let db = await this.init();
-        let transaction = db.transaction(this.storeName, "readwrite");
-        let store = transaction.objectStore(this.storeName);
-        store.put({ name: name, data: dataString, date: Date.now(), thumb: thumbnail, fileInfo: fileInfo });
+        return new Promise((resolve, reject) => {
+            let transaction = db.transaction(this.storeName, "readwrite");
+            let store = transaction.objectStore(this.storeName);
+            
+            // 1. Buscamos si el mundo ya existe para ver su estado actual
+            let request = store.get(name);
+            request.onsuccess = (e) => {
+                let existing = e.target.result;
+                let backups = (existing && existing.backups) ? existing.backups : [];
+                
+                // 2. Si el mundo ya existía y tiene datos nuevos, empujamos el viejo estado a los backups
+                if (existing && existing.data && existing.data !== dataString) {
+                    backups.push({
+                        data: existing.data,
+                        date: existing.date,
+                        thumb: existing.thumb
+                    });
+                    // 3. Mantenemos el límite estricto de 10 versiones
+                    if (backups.length > 10) backups.shift(); 
+                }
+                
+                // 4. Guardamos el nuevo estado, adjuntando la lista de backups
+                let putReq = store.put({ 
+                    name: name, 
+                    data: dataString, 
+                    date: Date.now(), 
+                    thumb: thumbnail, 
+                    fileInfo: fileInfo,
+                    backups: backups 
+                });
+                
+                putReq.onsuccess = () => resolve();
+                putReq.onerror = (err) => reject(err.target.error);
+            };
+            request.onerror = (err) => reject(err.target.error);
+        });
     },
+    
     getWorlds: async function() {
         let db = await this.init();
         return new Promise((resolve, reject) => {
@@ -503,6 +570,7 @@ const localDB = {
             request.onerror = () => reject(request.error);
         });
     },
+    
     loadWorld: async function(name) {
         let db = await this.init();
         return new Promise((resolve, reject) => {
@@ -511,6 +579,7 @@ const localDB = {
             request.onerror = () => reject(request.error);
         });
     },
+    
     deleteWorld: async function(name) {
         let db = await this.init();
         let transaction = db.transaction(this.storeName, "readwrite");
@@ -749,3 +818,121 @@ function stopAutoSaveInterval() {
     }
     console.log("⏱️ Auto save disabled y borrado de memoria.");
 }
+
+
+// ==============================================================
+// ✨ SISTEMA DE RESTAURACIÓN DE VERSIONES (MÁQUINA DEL TIEMPO) ✨
+// ==============================================================
+
+window.openBackupsModal = async function(worldName) {
+    let modal = document.getElementById('backups-modal');
+    
+    // Inyectamos la ventana si no existe
+    if (!modal) {
+        const modalHTML = `
+        <div id="backups-modal" class="modal" style="display:none; position:fixed; z-index:9999999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.7); align-items:center; justify-content:center;">
+            <div class="mbw-standard-modal" style="width: 500px; max-height: 80vh; display: flex; flex-direction: column;">
+                <div class="mbw-modal-header">
+                    <h3>🕒 Version History: <span id="backups-world-name" style="color: #4DA6FF;"></span></h3>
+                    <span class="mbw-close-btn" onclick="closeModal('backups-modal')">&times;</span>
+                </div>
+                <div class="mbw-modal-body" id="backups-list-container" style="overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+                    <!-- Los backups cargarán aquí -->
+                </div>
+            </div>
+        </div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        modal = document.getElementById('backups-modal');
+    }
+    
+    document.getElementById('backups-world-name').innerText = worldName;
+    const container = document.getElementById('backups-list-container');
+    container.innerHTML = '<p style="text-align:center; color: #333;">Searching for older versions...</p>';
+    
+    modal.style.display = 'flex';
+    
+    try {
+        let db = await localDB.init();
+        let request = db.transaction(localDB.storeName, "readonly").objectStore(localDB.storeName).get(worldName);
+        
+        request.onsuccess = () => {
+            const world = request.result;
+            if (!world || !world.backups || world.backups.length === 0) {
+                container.innerHTML = '<div style="text-align:center; padding: 40px; color: #555;"><span style="font-size: 40px; opacity:0.5;">📭</span><br><b>No previous versions found.</b><br>Play and save your world a few times to generate backups.</div>';
+                return;
+            }
+            
+            container.innerHTML = '';
+            
+            // Invertimos el array para que el guardado más reciente salga primero
+            const reversedBackups = [...world.backups].reverse();
+            
+            reversedBackups.forEach((bkp, i) => {
+                const realIndex = world.backups.length - 1 - i;
+                const dateObj = new Date(bkp.date);
+                const dateStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString();
+                const bytes = new Blob([bkp.data]).size;
+                const sizeStr = typeof window.formatBytes === 'function' ? window.formatBytes(bytes) : (bytes/1024).toFixed(2) + " KB";
+                
+                const div = document.createElement('div');
+                div.style = "display:flex; justify-content:space-between; align-items:center; background:#8B8B8B; border: 2px solid #555; padding:10px; border-radius: 4px; color: white;";
+                div.innerHTML = `
+                    <div>
+                        <div style="font-weight:bold; font-size:16px; color:#000;">Version ${world.backups.length - i}</div>
+                        <div style="font-size:12px; color:#333; font-weight:bold;">📅 ${dateStr} &nbsp;•&nbsp; 📄 ${sizeStr}</div>
+                    </div>
+                    <button onclick="restoreWorldBackup('${worldName}', ${realIndex})" style="background:#f39c12; color:black; border:2px solid #e67e22; padding:6px 12px; font-weight:bold; cursor:pointer; border-radius:4px; font-size: 14px;" onmouseover="this.style.background='#e67e22'" onmouseout="this.style.background='#f39c12'">Restore</button>
+                `;
+                container.appendChild(div);
+            });
+        };
+    } catch (err) {
+        container.innerHTML = '<p style="text-align:center; color:#e74c3c; font-weight:bold;">Error loading backups.</p>';
+    }
+};
+
+window.restoreWorldBackup = async function(worldName, backupIndex) {
+    if (!confirm("⚠️ WARNING!\n\nAre you sure you want to restore this version? Your CURRENT progress in this world will be overwritten!")) return;
+    
+    try {
+        let db = await localDB.init();
+        let tx = db.transaction(localDB.storeName, "readwrite");
+        let store = tx.objectStore(localDB.storeName);
+        
+        let getReq = store.get(worldName);
+        getReq.onsuccess = async () => {
+            let world = getReq.result;
+            if (world && world.backups && world.backups[backupIndex]) {
+                const targetBackup = world.backups[backupIndex];
+                
+                // Medida de seguridad: el estado "destruido/actual" se va al fondo de los backups por si el usuario se arrepiente
+                world.backups.push({
+                    data: world.data,
+                    date: world.date,
+                    thumb: world.thumb
+                });
+                if (world.backups.length > 10) world.backups.shift(); 
+                
+                // Sustituimos los datos principales por los del backup
+                world.data = targetBackup.data;
+                world.date = Date.now(); // Marca de tiempo nueva
+                world.thumb = targetBackup.thumb;
+                
+                let putReq = store.put(world);
+                putReq.onsuccess = () => {
+                    closeModal('backups-modal');
+                    alert("✅ Time Machine successful! The world has been restored.");
+                    
+                    // Cargamos el mundo en el mapa y cerramos el menú
+                    if (typeof loadSavedLocalWorld === 'function') {
+                        loadSavedLocalWorld(worldName);
+                        if (typeof closeFileMenu === 'function') closeFileMenu();
+                    }
+                };
+            }
+        };
+    } catch (err) {
+        alert("Error restoring backup.");
+        console.error(err);
+    }
+};

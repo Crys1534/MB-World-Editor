@@ -280,8 +280,14 @@ if (document.readyState === "loading") {
 function createUnifiedWorldCard(data) {
     let imageStyle = data.image ? `background-image: url('${data.image}');` : '';
     let fallbackIcon = data.image ? '' : '<span style="font-size:60px; opacity:0.3; color: var(--text);">🌍</span>';
+    
+    // Botón de Borrar (Rojo)
     let deleteBtnHTML = !data.isTemplate ? `<button class="delete-btn" onclick="event.stopPropagation(); deleteSavedLocalWorld('${data.name}');" style="position: absolute; top: 10px; right: 10px; background: rgba(231, 76, 60, 0.9); color: white; border: 2px solid #c0392b; border-radius: 4px; width: 34px; height: 34px; font-size: 18px; cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.5);" data-i18n-title="tooltip_delete_world" title="Delete World">🗑️</button>` : '';
-    return `<div class="template-card" style="position: relative;">${deleteBtnHTML}<div class="template-thumb" style="${imageStyle}" onclick="${data.onClick}">${fallbackIcon}</div><div class="template-info" onclick="${data.onClick}"><div class="t-name" title="${data.name}">${data.name}</div><div class="t-meta"><b><span data-i18n="side_info_version">Version:</span></b> ${data.version || ""}</div><div class="t-meta"><b><span data-i18n="side_info_author">Author:</span></b> ${data.author || ""}</div>${data.dateStr ? `<div class="t-meta">📆 ${data.dateStr}</div>` : ''}${data.sizeStr ? `<div class="t-meta">📄 ${data.sizeStr}</div>` : ''}</div></div>`;
+    
+    // ✨ NUEVO: Botón de Historial/Backups (Azul)
+    let historyBtnHTML = !data.isTemplate ? `<button class="history-btn delete-btn" onclick="event.stopPropagation(); openBackupsModal('${data.name}');" style="position: absolute; top: 10px; right: 50px; background: rgba(52, 152, 219, 0.9); color: white; border: 2px solid #2980b9; border-radius: 4px; width: 34px; height: 34px; font-size: 18px; cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.5);" title="Restore Version">🕒</button>` : '';
+    
+    return `<div class="template-card" style="position: relative;">${deleteBtnHTML}${historyBtnHTML}<div class="template-thumb" style="${imageStyle}" onclick="${data.onClick}">${fallbackIcon}</div><div class="template-info" onclick="${data.onClick}"><div class="t-name" title="${data.name}">${data.name}</div><div class="t-meta"><b><span data-i18n="side_info_version">Version:</span></b> ${data.version || ""}</div><div class="t-meta"><b><span data-i18n="side_info_author">Author:</span></b> ${data.author || ""}</div>${data.dateStr ? `<div class="t-meta">📆 ${data.dateStr}</div>` : ''}${data.sizeStr ? `<div class="t-meta">📄 ${data.sizeStr}</div>` : ''}</div></div>`;
 }
 
 window.openFileMenu = function() {

@@ -384,7 +384,21 @@
     <button class="tab-btn" onclick="openTab('create')" data-i18n="tab_create">Create</button>
     <button class="tab-btn" onclick="openTab('view')" data-i18n="tab_view">View</button>
     
-    <button class="btn-ribbon-export" onclick="fileManager.export()">💾 <span data-i18n="btn_export">Export</span></button>
+    <!-- ✨ BOTÓN DIVIDIDO: EXPORT / SAVE AS ✨ -->
+        <div class="dropdown-container" id="export-dropdown-container" style="margin-left: auto; margin-bottom: 4px; align-self: flex-end; display: flex;">
+            <!-- Parte Izquierda: Exportación normal -->
+            <button class="btn-ribbon-export" onclick="if(typeof fileManager !== 'undefined') fileManager.export();" style="margin: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: 1px solid #777;" title="Quick Export">
+                <span data-i18n="btn_export">Export</span>
+            </button>
+            <!-- Parte Derecha: Flechita desplegable -->
+            <button class="btn-ribbon-export" onclick="toggleExportMenu()" style="margin: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; padding: 4px 8px;" title="More options">
+                ▼
+            </button>
+            <!-- El menú que se despliega -->
+            <div id="export-dropdown" class="dropdown-content" style="top: 100%; right: 0; left: auto; min-width: 150px; font-weight: bold; margin-top: 2px;">
+                <a href="#" onclick="if(typeof fileManager !== 'undefined') fileManager.saveAs(); closeExportMenu();">💾 Save As...</a>
+            </div>
+        </div>
     <button id="btn-world-info" class="tab-btn btn-ribbon-info" onclick="toggleWorldInfo()" disabled><span data-i18n="btn_world_info">World Info</span></button>
   </div>
 
@@ -1382,7 +1396,7 @@ window.addEventListener('DOMContentLoaded', () => {
             
             <div style="position: absolute; bottom: 10px; left: 15px; font-size: 11px; color: gray; font-family: monospace;">
                 <span data-i18n="about_last_update">Last Update:</span> May 3, 2026<br>
-                v2.4 - Snapshot 10
+                v2.4 - Snapshot 11
             </div>
             <div style="position: absolute; bottom: 10px; right: 15px; font-size: 12px; color: gray; font-weight: bold;">
                 2026

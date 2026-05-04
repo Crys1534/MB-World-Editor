@@ -3198,3 +3198,25 @@ window.addEventListener('DOMContentLoaded', () => {
         }, 300);
     }
 });
+
+
+// ==========================================
+// ✨ MENÚ DESPLEGABLE DE EXPORTACIÓN
+// ==========================================
+window.toggleExportMenu = function() {
+    document.getElementById("export-dropdown").classList.toggle("show");
+};
+
+window.closeExportMenu = function() {
+    let dropdown = document.getElementById("export-dropdown");
+    if (dropdown && dropdown.classList.contains('show')) {
+        dropdown.classList.remove("show");
+    }
+};
+
+// Cerrar el menú si el usuario hace clic en cualquier otra parte de la pantalla
+document.addEventListener('click', function(event) {
+    if (!event.target.closest('#export-dropdown-container')) {
+        if (typeof closeExportMenu === 'function') closeExportMenu();
+    }
+});
