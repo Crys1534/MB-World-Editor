@@ -388,7 +388,7 @@ saveLocal: async function(isAutoSave = false) {
     await localDB.saveWorld(data.name, data.textData, thumbnailBase64, window.fileInfo);
     
     if (!isAutoSave) {
-        alert(`¡Mundo "${data.name}" guardado exitosamente en tu navegador!`);
+        
     } else {
         console.log(`[Auto-Save] Mundo "${data.name}" saving at ${new Date().toLocaleTimeString()}`);
         const toast = document.createElement('div');
