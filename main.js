@@ -361,11 +361,26 @@ function drawMobs() {
                 ctx.translate(screenX, screenY);
                 if (mob.direction === 1) ctx.scale(-1, 1);
                 ctx.imageSmoothingEnabled = false;
+
+                // ✨ LA MAGIA DEL RECORTE (SPRITE CROPPING) ✨
+                let sourceX = 0;
+                let sourceY = 0;
+                let sourceWidth = mobImg.naturalWidth;
+                let sourceHeight = mobImg.naturalHeight;
+
+                // Si es un spawnskin, ignoramos el tamaño de la hoja de sprites
+                // y "recortamos" estrictamente el rectángulo de 16x22px
+                if (isCustomSkin) {
+                    sourceWidth = 16;
+                    sourceHeight = 22;
+                }
+
                 ctx.drawImage(
                     mobImg, 
-                    0, 0, mobImg.naturalWidth, mobImg.naturalHeight,
-                    -(mobWidth / 2), -mobHeight, mobWidth, mobHeight 
+                    sourceX, sourceY, sourceWidth, sourceHeight,     // QUÉ parte de la imagen original tomar
+                    -(mobWidth / 2), -mobHeight, mobWidth, mobHeight // DÓNDE y de qué tamaño dibujarlo en el Canvas
                 );
+                
                 ctx.restore(); 
 
                 // Si falló y estamos usando la textura de reemplazo, avisamos
@@ -622,30 +637,34 @@ function drawUI() {
         ctx.stroke(); 
     }
 
-    if (currentTool === 'paste' && window.clipboard) {
+    // --- ✨ PREVIEW FANTASMA DEL PIXEL ART ---
+    if (typeof currentTool !== 'undefined' && currentTool === 'pixelart' && window.pendingPixelArt && window.pendingPixelArt.imgCanvas) {
         ctx.save();
-        ctx.globalAlpha = 0.5;
+        ctx.globalAlpha = 0.5; // 70% de visibilidad fantasma
+        ctx.imageSmoothingEnabled = false; // Mantiene los píxeles nítidos
 
-        window.clipboard.data.forEach(blockData => {
-            if (!blockData.state) return;
-            const absX = mouse.worldX + blockData.dx;
-            const absY = mouse.worldY + blockData.dy;
-            
-            const screenX = (absX - camera.x) * tileSize;
-            const screenY = canvas.height - (absY - camera.y) * tileSize;
+        const startX = Math.floor(mouse.worldX);
+        const startY = Math.floor(mouse.worldY);
 
-            const values = { x: screenX, y: screenY, width: tileSize, height: -tileSize };
-            const texture = getBlockObject(blockData.state);
-            drawBlock(texture, values);
-        });
+        const screenX = (startX - camera.x) * tileSize;
+        // startY es la fila superior. Su esquina superior en pantalla está a -tileSize
+        const screenY = canvas.height - (startY - camera.y) * tileSize;
+        const drawY = screenY - tileSize; 
+
+        const drawWidth = window.pendingPixelArt.width * tileSize;
+        const drawHeight = window.pendingPixelArt.height * tileSize;
+
+        // Dibujamos la imagen completa sobre el mapa
+        ctx.drawImage(window.pendingPixelArt.imgCanvas, screenX, drawY, drawWidth, drawHeight);
+
+        // Agregamos un borde animado para que resalte
+        ctx.strokeStyle = "#FFD700"; // Borde Dorado
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 6]);
+        ctx.lineDashOffset = -(Date.now() / 50); // Animación estilo Photoshop
+        ctx.strokeRect(screenX, drawY, drawWidth, drawHeight);
         
         ctx.restore();
-
-        const startScreenX = (mouse.worldX - camera.x) * tileSize;
-        const startScreenY = canvas.height - (mouse.worldY - camera.y) * tileSize;
-        ctx.strokeStyle = "#00FFFF";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(startScreenX, startScreenY, window.clipboard.width * tileSize, -(window.clipboard.height * tileSize));
     }
 
 
@@ -1247,7 +1266,8 @@ const skinDB = {
         let db = await this.init();
         return new Promise((resolve, reject) => {
             let tx = db.transaction(this.storeName, "readwrite");
-            tx.objectStore(this.storeName).put(base64Data, id);
+            // ✨ Guardamos la imagen y el TIEMPO EXACTO en el que se subió
+            tx.objectStore(this.storeName).put({ data: base64Data, time: Date.now() }, id);
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject();
         });
@@ -1257,32 +1277,144 @@ const skinDB = {
         return new Promise((resolve, reject) => {
             let tx = db.transaction(this.storeName, "readonly");
             let req = tx.objectStore(this.storeName).get(id);
-            req.onsuccess = () => resolve(req.result);
+            req.onsuccess = () => {
+                let res = req.result;
+                // Retrocompatibilidad: Si es vieja devuelve el texto, si es nueva devuelve res.data
+                resolve(res ? (res.data || res) : null);
+            };
             req.onerror = () => resolve(null);
+        });
+    },
+    // ✨ NUEVO: Extrae todo de una vez y lo ordena por fecha
+    getAllSorted: async function() {
+        let db = await this.init();
+        return new Promise((resolve, reject) => {
+            let tx = db.transaction(this.storeName, "readonly");
+            let store = tx.objectStore(this.storeName);
+            let reqValues = store.getAll();
+            let reqKeys = store.getAllKeys();
+            
+            tx.oncomplete = () => {
+                let values = reqValues.result || [];
+                let keys = reqKeys.result || [];
+                
+                let combined = keys.map((key, index) => {
+                    let val = values[index];
+                    return {
+                        id: key,
+                        time: val.time || 0, // Si es vieja, le pone tiempo 0 (se va al fondo)
+                        base64: val.data || val 
+                    };
+                });
+                
+                // Ordenar: Mayor a menor tiempo (Las más recientes arriba)
+                combined.sort((a, b) => b.time - a.time);
+                resolve(combined);
+            };
+            tx.onerror = () => resolve([]);
         });
     }
 };
 
 // ==========================================
-// 📥 FUNCIÓN PARA IMPORTAR DESDE LA PC
+// 🎨 LÓGICA DEL ADDON DE SPAWNSKINS
 // ==========================================
+
+// Abrir el modal y refrescar la barra lateral
+window.openSpawnskinsModal = function() {
+    if (typeof openModal === 'function') openModal('spawnskins-addon-modal');
+    refreshLoadedSkinsList();
+};
+
+// ==========================================
+// 🔄 ACTUALIZAR LISTA CON PREVIEW (32x44px) Y ORDENADA
+// ==========================================
+window.refreshLoadedSkinsList = async function() {
+    const listDiv = document.getElementById('loaded-skins-list');
+    if (!listDiv) return;
+    
+    listDiv.innerHTML = "<div style='text-align:center; color:#333; font-size:12px; margin-top: 10px;'>Buscando...</div>";
+    
+    try {
+        // ✨ Le pedimos a la bóveda la lista completa ya ORDENADA
+        const skins = await skinDB.getAllSorted();
+        listDiv.innerHTML = "";
+        
+        if (skins.length === 0) {
+            listDiv.innerHTML = "<div style='text-align:center; color:#333; font-size:12px; margin-top: 10px; font-weight: bold;'>Ninguna skin cargada aún</div>";
+            return;
+        }
+        
+        // Iteramos la lista (los más nuevos vienen primero)
+        for (let skin of skins) {
+            const item = document.createElement('div');
+            item.style.cssText = `
+                background: #fff; border: 1px solid #555; padding: 4px 6px; 
+                font-size: 11px; font-family: monospace; color: #000; 
+                border-radius: 3px; font-weight: bold;
+                display: flex; justify-content: space-between; align-items: center;
+            `;
+            
+            const textSpan = document.createElement('span');
+            textSpan.innerText = "📄 " + skin.id + ".png";
+            
+            const previewWrapper = document.createElement('div');
+            previewWrapper.style.cssText = `
+                width: 32px; height: 44px; border: 1px solid #ccc;
+                border-radius: 2px; flex-shrink: 0; overflow: hidden;
+                background: #8B8B8B; 
+            `;
+
+            const previewDiv = document.createElement('div');
+            previewDiv.style.cssText = `
+                width: 16px; height: 22px; 
+                background-image: url('${skin.base64}'); 
+                background-position: left top; background-repeat: no-repeat;
+                image-rendering: pixelated; transform: scale(2);
+                transform-origin: top left;
+            `;
+            
+            previewWrapper.appendChild(previewDiv);
+            item.appendChild(textSpan);
+            item.appendChild(previewWrapper);
+            listDiv.appendChild(item);
+        }
+    } catch (e) {
+        listDiv.innerHTML = "<div style='text-align:center; color:#c0392b; font-size:12px;'>Error al cargar lista</div>";
+    }
+};
+
+// Cerrar el modal y limpiar la lista lateral
+window.closeSpawnskinsModal = function() {
+    // Cerramos el modal usando tu función general
+    if (typeof closeModal === 'function') {
+        closeModal('spawnskins-addon-modal');
+    }
+    
+    // Vaciamos el contenido de la lista para que no consuma memoria en segundo plano
+    const listDiv = document.getElementById('loaded-skins-list');
+    if (listDiv) {
+        listDiv.innerHTML = ""; 
+    }
+};
+
+// 📥 Importación y guardado
 window.importLocalSkins = function(event) {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
     let loadedCount = 0;
     for (let file of files) {
-        // Extraemos el número del nombre del archivo (Ej: "76169.png" -> "76169")
         const skinID = file.name.replace(/\.[^/.]+$/, "");
         
         const reader = new FileReader();
         reader.onload = async function(e) {
-            const base64 = e.target.result; // La imagen convertida a texto seguro
+            const base64 = e.target.result; 
             
-            // 1. La guardamos en la bóveda permanente
+            // Guardar en la base de datos
             await skinDB.saveSkin(skinID, base64);
             
-            // 2. La inyectamos en la memoria RAM (caché) para verla inmediatamente
+            // Refrescar en memoria RAM para el Canvas
             const img = new Image();
             img.onload = () => { if (typeof worldDirty !== 'undefined') worldDirty = true; };
             img.src = base64;
@@ -1292,11 +1424,218 @@ window.importLocalSkins = function(event) {
             
             loadedCount++;
             if (loadedCount === files.length) {
-                alert(`✅ ¡${loadedCount} skins importadas y guardadas en el navegador!`);
-                // Reseteamos el input por si quiere subir más luego
+                // Limpiar el input
                 document.getElementById('skin-upload-input').value = "";
+                
+                // ✨ ACTUALIZAMOS LA BARRA LATERAL AL TERMINAR ✨
+                refreshLoadedSkinsList();
             }
         };
-        reader.readAsDataURL(file); // Leemos el PNG
+        reader.readAsDataURL(file);
     }
 };
+
+// ==========================================
+// 🖼️ ADDON: PIXEL ART AUTO-BUILDER (CORREGIDO)
+// ==========================================
+
+window.openPixelArtModal = function() {
+    if (typeof openModal === 'function') openModal('pixelart-addon-modal');
+};
+
+// ==========================================
+// ✨ PALETA MASIVA DE BLOQUES (RGB Calibrado 1:1 con el Sprite Sheet)
+// ==========================================
+const blockPalette = {
+    // 🧶 LANAS (Colores Base - y:187)
+    "cloth_white": [225, 225, 225], "cloth_lightgray": [160, 160, 160], "cloth_gray": [85, 85, 85],
+    "cloth_black": [25, 25, 25], "cloth_brown": [85, 55, 30], "cloth_purple": [120, 50, 155],
+    "cloth_magenta": [185, 65, 175], "cloth_red": [165, 45, 45], "cloth_orange": [225, 115, 35],
+    "cloth_pink": [235, 140, 165], "cloth_yellow": [225, 200, 45], "cloth_lightgreen": [115, 185, 25],
+    "cloth_green": [65, 105, 35], "cloth_cyan": [45, 115, 135], "cloth_lightblue": [105, 155, 210],
+    "cloth_blue": [45, 60, 150], "cloth_rainbow": [200, 200, 200],
+
+    // 🌍 TIERRA, PIEDRA Y NATURALEZA
+    "br": [80, 80, 80], "r": [120, 120, 120], "cs": [105, 105, 105], "ms": [95, 115, 80],
+    "ms1": [95, 115, 80], "ms2": [95, 115, 80], "dt": [134, 96, 67], "dt_1": [110, 140, 65], 
+    "farm": [102, 70, 46], "myc": [111, 99, 105], "gdt": [119, 85, 58], "cdt": [119, 85, 58],
+    "sb": [218, 210, 158], "sd": [218, 210, 158], "ss": [215, 205, 150], "ssd": [215, 205, 150],
+    "rsd": [190, 100, 30], "rsd_1": [190, 100, 30], "hcl": [150, 95, 65], "gv": [130, 125, 120],
+    "cy1": [160, 166, 179], "snowblock": [240, 250, 250], "ice": [160, 200, 255], 
+    "fice": [160, 200, 255], "fice_1": [160, 200, 255], "fice_2": [160, 200, 255], 
+    "fice_3": [160, 200, 255], "fice_4": [160, 200, 255],
+
+    // 🪵 MADERAS, HOJAS Y CULTIVOS DECORATIVOS
+    "wp": [160, 130, 80], "wd1": [100, 80, 50], "wd_1": [100, 80, 50], "wd_2": [100, 80, 50],
+    "fw1": [100, 80, 50], "fw2": [100, 80, 50], "j": [150, 110, 80], "hai_1": [200, 180, 40],
+    "hay": [200, 170, 30], "hay_1": [200, 170, 30], "hay_2": [200, 170, 30],
+    "lv": [65, 125, 45], "lv1": [70, 110, 50], "lv2": [50, 90, 60], "lv3": [80, 130, 40], "lv4": [60, 100, 40],
+    "lgr": [130, 200, 40], "pk": [220, 140, 30], "pk_2": [220, 140, 30], "pk_3": [220, 140, 30],
+    "pk_4": [220, 140, 30], "pk_5": [220, 140, 30], "pk_6": [220, 140, 30], "pk_7": [220, 140, 30],
+    "pk_8": [220, 140, 30], "pk_9": [220, 140, 30], "pk_10": [220, 140, 30], "pk_11": [220, 140, 30],
+    "jl": [250, 150, 30], "mel": [100, 140, 50], "lemonb": [245, 230, 70],
+
+    // 🧱 CONSTRUCCIÓN, MINERALES Y BLOQUES VALIOSOS
+    "bricks": [145, 80, 70], "books": [115, 90, 55], "bbb": [220, 220, 210], "dsb": [55, 55, 60],
+    "clore": [90, 90, 90], "in": [135, 130, 125], "gd": [140, 135, 120], "dmore": [110, 130, 135],
+    "rs": [130, 90, 90], "os": [25, 20, 35], "lap": [90, 100, 130], "egem": [100, 130, 100],
+    "to": [140, 125, 90], "ib": [230, 230, 230], "gb": [248, 224, 70], "db": [99, 219, 213],
+    "lapb": [39, 67, 138], "clb": [20, 20, 20], "top": [255, 180, 50], "tob": [255, 165, 45],
+
+    // 🌋 END, NETHER Y DECORACIONES EXÓTICAS
+    "n": [110, 55, 55], "nb": [45, 20, 25], "rnb": [95, 30, 35], "magma": [210, 95, 30],
+    "glow": [235, 195, 100], "light": [255, 240, 180], "coral": [230, 115, 145],
+    "es": [220, 225, 165], "pf": [165, 115, 165], "pf_2": [165, 115, 165], "portalstone": [55, 115, 120],
+
+    // 🌑 BACKDROPS / FONDOS (y:190 a y:200 - Colores oscurecidos exactos)
+    "bdcloth_white": [112, 112, 112], "bdcloth_lightgray": [80, 80, 80], "bdcloth_gray": [42, 42, 42],
+    "bdcloth_black": [12, 12, 12], "bdcloth_brown": [42, 27, 15], "bdcloth_purple": [60, 25, 77],
+    "bdcloth_magenta": [92, 32, 87], "bdcloth_red": [82, 22, 22], "bdcloth_orange": [112, 57, 17],
+    "bdcloth_pink": [117, 70, 82], "bdcloth_yellow": [112, 100, 22], "bdcloth_lightgreen": [57, 92, 12],
+    "bdcloth_green": [32, 52, 17], "bdcloth_cyan": [22, 57, 67], "bdcloth_lightblue": [52, 77, 105],
+    "bdcloth_blue": [22, 30, 75], "bdcloth_rainbow": [100, 100, 100],
+    "bddt": [67, 48, 33], "bdr": [60, 60, 60], "bdcs": [52, 52, 52], "bdbbb": [110, 110, 105],
+    "bdbricks": [72, 40, 35], "bdbooks": [57, 45, 27], "bdsb": [109, 101, 80], "bdwp": [80, 65, 40],
+    "bdnb": [22, 10, 12], "bb": [57, 45, 27]
+};
+
+function getClosestBlock(r, g, b) {
+    let closestBlock = "cloth_white";
+    let minDistance = Infinity;
+    for (let block in blockPalette) {
+        let [br, bg, bb] = blockPalette[block];
+        let distance = Math.sqrt(Math.pow(r - br, 2) + Math.pow(g - bg, 2) + Math.pow(b - bb, 2));
+        if (distance < minDistance) {
+            minDistance = distance;
+            closestBlock = block;
+        }
+    }
+    return closestBlock;
+}
+
+// 2. Procesar y guardar en memoria
+window.processPixelArt = function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const maxWidth = parseInt(document.getElementById('pixelart-max-width').value) || 64;
+    const reader = new FileReader();
+
+    reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+            let scale = 1;
+            if (img.width > maxWidth) scale = maxWidth / img.width;
+            
+            const finalWidth = Math.floor(img.width * scale);
+            const finalHeight = Math.floor(img.height * scale);
+
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = finalWidth;
+            tempCanvas.height = finalHeight;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(img, 0, 0, finalWidth, finalHeight);
+            
+            const imageData = tempCtx.getImageData(0, 0, finalWidth, finalHeight).data;
+
+            // ✨ GUARDAMOS EN MEMORIA (Y AHORA TAMBIÉN LA IMAGEN PARA EL FANTASMA)
+            window.pendingPixelArt = {
+                data: imageData,
+                width: finalWidth,
+                height: finalHeight,
+                imgCanvas: tempCanvas // <--- ¡Esta es la clave visual!
+            };
+
+            // Activar "Modo Pegar"
+            if (typeof currentTool !== 'undefined') currentTool = 'pixelart';
+            
+            alert("¡Imagen lista! Cierra esta ventana y HAZ CLIC en cualquier lugar del mapa para construirla.");
+            
+            if (typeof closeModal === 'function') closeModal('pixelart-addon-modal');
+            document.getElementById('pixelart-upload').value = ""; 
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+};
+
+// 3. ✨ FIX: Constructor oficial en el mundo (Soporta Ctrl+Z y Caché Visual)
+window.buildPixelArtInWorld = function(pixelData, width, height, startX, startY) {
+    if (typeof historyManager !== 'undefined') historyManager.startAction();
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const index = (y * width + x) * 4; 
+            const alpha = pixelData[index + 3];
+
+            if (alpha < 50) continue; // Ignorar pixeles transparentes
+
+            const r = pixelData[index];
+            const g = pixelData[index + 1];
+            const b = pixelData[index + 2];
+
+            const blockType = getClosestBlock(r, g, b);
+            
+            const blockX = Math.floor(startX + x);
+            const blockY = Math.floor(startY - y); // De arriba hacia abajo
+            
+            if (typeof mbwom !== 'undefined' && typeof mbwom.setBlockState === 'function') {
+                const currentState = mbwom.getBlockState(blockX, blockY);
+                const newState = { type: blockType };
+                
+                // Guardar en el historial (Para que sirva el Ctrl+Z)
+                if (typeof historyManager !== 'undefined') {
+                    historyManager.recordChange(blockX, blockY, currentState, newState);
+                }
+                
+                // Poner el bloque y decirle a la memoria que lo dibuje
+                mbwom.setBlockState(blockX, blockY, newState);
+                if (typeof renderBlock === 'function') renderBlock(blockX, blockY);
+            }
+        }
+    }
+    
+    if (typeof worldDirty !== 'undefined') worldDirty = true;
+    if (typeof historyManager !== 'undefined') historyManager.commitAction();
+};
+
+// 4. ✨ FIX: Vigilante de clics usando las coordenadas globales del ratón
+function setupPixelArtClicker() {
+    const mainCanvas = document.getElementById('canvas') || document.querySelector('canvas');
+    if (!mainCanvas) return;
+
+    mainCanvas.addEventListener('mousedown', function(event) {
+        if (window.pendingPixelArt && typeof currentTool !== 'undefined' && currentTool === 'pixelart') {
+            
+            // Usamos las coordenadas exactas que ya calcula tu juego
+            const worldX = Math.floor(mouse.worldX);
+            const worldY = Math.floor(mouse.worldY);
+
+            // ¡Construimos!
+            buildPixelArtInWorld(
+                window.pendingPixelArt.data, 
+                window.pendingPixelArt.width, 
+                window.pendingPixelArt.height, 
+                worldX, 
+                worldY
+            );
+
+            // Limpiamos y regresamos a la herramienta mover
+            window.pendingPixelArt = null;
+            if (typeof selectTool === 'function') {
+                selectTool('move');
+            } else {
+                currentTool = 'move'; 
+            }
+            
+            alert("¡Pixel Art pegado con éxito! (Puedes usar Ctrl+Z si te equivocaste)");
+        }
+    });
+}
+
+// Ejecutamos el vigilante al cargar la página
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", setupPixelArtClicker);
+} else {
+    setupPixelArtClicker();
+}

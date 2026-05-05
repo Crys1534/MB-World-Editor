@@ -394,26 +394,24 @@
         <div class="addons-header">Popular Add-ins</div>
         
         <div class="addons-list">
-            <!-- Addon 1 -->
+            <!-- Addon: Spawnskins Preview -->
             <div class="addon-item">
                 <div class="addon-icon" style="background: #2c3e50;">🧬</div>
                 <div class="addon-info">
-                    <div class="addon-title">Genetic Mobs</div>
-                    <div class="addon-desc">Create custom mob variations with custom stats.</div>
-                    <a href="#" class="addon-link">Terms & Conditions</a>
+                    <div class="addon-title">Spawnskins Preview</div>
+                    <div class="addon-desc">Upload skin spreadsheets to see the spawnskin preview in the world.</div>
                 </div>
-                <button class="addon-action-btn">Open</button>
+                <button class="addon-action-btn" onclick="openSpawnskinsModal(); document.getElementById('addons-dropdown').classList.remove('show');">Open</button>
             </div>
             
-            <!-- Addon 2 -->
+            <!-- Addon 2: Pixel Art Builder -->
             <div class="addon-item">
-                <div class="addon-icon" style="background: #8e44ad;">🪧</div>
+                <div class="addon-icon" style="background: #8e44ad;">🖼️</div>
                 <div class="addon-info">
-                    <div class="addon-title">Sign Editor Pro</div>
-                    <div class="addon-desc">Advanced formatting and colors for signs.</div>
-                    <a href="#" class="addon-link">Terms & Conditions</a>
+                    <div class="addon-title">Pixel Art Auto-Builder</div>
+                    <div class="addon-desc">Convierte cualquier imagen en píxeles usando bloques del juego.</div>
                 </div>
-                <button class="addon-action-btn">Open</button>
+                <button class="addon-action-btn" onclick="openPixelArtModal(); document.getElementById('addons-dropdown').classList.remove('show');">Open</button>
             </div>
 
             <!-- Addon 3 -->
@@ -1599,6 +1597,78 @@ window.addEventListener('DOMContentLoaded', () => {
     </div>
 </div>
 
+<!-- ✨ MODAL: ADDON SPAWNSKINS PREVIEW ✨ -->
+<div id="spawnskins-addon-modal" class="modal" style="z-index: 3500;">
+    <div class="modal-content mbw-standard-modal" style="width: 550px; height: 380px;">
+        <div class="mbw-modal-header">
+            <h3>Spawnskins Preview Generator</h3>
+            <span class="mbw-close-btn" onclick="closeSpawnskinsModal()">&times;</span>
+        </div>
+        
+        <div class="mbw-modal-body" style="padding: 0; display: flex; flex-direction: row; height: 100%;">
+            
+            <!-- CONTENIDO PRINCIPAL (Izquierda) -->
+            <div style="flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 15px; border-right: 2px solid #555;">
+                <p style="margin: 0; font-size: 14px; color: #000; font-weight: normal;">
+                    To see the spawnskins in the editor, you need to use this tool.
+                </p>
+                
+                <!-- PASO 1 -->
+                <div style="background: rgba(0,0,0,0.1); padding: 10px; border-radius: 4px; border: 1px solid #777;">
+                    <strong style="color: #000; font-size: 13px;">1. Open 'Spawnskins Preview Generator'</strong>
+                    <button onclick="window.open('https://crys1534.github.io/MB-Spawnskins-Preview-Generator/', '_blank')" style="margin-top: 8px; width: 100%; background: #3498db; color: white; padding: 8px; border: 2px solid #2980b9; cursor: pointer; font-weight: bold; border-radius: 3px; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                        <span style="font-size: 16px;">🔗</span> Open Tool
+                    </button>
+                </div>
+
+                <!-- PASO 2 -->
+                <div style="background: rgba(0,0,0,0.1); padding: 10px; border-radius: 4px; border: 1px solid #777;">
+                    <strong style="color: #000; font-size: 13px;">2. Load the skin list here:</strong>
+                    <button onclick="document.getElementById('skin-upload-input').click()" style="margin-top: 8px; width: 100%; background: #2ecc71; color: white; padding: 8px; border: 2px solid #27ae60; cursor: pointer; font-weight: bold; border-radius: 3px; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                        <span style="font-size: 16px;">📁</span> Import skins
+                    </button>
+                </div>
+            </div>
+            
+            <!-- BARRA LATERAL (Derecha) -->
+            <div style="width: 200px; background: #B0B0B0; display: flex; flex-direction: column;">
+                <div style="padding: 8px; background: #8B8B8B; border-bottom: 2px solid #555; text-align: center; font-weight: bold; color: white; text-shadow: 1px 1px 0 #000;">
+                    Imported Spawnskins
+                </div>
+                <div id="loaded-skins-list" style="flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px; background: #999;">
+                    <!-- Los archivos irán apareciendo aquí con JavaScript -->
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- ✨ MODAL: PIXEL ART AUTO-BUILDER ✨ -->
+<div id="pixelart-addon-modal" class="modal" style="z-index: 3500;">
+    <div class="modal-content mbw-standard-modal" style="width: 400px;">
+        <div class="mbw-modal-header">
+            <h3>Pixel Art Auto-Builder</h3>
+            <span class="mbw-close-btn" onclick="closeModal('pixelart-addon-modal')">&times;</span>
+        </div>
+        
+        <div class="mbw-modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+            <p style="margin: 0; font-size: 13px; color: #333;">Sube una imagen y el editor la construirá en el mundo usando bloques de lana y arcilla.</p>
+            
+            <div style="display: flex; flex-direction: column; gap: 5px;">
+                <label style="font-size: 12px; font-weight: bold; color: #000;">Tamaño Máximo (Ancho en Bloques):</label>
+                <input type="number" id="pixelart-max-width" value="64" min="10" max="200" style="padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+                <small style="color: #666; font-size: 10px;">Imágenes muy grandes pueden dar lag.</small>
+            </div>
+
+            <input type="file" id="pixelart-upload" accept="image/png, image/jpeg" style="display: none;" onchange="processPixelArt(event)">
+            
+            <button onclick="document.getElementById('pixelart-upload').click()" style="background: #8e44ad; color: white; padding: 10px; border: none; cursor: pointer; font-weight: bold; border-radius: 3px; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                <span style="font-size: 16px;">🖼️</span> Cargar Imagen y Construir
+            </button>
+        </div>
+    </div>
+</div>
 
  <script src="scripts/lang.js"></script>
  <script src="scripts/ui-handler.js"></script>

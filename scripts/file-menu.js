@@ -12,9 +12,9 @@ const projectTemplates = [
         image: 'assets/Superflat World.png'
     },
     {
-        filename: 'Biomes 1.1 - Nether Update.mbw',
-        name: 'Biomes 1.1 - Nether Update',
-        version: '1.31.1',
+        filename: 'Biomes 1.2 - QoL Update',
+        name: 'Biomes 1.2 - QoL Update',
+        version: '1.31.2',
         seed: 'Crystal',
         author: 'Crystal',
         image: 'assets/Biomes 1_1 - Nether Update.png'
