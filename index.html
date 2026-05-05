@@ -383,6 +383,56 @@
     <button class="tab-btn" onclick="openTab('settings')" data-i18n="tab_world_settings">World Settings</button>
     <button class="tab-btn" onclick="openTab('create')" data-i18n="tab_create">Create</button>
     <button class="tab-btn" onclick="openTab('view')" data-i18n="tab_view">View</button>
+
+<!-- ✨ NUEVO: BOTÓN Y MENÚ DE ADDONS ✨ -->
+<div class="dropdown-container" id="addons-dropdown-container">
+    <button class="tab-btn" onclick="toggleAddonsMenu()" style="color: #f1c40f; display: flex; align-items: center; gap: 4px;">
+        <span style="font-size: 14px;">📦Addons</span>
+    </button>
+    
+    <div id="addons-dropdown" class="addons-menu-content">
+        <div class="addons-header">Popular Add-ins</div>
+        
+        <div class="addons-list">
+            <!-- Addon 1 -->
+            <div class="addon-item">
+                <div class="addon-icon" style="background: #2c3e50;">🧬</div>
+                <div class="addon-info">
+                    <div class="addon-title">Genetic Mobs</div>
+                    <div class="addon-desc">Create custom mob variations with custom stats.</div>
+                    <a href="#" class="addon-link">Terms & Conditions</a>
+                </div>
+                <button class="addon-action-btn">Open</button>
+            </div>
+            
+            <!-- Addon 2 -->
+            <div class="addon-item">
+                <div class="addon-icon" style="background: #8e44ad;">🪧</div>
+                <div class="addon-info">
+                    <div class="addon-title">Sign Editor Pro</div>
+                    <div class="addon-desc">Advanced formatting and colors for signs.</div>
+                    <a href="#" class="addon-link">Terms & Conditions</a>
+                </div>
+                <button class="addon-action-btn">Open</button>
+            </div>
+
+            <!-- Addon 3 -->
+            <div class="addon-item">
+                <div class="addon-icon" style="background: #27ae60;">🌍</div>
+                <div class="addon-info">
+                    <div class="addon-title">Biome Painter</div>
+                    <div class="addon-desc">Easily paint biomes across large map areas.</div>
+                    <a href="#" class="addon-link">Terms & Conditions</a>
+                </div>
+                <button class="addon-action-btn">Open</button>
+            </div>
+        </div>
+        
+        <div class="addons-footer">
+            <button class="addon-more-btn">➕ More Add-ins</button>
+        </div>
+    </div>
+</div>
     
     <!-- ✨ BOTÓN DIVIDIDO: EXPORT / SAVE AS ✨ -->
         <div class="dropdown-container" id="export-dropdown-container" style="margin-left: auto; margin-bottom: 4px; align-self: flex-end; display: flex;">
@@ -472,6 +522,16 @@
             </div>
             <div class="ribbon-group-label" data-i18n="lbl_mobs_tab">Mobs (M)</div>
         </div>
+		
+		<div class="separator"></div>
+		
+		<div class="ribbon-group">
+		<input type="file" id="skin-upload-input" accept="image/png" multiple style="display: none;" onchange="importLocalSkins(event)">
+
+		<button class="icon-btn" onclick="document.getElementById('skin-upload-input').click()" title="Importar Skins">
+		👕 Import Skins
+		</button>
+		</div>
    </div>
 
     <div id="tab-settings" class="tab-pane">
@@ -1396,7 +1456,7 @@ window.addEventListener('DOMContentLoaded', () => {
             
             <div style="position: absolute; bottom: 10px; left: 15px; font-size: 11px; color: gray; font-family: monospace;">
                 <span data-i18n="about_last_update">Last Update:</span> May 3, 2026<br>
-                v2.4 - Snapshot 12
+                v2.4 - Snapshot 14
             </div>
             <div style="position: absolute; bottom: 10px; right: 15px; font-size: 12px; color: gray; font-weight: bold;">
                 2026
