@@ -283,21 +283,27 @@ function drawMobs() {
             
             let mobWidth = tileSize * 1;
             let mobHeight = tileSize * 2;
-		if (mob.type === 'chicken' || mob.type === 'pig' || mob.type === 'slime') { 
-		mobWidth = tileSize * 1; mobHeight = tileSize * 1; }
+			
+			if (mob.type === 'chicken' || mob.type === 'slime' || mob.type === 'magmacube') { 
+			mobWidth = tileSize * 1; mobHeight = tileSize * 1; }
+			
             if (mob.type === 'enderdragon') { 
 			mobWidth = tileSize * 24; mobHeight = tileSize * 8; }
 			
-            if (mob.type === 'nethereye' || mob.type === 'rabbit') { 
+            if (mob.type === 'nethereye' || mob.type === 'rabbit' || mob.type === 'bat') { 
 			mobWidth = tileSize * 0.75; mobHeight = tileSize * 0.75; }
 			
-            if (mob.type === 'pig' || mob.type === 'dog' || mob.type === 'wolf' || mob.type === 'spider') { 
+            if (mob.type === 'pig' || mob.type === 'wolf' || mob.type === 'spider' || mob.type === 'sheep') { 
 			mobWidth = tileSize * 2; mobHeight = tileSize * 1.2; }
 			
             if (mob.type === 'enderman') { 
 			mobWidth = tileSize * 1.2; mobHeight = tileSize * 3; }
 			
-            if (mob.type === 'cow' || mob.type === 'cowctus cow' || mob.type === 'mushroom cow') { mobWidth = tileSize * 2.6; mobHeight = tileSize * 2; }
+			if (mob.type === 'squid') { 
+			mobWidth = tileSize * 1; mobHeight = tileSize * 2; }
+			
+            if (mob.type === 'cow' || mob.type === 'cowctus cow' || mob.type === 'mushroom cow') { 
+			mobWidth = tileSize * 2.6; mobHeight = tileSize * 2; }
             
             let mobImg = window.images[mob.type];
 

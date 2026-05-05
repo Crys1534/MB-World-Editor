@@ -508,7 +508,7 @@ body {
 /* --- SIDEBAR (HERRAMIENTAS LATERALES) --- */
 #toolbar-sidebar {
   position: absolute;
-  top: 204px;
+  top: 202px;
   left: 0;
   background-color: var(--bg-panel);
   border-right: 1px solid var(--border);
@@ -555,7 +555,7 @@ body {
 /* --- WORKSPACE (LIENZO COMPLETO) --- */
 #workspace {
     position: absolute;
-    top: 204px;   
+    top: 202px;   
     left: 47px;   
     width: calc(100% - 47px); 
     bottom: 28px; 
@@ -1489,7 +1489,7 @@ button:hover {
 }
 
 .template-card .delete-btn:hover {
-    background: rgba(255, 0, 0, 1) !important;
+    background: #f39c12 !important;
     transform: scale(1.1); 
 }
 
