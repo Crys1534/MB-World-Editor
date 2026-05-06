@@ -1639,3 +1639,173 @@ if (document.readyState === "loading") {
 } else {
     setupPixelArtClicker();
 }
+
+
+// ==========================================
+// ⌨️ SISTEMA DE ATAJOS DE TECLADO (KEYBINDS)
+// ==========================================
+
+const DEFAULT_KEYBINDS = {
+    inventory: { key: 'e', label: '🎒 Open Inventory' },
+    structures: { key: 'r', label: '🏘️ Open Structures' },
+    mobs: { key: 'm', label: '🐷 Open Mobs Browser' },
+    brush_up: { key: '+', label: '🖌️ Brush Size +' },
+    brush_down: { key: '-', label: '🖌️ Brush Size -' },
+    delete: { key: 'delete', label: '💥 Delete Selection' },
+    undo: { key: 'z', ctrl: true, label: '↶ Undo' },
+    redo: { key: 'y', ctrl: true, label: '↷ Redo' },
+    copy: { key: 'c', ctrl: true, label: '📄 Copy Selection' },
+    cut: { key: 'x', ctrl: true, label: '✂️ Cut Selection' },
+    paste: { key: 'v', ctrl: true, label: '📋 Paste' }
+};
+
+window.userKeybinds = JSON.parse(localStorage.getItem('mbw_keybinds')) || JSON.parse(JSON.stringify(DEFAULT_KEYBINDS));
+let isWaitingForKey = null; // Variable para saber si estamos esperando que el usuario presione una tecla
+
+window.openKeybindsModal = function() {
+    if (typeof openModal === 'function') openModal('keybinds-modal');
+    renderKeybinds();
+};
+
+window.renderKeybinds = function() {
+    const container = document.getElementById('keybinds-list');
+    if (!container) return;
+    container.innerHTML = '';
+
+    for (let action in userKeybinds) {
+        const bind = userKeybinds[action];
+        
+        let displayKey = bind.key;
+        if (displayKey === ' ') displayKey = 'Space';
+        else if (displayKey && displayKey.length === 1) displayKey = displayKey.toUpperCase();
+        
+        // Formatear si tiene Control
+        if (bind.ctrl) displayKey = 'Ctrl + ' + displayKey;
+
+        const row = document.createElement('div');
+        row.style.cssText = 'display: flex; justify-content: space-between; align-items: center; background: #A0A0A0; padding: 6px 12px; border: 2px solid #555; border-radius: 3px;';
+
+        row.innerHTML = `
+            <span style="color: black; font-weight: bold; font-size: 14px;">${bind.label}</span>
+            <button id="btn-bind-${action}" onclick="startRebind('${action}')" style="min-width: 90px; padding: 4px 8px; background: #222; color: #FFF; border: 2px inset #555; cursor: pointer; font-family: 'Consolas', monospace; font-weight: bold; font-size: 14px; text-transform: capitalize;">
+                ${displayKey}
+            </button>
+        `;
+        container.appendChild(row);
+    }
+};
+
+window.startRebind = function(action) {
+    // Si la acción no se puede modificar (ej. Ctrl+Z es universal), bloqueamos (Opcional)
+    // if(action === 'undo' || action === 'redo') return alert("This shortcut cannot be changed.");
+    
+    isWaitingForKey = action;
+    const btn = document.getElementById(`btn-bind-${action}`);
+    btn.innerText = "Press key...";
+    btn.style.background = "#e67e22";
+    btn.style.borderColor = "#d35400";
+    btn.style.color = "#FFF";
+};
+
+window.resetKeybinds = function() {
+    window.userKeybinds = JSON.parse(JSON.stringify(DEFAULT_KEYBINDS));
+    localStorage.setItem('mbw_keybinds', JSON.stringify(window.userKeybinds));
+    renderKeybinds();
+};
+
+// ==========================================
+// 🧠 DETECTOR GLOBAL DE TECLAS Y ACCIONES
+// ==========================================
+window.addEventListener('keydown', function(e) {
+    // 1. SI ESTAMOS REASIGNANDO UNA TECLA
+    if (isWaitingForKey) {
+        e.preventDefault();
+        // Evitamos que las teclas modificadoras solas se guarden (ej: presionar solo 'Ctrl')
+        if (['Control', 'Shift', 'Alt', 'Meta', 'Escape'].includes(e.key)) return;
+
+        window.userKeybinds[isWaitingForKey].key = e.key.toLowerCase();
+        window.userKeybinds[isWaitingForKey].ctrl = e.ctrlKey;
+        
+        localStorage.setItem('mbw_keybinds', JSON.stringify(window.userKeybinds));
+        isWaitingForKey = null;
+        renderKeybinds();
+        return;
+    }
+
+    // 2. SI EL USUARIO ESTÁ ESCRIBIENDO EN EL CHAT O EN UN IMPUT, IGNORAR ATAJOS
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+
+    // 3. EJECUTAR LAS ACCIONES BASADAS EN LOS KEYBINDS DEL USUARIO
+    const k = e.key.toLowerCase();
+    const isCtrl = e.ctrlKey;
+
+    const binds = window.userKeybinds;
+
+    if (k === binds.brush_up.key && isCtrl === (binds.brush_up.ctrl || false)) {
+        e.preventDefault();
+        if (typeof updateToolSize === 'function') updateToolSize(toolSize + 1);
+    }
+    else if (k === binds.brush_down.key && isCtrl === (binds.brush_down.ctrl || false)) {
+        e.preventDefault();
+        if (typeof updateToolSize === 'function') updateToolSize(toolSize - 1);
+    }
+    else if (k === binds.delete.key && isCtrl === (binds.delete.ctrl || false)) {
+        e.preventDefault();
+        if (typeof deleteSelection === 'function') deleteSelection();
+    }
+    else if (k === binds.inventory.key && isCtrl === (binds.inventory.ctrl || false)) {
+        e.preventDefault();
+        if (typeof toggleInventory === 'function') toggleInventory();
+    }
+    else if (k === binds.structures.key && isCtrl === (binds.structures.ctrl || false)) {
+        e.preventDefault();
+        if (typeof openStructuresModal === 'function') openStructuresModal();
+    }
+    else if (k === binds.mobs.key && isCtrl === (binds.mobs.ctrl || false)) {
+        e.preventDefault();
+        if (typeof openMobModal === 'function') openMobModal();
+    }
+    else if (k === binds.undo.key && isCtrl === (binds.undo.ctrl || false)) {
+        e.preventDefault();
+        if (typeof historyManager !== 'undefined') historyManager.undo();
+    }
+    else if (k === binds.redo.key && isCtrl === (binds.redo.ctrl || false)) {
+        e.preventDefault();
+        if (typeof historyManager !== 'undefined') historyManager.redo();
+    }
+    else if (k === binds.copy.key && isCtrl === (binds.copy.ctrl || false)) {
+        e.preventDefault();
+        if (typeof copySelection === 'function') copySelection();
+    }
+    else if (k === binds.cut.key && isCtrl === (binds.cut.ctrl || false)) {
+        e.preventDefault();
+        if (typeof cutSelection === 'function') cutSelection();
+    }
+    else if (k === binds.paste.key && isCtrl === (binds.paste.ctrl || false)) {
+        e.preventDefault();
+        if (typeof activatePasteMode === 'function') activatePasteMode();
+    }
+});
+
+
+// ==========================================
+// ⚙️ CONTROLADOR DE PESTAÑAS (CONFIGURACIÓN)
+// ==========================================
+window.openSettingsTab = function(tabId) {
+    // 1. Ocultamos todos los paneles y quitamos la clase 'active'
+    document.querySelectorAll('.settings-pane').forEach(pane => pane.classList.remove('active'));
+    document.querySelectorAll('.settings-tab').forEach(tab => tab.classList.remove('active'));
+
+    // 2. Mostramos el panel elegido
+    const targetPane = document.getElementById('set-tab-' + tabId);
+    if (targetPane) targetPane.classList.add('active');
+
+    // 3. Pintamos la pestaña seleccionada en la barra lateral
+    const activeTab = document.querySelector(`.settings-tab[onclick*="${tabId}"]`);
+    if (activeTab) activeTab.classList.add('active');
+
+    // ✨ NUEVO: Si abrimos la pestaña de controles, dibujamos la lista
+    if (tabId === 'controls' && typeof renderKeybinds === 'function') {
+        renderKeybinds();
+    }
+};

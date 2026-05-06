@@ -231,7 +231,6 @@
         display: flex; justify-content: space-between; align-items: center;
         background: #8B8B8B; padding: 5px 10px; border-bottom: 2px solid #FFF;
         border-right: 2px solid #FFF; border-top: 1px solid #373737; border-left: 1px solid #373737;
-        margin-bottom: 5px;
     }
 
     .mbw-modal-header h3 { margin: 0; color: #FFF; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 0 #000; }
@@ -310,6 +309,37 @@
     .enchanted-slot:hover .enchant-tooltip {
         display: block;
     }
+	
+	
+	/* --- PESTAÑAS DE CONFIGURACIÓN --- */
+    .settings-sidebar {
+        width: 160px;
+        background: #A0A0A0;
+        border-right: 2px solid #555;
+        display: flex;
+        flex-direction: column;
+    }
+    .settings-tab {
+        padding: 10px 12px;
+        cursor: pointer;
+        font-weight: bold;
+        color: #333;
+        font-size: 14px;
+        border-bottom: 1px solid #888;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .settings-tab:hover { background: #909090; color: #000; }
+    .settings-tab.active {
+        background: #C6C6C6;
+        color: #000;
+        border-right: 2px solid #C6C6C6; /* Para fundirse con el contenido */
+        margin-right: -2px; /* Superpone el borde derecho */
+        box-shadow: inset 2px 2px 0px rgba(255,255,255,0.5);
+    }
+    .settings-pane { display: none; }
+    .settings-pane.active { display: block; }
  </style>
 </head>
 <body>
@@ -386,7 +416,7 @@
 
 <!-- ✨ NUEVO: BOTÓN Y MENÚ DE ADDONS ✨ -->
 <div class="dropdown-container" id="addons-dropdown-container">
-    <button class="tab-btn" onclick="toggleAddonsMenu()" style="color: #f1c40f; display: flex; align-items: center; gap: 4px;">
+    <button class="tab-btn" onclick="toggleAddonsMenu()" style="color: #f1c40f; display: flex; align-items: center; gap: 6px;">
         <span style="font-size: 14px;">📦Addons</span>
     </button>
     
@@ -411,8 +441,8 @@
                     <div style="width: 16px; height: 16px; background-image: url('assets/blocks.png'); background-position: 0px -2992px; transform: scale(1.5); image-rendering: pixelated;"></div>
                 </div>
                 <div class="addon-info">
-                    <div class="addon-title">Pixel Art Auto-Builder</div>
-                    <div class="addon-desc">Convierte cualquier imagen en píxeles usando bloques del juego.</div>
+                    <div class="addon-title">[Demo] Pixel Art Auto-Builder</div>
+                    <div class="addon-desc">Convert any image in a big pixel art.</div>
                 </div>
                 <button class="addon-action-btn" onclick="openPixelArtModal(); document.getElementById('addons-dropdown').classList.remove('show');">Open</button>
             </div>
@@ -438,7 +468,7 @@
                 ▼
             </button>
             <!-- El menú que se despliega -->
-            <div id="export-dropdown" class="dropdown-content" style="top: 100%; right: 0; left: auto; min-width: 150px; font-weight: bold; margin-top: 2px;">
+            <div id="export-dropdown" class="dropdown-content" style="top: 100%; right: 0; left: auto; min-width: 150px; font-weight: bold;">
                 <a href="#" onclick="if(typeof fileManager !== 'undefined') fileManager.saveAs(); closeExportMenu();">💾 Save As...</a>
             </div>
         </div>
@@ -810,60 +840,104 @@
      </div>
  </div>
 
- <div id="settings-modal" class="modal">
-    <div class="modal-content mbw-standard-modal" style="width: 400px;">
+<!-- ✨ MODAL: CONFIGURACIÓN CON PESTAÑAS ✨ -->
+<div id="settings-modal" class="modal">
+    <div class="modal-content mbw-standard-modal" style="width: 550px; height: 350px;">
         <div class="mbw-modal-header">
-            <h3 data-i18n="config_title">Configuration</h3>
+            <h3 data-i18n="config_title">⚙️ Configuration</h3>
             <span class="mbw-close-btn" onclick="closeModal('settings-modal')">&times;</span>
         </div>
-        <div class="mbw-modal-body">
-            <div class="settings-row">
+        
+        <div class="mbw-modal-body" style="padding: 0; display: flex; flex-direction: row; height: 100%;">
             
-                            <label data-i18n="config_language">Language</label>
-                <select id="lang-select" onchange="setLanguage(this.value)" style="margin-bottom: 15px;">
-                    <option value="en">🇺🇸 English</option>
-                    <option value="es">🇪🇸 Español [??%]</option>
-					<option value="pt">🇧🇷 Português [??%]</option>
-                </select>
-                <br>
-                
-                <label data-i18n="config_theme">Theme</label>
-                <select id="theme-select" onchange="setTheme(this.value)">
-                    <option value="dark">⚫ Dark (Default)</option>
-                    <option value="white">⚪ White</option>
-                    <option value="pastel">🌸 Pastel</option>
-                    <option value="pastel2">🌸 Pastel 2 (Cool)</option>
-                    <option value="darkblue">🔵 Dark Blue</option>
-                    <option value="winxp">🪟 Windows XP</option>
+            <!-- Barra lateral de pestañas -->
+            <div class="settings-sidebar">
+                <div class="settings-tab active" onclick="openSettingsTab('theme')">🎨 Theme</div>
+                <div class="settings-tab" onclick="openSettingsTab('autosave')">💾 Auto-save</div>
+                <div class="settings-tab" onclick="openSettingsTab('language')">🌍 Language</div>
+                <div class="settings-tab" onclick="openSettingsTab('startup')">🚀 Startup</div>
+                <div class="settings-tab" onclick="openSettingsTab('volume')">🔊 Volume</div>
+                <div class="settings-tab" onclick="openSettingsTab('controls')">⌨️ Controls</div>
+            </div>
 
+            <!-- Área de contenido -->
+            <div style="flex: 1; padding: 15px; background: #C6C6C6; overflow-y: auto;">
+                
+                <!-- Pestaña: THEME -->
+                <div id="set-tab-theme" class="settings-pane active">
+                    <h3 style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">🎨 Theme</h3>
+                    <label data-i18n="config_theme">Select your preferred theme:</label>
+                    <select id="theme-select" onchange="setTheme(this.value)" style="width: 100%; padding: 8px; margin-top: 5px;">
+                        <option value="dark">⚫ Dark (Default)</option>
+                        <option value="white">⚪ White</option>
+                        <option value="pastel">🌸 Pastel</option>
+                        <option value="pastel2">🌸 Pastel 2 (Cool)</option>
+                        <option value="darkblue">🔵 Dark Blue</option>
+                        <option value="winxp">🪟 Windows XP</option>
                     </select>
-<br>
-                <label data-i18n="config_autosave">Auto-Save Interval</label>
-                <select id="autosave-interval" onchange="applyAutoSaveSettings()" style="padding: 2px 5px; border: 1px solid #555;">
-                    <option value="0" data-i18n="config_off">Off (Disabled)</option>
-                    <option value="1" data-i18n="config_1m">Every 1 minute</option>
-                    <option value="5" data-i18n="config_5m">Every 5 minutes</option>
-                    <option value="10" data-i18n="config_10m">Every 10 minutes</option>
-                </select>
-<br>
-                  <label style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 5px;">
-                    <span data-i18n="config_volume">🔊 Master Volume</span>
-                    <span id="volume-display">100%</span>
-                </label>
-            <input type="range" id="volume-slider" min="0" max="100" value="100" oninput="changeVolume(this.value)" style="width: 100%; cursor: pointer;">
-            
-            <br>
-                <!-- ✨ NUEVO: Pantalla de inicio (Dropdown) -->
-                <label data-i18n="config_startup" style="font-weight: bold; border-top: 1px solid #555; padding-top: 15px; margin-top: 15px; display: block;">Startup Screen</label>
-                <select id="startup-screen-select" onchange="updateStartupMenu(this.value)" style="width: 100%; padding: 8px; margin-bottom: 5px;">
-                    <option value="editor" data-i18n="startup_editor">Normal Editor</option>
-                    <option value="filemenu" data-i18n="startup_filemenu">File Menu</option>
-                </select>
-			
+                </div>
+
+                <!-- Pestaña: AUTO-SAVE -->
+                <div id="set-tab-autosave" class="settings-pane">
+                    <h3 style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">💾 Auto-save</h3>
+                    <label data-i18n="config_autosave">Auto-Save Interval:</label>
+                    <select id="autosave-interval" onchange="applyAutoSaveSettings()" style="width: 100%; padding: 8px; margin-top: 5px;">
+                        <option value="0" data-i18n="config_off">Off (Disabled)</option>
+                        <option value="1" data-i18n="config_1m">Every 1 minute</option>
+                        <option value="5" data-i18n="config_5m">Every 5 minutes</option>
+                        <option value="10" data-i18n="config_10m">Every 10 minutes</option>
+                    </select>
+                </div>
+
+                <!-- Pestaña: LANGUAGE -->
+                <div id="set-tab-language" class="settings-pane">
+                    <h3 style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">🌍 Language</h3>
+                    <label data-i18n="config_language">Select Language:</label>
+                    <select id="lang-select" onchange="setLanguage(this.value)" style="width: 100%; padding: 8px; margin-top: 5px;">
+                        <option value="en">🇺🇸 English</option>
+                        <option value="es">🇪🇸 Español [??%]</option>
+                        <option value="pt">🇧🇷 Português [??%]</option>
+                    </select>
+                </div>
+
+                <!-- Pestaña: STARTUP SCREEN -->
+                <div id="set-tab-startup" class="settings-pane">
+                    <h3 style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">🚀 Startup Screen</h3>
+                    <label data-i18n="config_startup">Choose what to see when opening the app:</label>
+                    <select id="startup-screen-select" onchange="updateStartupMenu(this.value)" style="width: 100%; padding: 8px; margin-top: 5px;">
+                        <option value="editor" data-i18n="startup_editor">Normal Editor</option>
+                        <option value="filemenu" data-i18n="startup_filemenu">File Menu</option>
+                    </select>
+                </div>
+
+                <!-- Pestaña: VOLUME -->
+                <div id="set-tab-volume" class="settings-pane">
+                    <h3 style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">🔊 Master Volume</h3>
+                    <label style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 10px; margin-top: 10px;">
+                        <span data-i18n="config_volume">Adjust general audio level</span>
+                        <span id="volume-display" style="color: #000;">100%</span>
+                    </label>
+                    <input type="range" id="volume-slider" min="0" max="100" value="100" oninput="changeVolume(this.value)" style="width: 100%; cursor: pointer;">
+                </div>
+
+                <!-- Pestaña: CONTROLS -->
+                <div id="set-tab-controls" class="settings-pane">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #888; padding-bottom: 5px; margin-bottom: 10px;">
+                        <h3 style="margin: 0;">⌨️ Controls</h3>
+                        <button onclick="resetKeybinds()" style="background: #e74c3c; color: white; border: 2px solid #c0392b; padding: 4px 8px; cursor: pointer; font-weight: bold; font-size: 12px; border-radius: 3px;">Reset Defaults</button>
+                    </div>
+                    <p style="font-size: 13px; color: #333; margin-top: 0; margin-bottom: 10px;">Click a button and press a new key to change the shortcut.</p>
+                    
+                    <!-- Contenedor donde JS inyectará los atajos -->
+                    <div id="keybinds-list" style="display: flex; flex-direction: column; max-height: 230px; overflow-y: auto; padding-right: 5px;">
+                        <!-- JavaScript llenará esto automáticamente -->
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
- </div>
+</div>
 
 <div id="inventory-modal" class="modal mbw-modal-overlay">
     <div id="inventory-modal-content" class="modal-content inv-modal-window">
@@ -1657,6 +1731,8 @@ window.addEventListener('DOMContentLoaded', () => {
         </div>
     </div>
 </div>
+
+
 
  <script src="scripts/lang.js"></script>
  <script src="scripts/ui-handler.js"></script>

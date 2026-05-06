@@ -1739,7 +1739,7 @@ body.is-spectating #hotbar-container {
 .ribbon-tabs-container { display: flex; width: 100%; background: var(--bg-header); padding-top: 5px; padding-left: 8px; }
 
 .btn-ribbon-export {
-    margin-left: auto; margin-bottom: 4px; align-self: flex-end; 
+    margin-left: auto; margin-bottom: 4px;
     background: var(--input-bg, #1e1e1e); color: var(--text, white); 
     border: 1px solid var(--border, #333); padding: 4px 12px; font-weight: bold; 
     border-radius: 4px; cursor: pointer; display: flex; align-items: center; 
