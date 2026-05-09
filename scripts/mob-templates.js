@@ -1300,5 +1300,5 @@ const MOB_TEMPLATES = {
   "startUnderwaterTimer": 0,
   "variant": "",
   "persists": false
-}.
+}
 };

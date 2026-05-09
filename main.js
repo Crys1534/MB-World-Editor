@@ -19,10 +19,10 @@ const uiElements = {
 };
 
 // Agregamos el 10, 250 y 300
-const ZOOM_LEVELS = [10, 25, 50, 100, 150, 200, 250, 300];
+const ZOOM_LEVELS = [5, 10, 25, 50, 100, 150, 200, 250, 300];
 
 // El 100% ahora está en la posición 3 (0=10, 1=25, 2=50, 3=100)
-let currentZoomIndex = 3; 
+let currentZoomIndex = 4; 
 let currentZoom = 100;
 const BASE_TILE_SIZE = 16;
 let showGrid = false;
@@ -258,7 +258,7 @@ function getBlockObject(states) {
 }
 
 // ==========================================
-// 🎨 LECTOR DE SKINS DESDE LA BÓVEDA
+// 🎨 LECTOR DE SKINS DESDE LA BÓVEDA Y ASSETS LOCALES
 // ==========================================
 window.skinCache = window.skinCache || {}; 
 window.skinFetchInProgress = window.skinFetchInProgress || {};
@@ -269,28 +269,44 @@ window.getSpawnskinImage = function(skinID) {
         return window.skinCache[skinID];
     }
 
-    // 2. Si no está en RAM y no la estamos buscando aún, vamos a la Bóveda (IndexedDB)
+    // 2. Si no la estamos buscando aún, iniciamos la búsqueda
     if (!window.skinFetchInProgress[skinID]) {
-        window.skinFetchInProgress[skinID] = true; // Bloqueamos para no buscarla 100 veces por segundo
+        window.skinFetchInProgress[skinID] = true; // Bloqueamos para no hacer spam
         
-        skinDB.getSkin(skinID).then(base64Data => {
-            if (base64Data) {
-                // ¡La encontró en la bóveda! La preparamos para el Canvas
-                const img = new Image();
-                img.onload = function() {
-                    if (typeof worldDirty !== 'undefined') worldDirty = true; // Forzamos un redibujado
-                };
-                img.src = base64Data;
-                window.skinCache[skinID] = img;
-            } else {
-                // No está en la bóveda. El usuario no la ha importado.
-                window.skinCache[skinID] = { hasFailed: true };
-                if (typeof worldDirty !== 'undefined') worldDirty = true;
-            }
-        });
+        // ✨ PASO 1: Intentar buscarla en la carpeta local assets/spawnskins/
+        const localImg = new Image();
+        
+        localImg.onload = function() {
+            // ¡Éxito! La encontró en la carpeta del proyecto
+            window.skinCache[skinID] = localImg;
+            if (typeof worldDirty !== 'undefined') worldDirty = true; // Forzamos redibujado
+        };
+        
+        localImg.onerror = function() {
+            // Falla: No está en la carpeta. 
+            // ✨ PASO 2: Entonces buscamos en la Bóveda (IndexedDB) de lo que subió el usuario
+            skinDB.getSkin(skinID).then(base64Data => {
+                if (base64Data) {
+                    // ¡La encontró en la bóveda!
+                    const img = new Image();
+                    img.onload = function() {
+                        if (typeof worldDirty !== 'undefined') worldDirty = true; 
+                    };
+                    img.src = base64Data;
+                    window.skinCache[skinID] = img;
+                } else {
+                    // No está en la carpeta ni en la bóveda. El usuario necesita importarla.
+                    window.skinCache[skinID] = { hasFailed: true };
+                    if (typeof worldDirty !== 'undefined') worldDirty = true;
+                }
+            });
+        };
+        
+        // Disparamos la búsqueda local
+        localImg.src = `assets/spawnskins/${skinID}.png`;
     }
 
-    // 3. Mientras la busca (o si falló), devolvemos null para que el Canvas dibuje la caja rosa
+    // 3. Mientras la busca (o si falló), devolvemos null para que el Canvas dibuje la caja rosa/error
     return null;
 };
 
@@ -1266,8 +1282,8 @@ const skinDB = {
         let db = await this.init();
         return new Promise((resolve, reject) => {
             let tx = db.transaction(this.storeName, "readwrite");
-            // ✨ Guardamos la imagen y el TIEMPO EXACTO en el que se subió
-            tx.objectStore(this.storeName).put({ data: base64Data, time: Date.now() }, id);
+            // Guardamos garantizando que el ID es un String
+            tx.objectStore(this.storeName).put({ data: base64Data, time: Date.now() }, String(id));
             tx.oncomplete = () => resolve();
             tx.onerror = () => reject();
         });
@@ -1276,16 +1292,16 @@ const skinDB = {
         let db = await this.init();
         return new Promise((resolve, reject) => {
             let tx = db.transaction(this.storeName, "readonly");
-            let req = tx.objectStore(this.storeName).get(id);
+            // ✨ EL FIX: Forzamos la búsqueda a String. Así el "123" (número) de MineBlocks 
+            // coincidirá con el "123" (texto) de tu archivo .png
+            let req = tx.objectStore(this.storeName).get(String(id));
             req.onsuccess = () => {
                 let res = req.result;
-                // Retrocompatibilidad: Si es vieja devuelve el texto, si es nueva devuelve res.data
                 resolve(res ? (res.data || res) : null);
             };
             req.onerror = () => resolve(null);
         });
     },
-    // ✨ NUEVO: Extrae todo de una vez y lo ordena por fecha
     getAllSorted: async function() {
         let db = await this.init();
         return new Promise((resolve, reject) => {
@@ -1302,12 +1318,11 @@ const skinDB = {
                     let val = values[index];
                     return {
                         id: key,
-                        time: val.time || 0, // Si es vieja, le pone tiempo 0 (se va al fondo)
+                        time: val.time || 0,
                         base64: val.data || val 
                     };
                 });
                 
-                // Ordenar: Mayor a menor tiempo (Las más recientes arriba)
                 combined.sort((a, b) => b.time - a.time);
                 resolve(combined);
             };
@@ -1481,6 +1496,7 @@ const blockPalette = {
     "rs": [130, 90, 90], "os": [25, 20, 35], "lap": [90, 100, 130], "egem": [100, 130, 100],
     "to": [140, 125, 90], "ib": [230, 230, 230], "gb": [248, 224, 70], "db": [99, 219, 213],
     "lapb": [39, 67, 138], "clb": [20, 20, 20], "top": [255, 180, 50], "tob": [255, 165, 45],
+	"ob": [25, 15, 35],
 
     // 🌋 END, NETHER Y DECORACIONES EXÓTICAS
     "n": [110, 55, 55], "nb": [45, 20, 25], "rnb": [95, 30, 35], "magma": [210, 95, 30],
@@ -1496,7 +1512,7 @@ const blockPalette = {
     "bdcloth_blue": [22, 30, 75], "bdcloth_rainbow": [100, 100, 100],
     "bddt": [67, 48, 33], "bdr": [60, 60, 60], "bdcs": [52, 52, 52], "bdbbb": [110, 110, 105],
     "bdbricks": [72, 40, 35], "bdbooks": [57, 45, 27], "bdsb": [109, 101, 80], "bdwp": [80, 65, 40],
-    "bdnb": [22, 10, 12], "bb": [57, 45, 27]
+    "bdnb": [22, 10, 12], "bb": [57, 45, 27], "bdob": [12, 7, 18]
 };
 
 function getClosestBlock(r, g, b) {
@@ -1808,4 +1824,102 @@ window.openSettingsTab = function(tabId) {
     if (tabId === 'controls' && typeof renderKeybinds === 'function') {
         renderKeybinds();
     }
+};
+
+// ==========================================
+// 📥 IMPORTADOR DE SPAWNSKINS AL EDITOR
+// ==========================================
+window.processSpawnskinUpload = function(event) {
+    var file = event.target.files[0];
+    if (!file) return;
+
+    // ✨ Nota: Ya no hay validación de terminación de archivo. Acepta de todo.
+
+    var listContainer = document.getElementById('loaded-skins-list');
+    if (listContainer) listContainer.innerHTML = "<em style='color: white;'>Procesando archivo...</em>";
+
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var encodedString = e.target.result;
+        var worldData = null;
+        
+        try {
+            // 1. PRIMERO intentamos leerlo directo (por si subiste un .json o .txt normal)
+            worldData = JSON.parse(encodedString);
+        } catch (error) {
+            // 2. Si falla, asumimos que es un .mbw encriptado y aplicamos la fórmula
+            try {
+                var decodedString = "";
+                for (var a = 0, b = encodedString.length; a < b; ) {
+                    var c = a++;
+                    var characterCode = encodedString.charCodeAt(c) - (c * 5 % 33 + 1);
+                    
+                    // ✨ FIX: Si por alguna razón da negativo, lo ignoramos para evitar el RangeError
+                    if (characterCode < 0) characterCode = 0; 
+                    
+                    decodedString += String.fromCodePoint(characterCode);
+                }
+                worldData = JSON.parse(decodedString);
+            } catch (err2) {
+                if (listContainer) listContainer.innerHTML = "<strong style='color:#ff6b6b;'>Error: Archivo corrupto o formato no válido.</strong>";
+                event.target.value = ""; // Limpiamos el input antes de salir
+                return;
+            }
+        }
+
+        // 3. Extraer las skins únicas
+        var skinsEncontradas = [];
+        var skinsProcesadas = new Set();
+        
+        // Verificamos que worldData se haya generado bien antes de buscar
+        if (worldData) {
+            var gruposMobs = [worldData.mobs1, worldData.mobs2, worldData.mobs3];
+
+            gruposMobs.forEach(function(grupo) {
+                if (grupo) {
+                    for (var key in grupo) {
+                        var mob = grupo[key];
+                        if (mob.type === "spawnskin" && mob.skin) {
+                            if (!skinsProcesadas.has(mob.skin)) {
+                                skinsProcesadas.add(mob.skin);
+                                skinsEncontradas.push({
+                                    name: mob.name || "Sin nombre",
+                                    skinId: mob.skin
+                                });
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 4. Mostrar las skins en la barra lateral del Editor
+        if (skinsEncontradas.length > 0) {
+            // Guardamos las skins en una variable global por si tu editor las necesita después
+            window.editorImportedSkins = skinsEncontradas;
+            
+            var html = "<div style='color: white; margin-bottom: 5px; font-size: 12px; font-weight: normal;'>Skins importadas: " + skinsEncontradas.length + "</div>";
+            
+            skinsEncontradas.forEach(function(skin) {
+                var imageUrl = "https://mineblocks.com/1/skins/" + skin.skinId + ".png";
+                
+                html += "<div style='background: #E0E0E0; border: 2px solid #555; padding: 5px; border-radius: 3px; display: flex; align-items: center; gap: 8px; margin-bottom: 5px; box-shadow: 1px 1px 3px rgba(0,0,0,0.3);'>";
+                html += "  <img src='" + imageUrl + "' alt='Skin' style='width: 32px; height: 32px; object-fit: contain; image-rendering: pixelated; border: 1px solid #999; background: #fff;' onerror='this.style.display=\"none\"'>";
+                html += "  <div style='font-size: 11px; line-height: 1.2; word-break: break-all; color: #000;'>";
+                html += "    <strong>" + skin.name + "</strong><br>";
+                html += "    <span style='color: #444;'>ID: " + skin.skinId + "</span>";
+                html += "  </div>";
+                html += "</div>";
+            });
+            
+            if (listContainer) listContainer.innerHTML = html;
+        } else {
+            if (listContainer) listContainer.innerHTML = "<em style='color: white; font-size: 12px;'>No se encontraron skins en este archivo.</em>";
+        }
+        
+        // Limpiamos el input para que puedas volver a subir el mismo archivo si quieres
+        event.target.value = "";
+    };
+    
+    reader.readAsText(file);
 };
