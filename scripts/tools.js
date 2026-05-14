@@ -103,7 +103,16 @@ function updateToolSize(val) {
 function updateToolRounded(isRounded) { toolRounded = isRounded; }
 function updateToolSpray(isSpray) { toolSpray = isSpray; } // NUEVA FUNCIÓN
 
+// --- GESTIÓN DE ATAJOS DE TECLADO ---
+window.addEventListener('keydown', function(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
 
+    if (e.key === '+' || e.code === 'NumpadAdd') updateToolSize(toolSize + 1);
+    if (e.key === '-' || e.code === 'NumpadSubtract') updateToolSize(toolSize - 1);
+    if (e.key === 'Delete' || e.code === 'Delete') deleteSelection();
+
+    // LÍNEAS DE Ctrl+X, Ctrl+C y Ctrl+V FUERON ELIMINADAS AQUÍ.
+});
 
 window.takeScreenshot = function() {
     const canvas = document.getElementById("canvas");
@@ -329,7 +338,10 @@ function copySelection(keepSelection = false) {
         }
     }
     
-    window.clipboard = { width: bounds.maxX - bounds.minX + 1, height: bounds.maxY - bounds.minY + 1, data: data };
+    // Guardamos los datos sin borrar las funciones del objeto
+window.clipboard.width = bounds.maxX - bounds.minX + 1;
+window.clipboard.height = bounds.maxY - bounds.minY + 1;
+window.clipboard.data = data;
     
     if (!keepSelection) {
         window.selection.p1 = null; window.selection.p2 = null; window.selection.path = []; window.selection.subRects = [];

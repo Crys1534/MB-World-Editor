@@ -523,7 +523,7 @@ body {
   padding-right: 4px;
   z-index: 100;
   overflow-y: auto;
-  height: 100%;
+  height: 396px;
 }
 
 #toolbar-sidebar::-webkit-scrollbar { display: none; }
@@ -655,7 +655,7 @@ canvas {
  position: fixed;
  z-index: 100;
  left: 0;
- top: 0px;
+ top: -17px;
  width: 100%;
  height: 100%;
  background-color: rgba(0,0,0,0.5);
@@ -1442,7 +1442,7 @@ button:hover {
 
 /* --- SWITCH MS WORD --- */
 .ms-switch-container { display: flex; align-items: center; gap: 8px; }
-.ms-switch-label { color: #FFF; font-size: 13px; font-family: 'Segoe UI', Arial, sans-serif; cursor: pointer; }
+.ms-switch-label { color: var(--text); font-size: 13px; font-family: 'Segoe UI', Arial, sans-serif; cursor: pointer; }
 
 .ms-switch { position: relative; display: inline-block; width: 34px; height: 18px; margin-right: 8px;}
 .ms-switch input { opacity: 0; width: 0; height: 0; }
@@ -1489,7 +1489,7 @@ button:hover {
 }
 
 .template-card .delete-btn:hover {
-    background: #f39c12 !important;
+    background: rgba(255, 0, 0, 1) !important;
     transform: scale(1.1); 
 }
 
@@ -1501,7 +1501,7 @@ button:hover {
     width: 100%;
     height: 28px; 
     background: var(--bg-dark); 
-    color: white;
+    color: var(--text);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -1509,7 +1509,7 @@ button:hover {
     box-sizing: border-box;
     font-family: 'Segoe UI', Arial, sans-serif;
     font-size: 13px;
-    z-index: 100;
+    z-index: 4000;
     box-shadow: 0 -2px 5px rgba(0,0,0,0.2);
 }
 
@@ -1627,7 +1627,7 @@ body.is-spectating #hotbar-container {
 .dropdown-content {
     display: none;
     position: absolute;
-    background-color: var(--border);
+    background-color: #ffffff;
     min-width: 220px;
     box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
     z-index: 9999999;
@@ -1639,12 +1639,12 @@ body.is-spectating #hotbar-container {
 }
 
 .dropdown-content a {
-    color: white;
+    color: #333;
     padding: 12px 16px;
     text-decoration: none;
     display: block;
     font-size: 14px;
-    border-bottom: 1px solid var(--bg-hover);
+    border-bottom: 1px solid #f0f0f0;
     font-family: inherit;
     transition: background 0.2s;
 }
@@ -1739,7 +1739,7 @@ body.is-spectating #hotbar-container {
 .ribbon-tabs-container { display: flex; width: 100%; background: var(--bg-header); padding-top: 5px; padding-left: 8px; }
 
 .btn-ribbon-export {
-    margin-left: auto; margin-bottom: 4px;
+    margin-left: auto; margin-bottom: 4px; align-self: flex-end; 
     background: var(--input-bg, #1e1e1e); color: var(--text, white); 
     border: 1px solid var(--border, #333); padding: 4px 12px; font-weight: bold; 
     border-radius: 4px; cursor: pointer; display: flex; align-items: center; 
@@ -1874,152 +1874,209 @@ body.is-spectating #hotbar-container {
 .mob-info-hp { margin: 0; color: #333; font-size: 14px; font-weight: bold; }
 .btn-spawn-mob { font-size: 18px; padding: 12px 0; }
 
-
 /* ==========================================
-   ✨ ESTILOS DEL MENÚ ADDONS (ESTILO WORD) ✨
+   📦 ADDONS MENU CSS
    ========================================== */
 .addons-menu-content {
     display: none;
     position: absolute;
     top: 100%;
     left: 0;
-    width: 340px;
-    background-color: var(--border);
-    border: 1px solid #444;
-    border-radius: 4px;
-    box-shadow: 0px 8px 16px rgba(0,0,0,0.6);
-    z-index: 9999999;
-    flex-direction: column;
-    color: #e2e8f0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #C6C6C6;
+    min-width: 260px;
+    box-shadow: 4px 4px 0px rgba(0,0,0,0.2);
+    border: 2px solid #555;
+    z-index: 2000;
 }
 
 .addons-menu-content.show {
-    display: flex;
-}
-
-.addons-header {
-    padding: 12px 15px;
-    font-size: 14px;
-    font-weight: bold;
-    color: #ffffff;
+    display: block;
 }
 
 .addons-list {
-    max-height: 280px;
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
-}
-
-/* Scrollbar estilo Windows oscuro para la lista */
-.addons-list::-webkit-scrollbar {
-    width: 8px;
-}
-.addons-list::-webkit-scrollbar-thumb {
-    background: #555;
-    border-radius: 4px;
-}
-.addons-list::-webkit-scrollbar-track {
-    background: #252525;
+    padding: 5px;
+    gap: 5px;
 }
 
 .addon-item {
     display: flex;
-    padding: 10px 15px;
-    gap: 12px;
     align-items: center;
-    transition: background 0.1s;
-	border: 1px solid var(--bg-hover);
-}
-
-.addon-item:hover {
-    background-color: var(--bg-panel);
+    background: #8B8B8B;
+    border: 2px solid #373737;
+    padding: 5px;
+    gap: 8px;
 }
 
 .addon-icon {
     width: 32px;
     height: 32px;
-    border-radius: 6px;
-    border: 1px solid #555;
+    border: 2px solid #373737;
     display: flex;
     justify-content: center;
     align-items: center;
     font-size: 18px;
     flex-shrink: 0;
-    box-shadow: inset 0 0 5px rgba(0,0,0,0.3);
 }
 
 .addon-info {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 2px;
     overflow: hidden;
 }
 
 .addon-title {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: bold;
-    color: #ffffff;
+    color: #FFF;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    text-shadow: 1px 1px 0 #000;
 }
 
 .addon-desc {
     font-size: 11px;
-    color: #aaaaaa;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.addon-link {
-    font-size: 10px;
-    color: #8ab4f8; /* Azul claro estilo link */
-    text-decoration: none;
-    margin-top: 2px;
-}
-
-.addon-link:hover {
-    text-decoration: underline;
+    color: #333;
+    line-height: 1.2;
+    white-space: normal;
 }
 
 .addon-action-btn {
-    background: var(--bg-panel);
-    border: 1px solid #666;
-    color: #ffffff;
-    padding: 4px 14px;
-    border-radius: 3px;
+    background: #4CAF50;
+    color: white;
+    border: 2px solid #2E7D32;
+    padding: 6px 12px;
     cursor: pointer;
+    font-weight: bold;
     font-size: 12px;
-    font-weight: normal;
-    transition: background 0.1s, border-color 0.1s;
 }
 
 .addon-action-btn:hover {
-    background: var(--accent);
-    border-color: #888;
+    background: #66BB6A;
 }
 
 .addons-footer {
-    padding: 10px 15px;
+    background: #8B8B8B;
+    padding: 5px;
+    border-top: 2px solid #555;
     display: flex;
-    justify-content: flex-end;
+    justify-content: center;
 }
 
 .addon-more-btn {
     background: transparent;
-    border: 1px solid #666;
-    color: #ffffff;
-    padding: 6px 12px;
+    border: none;
+    color: #333;
+    font-weight: bold;
     cursor: pointer;
-    border-radius: 3px;
     font-size: 12px;
 }
 
 .addon-more-btn:hover {
-    background: #444;
-    border-color: #888;
+    color: #000;
+}
+
+/* ==========================================
+   ⚙️ MODAL DE CONFIGURACIÓN Y ESTILO UNIFICADO
+   ========================================== */
+
+/* Fix para que los selects se lean bien siempre */
+select, option { 
+    color: black !important; 
+    background-color: white; 
+}
+
+/* Estructura base para los modales estándar */
+.mbw-standard-modal {
+    background: #C6C6C6;
+    border: 2px solid #555;
+    padding: 0; 
+    display: flex;
+    flex-direction: column;
+    color: black;
+    box-shadow: 4px 4px 0px rgba(0,0,0,0.2);
+}
+
+.mbw-modal-header {
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
+    background: #8B8B8B; 
+    padding: 5px 10px; 
+    border-bottom: 2px solid #FFF;
+    border-right: 2px solid #FFF; 
+    border-top: 1px solid #373737; 
+    border-left: 1px solid #373737;
+}
+
+.mbw-modal-header h3 { 
+    margin: 0; 
+    color: #FFF; 
+    font-size: 14px; 
+    font-weight: bold; 
+    text-shadow: 1px 1px 0 #000; 
+}
+
+.mbw-close-btn { 
+    cursor: pointer; 
+    font-weight: bold; 
+    color: #FFF; 
+    font-size: 16px; 
+    line-height: 1; 
+}
+
+.mbw-close-btn:hover { 
+    color: #FFD700; 
+}
+
+.mbw-modal-body { 
+    padding: 10px; 
+    flex: 1; 
+    overflow-y: auto; 
+}
+
+/* ==========================================
+   🎨 PESTAÑAS LATERALES DE CONFIGURACIÓN
+   ========================================== */
+
+.settings-sidebar {
+    width: 160px;
+    background: #A0A0A0;
+    border-right: 2px solid #555;
+    display: flex;
+    flex-direction: column;
+}
+
+.settings-tab {
+    padding: 10px 12px;
+    cursor: pointer;
+    font-weight: bold;
+    color: #333;
+    font-size: 14px;
+    border-bottom: 1px solid #888;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.settings-tab:hover { 
+    background: #909090; 
+    color: #000; 
+}
+
+.settings-tab.active {
+    background: #C6C6C6;
+    color: #000;
+    border-right: 2px solid #C6C6C6; /* Se funde con el fondo del panel */
+    margin-right: -2px; /* Se superpone para tapar la línea separadora */
+    box-shadow: inset 2px 2px 0px rgba(255,255,255,0.5);
+}
+
+.settings-pane { 
+    display: none; 
+}
+
+.settings-pane.active { 
+    display: block; 
 }

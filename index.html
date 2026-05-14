@@ -231,6 +231,7 @@
         display: flex; justify-content: space-between; align-items: center;
         background: #8B8B8B; padding: 5px 10px; border-bottom: 2px solid #FFF;
         border-right: 2px solid #FFF; border-top: 1px solid #373737; border-left: 1px solid #373737;
+        margin-bottom: 5px;
     }
 
     .mbw-modal-header h3 { margin: 0; color: #FFF; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 0 #000; }
@@ -309,37 +310,6 @@
     .enchanted-slot:hover .enchant-tooltip {
         display: block;
     }
-	
-	
-	/* --- PESTAÑAS DE CONFIGURACIÓN --- */
-    .settings-sidebar {
-        width: 160px;
-        background: #A0A0A0;
-        border-right: 2px solid #555;
-        display: flex;
-        flex-direction: column;
-    }
-    .settings-tab {
-        padding: 10px 12px;
-        cursor: pointer;
-        font-weight: bold;
-        color: #333;
-        font-size: 14px;
-        border-bottom: 1px solid #888;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .settings-tab:hover { background: #909090; color: #000; }
-    .settings-tab.active {
-        background: #C6C6C6;
-        color: #000;
-        border-right: 2px solid #C6C6C6; /* Para fundirse con el contenido */
-        margin-right: -2px; /* Superpone el borde derecho */
-        box-shadow: inset 2px 2px 0px rgba(255,255,255,0.5);
-    }
-    .settings-pane { display: none; }
-    .settings-pane.active { display: block; }
  </style>
 </head>
 <body>
@@ -408,73 +378,62 @@
 
 <div id="ribbon">
   
-  <div class="ribbon-tabs-container">
+<div class="ribbon-tabs-container">
     <button class="tab-btn active" onclick="openTab('insert')" data-i18n="tab_insert">Insert</button>
     <button class="tab-btn" onclick="openTab('settings')" data-i18n="tab_world_settings">World Settings</button>
     <button class="tab-btn" onclick="openTab('create')" data-i18n="tab_create">Create</button>
     <button class="tab-btn" onclick="openTab('view')" data-i18n="tab_view">View</button>
 
-<!-- ✨ NUEVO: BOTÓN Y MENÚ DE ADDONS ✨ -->
-<div class="dropdown-container" id="addons-dropdown-container">
-    <button class="tab-btn" onclick="toggleAddonsMenu()" style="color: #f1c40f; display: flex; align-items: center; gap: 6px;">
-        <span style="font-size: 14px;">📦Addons</span>
-    </button>
-    
-    <div id="addons-dropdown" class="addons-menu-content">
-
+    <div class="dropdown-container" id="addons-dropdown-container" style="position: relative; display: flex; align-items: flex-end;">
+        <button class="tab-btn" onclick="toggleAddonsMenu()" style="color: #f1c40f; display: flex; flex-direction: row; align-items: center; gap: 4px; padding-bottom: 8px; white-space: nowrap;">
+    <span style="font-size: 12px;">➕ Addons</span>
+    <span style="font-size: 10px;">▼</span>
+</button>
         
-        <div class="addons-list">
-            <!-- Addon: Spawnskins Preview -->
-            <div class="addon-item">
-                <div class="addon-icon" style="background: #2c3e50;">🧬</div>
-                <div class="addon-info">
-                    <div class="addon-title">Spawnskins Preview</div>
-                    <div class="addon-desc">Upload skin spreadsheets to see the spawnskin preview in the world.</div>
+        <div id="addons-dropdown" class="addons-menu-content">
+            <div class="addons-list">
+                <div class="addon-item">
+                    <div class="addon-icon" style="background: #2c3e50;">🧬</div>
+                    <div class="addon-info">
+                        <div class="addon-title">Spawnskins Preview</div>
+                        <div class="addon-desc">Upload skin spreadsheets to see the spawnskin preview in the world.</div>
+                    </div>
+                    <button class="addon-action-btn" onclick="openSpawnskinsModal(); document.getElementById('addons-dropdown').classList.remove('show');">Open</button>
                 </div>
-                <button class="addon-action-btn" onclick="openSpawnskinsModal(); document.getElementById('addons-dropdown').classList.remove('show');">Open</button>
+                
+                <div class="addon-item">
+                    <div class="addon-icon" style="background: #8e44ad; display: flex; align-items: center; justify-content: center;">
+                        <div style="width: 16px; height: 16px; background-image: url('assets/blocks.png'); background-position: 0px -2992px; transform: scale(1.5); image-rendering: pixelated;"></div>
+                    </div>
+                    <div class="addon-info">
+                        <div class="addon-title">[Demo] Pixel Art Auto-Builder</div>
+                        <div class="addon-desc">Convert any image in a big pixel art.</div>
+                    </div>
+                    <button class="addon-action-btn" onclick="openPixelArtModal(); document.getElementById('addons-dropdown').classList.remove('show');">Open</button>
+                </div>
             </div>
             
-            <!-- Addon 2: Pixel Art Builder -->
-            <div class="addon-item">
-                <div class="addon-icon" style="background: #8e44ad; display: flex; align-items: center; justify-content: center;">
-                    <!-- ✨ TEXTURA REAL DE LA LANA BLANCA (cloth_white) -->
-                    <div style="width: 16px; height: 16px; background-image: url('assets/blocks.png'); background-position: 0px -2992px; transform: scale(1.5); image-rendering: pixelated;"></div>
-                </div>
-                <div class="addon-info">
-                    <div class="addon-title">[Demo] Pixel Art Auto-Builder</div>
-                    <div class="addon-desc">Convert any image in a big pixel art.</div>
-                </div>
-                <button class="addon-action-btn" onclick="openPixelArtModal(); document.getElementById('addons-dropdown').classList.remove('show');">Open</button>
+            <div class="addons-footer">
+                <button class="addon-more-btn">➕ More Add-ins</button>
             </div>
-
-            <!-- Addon 3 -->
-
-        </div>
-        
-        <div class="addons-footer">
-            <button class="addon-more-btn">➕ More Add-ins</button>
         </div>
     </div>
-</div>
     
-    <!-- ✨ BOTÓN DIVIDIDO: EXPORT / SAVE AS ✨ -->
-        <div class="dropdown-container" id="export-dropdown-container" style="margin-left: auto; margin-bottom: 4px; align-self: flex-end; display: flex;">
-            <!-- Parte Izquierda: Exportación normal -->
-            <button class="btn-ribbon-export" onclick="if(typeof fileManager !== 'undefined') fileManager.export();" style="margin: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: 1px solid #777;" title="Quick Export">
-                <span data-i18n="btn_export">Export</span>
-            </button>
-            <!-- Parte Derecha: Flechita desplegable -->
-            <button class="btn-ribbon-export" onclick="toggleExportMenu()" style="margin: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; padding: 4px 8px;" title="More options">
-                ▼
-            </button>
-            <!-- El menú que se despliega -->
-            <div id="export-dropdown" class="dropdown-content" style="top: 100%; right: 0; left: auto; min-width: 150px; font-weight: bold;">
-                <a href="#" onclick="if(typeof fileManager !== 'undefined') fileManager.saveAs(); closeExportMenu();">💾 Save As...</a>
-            </div>
+    <div class="dropdown-container" id="export-dropdown-container" style="margin-left: auto; margin-bottom: 4px; align-self: flex-end; display: flex;">
+        <button class="btn-ribbon-export" onclick="if(typeof fileManager !== 'undefined') fileManager.export();" style="margin: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: 1px solid #777;" title="Quick Export">
+            <span data-i18n="btn_export">Export</span>
+        </button>
+        <button class="btn-ribbon-export" onclick="toggleExportMenu()" style="margin: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; padding: 4px 8px;" title="More options">
+            ▼
+        </button>
+        <div id="export-dropdown" class="dropdown-content" style="top: 100%; right: 0; left: auto; min-width: 150px; font-weight: bold;">
+            <a href="#" onclick="if(typeof fileManager !== 'undefined') fileManager.saveAs(); closeExportMenu();">💾 Save As...</a>
         </div>
+    </div>
+    
     <button id="btn-world-info" class="tab-btn btn-ribbon-info" onclick="toggleWorldInfo()" disabled><span data-i18n="btn_world_info">World Info</span></button>
   </div>
-
+  
   <div class="tab-content">
    
     <div id="tab-insert" class="tab-pane active">
@@ -545,9 +504,6 @@
             </div>
             <div class="ribbon-group-label" data-i18n="lbl_mobs_tab">Mobs (M)</div>
         </div>
-		
-		<div class="separator"></div>
-		
    </div>
 
     <div id="tab-settings" class="tab-pane">
@@ -840,7 +796,6 @@
      </div>
  </div>
 
-<!-- ✨ MODAL: CONFIGURACIÓN CON PESTAÑAS ✨ -->
 <div id="settings-modal" class="modal">
     <div class="modal-content mbw-standard-modal" style="width: 550px; height: 350px;">
         <div class="mbw-modal-header">
@@ -850,7 +805,6 @@
         
         <div class="mbw-modal-body" style="padding: 0; display: flex; flex-direction: row; height: 100%;">
             
-            <!-- Barra lateral de pestañas -->
             <div class="settings-sidebar">
                 <div class="settings-tab active" onclick="openSettingsTab('theme')">🎨 Theme</div>
                 <div class="settings-tab" onclick="openSettingsTab('autosave')">💾 Auto-save</div>
@@ -860,10 +814,8 @@
                 <div class="settings-tab" onclick="openSettingsTab('controls')">⌨️ Controls</div>
             </div>
 
-            <!-- Área de contenido -->
             <div style="flex: 1; padding: 15px; background: #C6C6C6; overflow-y: auto;">
                 
-                <!-- Pestaña: THEME -->
                 <div id="set-tab-theme" class="settings-pane active">
                     <h3 style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">🎨 Theme</h3>
                     <label data-i18n="config_theme">Select your preferred theme:</label>
@@ -877,7 +829,6 @@
                     </select>
                 </div>
 
-                <!-- Pestaña: AUTO-SAVE -->
                 <div id="set-tab-autosave" class="settings-pane">
                     <h3 style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">💾 Auto-save</h3>
                     <label data-i18n="config_autosave">Auto-Save Interval:</label>
@@ -889,7 +840,6 @@
                     </select>
                 </div>
 
-                <!-- Pestaña: LANGUAGE -->
                 <div id="set-tab-language" class="settings-pane">
                     <h3 style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">🌍 Language</h3>
                     <label data-i18n="config_language">Select Language:</label>
@@ -900,7 +850,6 @@
                     </select>
                 </div>
 
-                <!-- Pestaña: STARTUP SCREEN -->
                 <div id="set-tab-startup" class="settings-pane">
                     <h3 style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">🚀 Startup Screen</h3>
                     <label data-i18n="config_startup">Choose what to see when opening the app:</label>
@@ -910,7 +859,6 @@
                     </select>
                 </div>
 
-                <!-- Pestaña: VOLUME -->
                 <div id="set-tab-volume" class="settings-pane">
                     <h3 style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">🔊 Master Volume</h3>
                     <label style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 10px; margin-top: 10px;">
@@ -920,7 +868,6 @@
                     <input type="range" id="volume-slider" min="0" max="100" value="100" oninput="changeVolume(this.value)" style="width: 100%; cursor: pointer;">
                 </div>
 
-                <!-- Pestaña: CONTROLS -->
                 <div id="set-tab-controls" class="settings-pane">
                     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #888; padding-bottom: 5px; margin-bottom: 10px;">
                         <h3 style="margin: 0;">⌨️ Controls</h3>
@@ -928,10 +875,8 @@
                     </div>
                     <p style="font-size: 13px; color: #333; margin-top: 0; margin-bottom: 10px;">Click a button and press a new key to change the shortcut.</p>
                     
-                    <!-- Contenedor donde JS inyectará los atajos -->
                     <div id="keybinds-list" style="display: flex; flex-direction: column; max-height: 230px; overflow-y: auto; padding-right: 5px;">
-                        <!-- JavaScript llenará esto automáticamente -->
-                    </div>
+                        </div>
                 </div>
 
             </div>
@@ -1515,8 +1460,8 @@ window.addEventListener('DOMContentLoaded', () => {
             </p>
             
             <div style="position: absolute; bottom: 10px; left: 15px; font-size: 11px; color: gray; font-family: monospace;">
-                <span data-i18n="about_last_update">Last Update:</span> May 5, 2026<br>
-                v2.4 - Snapshot 17
+                <span data-i18n="about_last_update">Last Update:</span> May 14, 2026<br>
+                v2.4 - Snapshot 18
             </div>
             <div style="position: absolute; bottom: 10px; right: 15px; font-size: 12px; color: gray; font-weight: bold;">
                 2026
@@ -1659,20 +1604,15 @@ window.addEventListener('DOMContentLoaded', () => {
     </div>
 </div>
 
-<!-- ✨ MODAL: ADDON SPAWNSKINS PREVIEW ✨ -->
 <div id="spawnskins-addon-modal" class="modal" style="z-index: 3500;">
     <div class="modal-content mbw-standard-modal" style="width: 550px; height: 380px;">
         <div class="mbw-modal-header">
             <h3>Spawnskins Preview Generator</h3>
             <span class="mbw-close-btn" onclick="closeSpawnskinsModal()">&times;</span>
         </div>
-        
         <div class="mbw-modal-body" style="padding: 0; display: flex; flex-direction: row; height: 100%;">
-            
             <div style="flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 15px; border-right: 2px solid #555;">
-                <p style="margin: 0; font-size: 14px; color: #000; font-weight: normal;">
-                    To see the spawnskins in the editor, you need to use this tool.
-                </p>
+                <p style="margin: 0; font-size: 14px; color: #000; font-weight: normal;">To see the spawnskins in the editor, you need to use this tool.</p>
                 
                 <div style="background: rgba(0,0,0,0.1); padding: 10px; border-radius: 4px; border: 1px solid #777;">
                     <strong style="color: #000; font-size: 13px;">1. Open 'Spawnskins Preview Generator'</strong>
@@ -1683,53 +1623,40 @@ window.addEventListener('DOMContentLoaded', () => {
 
                 <div style="background: rgba(0,0,0,0.1); padding: 10px; border-radius: 4px; border: 1px solid #777;">
                     <strong style="color: #000; font-size: 13px;">2. Load the skin list here:</strong>
-                    
                     <input type="file" id="skin-upload-input" multiple accept=".png, image/png" style="display: none;" onchange="importLocalSkins(event)">
-
-					<button onclick="document.getElementById('skin-upload-input').click()" style="margin-top: 8px; width: 100%; background: #2ecc71; color: white; padding: 8px; border: 2px solid #27ae60; cursor: pointer; font-weight: bold; border-radius: 3px; display: flex; align-items: center; justify-content: center; gap: 5px;">
-					<span style="font-size: 16px;">📁</span> Import skins
-					</button>
+                    <button onclick="document.getElementById('skin-upload-input').click()" style="margin-top: 8px; width: 100%; background: #2ecc71; color: white; padding: 8px; border: 2px solid #27ae60; cursor: pointer; font-weight: bold; border-radius: 3px; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                    <span style="font-size: 16px;">📁</span> Import skins
+                    </button>
                 </div>
             </div>
-            
             <div style="width: 200px; background: #B0B0B0; display: flex; flex-direction: column;">
-                <div style="padding: 8px; background: #8B8B8B; border-bottom: 2px solid #555; text-align: center; font-weight: bold; color: white; text-shadow: 1px 1px 0 #000;">
-                    Imported Spawnskins
-                </div>
-                <div id="loaded-skins-list" style="flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px; background: #999;">
-                    </div>
+                <div style="padding: 8px; background: #8B8B8B; border-bottom: 2px solid #555; text-align: center; font-weight: bold; color: white; text-shadow: 1px 1px 0 #000;">Imported Spawnskins</div>
+                <div id="loaded-skins-list" style="flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px; background: #999;"></div>
             </div>
-
         </div>
     </div>
 </div>
 
-<!-- ✨ MODAL: PIXEL ART AUTO-BUILDER ✨ -->
 <div id="pixelart-addon-modal" class="modal" style="z-index: 3500;">
     <div class="modal-content mbw-standard-modal" style="width: 400px;">
         <div class="mbw-modal-header">
             <h3>Pixel Art Auto-Builder</h3>
             <span class="mbw-close-btn" onclick="closeModal('pixelart-addon-modal')">&times;</span>
         </div>
-        
         <div class="mbw-modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
             <p style="margin: 0; font-size: 13px; color: #333;">Sube una imagen y el editor la construirá en el mundo usando bloques de lana y arcilla.</p>
-            
             <div style="display: flex; flex-direction: column; gap: 5px;">
                 <label style="font-size: 12px; font-weight: bold; color: #000;">Tamaño Máximo (Ancho en Bloques):</label>
                 <input type="number" id="pixelart-max-width" value="64" min="10" max="200" style="padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
                 <small style="color: #666; font-size: 10px;">Imágenes muy grandes pueden dar lag.</small>
             </div>
-
             <input type="file" id="pixelart-upload" accept="image/png, image/jpeg" style="display: none;" onchange="processPixelArt(event)">
-            
             <button onclick="document.getElementById('pixelart-upload').click()" style="background: #8e44ad; color: white; padding: 10px; border: none; cursor: pointer; font-weight: bold; border-radius: 3px; display: flex; align-items: center; justify-content: center; gap: 5px;">
                 <span style="font-size: 16px;">🖼️</span> Cargar Imagen y Construir
             </button>
         </div>
     </div>
 </div>
-
 
 
  <script src="scripts/lang.js"></script>

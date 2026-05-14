@@ -3220,3 +3220,108 @@ document.addEventListener('click', function(event) {
         if (typeof closeExportMenu === 'function') closeExportMenu();
     }
 });
+
+// ==========================================
+// ⚙️ CONTROLADOR DE PESTAÑAS (CONFIGURACIÓN)
+// ==========================================
+window.openSettingsTab = function(tabId) {
+    // 1. Ocultamos todos los paneles y quitamos la clase 'active'
+    document.querySelectorAll('.settings-pane').forEach(pane => pane.classList.remove('active'));
+    document.querySelectorAll('.settings-tab').forEach(tab => tab.classList.remove('active'));
+
+    // 2. Mostramos el panel elegido
+    const targetPane = document.getElementById('set-tab-' + tabId);
+    if (targetPane) targetPane.classList.add('active');
+
+    // 3. Pintamos la pestaña seleccionada en la barra lateral
+    const activeTab = document.querySelector(`.settings-tab[onclick*="${tabId}"]`);
+    if (activeTab) activeTab.classList.add('active');
+
+    // ✨ 4. Si abrimos la pestaña de controles, dibujamos la lista de atajos
+    if (tabId === 'controls' && typeof window.renderKeybinds === 'function') {
+        window.renderKeybinds();
+    }
+};
+
+// ==========================================
+// ⌨️ SISTEMA DE ATAJOS DE TECLADO (KEYBINDS)
+// ==========================================
+
+const DEFAULT_KEYBINDS = {
+    inventory: { key: 'e', label: '🎒 Open Inventory' },
+    structures: { key: 'r', label: '🏘️ Open Structures' },
+    mobs: { key: 'm', label: '🐷 Open Mobs Browser' },
+    brush_up: { key: '+', label: '🖌️ Brush Size +' },
+    brush_down: { key: '-', label: '🖌️ Brush Size -' },
+    delete: { key: 'delete', label: '💥 Delete Selection' },
+    undo: { key: 'z', ctrl: true, label: '↶ Undo' },
+    redo: { key: 'y', ctrl: true, label: '↷ Redo' },
+    copy: { key: 'c', ctrl: true, label: '📄 Copy Selection' },
+    cut: { key: 'x', ctrl: true, label: '✂️ Cut Selection' },
+    paste: { key: 'v', ctrl: true, label: '📋 Paste' }
+};
+
+window.userKeybinds = JSON.parse(localStorage.getItem('mbw_keybinds')) || JSON.parse(JSON.stringify(DEFAULT_KEYBINDS));
+let isWaitingForKey = null; 
+
+// ✨ Esta es la función que te faltaba, la que dibuja la lista en la pantalla
+window.renderKeybinds = function() {
+    const container = document.getElementById('keybinds-list');
+    if (!container) return;
+    container.innerHTML = '';
+
+    for (let action in window.userKeybinds) {
+        const bind = window.userKeybinds[action];
+        
+        let displayKey = bind.key;
+        if (displayKey === ' ') displayKey = 'Space';
+        else if (displayKey && displayKey.length === 1) displayKey = displayKey.toUpperCase();
+        
+        if (bind.ctrl) displayKey = 'Ctrl + ' + displayKey;
+
+        const row = document.createElement('div');
+        row.style.cssText = 'display: flex; justify-content: space-between; align-items: center; background: #A0A0A0; padding: 6px 12px; border: 2px solid #555; border-radius: 3px; margin-bottom: 4px;';
+
+        row.innerHTML = `
+            <span style="color: black; font-weight: bold; font-size: 14px;">${bind.label}</span>
+            <button id="btn-bind-${action}" onclick="startRebind('${action}')" style="min-width: 90px; padding: 4px 8px; background: #222; color: #FFF; border: 2px inset #555; cursor: pointer; font-family: 'Consolas', monospace; font-weight: bold; font-size: 14px; text-transform: capitalize;">
+                ${displayKey}
+            </button>
+        `;
+        container.appendChild(row);
+    }
+};
+
+window.startRebind = function(action) {
+    isWaitingForKey = action;
+    const btn = document.getElementById(`btn-bind-${action}`);
+    btn.innerText = "Press key...";
+    btn.style.background = "#e67e22";
+    btn.style.borderColor = "#d35400";
+    btn.style.color = "#FFF";
+};
+
+window.resetKeybinds = function() {
+    window.userKeybinds = JSON.parse(JSON.stringify(DEFAULT_KEYBINDS));
+    localStorage.setItem('mbw_keybinds', JSON.stringify(window.userKeybinds));
+    window.renderKeybinds();
+};
+
+// ==========================================
+// 🧠 DETECTOR PARA GUARDAR LA NUEVA TECLA
+// ==========================================
+window.addEventListener('keydown', function(e) {
+    // Si dimos clic en el botón naranja y estamos esperando una tecla...
+    if (isWaitingForKey) {
+        e.preventDefault();
+        // Ignoramos teclas de sistema para que no se guarde "Control" solo
+        if (['control', 'shift', 'alt', 'meta', 'escape'].includes(e.key.toLowerCase())) return;
+
+        window.userKeybinds[isWaitingForKey].key = e.key.toLowerCase();
+        window.userKeybinds[isWaitingForKey].ctrl = e.ctrlKey; // Guarda si presionaste Ctrl al mismo tiempo
+        
+        localStorage.setItem('mbw_keybinds', JSON.stringify(window.userKeybinds));
+        isWaitingForKey = null;
+        window.renderKeybinds(); // Redibuja la lista al instante
+    }
+});

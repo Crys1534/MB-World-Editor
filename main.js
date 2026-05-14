@@ -19,10 +19,10 @@ const uiElements = {
 };
 
 // Agregamos el 10, 250 y 300
-const ZOOM_LEVELS = [5, 10, 25, 50, 100, 150, 200, 250, 300];
+const ZOOM_LEVELS = [2, 5, 10, 25, 50, 100, 150, 200, 250, 300, 400, 500, 600];
 
 // El 100% ahora está en la posición 3 (0=10, 1=25, 2=50, 3=100)
-let currentZoomIndex = 4; 
+let currentZoomIndex = 6; 
 let currentZoom = 100;
 const BASE_TILE_SIZE = 16;
 let showGrid = false;
@@ -31,7 +31,7 @@ let tileSize = BASE_TILE_SIZE;
 
 // --- IMÁGENES GLOBALES ---
 // Agrega aquí los nombres de los PNGs que vayas metiendo a la carpeta assets/
-window.images = { names: ["blocks", "hotbar", "slot", "nether-bg", "end-bg", "zombie", "skeleton", "creeper", "enderman", "nethereye", "spawnskin", "enderdragon", "pig", "cow", "chicken", "Player", "slime", "magmacube", "chicken", "blaze", "squid", "ghast", "rabbit", "cowctus cow", "mushroom cow", "dog", "sheep", "snowgolem", "wolf", "spider", "snowgolem", "zombiepigman", "bat", "zombie_supremo"] };
+window.images = { names: ["blocks", "hotbar", "slot", "nether-bg", "end-bg", "zombie", "skeleton", "creeper", "enderman", "nethereye", "enderdragon", "pig", "cow", "chicken", "Player", "slime", "magmacube", "chicken", "blaze", "squid", "ghast", "rabbit", "cowctus cow", "mushroom cow", "dog", "sheep", "snowgolem", "wolf", "spider", "snowgolem", "zombiepigman", "bat", "zombie_supremo"] };
 
 window.images.names.forEach((name) => {
     window.images[name] = new Image();
@@ -198,11 +198,14 @@ function renderWorldToBuffer() {
             
             const blockObject = getBlockCache(currentX, currentY);
             if (blockObject != null) {
+                // ✨ FIX: Solapamiento Anti-Líneas para zooms extremos
                 const values = {
-                    x: x * tileSize,
-                    y: canvas.height - y * tileSize,
-                    width: tileSize,
-                    height: -tileSize,
+                    x: Math.floor(x * tileSize),
+                    y: Math.floor(canvas.height - y * tileSize),
+                    
+                    // Le sumamos un pequeño margen extra (0.8) para tapar los huecos decimales
+                    width: Math.ceil(tileSize) + 0.8,
+                    height: -(Math.ceil(tileSize) + 0.8),
                 }
                 drawBlock(blockObject, values, offscreenCtx);
             }
@@ -258,59 +261,6 @@ function getBlockObject(states) {
 }
 
 // ==========================================
-// 🎨 LECTOR DE SKINS DESDE LA BÓVEDA Y ASSETS LOCALES
-// ==========================================
-window.skinCache = window.skinCache || {}; 
-window.skinFetchInProgress = window.skinFetchInProgress || {};
-
-window.getSpawnskinImage = function(skinID) {
-    // 1. Si ya está en la memoria RAM lista para usarse, la entregamos
-    if (window.skinCache[skinID]) {
-        return window.skinCache[skinID];
-    }
-
-    // 2. Si no la estamos buscando aún, iniciamos la búsqueda
-    if (!window.skinFetchInProgress[skinID]) {
-        window.skinFetchInProgress[skinID] = true; // Bloqueamos para no hacer spam
-        
-        // ✨ PASO 1: Intentar buscarla en la carpeta local assets/spawnskins/
-        const localImg = new Image();
-        
-        localImg.onload = function() {
-            // ¡Éxito! La encontró en la carpeta del proyecto
-            window.skinCache[skinID] = localImg;
-            if (typeof worldDirty !== 'undefined') worldDirty = true; // Forzamos redibujado
-        };
-        
-        localImg.onerror = function() {
-            // Falla: No está en la carpeta. 
-            // ✨ PASO 2: Entonces buscamos en la Bóveda (IndexedDB) de lo que subió el usuario
-            skinDB.getSkin(skinID).then(base64Data => {
-                if (base64Data) {
-                    // ¡La encontró en la bóveda!
-                    const img = new Image();
-                    img.onload = function() {
-                        if (typeof worldDirty !== 'undefined') worldDirty = true; 
-                    };
-                    img.src = base64Data;
-                    window.skinCache[skinID] = img;
-                } else {
-                    // No está en la carpeta ni en la bóveda. El usuario necesita importarla.
-                    window.skinCache[skinID] = { hasFailed: true };
-                    if (typeof worldDirty !== 'undefined') worldDirty = true;
-                }
-            });
-        };
-        
-        // Disparamos la búsqueda local
-        localImg.src = `assets/spawnskins/${skinID}.png`;
-    }
-
-    // 3. Mientras la busca (o si falló), devolvemos null para que el Canvas dibuje la caja rosa/error
-    return null;
-};
-
-// ==========================================
 // ✨ RENDERIZADO DE ENTIDADES / MOBS ✨
 // ==========================================
 function drawMobs() {
@@ -336,83 +286,46 @@ function drawMobs() {
             
             let mobWidth = tileSize * 1;
             let mobHeight = tileSize * 2;
+			
+			if (mob.type === 'chicken' || mob.type === 'slime' || mob.type === 'magmacube') { 
+			mobWidth = tileSize * 1; mobHeight = tileSize * 1; }
+			
+            if (mob.type === 'enderdragon') { 
+			mobWidth = tileSize * 24; mobHeight = tileSize * 8; }
+			
+            if (mob.type === 'nethereye' || mob.type === 'rabbit' || mob.type === 'bat') { 
+			mobWidth = tileSize * 0.75; mobHeight = tileSize * 0.75; }
+			
+            if (mob.type === 'pig' || mob.type === 'wolf' || mob.type === 'spider' || mob.type === 'sheep') { 
+			mobWidth = tileSize * 2; mobHeight = tileSize * 1.2; }
+			
+            if (mob.type === 'enderman') { 
+			mobWidth = tileSize * 1.2; mobHeight = tileSize * 3; }
+			
+			if (mob.type === 'squid') { 
+			mobWidth = tileSize * 1; mobHeight = tileSize * 2; }
+			
+            if (mob.type === 'cow' || mob.type === 'cowctus cow' || mob.type === 'mushroom cow') { 
+			mobWidth = tileSize * 2.6; mobHeight = tileSize * 2; }
             
-            if (mob.type === 'chicken' || mob.type === 'slime' || mob.type === 'magmacube') { 
-                mobWidth = tileSize * 1; mobHeight = tileSize * 1; 
-            } else if (mob.type === 'enderdragon') { 
-                mobWidth = tileSize * 24; mobHeight = tileSize * 8; 
-            } else if (mob.type === 'nethereye' || mob.type === 'rabbit' || mob.type === 'bat') { 
-                mobWidth = tileSize * 0.75; mobHeight = tileSize * 0.75; 
-            } else if (mob.type === 'pig' || mob.type === 'wolf' || mob.type === 'spider' || mob.type === 'sheep') { 
-                mobWidth = tileSize * 2; mobHeight = tileSize * 1.2; 
-            } else if (mob.type === 'enderman') { 
-                mobWidth = tileSize * 1.2; mobHeight = tileSize * 3; 
-            } else if (mob.type === 'squid') { 
-                mobWidth = tileSize * 1; mobHeight = tileSize * 2; 
-            } else if (mob.type === 'cow' || mob.type === 'cowctus cow' || mob.type === 'mushroom cow') { 
-                mobWidth = tileSize * 2.6; mobHeight = tileSize * 2; 
-            }
+            let mobImg = window.images[mob.type];
 
-            // ✨ LÓGICA DE SKINS LOCALES ✨
-            let mobImg = null;
-            let isCustomSkin = false;
-
-            if (mob.type === 'spawnskin' && mob.skin) {
-                mobImg = window.getSpawnskinImage(mob.skin);
-                isCustomSkin = true;
-                mobWidth = tileSize * 1.4; // Ajuste para que se vea bien la skin
-                mobHeight = tileSize * 2.0; 
-            } else {
-                mobImg = window.images[mob.type];
-            }
-
-            // Si es un spawnskin y no encontró la imagen en la carpeta, usamos la por defecto
-            if (isCustomSkin && mobImg && mobImg.hasFailed) {
-                mobImg = window.images['spawnskin']; 
-            }
-
-            // DIBUJAMOS LA IMAGEN
             if (mobImg && mobImg.complete && mobImg.naturalWidth > 0) {
                 ctx.save(); 
                 ctx.translate(screenX, screenY);
                 if (mob.direction === 1) ctx.scale(-1, 1);
                 ctx.imageSmoothingEnabled = false;
-
-                // ✨ LA MAGIA DEL RECORTE (SPRITE CROPPING) ✨
-                let sourceX = 0;
-                let sourceY = 0;
-                let sourceWidth = mobImg.naturalWidth;
-                let sourceHeight = mobImg.naturalHeight;
-
-                // Si es un spawnskin, ignoramos el tamaño de la hoja de sprites
-                // y "recortamos" estrictamente el rectángulo de 16x22px
-                if (isCustomSkin) {
-                    sourceWidth = 16;
-                    sourceHeight = 22;
-                }
-
                 ctx.drawImage(
                     mobImg, 
-                    sourceX, sourceY, sourceWidth, sourceHeight,     // QUÉ parte de la imagen original tomar
-                    -(mobWidth / 2), -mobHeight, mobWidth, mobHeight // DÓNDE y de qué tamaño dibujarlo en el Canvas
+                    0, 0, mobImg.naturalWidth, mobImg.naturalHeight,
+                    -(mobWidth / 2), -mobHeight, mobWidth, mobHeight 
                 );
-                
                 ctx.restore(); 
-
-                // Si falló y estamos usando la textura de reemplazo, avisamos
-                if (isCustomSkin && window.skinCache[mob.skin] && window.skinCache[mob.skin].hasFailed) {
-                    ctx.fillStyle = "#FF5555";
-                    ctx.font = "bold 10px Arial";
-                    ctx.textAlign = "center";
-                    ctx.fillText("Falta " + mob.skin + ".png", screenX, screenY - (mobHeight / 2));
-                }
             } else {
-                // MIENTRAS CARGA LA IMAGEN
                 let color = "rgba(255, 0, 0, 0.4)"; 
                 if (mob.type === 'zombie') color = "rgba(46, 125, 50, 0.5)";
                 else if (mob.type === 'skeleton') color = "rgba(224, 224, 224, 0.5)";
                 else if (mob.type === 'enderman') color = "rgba(49, 27, 146, 0.5)";
-                else if (mob.type === 'spawnskin') color = "rgba(255, 0, 255, 0.5)";
                 
                 ctx.fillStyle = color;
                 ctx.fillRect(screenX - (mobWidth / 2), screenY - mobHeight, mobWidth, mobHeight);
@@ -420,10 +333,10 @@ function drawMobs() {
 
             // ✨ EFECTO DE SELECCIÓN ESTILO "ARCHIVO WINDOWS" ✨
             if (typeof selectedMob !== 'undefined' && mob === selectedMob && typeof currentTool !== 'undefined' && currentTool === 'move') {
-                ctx.fillStyle = "rgba(0, 120, 215, 0.3)";
+                ctx.fillStyle = "rgba(0, 120, 215, 0.3)"; // Fondo celeste translúcido
                 ctx.fillRect(screenX - (mobWidth / 2), screenY - mobHeight, mobWidth, mobHeight);
                 
-                ctx.strokeStyle = "#0078D7";
+                ctx.strokeStyle = "#0078D7"; // Borde azul sólido
                 ctx.lineWidth = 2;
                 ctx.strokeRect(screenX - (mobWidth / 2), screenY - mobHeight, mobWidth, mobHeight);
                 ctx.lineWidth = 1; 
@@ -434,30 +347,44 @@ function drawMobs() {
             ctx.font = "bold 12px Arial";
             ctx.textAlign = "center";
             ctx.shadowColor = "black"; ctx.shadowBlur = 4;
-            let displayName = mob.name ? String(mob.name) : (mob.type === 'spawnskin' && mob.skin ? "Skin: " + mob.skin : String(mob.type).toUpperCase());
+            let displayName = mob.name ? String(mob.name) : String(mob.type).toUpperCase();
             ctx.fillText(displayName, screenX, screenY - mobHeight - 8);
             ctx.shadowBlur = 0; 
             
             // Barra de Vida
-            if (mob.health !== undefined) {
-                let maxHp = mob.maxHealth || (typeof MOBS_HP_DB !== 'undefined' ? MOBS_HP_DB[mob.type] : 20) || 20;
-                let currentHealth = Math.ceil(Number(mob.health));
-                let hpPercent = Math.max(0, Math.min(1, currentHealth / maxHp)); 
-                
-                ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-                ctx.fillRect(screenX - (mobWidth/2), screenY - mobHeight - 4, mobWidth, 4);
-                
-                ctx.fillStyle = hpPercent > 0.3 ? "#00FF00" : "#FF0000";
-                ctx.fillRect(screenX - (mobWidth/2), screenY - mobHeight - 4, mobWidth * hpPercent, 4);
-            }
-            
-            // Indicador Multijugador
+if (mob.health !== undefined) {
+    // 1. Buscamos en tu base de datos de ui-handler.js
+    // Si no está ahí, asume 20 por defecto para evitar errores
+    let maxHp = mob.maxHealth || (typeof MOBS_HP_DB !== 'undefined' ? MOBS_HP_DB[mob.type] : 20) || 20;
+    
+    // 2. Redondear la vida actual para evitar decimales extraños
+    let currentHealth = Math.ceil(Number(mob.health));
+
+    // 4. Calcular el porcentaje
+    let hpPercent = Math.max(0, Math.min(1, currentHealth / maxHp)); 
+    
+    // 5. Dibujar el fondo oscuro de la barra
+    ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+    ctx.fillRect(screenX - (mobWidth/2), screenY - mobHeight - 4, mobWidth, 4);
+    
+    // 6. Dibujar la barra verde/roja
+    ctx.fillStyle = hpPercent > 0.3 ? "#00FF00" : "#FF0000";
+    ctx.fillRect(screenX - (mobWidth/2), screenY - mobHeight - 4, mobWidth * hpPercent, 4);
+}
+			
+			// ==========================================
+            // ✨ INDICADOR MULTIJUGADOR (MOB BLOQUEADO)
+            // ==========================================
             let miNombre = localStorage.getItem('mbw_username') || "Player";
             
+            // Si alguien más lo movió en los últimos 2 segundos, consideramos que lo tiene "agarrado"
             if (mob.lockedBy && mob.lockedBy !== miNombre && mob.lastMoveTime && (Date.now() - mob.lastMoveTime < 500)) {
+                
+                // Pintamos un recuadro rojo suave encima del mob
                 ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
                 ctx.fillRect(screenX - (mobWidth / 2), screenY - mobHeight, mobWidth, mobHeight);
                 
+                // Mostramos un candado y el nombre de quién lo está moviendo
                 ctx.fillStyle = "#FF5555";
                 ctx.font = "bold 10px Arial";
                 ctx.textAlign = "center";
@@ -653,34 +580,30 @@ function drawUI() {
         ctx.stroke(); 
     }
 
-    // --- ✨ PREVIEW FANTASMA DEL PIXEL ART ---
-    if (typeof currentTool !== 'undefined' && currentTool === 'pixelart' && window.pendingPixelArt && window.pendingPixelArt.imgCanvas) {
+    if (currentTool === 'paste' && window.clipboard) {
         ctx.save();
-        ctx.globalAlpha = 0.5; // 70% de visibilidad fantasma
-        ctx.imageSmoothingEnabled = false; // Mantiene los píxeles nítidos
+        ctx.globalAlpha = 0.5;
 
-        const startX = Math.floor(mouse.worldX);
-        const startY = Math.floor(mouse.worldY);
+        window.clipboard.data.forEach(blockData => {
+            if (!blockData.state) return;
+            const absX = mouse.worldX + blockData.dx;
+            const absY = mouse.worldY + blockData.dy;
+            
+            const screenX = (absX - camera.x) * tileSize;
+            const screenY = canvas.height - (absY - camera.y) * tileSize;
 
-        const screenX = (startX - camera.x) * tileSize;
-        // startY es la fila superior. Su esquina superior en pantalla está a -tileSize
-        const screenY = canvas.height - (startY - camera.y) * tileSize;
-        const drawY = screenY - tileSize; 
-
-        const drawWidth = window.pendingPixelArt.width * tileSize;
-        const drawHeight = window.pendingPixelArt.height * tileSize;
-
-        // Dibujamos la imagen completa sobre el mapa
-        ctx.drawImage(window.pendingPixelArt.imgCanvas, screenX, drawY, drawWidth, drawHeight);
-
-        // Agregamos un borde animado para que resalte
-        ctx.strokeStyle = "#FFD700"; // Borde Dorado
-        ctx.lineWidth = 2;
-        ctx.setLineDash([6, 6]);
-        ctx.lineDashOffset = -(Date.now() / 50); // Animación estilo Photoshop
-        ctx.strokeRect(screenX, drawY, drawWidth, drawHeight);
+            const values = { x: screenX, y: screenY, width: tileSize, height: -tileSize };
+            const texture = getBlockObject(blockData.state);
+            drawBlock(texture, values);
+        });
         
         ctx.restore();
+
+        const startScreenX = (mouse.worldX - camera.x) * tileSize;
+        const startScreenY = canvas.height - (mouse.worldY - camera.y) * tileSize;
+        ctx.strokeStyle = "#00FFFF";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(startScreenX, startScreenY, window.clipboard.width * tileSize, -(window.clipboard.height * tileSize));
     }
 
 
@@ -867,6 +790,27 @@ function drawUI() {
         ctx.textBaseline = "middle";
         ctx.fillText(text, startX + (boxWidth / 2), startY + (boxHeight / 2));
         
+        ctx.restore();
+    }
+	
+	// --- ✨ PREVIEW FANTASMA DEL PIXEL ART ---
+    if (typeof currentTool !== 'undefined' && currentTool === 'pixelart' && window.pendingPixelArt && window.pendingPixelArt.imgCanvas) {
+        ctx.save();
+        ctx.globalAlpha = 0.5; // 70% de visibilidad fantasma
+        ctx.imageSmoothingEnabled = false; 
+        const startX = Math.floor(mouse.worldX);
+        const startY = Math.floor(mouse.worldY);
+        const screenX = (startX - camera.x) * tileSize;
+        const screenY = canvas.height - (startY - camera.y) * tileSize;
+        const drawY = screenY - tileSize; 
+        const drawWidth = window.pendingPixelArt.width * tileSize;
+        const drawHeight = window.pendingPixelArt.height * tileSize;
+
+        ctx.drawImage(window.pendingPixelArt.imgCanvas, screenX, drawY, drawWidth, drawHeight);
+
+        ctx.strokeStyle = "#FFD700"; ctx.lineWidth = 2; ctx.setLineDash([6, 6]);
+        ctx.lineDashOffset = -(Date.now() / 50); 
+        ctx.strokeRect(screenX, drawY, drawWidth, drawHeight);
         ctx.restore();
     }
 }
@@ -1241,64 +1185,43 @@ if (canvasElement) {
     }, { passive: false });
 }
 
-
-// Función para mostrar/ocultar el menú
-window.toggleAddonsMenu = function() {
-    document.getElementById("addons-dropdown").classList.toggle("show");
-};
-
-// Cerrar el menú automáticamente si el usuario hace clic afuera de él
+// ==========================================
+// ⚙️ MENÚ ADDONS - TOGGLE
+// ==========================================
+window.toggleAddonsMenu = function() { document.getElementById("addons-dropdown").classList.toggle("show"); };
 document.addEventListener('click', function(event) {
-    const isAddonBtn = event.target.closest('#addons-dropdown-container');
-    if (!isAddonBtn) {
+    if (!event.target.closest('#addons-dropdown-container')) {
         const dropdown = document.getElementById("addons-dropdown");
-        if (dropdown && dropdown.classList.contains('show')) {
-            dropdown.classList.remove("show");
-        }
+        if (dropdown && dropdown.classList.contains('show')) dropdown.classList.remove("show");
     }
 });
 
-
 // ==========================================
-// 🗄️ BÓVEDA DE SKINS (IndexedDB)
+// 🗄️ BÓVEDA DE SKINS (IndexedDB) Y LECTOR RAM
 // ==========================================
 const skinDB = {
-    dbName: "MBW_SkinsDB",
-    storeName: "skins",
+    dbName: "MBW_SkinsDB", storeName: "skins",
     init: function() {
         return new Promise((resolve, reject) => {
             let request = indexedDB.open(this.dbName, 1);
-            request.onupgradeneeded = (e) => {
-                let db = e.target.result;
-                if (!db.objectStoreNames.contains(this.storeName)) {
-                    db.createObjectStore(this.storeName);
-                }
-            };
-            request.onsuccess = (e) => resolve(e.target.result);
-            request.onerror = (e) => reject(e.target.error);
+            request.onupgradeneeded = (e) => { let db = e.target.result; if (!db.objectStoreNames.contains(this.storeName)) db.createObjectStore(this.storeName); };
+            request.onsuccess = (e) => resolve(e.target.result); request.onerror = (e) => reject(e.target.error);
         });
     },
     saveSkin: async function(id, base64Data) {
         let db = await this.init();
         return new Promise((resolve, reject) => {
             let tx = db.transaction(this.storeName, "readwrite");
-            // Guardamos garantizando que el ID es un String
             tx.objectStore(this.storeName).put({ data: base64Data, time: Date.now() }, String(id));
-            tx.oncomplete = () => resolve();
-            tx.onerror = () => reject();
+            tx.oncomplete = () => resolve(); tx.onerror = () => reject();
         });
     },
     getSkin: async function(id) {
         let db = await this.init();
         return new Promise((resolve, reject) => {
             let tx = db.transaction(this.storeName, "readonly");
-            // ✨ EL FIX: Forzamos la búsqueda a String. Así el "123" (número) de MineBlocks 
-            // coincidirá con el "123" (texto) de tu archivo .png
             let req = tx.objectStore(this.storeName).get(String(id));
-            req.onsuccess = () => {
-                let res = req.result;
-                resolve(res ? (res.data || res) : null);
-            };
+            req.onsuccess = () => { let res = req.result; resolve(res ? (res.data || res) : null); };
             req.onerror = () => resolve(null);
         });
     },
@@ -1307,266 +1230,162 @@ const skinDB = {
         return new Promise((resolve, reject) => {
             let tx = db.transaction(this.storeName, "readonly");
             let store = tx.objectStore(this.storeName);
-            let reqValues = store.getAll();
-            let reqKeys = store.getAllKeys();
-            
+            let reqValues = store.getAll(); let reqKeys = store.getAllKeys();
             tx.oncomplete = () => {
-                let values = reqValues.result || [];
-                let keys = reqKeys.result || [];
-                
-                let combined = keys.map((key, index) => {
-                    let val = values[index];
-                    return {
-                        id: key,
-                        time: val.time || 0,
-                        base64: val.data || val 
-                    };
-                });
-                
-                combined.sort((a, b) => b.time - a.time);
-                resolve(combined);
+                let values = reqValues.result || []; let keys = reqKeys.result || [];
+                let combined = keys.map((key, index) => { return { id: key, time: values[index].time || 0, base64: values[index].data || values[index] }; });
+                combined.sort((a, b) => b.time - a.time); resolve(combined);
             };
             tx.onerror = () => resolve([]);
         });
     }
 };
 
-// ==========================================
-// 🎨 LÓGICA DEL ADDON DE SPAWNSKINS
-// ==========================================
+window.skinCache = window.skinCache || {}; 
+window.skinFetchInProgress = window.skinFetchInProgress || {};
 
-// Abrir el modal y refrescar la barra lateral
-window.openSpawnskinsModal = function() {
-    if (typeof openModal === 'function') openModal('spawnskins-addon-modal');
-    refreshLoadedSkinsList();
+window.getSpawnskinImage = function(skinID) {
+    if (window.skinCache[skinID]) return window.skinCache[skinID];
+    if (!window.skinFetchInProgress[skinID]) {
+        window.skinFetchInProgress[skinID] = true;
+        const localImg = new Image();
+        localImg.onload = function() { window.skinCache[skinID] = localImg; if (typeof worldDirty !== 'undefined') worldDirty = true; };
+        localImg.onerror = function() {
+            skinDB.getSkin(skinID).then(base64Data => {
+                if (base64Data) {
+                    const img = new Image();
+                    img.onload = function() { if (typeof worldDirty !== 'undefined') worldDirty = true; };
+                    img.src = base64Data; window.skinCache[skinID] = img;
+                } else {
+                    window.skinCache[skinID] = { hasFailed: true };
+                    if (typeof worldDirty !== 'undefined') worldDirty = true;
+                }
+            });
+        };
+        localImg.src = `assets/spawnskins/${skinID}.png`;
+    }
+    return null;
 };
 
-// ==========================================
-// 🔄 ACTUALIZAR LISTA CON PREVIEW (32x44px) Y ORDENADA
-// ==========================================
+window.openSpawnskinsModal = function() { if (typeof openModal === 'function') openModal('spawnskins-addon-modal'); refreshLoadedSkinsList(); };
+window.closeSpawnskinsModal = function() { if (typeof closeModal === 'function') closeModal('spawnskins-addon-modal'); const listDiv = document.getElementById('loaded-skins-list'); if (listDiv) listDiv.innerHTML = ""; };
+
 window.refreshLoadedSkinsList = async function() {
-    const listDiv = document.getElementById('loaded-skins-list');
-    if (!listDiv) return;
-    
+    const listDiv = document.getElementById('loaded-skins-list'); if (!listDiv) return;
     listDiv.innerHTML = "<div style='text-align:center; color:#333; font-size:12px; margin-top: 10px;'>Buscando...</div>";
-    
     try {
-        // ✨ Le pedimos a la bóveda la lista completa ya ORDENADA
-        const skins = await skinDB.getAllSorted();
-        listDiv.innerHTML = "";
-        
-        if (skins.length === 0) {
-            listDiv.innerHTML = "<div style='text-align:center; color:#333; font-size:12px; margin-top: 10px; font-weight: bold;'>Ninguna skin cargada aún</div>";
-            return;
-        }
-        
-        // Iteramos la lista (los más nuevos vienen primero)
+        const skins = await skinDB.getAllSorted(); listDiv.innerHTML = "";
+        if (skins.length === 0) { listDiv.innerHTML = "<div style='text-align:center; color:#333; font-size:12px; margin-top: 10px; font-weight: bold;'>Ninguna skin cargada aún</div>"; return; }
         for (let skin of skins) {
             const item = document.createElement('div');
-            item.style.cssText = `
-                background: #fff; border: 1px solid #555; padding: 4px 6px; 
-                font-size: 11px; font-family: monospace; color: #000; 
-                border-radius: 3px; font-weight: bold;
-                display: flex; justify-content: space-between; align-items: center;
-            `;
-            
-            const textSpan = document.createElement('span');
-            textSpan.innerText = "📄 " + skin.id + ".png";
-            
-            const previewWrapper = document.createElement('div');
-            previewWrapper.style.cssText = `
-                width: 32px; height: 44px; border: 1px solid #ccc;
-                border-radius: 2px; flex-shrink: 0; overflow: hidden;
-                background: #8B8B8B; 
-            `;
-
-            const previewDiv = document.createElement('div');
-            previewDiv.style.cssText = `
-                width: 16px; height: 22px; 
-                background-image: url('${skin.base64}'); 
-                background-position: left top; background-repeat: no-repeat;
-                image-rendering: pixelated; transform: scale(2);
-                transform-origin: top left;
-            `;
-            
-            previewWrapper.appendChild(previewDiv);
-            item.appendChild(textSpan);
-            item.appendChild(previewWrapper);
+            item.style.cssText = `background: #fff; border: 1px solid #555; padding: 4px 6px; font-size: 11px; font-family: monospace; color: #000; border-radius: 3px; font-weight: bold; display: flex; justify-content: space-between; align-items: center;`;
+            item.innerHTML = `<span>📄 ${skin.id}.png</span><div style="width: 32px; height: 44px; border: 1px solid #ccc; border-radius: 2px; flex-shrink: 0; overflow: hidden; background: #8B8B8B;"><div style="width: 16px; height: 22px; background-image: url('${skin.base64}'); background-position: left top; background-repeat: no-repeat; image-rendering: pixelated; transform: scale(2); transform-origin: top left;"></div></div>`;
             listDiv.appendChild(item);
         }
-    } catch (e) {
-        listDiv.innerHTML = "<div style='text-align:center; color:#c0392b; font-size:12px;'>Error al cargar lista</div>";
-    }
+    } catch (e) { listDiv.innerHTML = "<div style='text-align:center; color:#c0392b; font-size:12px;'>Error al cargar lista</div>"; }
 };
 
-// Cerrar el modal y limpiar la lista lateral
-window.closeSpawnskinsModal = function() {
-    // Cerramos el modal usando tu función general
-    if (typeof closeModal === 'function') {
-        closeModal('spawnskins-addon-modal');
-    }
-    
-    // Vaciamos el contenido de la lista para que no consuma memoria en segundo plano
-    const listDiv = document.getElementById('loaded-skins-list');
-    if (listDiv) {
-        listDiv.innerHTML = ""; 
-    }
-};
-
-// 📥 Importación y guardado
 window.importLocalSkins = function(event) {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
-
+    const files = event.target.files; if (!files || files.length === 0) return;
     let loadedCount = 0;
     for (let file of files) {
-        const skinID = file.name.replace(/\.[^/.]+$/, "");
-        
-        const reader = new FileReader();
+        const skinID = file.name.replace(/\.[^/.]+$/, ""); const reader = new FileReader();
         reader.onload = async function(e) {
-            const base64 = e.target.result; 
-            
-            // Guardar en la base de datos
-            await skinDB.saveSkin(skinID, base64);
-            
-            // Refrescar en memoria RAM para el Canvas
-            const img = new Image();
-            img.onload = () => { if (typeof worldDirty !== 'undefined') worldDirty = true; };
-            img.src = base64;
-            
-            window.skinCache = window.skinCache || {};
-            window.skinCache[skinID] = img;
-            
-            loadedCount++;
-            if (loadedCount === files.length) {
-                // Limpiar el input
-                document.getElementById('skin-upload-input').value = "";
-                
-                // ✨ ACTUALIZAMOS LA BARRA LATERAL AL TERMINAR ✨
-                refreshLoadedSkinsList();
-            }
+            const base64 = e.target.result; await skinDB.saveSkin(skinID, base64);
+            const img = new Image(); img.onload = () => { if (typeof worldDirty !== 'undefined') worldDirty = true; }; img.src = base64;
+            window.skinCache[skinID] = img; loadedCount++;
+            if (loadedCount === files.length) { document.getElementById('skin-upload-input').value = ""; refreshLoadedSkinsList(); }
         };
         reader.readAsDataURL(file);
     }
 };
 
-// ==========================================
-// 🖼️ ADDON: PIXEL ART AUTO-BUILDER (CORREGIDO)
-// ==========================================
-
-window.openPixelArtModal = function() {
-    if (typeof openModal === 'function') openModal('pixelart-addon-modal');
+window.processSpawnskinUpload = function(event) {
+    var file = event.target.files[0]; if (!file) return;
+    var listContainer = document.getElementById('loaded-skins-list');
+    if (listContainer) listContainer.innerHTML = "<em style='color: white;'>Procesando archivo...</em>";
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var encodedString = e.target.result; var worldData = null;
+        try { worldData = JSON.parse(encodedString); } catch (error) {
+            try {
+                var decodedString = "";
+                for (var a = 0, b = encodedString.length; a < b; ) {
+                    var c = a++; var characterCode = encodedString.charCodeAt(c) - (c * 5 % 33 + 1);
+                    if (characterCode < 0) characterCode = 0; 
+                    decodedString += String.fromCodePoint(characterCode);
+                }
+                worldData = JSON.parse(decodedString);
+            } catch (err2) { if (listContainer) listContainer.innerHTML = "<strong style='color:#ff6b6b;'>Error: Archivo corrupto.</strong>"; event.target.value = ""; return; }
+        }
+        var skinsEncontradas = []; var skinsProcesadas = new Set();
+        if (worldData) {
+            var gruposMobs = [worldData.mobs1, worldData.mobs2, worldData.mobs3];
+            gruposMobs.forEach(function(grupo) {
+                if (grupo) {
+                    for (var key in grupo) {
+                        var mob = grupo[key];
+                        if (mob.type === "spawnskin" && mob.skin && !skinsProcesadas.has(mob.skin)) {
+                            skinsProcesadas.add(mob.skin); skinsEncontradas.push({ name: mob.name || "Sin nombre", skinId: mob.skin });
+                        }
+                    }
+                }
+            });
+        }
+        if (skinsEncontradas.length > 0) {
+            window.editorImportedSkins = skinsEncontradas;
+            var html = "<div style='color: white; margin-bottom: 5px; font-size: 12px;'>Skins importadas: " + skinsEncontradas.length + "</div>";
+            skinsEncontradas.forEach(function(skin) {
+                html += `<div style='background: #E0E0E0; border: 2px solid #555; padding: 5px; border-radius: 3px; display: flex; align-items: center; gap: 8px; margin-bottom: 5px;'>  <img src='https://mineblocks.com/1/skins/${skin.skinId}.png' alt='Skin' style='width: 32px; height: 32px; object-fit: contain; image-rendering: pixelated; border: 1px solid #999; background: #fff;' onerror='this.style.display="none"'>  <div style='font-size: 11px; line-height: 1.2; word-break: break-all; color: #000;'>    <strong>${skin.name}</strong><br>    <span style='color: #444;'>ID: ${skin.skinId}</span>  </div></div>`;
+            });
+            if (listContainer) listContainer.innerHTML = html;
+        } else {
+            if (listContainer) listContainer.innerHTML = "<em style='color: white; font-size: 12px;'>No se encontraron skins.</em>";
+        }
+        event.target.value = "";
+    };
+    reader.readAsText(file);
 };
 
 // ==========================================
-// ✨ PALETA MASIVA DE BLOQUES (RGB Calibrado 1:1 con el Sprite Sheet)
+// 🖼️ ADDON: PIXEL ART AUTO-BUILDER
 // ==========================================
+window.openPixelArtModal = function() { if (typeof openModal === 'function') openModal('pixelart-addon-modal'); };
 const blockPalette = {
-    // 🧶 LANAS (Colores Base - y:187)
-    "cloth_white": [225, 225, 225], "cloth_lightgray": [160, 160, 160], "cloth_gray": [85, 85, 85],
-    "cloth_black": [25, 25, 25], "cloth_brown": [85, 55, 30], "cloth_purple": [120, 50, 155],
-    "cloth_magenta": [185, 65, 175], "cloth_red": [165, 45, 45], "cloth_orange": [225, 115, 35],
-    "cloth_pink": [235, 140, 165], "cloth_yellow": [225, 200, 45], "cloth_lightgreen": [115, 185, 25],
-    "cloth_green": [65, 105, 35], "cloth_cyan": [45, 115, 135], "cloth_lightblue": [105, 155, 210],
-    "cloth_blue": [45, 60, 150], "cloth_rainbow": [200, 200, 200],
-
-    // 🌍 TIERRA, PIEDRA Y NATURALEZA
-    "br": [80, 80, 80], "r": [120, 120, 120], "cs": [105, 105, 105], "ms": [95, 115, 80],
-    "ms1": [95, 115, 80], "ms2": [95, 115, 80], "dt": [134, 96, 67], "dt_1": [110, 140, 65], 
-    "farm": [102, 70, 46], "myc": [111, 99, 105], "gdt": [119, 85, 58], "cdt": [119, 85, 58],
-    "sb": [218, 210, 158], "sd": [218, 210, 158], "ss": [215, 205, 150], "ssd": [215, 205, 150],
-    "rsd": [190, 100, 30], "rsd_1": [190, 100, 30], "hcl": [150, 95, 65], "gv": [130, 125, 120],
-    "cy1": [160, 166, 179], "snowblock": [240, 250, 250], "ice": [160, 200, 255], 
-    "fice": [160, 200, 255], "fice_1": [160, 200, 255], "fice_2": [160, 200, 255], 
-    "fice_3": [160, 200, 255], "fice_4": [160, 200, 255],
-
-    // 🪵 MADERAS, HOJAS Y CULTIVOS DECORATIVOS
-    "wp": [160, 130, 80], "wd1": [100, 80, 50], "wd_1": [100, 80, 50], "wd_2": [100, 80, 50],
-    "fw1": [100, 80, 50], "fw2": [100, 80, 50], "j": [150, 110, 80], "hai_1": [200, 180, 40],
-    "hay": [200, 170, 30], "hay_1": [200, 170, 30], "hay_2": [200, 170, 30],
-    "lv": [65, 125, 45], "lv1": [70, 110, 50], "lv2": [50, 90, 60], "lv3": [80, 130, 40], "lv4": [60, 100, 40],
-    "lgr": [130, 200, 40], "pk": [220, 140, 30], "pk_2": [220, 140, 30], "pk_3": [220, 140, 30],
-    "pk_4": [220, 140, 30], "pk_5": [220, 140, 30], "pk_6": [220, 140, 30], "pk_7": [220, 140, 30],
-    "pk_8": [220, 140, 30], "pk_9": [220, 140, 30], "pk_10": [220, 140, 30], "pk_11": [220, 140, 30],
-    "jl": [250, 150, 30], "mel": [100, 140, 50], "lemonb": [245, 230, 70],
-
-    // 🧱 CONSTRUCCIÓN, MINERALES Y BLOQUES VALIOSOS
-    "bricks": [145, 80, 70], "books": [115, 90, 55], "bbb": [220, 220, 210], "dsb": [55, 55, 60],
-    "clore": [90, 90, 90], "in": [135, 130, 125], "gd": [140, 135, 120], "dmore": [110, 130, 135],
-    "rs": [130, 90, 90], "os": [25, 20, 35], "lap": [90, 100, 130], "egem": [100, 130, 100],
-    "to": [140, 125, 90], "ib": [230, 230, 230], "gb": [248, 224, 70], "db": [99, 219, 213],
-    "lapb": [39, 67, 138], "clb": [20, 20, 20], "top": [255, 180, 50], "tob": [255, 165, 45],
-	"ob": [25, 15, 35],
-
-    // 🌋 END, NETHER Y DECORACIONES EXÓTICAS
-    "n": [110, 55, 55], "nb": [45, 20, 25], "rnb": [95, 30, 35], "magma": [210, 95, 30],
-    "glow": [235, 195, 100], "light": [255, 240, 180], "coral": [230, 115, 145],
-    "es": [220, 225, 165], "pf": [165, 115, 165], "pf_2": [165, 115, 165], "portalstone": [55, 115, 120],
-
-    // 🌑 BACKDROPS / FONDOS (y:190 a y:200 - Colores oscurecidos exactos)
-    "bdcloth_white": [112, 112, 112], "bdcloth_lightgray": [80, 80, 80], "bdcloth_gray": [42, 42, 42],
-    "bdcloth_black": [12, 12, 12], "bdcloth_brown": [42, 27, 15], "bdcloth_purple": [60, 25, 77],
-    "bdcloth_magenta": [92, 32, 87], "bdcloth_red": [82, 22, 22], "bdcloth_orange": [112, 57, 17],
-    "bdcloth_pink": [117, 70, 82], "bdcloth_yellow": [112, 100, 22], "bdcloth_lightgreen": [57, 92, 12],
-    "bdcloth_green": [32, 52, 17], "bdcloth_cyan": [22, 57, 67], "bdcloth_lightblue": [52, 77, 105],
-    "bdcloth_blue": [22, 30, 75], "bdcloth_rainbow": [100, 100, 100],
-    "bddt": [67, 48, 33], "bdr": [60, 60, 60], "bdcs": [52, 52, 52], "bdbbb": [110, 110, 105],
-    "bdbricks": [72, 40, 35], "bdbooks": [57, 45, 27], "bdsb": [109, 101, 80], "bdwp": [80, 65, 40],
-    "bdnb": [22, 10, 12], "bb": [57, 45, 27], "bdob": [12, 7, 18]
+    "cloth_white": [225, 225, 225], "cloth_lightgray": [160, 160, 160], "cloth_gray": [85, 85, 85], "cloth_black": [25, 25, 25], "cloth_brown": [85, 55, 30], "cloth_purple": [120, 50, 155], "cloth_magenta": [185, 65, 175], "cloth_red": [165, 45, 45], "cloth_orange": [225, 115, 35], "cloth_pink": [235, 140, 165], "cloth_yellow": [225, 200, 45], "cloth_lightgreen": [115, 185, 25], "cloth_green": [65, 105, 35], "cloth_cyan": [45, 115, 135], "cloth_lightblue": [105, 155, 210], "cloth_blue": [45, 60, 150], "cloth_rainbow": [200, 200, 200],
+    "br": [80, 80, 80], "r": [120, 120, 120], "cs": [105, 105, 105], "ms": [95, 115, 80], "ms1": [95, 115, 80], "ms2": [95, 115, 80], "dt": [134, 96, 67], "dt_1": [110, 140, 65], "farm": [102, 70, 46], "myc": [111, 99, 105], "gdt": [119, 85, 58], "cdt": [119, 85, 58], "sb": [218, 210, 158], "sd": [218, 210, 158], "ss": [215, 205, 150], "ssd": [215, 205, 150], "gv": [130, 125, 120], "cy1": [160, 166, 179], "snowblock": [240, 250, 250], "ice": [160, 200, 255], "fice": [160, 200, 255], "fice_1": [160, 200, 255], "fice_2": [160, 200, 255], "fice_3": [160, 200, 255], "fice_4": [160, 200, 255],
+    "wp": [160, 130, 80], "wd1": [100, 80, 50], "wd_1": [100, 80, 50], "wd_2": [100, 80, 50], "fw1": [100, 80, 50], "fw2": [100, 80, 50], "j": [150, 110, 80], "hai_1": [200, 180, 40], "hay": [200, 170, 30], "hay_1": [200, 170, 30], "hay_2": [200, 170, 30], "lv": [65, 125, 45], "lv1": [70, 110, 50], "lv2": [50, 90, 60], "lv3": [80, 130, 40], "lv4": [60, 100, 40], "lgr": [130, 200, 40], "pk": [220, 140, 30], "jl": [250, 150, 30], "mel": [100, 140, 50], "lemonb": [245, 230, 70],
+    "bricks": [145, 80, 70], "books": [115, 90, 55], "bbb": [220, 220, 210], "dsb": [55, 55, 60], "clore": [90, 90, 90], "in": [135, 130, 125], "gd": [140, 135, 120], "dmore": [110, 130, 135], "rs": [130, 90, 90], "os": [25, 20, 35], "lap": [90, 100, 130], "egem": [100, 130, 100], "to": [140, 125, 90], "ib": [230, 230, 230], "gb": [248, 224, 70], "db": [99, 219, 213], "lapb": [39, 67, 138], "clb": [20, 20, 20], "top": [255, 180, 50], "tob": [255, 165, 45], "ob": [25, 15, 35],
+    "n": [110, 55, 55], "nb": [45, 20, 25], "rnb": [95, 30, 35], "magma": [210, 95, 30], "glow": [235, 195, 100], "light": [255, 240, 180], "coral": [230, 115, 145], "es": [220, 225, 165], "pf": [165, 115, 165], "portalstone": [55, 115, 120],
+    "bdcloth_white": [112, 112, 112], "bdcloth_black": [12, 12, 12], "bddt": [67, 48, 33], "bdr": [60, 60, 60], "bdcs": [52, 52, 52], "bdbbb": [110, 110, 105], "bdbricks": [72, 40, 35], "bdbooks": [57, 45, 27], "bdsb": [109, 101, 80], "bdwp": [80, 65, 40], "bdnb": [22, 10, 12], "bb": [57, 45, 27], "bdob": [12, 7, 18]
 };
 
 function getClosestBlock(r, g, b) {
-    let closestBlock = "cloth_white";
-    let minDistance = Infinity;
+    let closestBlock = "cloth_white"; let minDistance = Infinity;
     for (let block in blockPalette) {
         let [br, bg, bb] = blockPalette[block];
         let distance = Math.sqrt(Math.pow(r - br, 2) + Math.pow(g - bg, 2) + Math.pow(b - bb, 2));
-        if (distance < minDistance) {
-            minDistance = distance;
-            closestBlock = block;
-        }
+        if (distance < minDistance) { minDistance = distance; closestBlock = block; }
     }
     return closestBlock;
 }
 
-// 2. Procesar y guardar en memoria
 window.processPixelArt = function(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
+    const file = event.target.files[0]; if (!file) return;
     const maxWidth = parseInt(document.getElementById('pixelart-max-width').value) || 64;
     const reader = new FileReader();
-
     reader.onload = function(e) {
         const img = new Image();
         img.onload = function() {
-            let scale = 1;
-            if (img.width > maxWidth) scale = maxWidth / img.width;
-            
-            const finalWidth = Math.floor(img.width * scale);
-            const finalHeight = Math.floor(img.height * scale);
-
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = finalWidth;
-            tempCanvas.height = finalHeight;
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCtx.drawImage(img, 0, 0, finalWidth, finalHeight);
-            
+            let scale = 1; if (img.width > maxWidth) scale = maxWidth / img.width;
+            const finalWidth = Math.floor(img.width * scale); const finalHeight = Math.floor(img.height * scale);
+            const tempCanvas = document.createElement('canvas'); tempCanvas.width = finalWidth; tempCanvas.height = finalHeight;
+            const tempCtx = tempCanvas.getContext('2d'); tempCtx.drawImage(img, 0, 0, finalWidth, finalHeight);
             const imageData = tempCtx.getImageData(0, 0, finalWidth, finalHeight).data;
 
-            // ✨ GUARDAMOS EN MEMORIA (Y AHORA TAMBIÉN LA IMAGEN PARA EL FANTASMA)
-            window.pendingPixelArt = {
-                data: imageData,
-                width: finalWidth,
-                height: finalHeight,
-                imgCanvas: tempCanvas // <--- ¡Esta es la clave visual!
-            };
-
-            // Activar "Modo Pegar"
+            window.pendingPixelArt = { data: imageData, width: finalWidth, height: finalHeight, imgCanvas: tempCanvas };
             if (typeof currentTool !== 'undefined') currentTool = 'pixelart';
-            
             alert("¡Imagen lista! Cierra esta ventana y HAZ CLIC en cualquier lugar del mapa para construirla.");
-            
             if (typeof closeModal === 'function') closeModal('pixelart-addon-modal');
             document.getElementById('pixelart-upload').value = ""; 
         };
@@ -1575,351 +1394,39 @@ window.processPixelArt = function(event) {
     reader.readAsDataURL(file);
 };
 
-// 3. ✨ FIX: Constructor oficial en el mundo (Soporta Ctrl+Z y Caché Visual)
 window.buildPixelArtInWorld = function(pixelData, width, height, startX, startY) {
     if (typeof historyManager !== 'undefined') historyManager.startAction();
-
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
-            const index = (y * width + x) * 4; 
-            const alpha = pixelData[index + 3];
-
-            if (alpha < 50) continue; // Ignorar pixeles transparentes
-
-            const r = pixelData[index];
-            const g = pixelData[index + 1];
-            const b = pixelData[index + 2];
-
+            const index = (y * width + x) * 4; const alpha = pixelData[index + 3];
+            if (alpha < 50) continue;
+            const r = pixelData[index]; const g = pixelData[index + 1]; const b = pixelData[index + 2];
             const blockType = getClosestBlock(r, g, b);
-            
-            const blockX = Math.floor(startX + x);
-            const blockY = Math.floor(startY - y); // De arriba hacia abajo
-            
+            const blockX = Math.floor(startX + x); const blockY = Math.floor(startY - y);
             if (typeof mbwom !== 'undefined' && typeof mbwom.setBlockState === 'function') {
                 const currentState = mbwom.getBlockState(blockX, blockY);
                 const newState = { type: blockType };
-                
-                // Guardar en el historial (Para que sirva el Ctrl+Z)
-                if (typeof historyManager !== 'undefined') {
-                    historyManager.recordChange(blockX, blockY, currentState, newState);
-                }
-                
-                // Poner el bloque y decirle a la memoria que lo dibuje
+                if (typeof historyManager !== 'undefined') historyManager.recordChange(blockX, blockY, currentState, newState);
                 mbwom.setBlockState(blockX, blockY, newState);
                 if (typeof renderBlock === 'function') renderBlock(blockX, blockY);
             }
         }
     }
-    
     if (typeof worldDirty !== 'undefined') worldDirty = true;
     if (typeof historyManager !== 'undefined') historyManager.commitAction();
 };
 
-// 4. ✨ FIX: Vigilante de clics usando las coordenadas globales del ratón
 function setupPixelArtClicker() {
     const mainCanvas = document.getElementById('canvas') || document.querySelector('canvas');
     if (!mainCanvas) return;
-
     mainCanvas.addEventListener('mousedown', function(event) {
         if (window.pendingPixelArt && typeof currentTool !== 'undefined' && currentTool === 'pixelart') {
-            
-            // Usamos las coordenadas exactas que ya calcula tu juego
-            const worldX = Math.floor(mouse.worldX);
-            const worldY = Math.floor(mouse.worldY);
-
-            // ¡Construimos!
-            buildPixelArtInWorld(
-                window.pendingPixelArt.data, 
-                window.pendingPixelArt.width, 
-                window.pendingPixelArt.height, 
-                worldX, 
-                worldY
-            );
-
-            // Limpiamos y regresamos a la herramienta mover
+            const worldX = Math.floor(mouse.worldX); const worldY = Math.floor(mouse.worldY);
+            buildPixelArtInWorld(window.pendingPixelArt.data, window.pendingPixelArt.width, window.pendingPixelArt.height, worldX, worldY);
             window.pendingPixelArt = null;
-            if (typeof selectTool === 'function') {
-                selectTool('move');
-            } else {
-                currentTool = 'move'; 
-            }
-            
-            alert("¡Pixel Art pegado con éxito! (Puedes usar Ctrl+Z si te equivocaste)");
+            if (typeof selectTool === 'function') selectTool('move'); else currentTool = 'move'; 
+            alert("¡Pixel Art pegado con éxito!");
         }
     });
 }
-
-// Ejecutamos el vigilante al cargar la página
-if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", setupPixelArtClicker);
-} else {
-    setupPixelArtClicker();
-}
-
-
-// ==========================================
-// ⌨️ SISTEMA DE ATAJOS DE TECLADO (KEYBINDS)
-// ==========================================
-
-const DEFAULT_KEYBINDS = {
-    inventory: { key: 'e', label: '🎒 Open Inventory' },
-    structures: { key: 'r', label: '🏘️ Open Structures' },
-    mobs: { key: 'm', label: '🐷 Open Mobs Browser' },
-    brush_up: { key: '+', label: '🖌️ Brush Size +' },
-    brush_down: { key: '-', label: '🖌️ Brush Size -' },
-    delete: { key: 'delete', label: '💥 Delete Selection' },
-    undo: { key: 'z', ctrl: true, label: '↶ Undo' },
-    redo: { key: 'y', ctrl: true, label: '↷ Redo' },
-    copy: { key: 'c', ctrl: true, label: '📄 Copy Selection' },
-    cut: { key: 'x', ctrl: true, label: '✂️ Cut Selection' },
-    paste: { key: 'v', ctrl: true, label: '📋 Paste' }
-};
-
-window.userKeybinds = JSON.parse(localStorage.getItem('mbw_keybinds')) || JSON.parse(JSON.stringify(DEFAULT_KEYBINDS));
-let isWaitingForKey = null; // Variable para saber si estamos esperando que el usuario presione una tecla
-
-window.openKeybindsModal = function() {
-    if (typeof openModal === 'function') openModal('keybinds-modal');
-    renderKeybinds();
-};
-
-window.renderKeybinds = function() {
-    const container = document.getElementById('keybinds-list');
-    if (!container) return;
-    container.innerHTML = '';
-
-    for (let action in userKeybinds) {
-        const bind = userKeybinds[action];
-        
-        let displayKey = bind.key;
-        if (displayKey === ' ') displayKey = 'Space';
-        else if (displayKey && displayKey.length === 1) displayKey = displayKey.toUpperCase();
-        
-        // Formatear si tiene Control
-        if (bind.ctrl) displayKey = 'Ctrl + ' + displayKey;
-
-        const row = document.createElement('div');
-        row.style.cssText = 'display: flex; justify-content: space-between; align-items: center; background: #A0A0A0; padding: 6px 12px; border: 2px solid #555; border-radius: 3px;';
-
-        row.innerHTML = `
-            <span style="color: black; font-weight: bold; font-size: 14px;">${bind.label}</span>
-            <button id="btn-bind-${action}" onclick="startRebind('${action}')" style="min-width: 90px; padding: 4px 8px; background: #222; color: #FFF; border: 2px inset #555; cursor: pointer; font-family: 'Consolas', monospace; font-weight: bold; font-size: 14px; text-transform: capitalize;">
-                ${displayKey}
-            </button>
-        `;
-        container.appendChild(row);
-    }
-};
-
-window.startRebind = function(action) {
-    // Si la acción no se puede modificar (ej. Ctrl+Z es universal), bloqueamos (Opcional)
-    // if(action === 'undo' || action === 'redo') return alert("This shortcut cannot be changed.");
-    
-    isWaitingForKey = action;
-    const btn = document.getElementById(`btn-bind-${action}`);
-    btn.innerText = "Press key...";
-    btn.style.background = "#e67e22";
-    btn.style.borderColor = "#d35400";
-    btn.style.color = "#FFF";
-};
-
-window.resetKeybinds = function() {
-    window.userKeybinds = JSON.parse(JSON.stringify(DEFAULT_KEYBINDS));
-    localStorage.setItem('mbw_keybinds', JSON.stringify(window.userKeybinds));
-    renderKeybinds();
-};
-
-// ==========================================
-// 🧠 DETECTOR GLOBAL DE TECLAS Y ACCIONES
-// ==========================================
-window.addEventListener('keydown', function(e) {
-    // 1. SI ESTAMOS REASIGNANDO UNA TECLA
-    if (isWaitingForKey) {
-        e.preventDefault();
-        // Evitamos que las teclas modificadoras solas se guarden (ej: presionar solo 'Ctrl')
-        if (['Control', 'Shift', 'Alt', 'Meta', 'Escape'].includes(e.key)) return;
-
-        window.userKeybinds[isWaitingForKey].key = e.key.toLowerCase();
-        window.userKeybinds[isWaitingForKey].ctrl = e.ctrlKey;
-        
-        localStorage.setItem('mbw_keybinds', JSON.stringify(window.userKeybinds));
-        isWaitingForKey = null;
-        renderKeybinds();
-        return;
-    }
-
-    // 2. SI EL USUARIO ESTÁ ESCRIBIENDO EN EL CHAT O EN UN IMPUT, IGNORAR ATAJOS
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
-
-    // 3. EJECUTAR LAS ACCIONES BASADAS EN LOS KEYBINDS DEL USUARIO
-    const k = e.key.toLowerCase();
-    const isCtrl = e.ctrlKey;
-
-    const binds = window.userKeybinds;
-
-    if (k === binds.brush_up.key && isCtrl === (binds.brush_up.ctrl || false)) {
-        e.preventDefault();
-        if (typeof updateToolSize === 'function') updateToolSize(toolSize + 1);
-    }
-    else if (k === binds.brush_down.key && isCtrl === (binds.brush_down.ctrl || false)) {
-        e.preventDefault();
-        if (typeof updateToolSize === 'function') updateToolSize(toolSize - 1);
-    }
-    else if (k === binds.delete.key && isCtrl === (binds.delete.ctrl || false)) {
-        e.preventDefault();
-        if (typeof deleteSelection === 'function') deleteSelection();
-    }
-    else if (k === binds.inventory.key && isCtrl === (binds.inventory.ctrl || false)) {
-        e.preventDefault();
-        if (typeof toggleInventory === 'function') toggleInventory();
-    }
-    else if (k === binds.structures.key && isCtrl === (binds.structures.ctrl || false)) {
-        e.preventDefault();
-        if (typeof openStructuresModal === 'function') openStructuresModal();
-    }
-    else if (k === binds.mobs.key && isCtrl === (binds.mobs.ctrl || false)) {
-        e.preventDefault();
-        if (typeof openMobModal === 'function') openMobModal();
-    }
-    else if (k === binds.undo.key && isCtrl === (binds.undo.ctrl || false)) {
-        e.preventDefault();
-        if (typeof historyManager !== 'undefined') historyManager.undo();
-    }
-    else if (k === binds.redo.key && isCtrl === (binds.redo.ctrl || false)) {
-        e.preventDefault();
-        if (typeof historyManager !== 'undefined') historyManager.redo();
-    }
-    else if (k === binds.copy.key && isCtrl === (binds.copy.ctrl || false)) {
-        e.preventDefault();
-        if (typeof copySelection === 'function') copySelection();
-    }
-    else if (k === binds.cut.key && isCtrl === (binds.cut.ctrl || false)) {
-        e.preventDefault();
-        if (typeof cutSelection === 'function') cutSelection();
-    }
-    else if (k === binds.paste.key && isCtrl === (binds.paste.ctrl || false)) {
-        e.preventDefault();
-        if (typeof activatePasteMode === 'function') activatePasteMode();
-    }
-});
-
-
-// ==========================================
-// ⚙️ CONTROLADOR DE PESTAÑAS (CONFIGURACIÓN)
-// ==========================================
-window.openSettingsTab = function(tabId) {
-    // 1. Ocultamos todos los paneles y quitamos la clase 'active'
-    document.querySelectorAll('.settings-pane').forEach(pane => pane.classList.remove('active'));
-    document.querySelectorAll('.settings-tab').forEach(tab => tab.classList.remove('active'));
-
-    // 2. Mostramos el panel elegido
-    const targetPane = document.getElementById('set-tab-' + tabId);
-    if (targetPane) targetPane.classList.add('active');
-
-    // 3. Pintamos la pestaña seleccionada en la barra lateral
-    const activeTab = document.querySelector(`.settings-tab[onclick*="${tabId}"]`);
-    if (activeTab) activeTab.classList.add('active');
-
-    // ✨ NUEVO: Si abrimos la pestaña de controles, dibujamos la lista
-    if (tabId === 'controls' && typeof renderKeybinds === 'function') {
-        renderKeybinds();
-    }
-};
-
-// ==========================================
-// 📥 IMPORTADOR DE SPAWNSKINS AL EDITOR
-// ==========================================
-window.processSpawnskinUpload = function(event) {
-    var file = event.target.files[0];
-    if (!file) return;
-
-    // ✨ Nota: Ya no hay validación de terminación de archivo. Acepta de todo.
-
-    var listContainer = document.getElementById('loaded-skins-list');
-    if (listContainer) listContainer.innerHTML = "<em style='color: white;'>Procesando archivo...</em>";
-
-    var reader = new FileReader();
-    reader.onload = function(e) {
-        var encodedString = e.target.result;
-        var worldData = null;
-        
-        try {
-            // 1. PRIMERO intentamos leerlo directo (por si subiste un .json o .txt normal)
-            worldData = JSON.parse(encodedString);
-        } catch (error) {
-            // 2. Si falla, asumimos que es un .mbw encriptado y aplicamos la fórmula
-            try {
-                var decodedString = "";
-                for (var a = 0, b = encodedString.length; a < b; ) {
-                    var c = a++;
-                    var characterCode = encodedString.charCodeAt(c) - (c * 5 % 33 + 1);
-                    
-                    // ✨ FIX: Si por alguna razón da negativo, lo ignoramos para evitar el RangeError
-                    if (characterCode < 0) characterCode = 0; 
-                    
-                    decodedString += String.fromCodePoint(characterCode);
-                }
-                worldData = JSON.parse(decodedString);
-            } catch (err2) {
-                if (listContainer) listContainer.innerHTML = "<strong style='color:#ff6b6b;'>Error: Archivo corrupto o formato no válido.</strong>";
-                event.target.value = ""; // Limpiamos el input antes de salir
-                return;
-            }
-        }
-
-        // 3. Extraer las skins únicas
-        var skinsEncontradas = [];
-        var skinsProcesadas = new Set();
-        
-        // Verificamos que worldData se haya generado bien antes de buscar
-        if (worldData) {
-            var gruposMobs = [worldData.mobs1, worldData.mobs2, worldData.mobs3];
-
-            gruposMobs.forEach(function(grupo) {
-                if (grupo) {
-                    for (var key in grupo) {
-                        var mob = grupo[key];
-                        if (mob.type === "spawnskin" && mob.skin) {
-                            if (!skinsProcesadas.has(mob.skin)) {
-                                skinsProcesadas.add(mob.skin);
-                                skinsEncontradas.push({
-                                    name: mob.name || "Sin nombre",
-                                    skinId: mob.skin
-                                });
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        // 4. Mostrar las skins en la barra lateral del Editor
-        if (skinsEncontradas.length > 0) {
-            // Guardamos las skins en una variable global por si tu editor las necesita después
-            window.editorImportedSkins = skinsEncontradas;
-            
-            var html = "<div style='color: white; margin-bottom: 5px; font-size: 12px; font-weight: normal;'>Skins importadas: " + skinsEncontradas.length + "</div>";
-            
-            skinsEncontradas.forEach(function(skin) {
-                var imageUrl = "https://mineblocks.com/1/skins/" + skin.skinId + ".png";
-                
-                html += "<div style='background: #E0E0E0; border: 2px solid #555; padding: 5px; border-radius: 3px; display: flex; align-items: center; gap: 8px; margin-bottom: 5px; box-shadow: 1px 1px 3px rgba(0,0,0,0.3);'>";
-                html += "  <img src='" + imageUrl + "' alt='Skin' style='width: 32px; height: 32px; object-fit: contain; image-rendering: pixelated; border: 1px solid #999; background: #fff;' onerror='this.style.display=\"none\"'>";
-                html += "  <div style='font-size: 11px; line-height: 1.2; word-break: break-all; color: #000;'>";
-                html += "    <strong>" + skin.name + "</strong><br>";
-                html += "    <span style='color: #444;'>ID: " + skin.skinId + "</span>";
-                html += "  </div>";
-                html += "</div>";
-            });
-            
-            if (listContainer) listContainer.innerHTML = html;
-        } else {
-            if (listContainer) listContainer.innerHTML = "<em style='color: white; font-size: 12px;'>No se encontraron skins en este archivo.</em>";
-        }
-        
-        // Limpiamos el input para que puedas volver a subir el mismo archivo si quieres
-        event.target.value = "";
-    };
-    
-    reader.readAsText(file);
-};
+if (document.readyState === "loading") { document.addEventListener("DOMContentLoaded", setupPixelArtClicker); } else { setupPixelArtClicker(); }

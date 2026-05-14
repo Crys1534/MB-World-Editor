@@ -541,31 +541,24 @@ const localDB = {
                         date: existing.date,
                         thumb: existing.thumb
                     });
+                    // 3. Mantenemos el límite estricto de 10 versiones
                     if (backups.length > 10) backups.shift(); 
                 }
                 
-                // 3. Guardamos el nuevo estado (¡Asegurando que el 'pinned' sobreviva al autoguardado!)
+                // 4. Guardamos el nuevo estado, adjuntando la lista de backups
                 let putReq = store.put({ 
                     name: name, 
                     data: dataString, 
                     date: Date.now(), 
                     thumb: thumbnail, 
                     fileInfo: fileInfo,
-                    backups: backups,
-                    pinned: existing ? existing.pinned : false // <- FIX IMPORTANTE
+                    backups: backups 
                 });
                 
                 putReq.onsuccess = () => resolve();
                 putReq.onerror = (err) => reject(err.target.error);
             };
             request.onerror = (err) => reject(err.target.error);
-
-            // ✨ LA MAGIA: Cuando la transacción termine al 100%, recargamos la lista
-            transaction.oncomplete = () => {
-                if (typeof window.renderFullscreenWorldsList === 'function') {
-                    window.renderFullscreenWorldsList();
-                }
-            };
         });
     },
     
@@ -659,14 +652,7 @@ async function loadMyWorldsList() {
         return;
     }
 
-    // ✨ MAGIA DE ORDENAMIENTO (PIN + RECIENTES)
-    worlds.sort((a, b) => {
-        if ((a.pinned || false) === (b.pinned || false)) {
-            return b.date - a.date; 
-        }
-        return a.pinned ? -1 : 1; 
-    });
-
+    worlds.sort((a, b) => b.date - a.date);
     listDiv.innerHTML = "";
 
     worlds.forEach(w => {
@@ -675,28 +661,16 @@ async function loadMyWorldsList() {
         let sizeText = bytes >= 1048576 ? (bytes / 1048576).toFixed(2) + " MB" : (bytes / 1024).toFixed(2) + " KB";
 
         const div = document.createElement('div');
-        div.style = "display:flex; justify-content:space-between; align-items:center; background:#8B8B8B; border: 2px solid #373737; padding:10px; border-radius: 4px; margin-bottom: 5px;";
-
-        // Lógica visual del PIN
-        let isPinned = w.pinned ? true : false;
-        let pinBg = isPinned ? '#f39c12' : '#555';
+        div.style = "display:flex; justify-content:space-between; align-items:center; background:#8B8B8B; border: 2px solid #373737; padding:10px;";
 
         div.innerHTML = `
-            <div style="display:flex; align-items:center; gap: 10px;">
-                <!-- Botón de Anclar -->
-                <button onclick="togglePinWorld('${w.name}')" style="color:white; border:2px solid #333; width:30px; height:30px; cursor:pointer; font-size:14px;" title="${isPinned ? 'Unpin' : 'Pin to top'}">📌</button>
-                <div>
-                    <h4 style="margin:0; font-size:18px; color:#000;">${w.name}</h4>
-                    <small style="color:#222; font-weight:bold;">Saved: ${date} • ${sizeText}</small>
-                </div>
+            <div>
+                <h4 style="margin:0; font-size:18px; color:#000;">${w.name}</h4>
+                <small style="color:#222; font-weight:bold;">Saved: ${date} • ${sizeText}</small>
             </div>
             <div style="display:flex; gap:5px;">
-                <!-- Botón Historial -->
-                <button class="btn-action-text" onclick="openBackupsModal('${w.name}')" style="padding: 5px 10px; font-size: 14px; background:#3498db; color:white; border:2px solid #2980b9; border-radius: 4px; cursor:pointer;" title="Version History">🕒</button>
-                <!-- Botón Load -->
-                <button class="btn-load-struct" onclick="loadSavedLocalWorld('${w.name}')" style="padding: 5px 15px; font-size: 14px; border-radius: 4px;">Load</button>
-                <!-- Botón Borrar -->
-                <button class="btn-delete-action" onclick="deleteSavedLocalWorld('${w.name}')" style="padding: 5px 10px; font-size: 14px; background:#C0392B; color:white; border:2px solid #922B21; border-radius: 4px;">🗑️</button>
+                <button class="btn-load-struct" onclick="loadSavedLocalWorld('${w.name}')" style="padding: 5px 15px; font-size: 14px;">Load</button>
+                <button class="btn-delete-action" onclick="deleteSavedLocalWorld('${w.name}')" style="padding: 5px 10px; font-size: 14px; background:#C0392B; color:white; border:2px solid #922B21;">🗑️</button>
             </div>
         `;
         listDiv.appendChild(div);

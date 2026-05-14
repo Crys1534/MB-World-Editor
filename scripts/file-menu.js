@@ -12,9 +12,9 @@ const projectTemplates = [
         image: 'assets/Superflat World.png'
     },
     {
-        filename: 'Biomes 1.2 - QoL Update',
-        name: 'Biomes 1.2 - QoL Update',
-        version: '1.31.2',
+        filename: 'Biomes 1.1b - QoL Update.mbw',
+        name: 'Biomes 1.1b - QoL Update',
+        version: '1.31.1',
         seed: 'Crystal',
         author: 'Crystal',
         image: 'assets/Biomes 1_1 - Nether Update.png'
@@ -281,21 +281,13 @@ function createUnifiedWorldCard(data) {
     let imageStyle = data.image ? `background-image: url('${data.image}');` : '';
     let fallbackIcon = data.image ? '' : '<span style="font-size:60px; opacity:0.3; color: var(--text);">🌍</span>';
     
-    // Botones de la Derecha (Borrar e Historial)
+    // Botón de Borrar (Rojo)
     let deleteBtnHTML = !data.isTemplate ? `<button class="delete-btn" onclick="event.stopPropagation(); deleteSavedLocalWorld('${data.name}');" style="position: absolute; top: 10px; right: 10px; background: rgba(231, 76, 60, 0.9); color: white; border: 2px solid #c0392b; border-radius: 4px; width: 34px; height: 34px; font-size: 18px; cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.5);" data-i18n-title="tooltip_delete_world" title="Delete World">🗑️</button>` : '';
-    let historyBtnHTML = !data.isTemplate ? `<button class="history-btn delete-btn" onclick="event.stopPropagation(); openBackupsModal('${data.name}');" style="position: absolute; top: 10px; right: 50px; background: rgba(52, 152, 219, 0.9); color: white; border: 2px solid #2980b9; border-radius: 4px; width: 34px; height: 34px; font-size: 18px; cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.5);" title="Restore Version">🕒</button>` : '';
-
-    // ✨ NUEVO: Botón de Anclar a la Izquierda
-    let isPinned = data.pinned ? true : false;
-    let pinBg = isPinned ? '#f39c12' : '#555';
-
-    // Truco visual: Si NO está anclado, le ponemos la clase 'delete-btn' para que solo se vea al pasar el mouse. Si SÍ está anclado, se queda fijo siempre.
-    let pinClass = isPinned ? '' : 'delete-btn'; 
-    let pinBtnHTML = !data.isTemplate ? `<button class="${pinClass}" onclick="event.stopPropagation(); togglePinWorld('${data.name}', this);" style="position: absolute; top: 10px; left: 10px; color: white; border-radius: 4px; width: 34px; height: 34px; font-size: 18px; cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 10; transition: 0.2s;" title="${isPinned ? 'Unpin World' : 'Pin to top'}">📌</button>` : '';
     
-    // Retornamos la tarjeta ensamblada
-    // ✨ NUEVO: Agregamos data-pinned y data-timestamp al div principal
-    return `<div class="template-card" data-pinned="${isPinned}" data-timestamp="${data.timestamp || 0}" style="position: relative;">${pinBtnHTML}${deleteBtnHTML}${historyBtnHTML}<div class="template-thumb" style="${imageStyle}" onclick="${data.onClick}">${fallbackIcon}</div><div class="template-info" onclick="${data.onClick}"><div class="t-name" title="${data.name}">${data.name}</div><div class="t-meta"><b><span data-i18n="side_info_version">Version:</span></b> ${data.version || ""}</div><div class="t-meta"><b><span data-i18n="side_info_author">Author:</span></b> ${data.author || ""}</div>${data.dateStr ? `<div class="t-meta">📆 ${data.dateStr}</div>` : ''}${data.sizeStr ? `<div class="t-meta">📄 ${data.sizeStr}</div>` : ''}</div></div>`;
+    // ✨ NUEVO: Botón de Historial/Backups (Azul)
+    let historyBtnHTML = !data.isTemplate ? `<button class="history-btn delete-btn" onclick="event.stopPropagation(); openBackupsModal('${data.name}');" style="position: absolute; top: 10px; right: 50px; background: rgba(52, 152, 219, 0.9); color: white; border: 2px solid #2980b9; border-radius: 4px; width: 34px; height: 34px; font-size: 18px; cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.5);" title="Restore Version">🕒</button>` : '';
+    
+    return `<div class="template-card" style="position: relative;">${deleteBtnHTML}${historyBtnHTML}<div class="template-thumb" style="${imageStyle}" onclick="${data.onClick}">${fallbackIcon}</div><div class="template-info" onclick="${data.onClick}"><div class="t-name" title="${data.name}">${data.name}</div><div class="t-meta"><b><span data-i18n="side_info_version">Version:</span></b> ${data.version || ""}</div><div class="t-meta"><b><span data-i18n="side_info_author">Author:</span></b> ${data.author || ""}</div>${data.dateStr ? `<div class="t-meta">📆 ${data.dateStr}</div>` : ''}${data.sizeStr ? `<div class="t-meta">📄 ${data.sizeStr}</div>` : ''}</div></div>`;
 }
 
 window.openFileMenu = function() {
@@ -378,16 +370,7 @@ window.renderFullscreenWorldsList = async function() {
         return;
     }
     
-    // ✨ MAGIA DE ORDENAMIENTO APLICADA AQUÍ ✨
-    worlds.sort((a, b) => {
-        // Si ambos están anclados o ambos desanclados, los ordenamos por fecha (el más nuevo arriba)
-        if ((a.pinned || false) === (b.pinned || false)) {
-            return b.date - a.date; 
-        }
-        // Si tienen diferente estado, el anclado va arriba
-        return a.pinned ? -1 : 1; 
-    });
-
+    worlds.sort((a, b) => b.date - a.date);
     listDiv.style.cssText = ""; 
     listDiv.className = "template-grid";
     
@@ -395,6 +378,7 @@ window.renderFullscreenWorldsList = async function() {
         const dateObj = new Date(w.date);
         const dateStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         
+        // ✨ Usamos la nueva función unificada
         const bytes = new Blob([w.data]).size;
         const sizeFormatted = window.formatBytes(bytes);
         
@@ -404,10 +388,8 @@ window.renderFullscreenWorldsList = async function() {
             author: w.fileInfo ? w.fileInfo.author : "", 
             version: w.fileInfo ? w.fileInfo.version : "", 
             image: w.thumb, 
-            pinned: w.pinned, 
-            timestamp: w.date, // ✨ NUEVO: Pasamos la fecha exacta en milisegundos
             dateStr: dateStr, 
-            sizeStr: sizeFormatted, 
+            sizeStr: sizeFormatted, // <--- Aquí inyectamos el resultado
             onClick: `loadSavedLocalWorld('${w.name}'); closeFileMenu();` 
         });
     }).join('');
@@ -415,78 +397,4 @@ window.renderFullscreenWorldsList = async function() {
 
 window.deleteSavedLocalWorld = async function(name) {
     if(confirm('Are you sure?')) { await localDB.deleteWorld(name); renderFullscreenWorldsList(); }
-};
-
-
-// ==============================================================
-// ✨ SISTEMA PARA ANCLAR MUNDOS (OPTIMISTIC UI - ORDEN PERFECTO) ✨
-// ==============================================================
-window.togglePinWorld = async function(worldName, btnElement) {
-    // ⚡ 1. MAGIA VISUAL INMEDIATA (0 ms de espera)
-    if (btnElement) {
-        const card = btnElement.closest('.template-card');
-        const grid = document.getElementById('fs-local-worlds-list');
-        
-        if (card && grid) {
-            const isCurrentlyPinned = card.getAttribute('data-pinned') === 'true';
-            const myTimestamp = parseInt(card.getAttribute('data-timestamp') || 0);
-            
-            if (!isCurrentlyPinned) {
-                // Lo anclamos visualmente
-                card.setAttribute('data-pinned', 'true');
-                btnElement.classList.remove('delete-btn');
-                btnElement.style.background = 'rgba(241, 196, 15, 0.9)';
-                btnElement.style.borderColor = '#f39c12';
-                btnElement.title = 'Unpin World';
-                grid.prepend(card); // Al inicio de todo
-            } else {
-                // Lo desanclamos visualmente
-                card.setAttribute('data-pinned', 'false');
-                btnElement.classList.add('delete-btn');
-                btnElement.style.background = 'rgba(0, 0, 0, 0.5)';
-                btnElement.style.borderColor = '#555';
-                btnElement.title = 'Pin to top';
-                
-                // ✨ MAGIA: Encontrar su posición cronológica exacta
-                let inserted = false;
-                const siblings = Array.from(grid.children);
-                for (let sibling of siblings) {
-                    if (sibling === card) continue; // Nos ignoramos a nosotros mismos
-                    
-                    let siblingPinned = sibling.getAttribute('data-pinned') === 'true';
-                    let siblingTimestamp = parseInt(sibling.getAttribute('data-timestamp') || 0);
-                    
-                    // Buscamos la primera tarjeta que NO esté anclada y que sea más vieja que nosotros
-                    if (!siblingPinned && myTimestamp >= siblingTimestamp) {
-                        grid.insertBefore(card, sibling);
-                        inserted = true;
-                        break;
-                    }
-                }
-                
-                // Si resulta que somos el mundo más viejo de todos, nos vamos al fondo
-                if (!inserted) {
-                    grid.appendChild(card);
-                }
-            }
-        }
-    }
-
-    // 🧠 2. TRABAJO PESADO DE FONDO (Guardado silencioso en Disco)
-    try {
-        let db = await localDB.init();
-        let tx = db.transaction(localDB.storeName, "readwrite");
-        let store = tx.objectStore(localDB.storeName);
-        
-        let getReq = store.get(worldName);
-        getReq.onsuccess = () => {
-            let world = getReq.result;
-            if (world) {
-                world.pinned = !world.pinned; 
-                store.put(world); // Sobrescribimos el archivo en segundo plano
-            }
-        };
-    } catch (err) {
-        console.error("Error toggling pin status:", err);
-    }
 };

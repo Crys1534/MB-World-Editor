@@ -26,7 +26,7 @@ const i18n = {
         "tab_world_settings": "World Settings",
         "tab_create": "Create",
         "tab_view": "View",
-        "btn_export": "💾 Export",
+        "btn_export": "Export",
         "btn_world_info": "World Info",
 
         // --- INSERT TAB ---
@@ -508,7 +508,7 @@ const i18n = {
         "tooltip_import_json": "Importar Archivo JSON",
         "btn_import_mini": " Importar",
         "tooltip_export_json": "Exportar Archivo JSON",
-        "btn_export_mini": "💾 Exportar",
+        "btn_export_mini": " Exportar",
         "tooltip_delete_all": "Borrar todas las guardadas",
         "btn_reset_mini": "️Reiniciar",
         "sub_all": "Todo",
