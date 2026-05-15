@@ -297,7 +297,7 @@ window.renderMpMapSelection = async function() {
                     ${w.name}
                 </div>
                 <div style="color: #bdc3c7; font-size: 14px; font-family: Arial; text-shadow: 1px 1px 2px black; z-index: 2; margin-top: 5px;">
-                    ⚖️ ${sizeFormatted}
+                    📄 ️ ${sizeFormatted}
                 </div>
             </div>
         `;
@@ -355,7 +355,7 @@ window.selectMpMapForServer = function(mapName) {
             <div style="width: 260px; height: 160px; background-image: url('${thumbUrl}'); background-size: cover; background-position: center; border: 4px solid #fff; border-radius: 6px; image-rendering: pixelated; margin-bottom: 15px; margin-top: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.6);"></div>
             
             <div style="color: white; font-size: 40px; font-family: 'Pixeltype', sans-serif; margin-bottom: 5px; text-shadow: 2px 2px 0 #000; text-align: center;">${mapName}</div>
-            <div style="color: #bdc3c7; font-size: 16px; font-family: Arial; font-weight: bold;">⚖️ File Size: ${sizeFormatted}</div>
+            <div style="color: #bdc3c7; font-size: 16px; font-family: Arial; font-weight: bold;">📄 File Size: ${sizeFormatted}</div>
         </div>
     `;
 };

@@ -1044,7 +1044,7 @@ button:hover {
 .world-tab {
     display: flex;
     align-items: center;
-    background-color: #1e293b80; 
+    background-color: var(--bg-tooltip);
     color: #99999991;
     padding: 6px 12px;
     font-size: 12px;
@@ -1061,7 +1061,7 @@ button:hover {
 }
 
 .world-tab:hover {
-    background-color: #1e293b;
+    background-color: var(--bg-panel);
     color: #ccc;
 }
 
@@ -1967,7 +1967,6 @@ body.is-spectating #hotbar-container {
 .addons-footer {
     background: var(--bg-panel);
     padding: 5px;
-    border-top: 2px solid #555;
     display: flex;
     justify-content: center;
 }
