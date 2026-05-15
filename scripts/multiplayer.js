@@ -277,20 +277,28 @@ window.renderMpMapSelection = async function() {
     worlds.forEach(w => {
         const bytes = new Blob([w.data]).size;
         const sizeFormatted = window.formatBytes(bytes);
+        
+        // Si no tiene miniatura, le ponemos la de Superflat por defecto
         let thumbUrl = w.thumb || 'assets/Superflat World.png';
         const safeId = 'mp-map-card-' + w.name.replace(/[^a-zA-Z0-9]/g, '-');
         const safeName = w.name.replace(/'/g, "\\'"); 
 
+        // ✨ MAGIA: Aplicamos la miniatura como fondo con un degradado oscuro encima
+        const bgStyle = `background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.8)), url('${thumbUrl}'); background-size: cover; background-position: center; image-rendering: pixelated;`;
+
         listDiv.innerHTML += `
             <div id="${safeId}" 
-                 style="background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px; display: flex; align-items: center; border: 2px solid #7f8c8d; cursor: pointer; transition: 0.2s;"
+                 style="${bgStyle} padding: 15px; border-radius: 6px; display: flex; flex-direction: column; justify-content: flex-end; min-height: 80px; border: 2px solid #7f8c8d; cursor: pointer; transition: 0.2s; position: relative; overflow: hidden;"
                  onclick="selectMpMapForServer('${safeName}')"
                  onmouseover="if(window.mpSelectedMapName !== '${safeName}') this.style.borderColor='#3498db'"
                  onmouseout="if(window.mpSelectedMapName !== '${safeName}') this.style.borderColor='#7f8c8d'">
-                <div style="width: 60px; height: 40px; background-image: url('${thumbUrl}'); background-size: cover; background-position: center; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); flex-shrink: 0; margin-right: 12px; image-rendering: pixelated;"></div>
-                <div style="flex: 1; overflow: hidden; text-align: left;">
-                    <div style="color: white; font-size: 24px; font-family: 'Pixeltype', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1;">${w.name}</div>
-                    <div style="color: #bdc3c7; font-size: 14px; font-family: Arial;">⚖️ ${sizeFormatted}</div> </div>
+                
+                <div style="color: white; font-size: 28px; font-family: 'Pixeltype', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1; text-shadow: 1px 1px 3px black; z-index: 2;">
+                    ${w.name}
+                </div>
+                <div style="color: #bdc3c7; font-size: 14px; font-family: Arial; text-shadow: 1px 1px 2px black; z-index: 2; margin-top: 5px;">
+                    ⚖️ ${sizeFormatted}
+                </div>
             </div>
         `;
     });

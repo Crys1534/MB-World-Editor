@@ -92,12 +92,36 @@ function updateSelectionInfo() {
     overlay.innerText = `W: ${width} H: ${height}`; overlay.style.display = 'block';
 }
 
-function updateToolSize(val) {
-    let size = parseInt(val); if (isNaN(size)) size = 1; if (size < 1) size = 1; if (size > 7) size = 7;
+function updateToolSize(val, source) {
+    let size = parseInt(val); 
+    
+    // Si el cuadro está vacío porque el usuario borró el número para escribir otro, esperamos.
+    if (isNaN(size)) {
+        if (source === 'blur') size = 1; // Si da clic afuera estando vacío, lo regresamos a 1
+        else return; 
+    }
+    
+    // Frenos de seguridad
+    if (size < 1) size = 1; 
+    if (size > 100) size = 100; 
+    
     toolSize = size;
+    
     const display = document.getElementById('tool-size-display');
     const slider = document.getElementById('tool-size-slider');
-    if (display) display.innerText = toolSize; if (slider) slider.value = toolSize;
+    
+    // ✨ LA MAGIA DE LA SINCRONIZACIÓN: Solo actualizamos el que NO estemos usando.
+    if (source === 'slider' && display) {
+        display.value = toolSize; // Si movemos la barra, cambiamos el texto
+    } 
+    else if (source === 'display' && slider) {
+        slider.value = toolSize; // Si escribimos en el texto, movemos la barra
+    }
+    else if (source === 'blur' && display) {
+        // Al terminar de escribir y dar clic afuera, aplicamos límites visuales
+        display.value = toolSize; 
+        if (slider) slider.value = toolSize;
+    }
 }
 
 function updateToolRounded(isRounded) { toolRounded = isRounded; }
@@ -692,79 +716,103 @@ function eyedropper(x, y) {
  }
 }
 
-// === HERRAMIENTA BORRADOR (ACTUALIZADA PARA MULTIJUGADOR) ===
+// === HERRAMIENTA BORRADOR ===
 function eraser(cx, cy) {
-    const range = toolSize - 1;
-    if (toolSize > 1) historyManager.startAction();
-    for (let x = cx - range; x <= cx + range; x++) {
-        for (let y = cy - range; y <= cy + range; y++) {
-            if (toolRounded) { const dx = x - cx; const dy = y - cy; if ((dx*dx + dy*dy) > (range * range + 0.1)) continue; }
-            if (mbwom.scene[x] && mbwom.scene[x][y]) {
+    // ✨ FIX: Hemos quitado el startAction y commitAction de aquí
+    
+    const offsetStart = Math.floor(toolSize / 2);
+    const offsetEnd = Math.floor((toolSize - 1) / 2);
+    const centerX = cx - offsetStart + (toolSize - 1) / 2;
+    const centerY = cy - offsetStart + (toolSize - 1) / 2;
+    const radiusSq = (toolSize / 2) ** 2;
+
+    for (let x = cx - offsetStart; x <= cx + offsetEnd; x++) {
+        for (let y = cy - offsetStart; y <= cy + offsetEnd; y++) {
+            if (toolRounded && ((x - centerX)**2 + (y - centerY)**2 > radiusSq)) continue;
+            
+            if (mbwom.scene[x]?.[y]) {
                 historyManager.recordChange(x, y, mbwom.scene[x][y], null);
-                delete mbwom.scene[x][y];
+                delete mbwom.scene[x][y]; 
                 renderBlock(x, y);
-                
-                // ✨ MULTIPLAYER: Avisamos que rompimos este bloque
-                if (typeof enviarMensajeEnRed === 'function') {
-                    enviarMensajeEnRed({ tipo: "actualizar_bloque", x: x, y: y, estado: null });
-                }
+                if (typeof enviarMensajeEnRed === 'function') enviarMensajeEnRed({ tipo: "actualizar_bloque", x, y, estado: null });
             }
         }
     }
-    if (toolSize > 1) historyManager.commitAction();
 }
 
-// === HERRAMIENTA PINCEL (ACTUALIZADA PARA MULTIJUGADOR) ===
+// === HERRAMIENTA PINCEL ===
 function brush(cx, cy) {
     const target = hotbar.slots[slotIndex];
-    const range = toolSize - 1;
-    if (toolSize > 1) historyManager.startAction();
     
-    // Si el tamaño es 1, no aplicamos spray (es solo un punto)
+    // ✨ FIX: Hemos quitado el startAction y commitAction de aquí también
+    
     if (toolSize === 1) {
          const current = mbwom.getBlockState(cx, cy);
          if (current && current.type === target.type) return;
+         
          historyManager.recordChange(cx, cy, current, target);
-         mbwom.setBlockState(cx, cy, target);
+         mbwom.setBlockState(cx, cy, target); 
          renderBlock(cx, cy);
          
-         // ✨ MULTIPLAYER: Avisamos que pusimos este bloque
-         if (typeof enviarMensajeEnRed === 'function') {
-             enviarMensajeEnRed({ tipo: "actualizar_bloque", x: cx, y: cy, estado: target });
-         }
-         
-         if (toolSize > 1) historyManager.commitAction();
+         if (typeof enviarMensajeEnRed === 'function') enviarMensajeEnRed({ tipo: "actualizar_bloque", x: cx, y: cy, estado: target });
          return;
     }
 
-    // Para pinceles grandes
-    for (let x = cx - range; x <= cx + range; x++) {
-        for (let y = cy - range; y <= cy + range; y++) {
-            
-            // 1. Lógica Rounded
-            if (toolRounded) { 
-                const dx = x - cx; const dy = y - cy; 
-                if ((dx*dx + dy*dy) > (range * range + 0.1)) continue; 
-            }
+    const offsetStart = Math.floor(toolSize / 2);
+    const offsetEnd = Math.floor((toolSize - 1) / 2);
+    const centerX = cx - offsetStart + (toolSize - 1) / 2;
+    const centerY = cy - offsetStart + (toolSize - 1) / 2;
+    const radiusSq = (toolSize / 2) ** 2;
 
-            // 2. Lógica Spray 
+    for (let x = cx - offsetStart; x <= cx + offsetEnd; x++) {
+        for (let y = cy - offsetStart; y <= cy + offsetEnd; y++) {
+            if (toolRounded && ((x - centerX)**2 + (y - centerY)**2 > radiusSq)) continue;
             if (toolSpray && Math.random() > 0.1) continue;
-
+            
             const current = mbwom.getBlockState(x, y);
             if (current && current.type === target.type) continue;
             
             historyManager.recordChange(x, y, current, target);
-            mbwom.setBlockState(x, y, target);
+            mbwom.setBlockState(x, y, target); 
             renderBlock(x, y);
             
-            // ✨ MULTIPLAYER: Avisamos que pusimos este bloque
-            if (typeof enviarMensajeEnRed === 'function') {
-                enviarMensajeEnRed({ tipo: "actualizar_bloque", x: x, y: y, estado: target });
-            }
+            if (typeof enviarMensajeEnRed === 'function') enviarMensajeEnRed({ tipo: "actualizar_bloque", x, y, estado: target });
         }
     }
-    if (toolSize > 1) historyManager.commitAction();
 }
+
+function mineAndPlace() {
+    if (currentTool === 'pencil') { 
+        if (mouse.left) eraser(mouse.worldX, mouse.worldY); 
+        if (mouse.right) brush(mouse.worldX, mouse.worldY); 
+    } 
+    else if (currentTool === 'eraser') { 
+        if (mouse.left || mouse.right) eraser(mouse.worldX, mouse.worldY); 
+    }
+    else if (currentTool === 'eyedropper') { 
+        if (mouse.left) eyedropper(mouse.worldX, mouse.worldY); 
+    }
+}
+
+// ==========================================
+// ✨ FIX GLOBAL DEL HISTORIAL (1 Clic = 1 Undo)
+// ==========================================
+// Agrega esto en tu archivo (afuera de cualquier función, preferiblemente abajo de mineAndPlace)
+window.addEventListener('mousedown', function(e) {
+    if (e.target.id !== 'canvas' && e.target.tagName !== 'CANVAS') return;
+    
+    // Al presionar el ratón, ABRIMOS la bolsa del historial
+    if (typeof historyManager !== 'undefined') {
+        historyManager.startAction();
+    }
+});
+
+window.addEventListener('mouseup', function(e) {
+    // Al soltar el ratón, CERRAMOS la bolsa y la guardamos como 1 solo paso de Undo
+    if (typeof historyManager !== 'undefined') {
+        historyManager.commitAction();
+    }
+});
 
 function magicWandSelect(startX, startY) {
     // 1. LÓGICA DE SHIFT: Si NO está presionado, o venimos de otra herramienta, limpiamos la selección
@@ -900,13 +948,6 @@ function bucketFill(startX, startY, isFromNetwork = false, networkState = null) 
         enviarMensajeEnRed({ tipo: "accion_balde", x: startX, y: startY, estado: targetState });
     }
 }
-
-function mineAndPlace() {
-    if (currentTool === 'pencil') { if (mouse.left) eraser(mouse.worldX, mouse.worldY); if (mouse.right) brush(mouse.worldX, mouse.worldY); } 
-    else if (currentTool === 'eraser') { if (mouse.left || mouse.right) eraser(mouse.worldX, mouse.worldY); }
-    else if (currentTool === 'eyedropper') { if (mouse.left) eyedropper(mouse.worldX, mouse.worldY); }
-}
-
 
 // Variable global para el estado de la herramienta de Spawn
 let isSettingSpawn = false;

@@ -122,10 +122,11 @@ if (statusRightZone) {
     });
 }
 
-function toggleGrid(enabled) {
+window.toggleGrid = function(enabled) {
     showGrid = enabled;
+    localStorage.setItem('mbw_show_grid', enabled); // Guardamos la decisión
     worldDirty = true;
-}
+};
 
 // ✨ VARIABLE Y FUNCIÓN PARA CONTROLAR LOS FONDOS
 window.showDimBackgrounds = true;
@@ -214,20 +215,37 @@ function renderWorldToBuffer() {
     
     // 4. Dibujamos la cuadrícula si está activada
     if (showGrid) {
-        offscreenCtx.strokeStyle = "rgba(255, 255, 255, 0.2)";
-        offscreenCtx.lineWidth = 1;
-        offscreenCtx.beginPath();
-        for (let x = 0; x <= grid.width; x++) {
-            const xPos = x * tileSize;
-            offscreenCtx.moveTo(xPos, 0);
-            offscreenCtx.lineTo(xPos, offscreenCanvas.height);
+        // ✨ FIX: Cuadrícula dinámica Anti-Neblina
+        // Si el tamaño del bloque es menor a 4 píxeles, ni siquiera la dibujamos (evita lag y bloqueos visuales)
+        if (tileSize >= 4) {
+            
+            // Calculamos una opacidad basada en el zoom.
+            // A zoom normal (16px) se ve al 0.2 (20%). Si bajas de 10px, se va desvaneciendo hasta 0.
+            let gridOpacity = 0.2;
+            if (tileSize < 12) {
+                // Matemáticas para desvanecer: (tamaño actual - mínimo) / (tamaño máximo - mínimo)
+                gridOpacity = 0.2 * ((tileSize - 4) / (12 - 4)); 
+            }
+            
+            offscreenCtx.strokeStyle = `rgba(255, 255, 255, ${gridOpacity})`;
+            offscreenCtx.lineWidth = 2;
+            offscreenCtx.beginPath();
+            
+            // Un pequeño ajuste para que las líneas se dibujen exactamente en el borde del píxel
+            const offset = 0.5; 
+            
+            for (let x = 0; x <= grid.width; x++) {
+                const xPos = Math.floor(x * tileSize) + offset;
+                offscreenCtx.moveTo(xPos, 0);
+                offscreenCtx.lineTo(xPos, offscreenCanvas.height);
+            }
+            for (let y = 0; y <= grid.height; y++) {
+                const yPos = Math.floor(offscreenCanvas.height - (y * tileSize)) + offset;
+                offscreenCtx.moveTo(0, yPos);
+                offscreenCtx.lineTo(offscreenCanvas.width, yPos);
+            }
+            offscreenCtx.stroke();
         }
-        for (let y = 0; y <= grid.height; y++) {
-            const yPos = offscreenCanvas.height - (y * tileSize);
-            offscreenCtx.moveTo(0, yPos);
-            offscreenCtx.lineTo(offscreenCanvas.width, yPos);
-        }
-        offscreenCtx.stroke();
     }
 }
 
@@ -529,22 +547,33 @@ function drawUI() {
     // --- CURSOR INTELIGENTE (Contorno Limpio) ---
     if (currentTool !== 'paste' && currentTool !== 'select' && currentTool !== 'lasso') {
         const size = (typeof toolSize !== 'undefined') ? toolSize : 1;
-        const range = size - 1;
+        
+        // ✨ MAGIA: Calculamos el inicio y fin exacto para igualar el área real del pincel
+        const offsetStart = Math.floor(size / 2);
+        const offsetEnd = Math.floor((size - 1) / 2);
         
         ctx.strokeStyle = "#4DA6FF"; // Celeste
         ctx.lineWidth = 2;
         ctx.fillStyle = "rgba(77, 166, 255, 0.2)"; // Relleno suave
 
+        // Matemáticas para cortar las esquinas en modo círculo
+        const centerX = -offsetStart + (size - 1) / 2;
+        const centerY = -offsetStart + (size - 1) / 2;
+        const radiusSq = (size / 2) ** 2;
+
         const isInside = (dx, dy) => {
-             if (typeof toolRounded !== 'undefined' && toolRounded && size > 1) {
-                 return (dx*dx + dy*dy) <= (range * range + 0.1);
-             }
-             return dx >= -range && dx <= range && dy >= -range && dy <= range;
+            // Fuera de la caja cuadrada
+            if (dx < -offsetStart || dx > offsetEnd || dy < -offsetStart || dy > offsetEnd) return false;
+            // Fuera del círculo (si está activado)
+            if (typeof toolRounded !== 'undefined' && toolRounded && size > 1) {
+                return ((dx - centerX)**2 + (dy - centerY)**2 <= radiusSq);
+            }
+            return true;
         };
 
         ctx.beginPath();
-        for (let dx = -range; dx <= range; dx++) {
-            for (let dy = -range; dy <= range; dy++) {
+        for (let dx = -offsetStart; dx <= offsetEnd; dx++) {
+            for (let dy = -offsetStart; dy <= offsetEnd; dy++) {
                 if (isInside(dx, dy)) {
                     const absX = mouse.worldX + dx;
                     const absY = mouse.worldY + dy;
@@ -557,8 +586,8 @@ function drawUI() {
         }
 
         ctx.beginPath();
-        for (let dx = -range; dx <= range; dx++) {
-            for (let dy = -range; dy <= range; dy++) {
+        for (let dx = -offsetStart; dx <= offsetEnd; dx++) {
+            for (let dy = -offsetStart; dy <= offsetEnd; dy++) {
                 if (isInside(dx, dy)) {
                     const absX = mouse.worldX + dx;
                     const absY = mouse.worldY + dy;
@@ -570,6 +599,7 @@ function drawUI() {
                     const bottom = drawY; 
                     const top = drawY - tileSize;
 
+                    // Dibujar borde solo en las orillas
                     if (!isInside(dx + 1, dy)) { ctx.moveTo(right, bottom); ctx.lineTo(right, top); }
                     if (!isInside(dx - 1, dy)) { ctx.moveTo(left, bottom); ctx.lineTo(left, top); }
                     if (!isInside(dx, dy + 1)) { ctx.moveTo(left, top); ctx.lineTo(right, top); }
@@ -1188,13 +1218,20 @@ if (canvasElement) {
 // ==========================================
 // ⚙️ MENÚ ADDONS - TOGGLE
 // ==========================================
-window.toggleAddonsMenu = function() { document.getElementById("addons-dropdown").classList.toggle("show"); };
-document.addEventListener('click', function(event) {
-    if (!event.target.closest('#addons-dropdown-container')) {
-        const dropdown = document.getElementById("addons-dropdown");
-        if (dropdown && dropdown.classList.contains('show')) dropdown.classList.remove("show");
+window.toggleAddonsMenu = function() {
+    const menu = document.getElementById('addons-dropdown');
+    const container = document.getElementById('addons-dropdown-container');
+    const btn = container.querySelector('.tab-btn');
+
+    menu.classList.toggle('show');
+    
+    // ✨ Si el menú está abierto, le ponemos tu clase .active
+    if (menu.classList.contains('show')) {
+        btn.classList.add('active');
+    } else {
+        btn.classList.remove('active');
     }
-});
+};
 
 // ==========================================
 // 🗄️ BÓVEDA DE SKINS (IndexedDB) Y LECTOR RAM
@@ -1370,63 +1407,268 @@ function getClosestBlock(r, g, b) {
     return closestBlock;
 }
 
+// 1. EL PROCESADOR DE IMAGEN (Lee el archivo y activa la herramienta)
 window.processPixelArt = function(event) {
-    const file = event.target.files[0]; if (!file) return;
-    const maxWidth = parseInt(document.getElementById('pixelart-max-width').value) || 64;
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const img = new Image();
-        img.onload = function() {
-            let scale = 1; if (img.width > maxWidth) scale = maxWidth / img.width;
-            const finalWidth = Math.floor(img.width * scale); const finalHeight = Math.floor(img.height * scale);
-            const tempCanvas = document.createElement('canvas'); tempCanvas.width = finalWidth; tempCanvas.height = finalHeight;
-            const tempCtx = tempCanvas.getContext('2d'); tempCtx.drawImage(img, 0, 0, finalWidth, finalHeight);
-            const imageData = tempCtx.getImageData(0, 0, finalWidth, finalHeight).data;
-
-            window.pendingPixelArt = { data: imageData, width: finalWidth, height: finalHeight, imgCanvas: tempCanvas };
-            if (typeof currentTool !== 'undefined') currentTool = 'pixelart';
-            alert("¡Imagen lista! Cierra esta ventana y HAZ CLIC en cualquier lugar del mapa para construirla.");
-            if (typeof closeModal === 'function') closeModal('pixelart-addon-modal');
-            document.getElementById('pixelart-upload').value = ""; 
+    try {
+        const file = event.target.files[0]; 
+        if (!file) return;
+        
+        const widthInput = document.getElementById('pixelart-max-width');
+        const maxWidth = widthInput ? parseInt(widthInput.value) || 64 : 64;
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                try {
+                    let scale = 1; 
+                    if (img.width > maxWidth) scale = maxWidth / img.width;
+                    const finalWidth = Math.floor(img.width * scale); 
+                    const finalHeight = Math.floor(img.height * scale);
+                    
+                    const tempCanvas = document.createElement('canvas'); 
+                    tempCanvas.width = finalWidth; 
+                    tempCanvas.height = finalHeight;
+                    const tempCtx = tempCanvas.getContext('2d'); 
+                    tempCtx.drawImage(img, 0, 0, finalWidth, finalHeight);
+                    
+                    const ditherCheckbox = document.getElementById('pixelart-dithering');
+                    const wantsDithering = ditherCheckbox ? ditherCheckbox.checked : true;
+                    
+                    window.pendingPixelArt = { 
+                        data: tempCtx.getImageData(0, 0, finalWidth, finalHeight).data, 
+                        width: finalWidth, 
+                        height: finalHeight, 
+                        imgCanvas: tempCanvas,
+                        dithering: wantsDithering
+                    };
+                    
+                    // ✨ FIX: Cambiar la herramienta de forma segura
+                    if (typeof currentTool !== 'undefined') currentTool = 'pixelart';
+                    else window.currentTool = 'pixelart';
+                    
+                    alert("✅ ¡Imagen procesada!\nCierra este menú y haz clic en el mapa para pegarla.");
+                    
+                    if (typeof closeModal === 'function') closeModal('pixelart-addon-modal');
+                    const uploadInput = document.getElementById('pixelart-upload');
+                    if(uploadInput) uploadInput.value = "";
+                } catch(err) {
+                    alert("Error al procesar la imagen: " + err.message);
+                }
+            };
+            img.src = e.target.result;
         };
-        img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
+        reader.readAsDataURL(file);
+    } catch(err) {
+        alert("Error de lectura: " + err.message);
+    }
 };
 
-window.buildPixelArtInWorld = function(pixelData, width, height, startX, startY) {
-    if (typeof historyManager !== 'undefined') historyManager.startAction();
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-            const index = (y * width + x) * 4; const alpha = pixelData[index + 3];
-            if (alpha < 50) continue;
-            const r = pixelData[index]; const g = pixelData[index + 1]; const b = pixelData[index + 2];
-            const blockType = getClosestBlock(r, g, b);
-            const blockX = Math.floor(startX + x); const blockY = Math.floor(startY - y);
-            if (typeof mbwom !== 'undefined' && typeof mbwom.setBlockState === 'function') {
-                const currentState = mbwom.getBlockState(blockX, blockY);
-                const newState = { type: blockType };
-                if (typeof historyManager !== 'undefined') historyManager.recordChange(blockX, blockY, currentState, newState);
-                mbwom.setBlockState(blockX, blockY, newState);
-                if (typeof renderBlock === 'function') renderBlock(blockX, blockY);
+
+// 2. EL CONSTRUCTOR (Pega los bloques en el mundo con Dithering opcional)
+window.buildPixelArtInWorld = function(pD, w, h, sX, sY, useDithering) {
+    try {
+        if (typeof historyManager !== 'undefined') historyManager.startAction();
+        
+        let floatData = new Float32Array(pD);
+        
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                const i = (y * w + x) * 4; 
+                // Ignorar transparencias
+                if (floatData[i + 3] < 50) continue; 
+
+                const oldR = floatData[i];
+                const oldG = floatData[i + 1];
+                const oldB = floatData[i + 2];
+
+                // Buscar bloque más cercano
+                const bT = getClosestBlock(oldR, oldG, oldB);
+                const paletteColor = blockPalette[bT] || [255, 255, 255];
+                const newR = paletteColor[0];
+                const newG = paletteColor[1];
+                const newB = paletteColor[2];
+
+                const bX = Math.floor(sX + x);
+                const bY = Math.floor(sY - y);
+                
+                // Colocar en el mapa
+                if (typeof mbwom !== 'undefined' && typeof mbwom.setBlockState === 'function') {
+                    const cS = mbwom.getBlockState(bX, bY);
+                    const nS = { type: bT };
+                    if (typeof historyManager !== 'undefined') historyManager.recordChange(bX, bY, cS, nS);
+                    mbwom.setBlockState(bX, bY, nS); 
+                    if (typeof renderBlock === 'function') renderBlock(bX, bY);
+                }
+
+                // Aplicar Dithering (Floyd-Steinberg)
+                if (useDithering) {
+                    const errR = oldR - newR;
+                    const errG = oldG - newG;
+                    const errB = oldB - newB;
+
+                    const addErr = (nx, ny, factor) => {
+                        if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+                            const ni = (ny * w + nx) * 4;
+                            floatData[ni] += errR * factor;
+                            floatData[ni + 1] += errG * factor;
+                            floatData[ni + 2] += errB * factor;
+                        }
+                    };
+
+                    addErr(x + 1, y,     7 / 16);
+                    addErr(x - 1, y + 1, 3 / 16);
+                    addErr(x,     y + 1, 5 / 16);
+                    addErr(x + 1, y + 1, 1 / 16);
+                }
             }
         }
+        
+        if (typeof worldDirty !== 'undefined') worldDirty = true;
+        if (typeof historyManager !== 'undefined') historyManager.commitAction();
+        
+        return true;
+    } catch(e) {
+        alert("Error al construir en el mundo: " + e.message);
+        return false;
     }
-    if (typeof worldDirty !== 'undefined') worldDirty = true;
-    if (typeof historyManager !== 'undefined') historyManager.commitAction();
 };
 
+
+// 3. EL EVENTO CLIC (Detecta el ratón en el canvas)
 function setupPixelArtClicker() {
-    const mainCanvas = document.getElementById('canvas') || document.querySelector('canvas');
-    if (!mainCanvas) return;
-    mainCanvas.addEventListener('mousedown', function(event) {
-        if (window.pendingPixelArt && typeof currentTool !== 'undefined' && currentTool === 'pixelart') {
-            const worldX = Math.floor(mouse.worldX); const worldY = Math.floor(mouse.worldY);
-            buildPixelArtInWorld(window.pendingPixelArt.data, window.pendingPixelArt.width, window.pendingPixelArt.height, worldX, worldY);
-            window.pendingPixelArt = null;
-            if (typeof selectTool === 'function') selectTool('move'); else currentTool = 'move'; 
-            alert("¡Pixel Art pegado con éxito!");
+    window.removeEventListener('mousedown', handlePixelArtClick);
+    window.addEventListener('mousedown', handlePixelArtClick);
+}
+
+function handlePixelArtClick(e) {
+    // Evitar que reaccione si haces clic en menús o la barra superior
+    if (e.target.id !== 'canvas' && e.target.tagName !== 'CANVAS') return;
+    
+    // Leer la herramienta correcta
+    let activeTool = typeof currentTool !== 'undefined' ? currentTool : window.currentTool;
+    
+    if (window.pendingPixelArt && activeTool === 'pixelart') {
+        const worldX = Math.floor(mouse.worldX); 
+        const worldY = Math.floor(mouse.worldY);
+        
+        const success = window.buildPixelArtInWorld(
+            window.pendingPixelArt.data, 
+            window.pendingPixelArt.width, 
+            window.pendingPixelArt.height, 
+            worldX, 
+            worldY,
+            window.pendingPixelArt.dithering
+        );
+        
+        if (success) {
+            window.pendingPixelArt = null; 
+            if (typeof selectTool === 'function') selectTool('move'); 
+            else if (typeof currentTool !== 'undefined') currentTool = 'move';
+            
+            alert("🎨 ¡Pixel Art pegado con éxito!");
         }
-    });
+    }
+}
+
+// Inicializar el evento sin importar cuándo cargue la página
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", setupPixelArtClicker); 
+} else {
+    setupPixelArtClicker(); 
+}
+
+// Inicializador seguro
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", setupPixelArtClicker); 
+} else {
+    setupPixelArtClicker(); 
 }
 if (document.readyState === "loading") { document.addEventListener("DOMContentLoaded", setupPixelArtClicker); } else { setupPixelArtClicker(); }
+
+// ==========================================
+// 🖱️ LIMPIADOR GLOBAL DE CLICS (Cerrar menús y paneles)
+// ==========================================
+window.addEventListener('click', function(e) {
+    
+    // --- 1. LÓGICA PARA ADDONS (Lo que ya teníamos) ---
+    const addonsContainer = document.getElementById('addons-dropdown-container');
+    const addonsMenu = document.getElementById('addons-dropdown');
+    
+    if (addonsContainer && !addonsContainer.contains(e.target)) {
+        if (addonsMenu && addonsMenu.classList.contains('show')) {
+            addonsMenu.classList.remove('show');
+            const addonsBtn = addonsContainer.querySelector('.tab-btn');
+            if (addonsBtn) addonsBtn.classList.remove('active');
+        }
+    }
+
+    // --- 2. ✨ NUEVO: CERRAR WORLD INFO AL CAMBIAR DE PESTAÑA ---
+    // Detectamos si el clic ocurrió dentro de cualquier botón con la clase .tab-btn
+    const clickedTab = e.target.closest('.tab-btn');
+    
+    // Si hicimos clic en un .tab-btn, y ese botón NO ES el de World Info...
+    if (clickedTab && clickedTab.id !== 'btn-world-info') {
+        const sidebar = document.getElementById('world-info-sidebar');
+        
+        // Verificamos si el panel lateral está abierto
+        if (sidebar && sidebar.style.display === 'flex') {
+            sidebar.style.display = 'none'; // Lo cerramos
+            
+            // Apagamos la pestaña
+            const infoBtn = document.getElementById('btn-world-info');
+            if (infoBtn) infoBtn.classList.remove('active');
+            
+            // Regresamos el control de zoom a su posición original
+            const zoomControl = document.getElementById('zoom-floating');
+            if (zoomControl) zoomControl.style.right = '20px'; 
+        }
+    }
+});
+
+// ==========================================
+// 🛑 BLOQUEADOR DE ATAJOS MIENTRAS SE ESCRIBE
+// ==========================================
+window.addEventListener('keydown', function(e) {
+    // Lista de los IDs donde no queremos que funcionen los atajos
+    const inputsProtegidos = ['inventory-search', 'ci-preview-title', 'custom-chest-name'];
+    
+    // Si el elemento donde estamos escribiendo tiene uno de esos IDs...
+    if (inputsProtegidos.includes(e.target.id)) {
+        e.stopPropagation(); // 🛡️ Detiene la tecla para que no active los atajos globales
+    }
+}, true); // <-- ¡Ese 'true' al final es la magia! Atrapa la tecla ANTES que el resto de tu código.
+
+// ==========================================
+// 🖱️ CAMBIAR TAMAÑO DE HERRAMIENTA CON LA RUEDA DEL RATÓN
+// ==========================================
+const toolSizeSlider = document.getElementById('tool-size-slider');
+const toolSizeDisplay = document.getElementById('tool-size-display'); // Opcional: También en la cajita de texto
+
+function handleWheelZoom(e) {
+    e.preventDefault(); // 🛡️ Evita que toda la página haga scroll hacia abajo/arriba
+
+    let currentVal = parseInt(toolSizeSlider.value);
+    
+    // Si la rueda va hacia arriba (negativo), sumamos 1. Si va hacia abajo (positivo), restamos 1.
+    if (e.deltaY < 0) {
+        currentVal++;
+    } else {
+        currentVal--;
+    }
+
+    // Usamos el 'blur' mágico que configuramos antes para que actualice la barra Y el texto al mismo tiempo
+    if (typeof updateToolSize === 'function') {
+        updateToolSize(currentVal, 'blur');
+    }
+}
+
+// Le agregamos el detector a la barra deslizante
+if (toolSizeSlider) {
+    toolSizeSlider.addEventListener('wheel', handleWheelZoom, { passive: false });
+}
+
+// Opcional y muy recomendado: Se lo agregamos también al numerito por si el usuario pone el ratón ahí
+if (toolSizeDisplay) {
+    toolSizeDisplay.addEventListener('wheel', handleWheelZoom, { passive: false });
+}

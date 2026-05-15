@@ -2141,22 +2141,23 @@ function updateSeed(newSeed) {
 // 3. Abrir/Cerrar el panel de World Info y Empujar el Zoom
 function toggleWorldInfo() {
     const sidebar = document.getElementById('world-info-sidebar');
-    const zoomControl = document.getElementById('zoom-floating'); // ✨ Buscamos el Zoom
-    
+    const zoomControl = document.getElementById('zoom-floating'); 
+    const btn = document.getElementById('btn-world-info'); // ✨ Buscamos el botón
+
     if (!sidebar) return;
     
     if (sidebar.style.display === 'none' || sidebar.style.display === '') {
         sidebar.style.display = 'flex';
         
-        // ✨ Empujamos el zoom a la izquierda (Ancho del panel 250px + Margen original 20px)
         if (zoomControl) zoomControl.style.right = '270px'; 
+        if (btn) btn.classList.add('active'); // ✨ Le ponemos tu clase .active
         
         populateWorldInfo(); 
     } else {
         sidebar.style.display = 'none';
         
-        // ✨ Regresamos el zoom a su posición original
         if (zoomControl) zoomControl.style.right = '20px'; 
+        if (btn) btn.classList.remove('active'); // ✨ Le quitamos tu clase .active
     }
 }
 
@@ -2413,7 +2414,7 @@ function filterMobs(dimension) {
         container.innerHTML += `
         <div class="mob-item" onclick="previewMob('${mob}')" title="${niceName}" style="margin: 0; height: 156px; border-bottom: 2px solid #272727; border-right: 2px solid #272727;">
             <img src="${imgSrc}" style="width: 90%; height: 90%; object-fit: contain; image-rendering: pixelated;" onerror="this.onerror=null; this.src='assets/${mob}.png'">
-            <span class="mob-name" style="font-size: 11px; margin-top: 5px;">${niceName}</span>
+            <span class="mob-name" style="font-size: 14px; margin-top: 0px;">${niceName}</span>
         </div>
         `;
     });
@@ -2725,7 +2726,7 @@ window.filterCustomMobs = function(dimension) {
         container.innerHTML += `
         <div class="mob-item" onclick="previewCustomMob('${mobId}')" title="${niceName}" style="margin: 0; height: 156px; border-bottom: 2px solid #272727; border-right: 2px solid #272727;">
             <img src="${imgSrc}" style="width: 90%; height: 90%; object-fit: contain; image-rendering: pixelated;" onerror="this.onerror=null; this.src='assets/mobs/${baseMob}.png'">
-            <span class="mob-name" style="font-size: 11px; margin-top: 5px;">${niceName}</span>
+            <span class="mob-name" style="font-size: 14px; margin-top: 0px;">${niceName}</span>
         </div>
         `;
     });
@@ -2794,7 +2795,7 @@ window.filterMobs = function(dimension) {
         container.innerHTML += `
         <div class="mob-item" onclick="previewMob('${mobId}')" title="${niceName}" style="margin: 0; height: 156px; border-bottom: 2px solid #272727; border-right: 2px solid #272727;">
             <img src="${imgSrc}" style="width: 90%; height: 90%; object-fit: contain; image-rendering: pixelated;" onerror="this.onerror=null; this.src='assets/mobs/${baseMob}.png'">
-            <span class="mob-name" style="font-size: 11px; margin-top: 5px;">${niceName}</span>
+            <span class="mob-name" style="font-size: 14px; margin-top: 0px;">${niceName}</span>
         </div>
         `;
     });

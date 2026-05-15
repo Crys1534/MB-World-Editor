@@ -336,22 +336,6 @@ body {
  padding-left: 8px;
 }
 
-.tab-btn {
- background: transparent;
- border: none;
- color: var(--text);
- padding: 8px 12px 0px;
- width: auto; 
- text-align: center;
- cursor: pointer;
- font-size: 12px;
- border-top-left-radius: 3px;
- border-top-right-radius: 3px;
- transition: background-color 0.2s;
- display: inline-flex;
- flex-direction: column;
- align-items: center;
-}
 
 .tab-btn::after {
     content: attr(data-text);
@@ -363,9 +347,34 @@ body {
     pointer-events: none;
 }
 
+/* EL BOTÓN NORMAL (Exactamente como lo armaste) */
+.tab-btn {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    padding: 8px 12px 0px;
+    width: auto; 
+    text-align: center;
+    cursor: pointer;
+    font-size: 12px;
+    border-top-left-radius: 3px;
+    border-top-right-radius: 3px;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    
+    /* ✨ El aire extra y la transición suave */
+    letter-spacing: 0.8px; 
+
+}
+
+/* EL BOTÓN CUANDO ESTÁ ACTIVO */
 .tab-btn.active {
- background-color: var(--bg-panel);
- font-weight: bold; 
+    background-color: var(--bg-panel) !important;
+    font-weight: bold !important;
+    
+    /* ✨ Le quitamos el aire para compensar la negrita */
+    letter-spacing: 0px; 
 }
 
 .tab-btn.disabled {
@@ -508,7 +517,7 @@ body {
 /* --- SIDEBAR (HERRAMIENTAS LATERALES) --- */
 #toolbar-sidebar {
   position: absolute;
-  top: 202px;
+  top: 203px;
   left: 0;
   background-color: var(--bg-panel);
   border-right: 1px solid var(--border);
@@ -521,7 +530,7 @@ body {
   padding-bottom: 4px;
   padding-left: 4px;
   padding-right: 4px;
-  z-index: 100;
+  z-index: 98;
   overflow-y: auto;
   height: 396px;
 }
@@ -655,7 +664,7 @@ canvas {
  position: fixed;
  z-index: 100;
  left: 0;
- top: -17px;
+ top: 0px;
  width: 100%;
  height: 100%;
  background-color: rgba(0,0,0,0.5);
@@ -784,9 +793,9 @@ select, button, .input-group input {
   align-items: center;
 }
 
-button:hover { 
- background: var(--input-hover); 
- cursor: pointer;
+button:hover {
+  background: color-mix(in srgb, var(--input-hover) 25%, transparent);
+  cursor: pointer;
 }
 
 .input-group {
@@ -1509,7 +1518,7 @@ button:hover {
     box-sizing: border-box;
     font-family: 'Segoe UI', Arial, sans-serif;
     font-size: 13px;
-    z-index: 4000;
+    z-index: 99;
     box-shadow: 0 -2px 5px rgba(0,0,0,0.2);
 }
 
@@ -1878,15 +1887,15 @@ body.is-spectating #hotbar-container {
    📦 ADDONS MENU CSS
    ========================================== */
 .addons-menu-content {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    background-color: #C6C6C6;
-    min-width: 260px;
-    box-shadow: 4px 4px 0px rgba(0,0,0,0.2);
-    border: 2px solid #555;
-    z-index: 2000;
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background-color: var(--input-hover);
+  min-width: 260px;
+  box-shadow: 4px 4px 0px rgba(0,0,0,0.2);
+  /* border: 2px solid #555; */
+  z-index: 2000;
 }
 
 .addons-menu-content.show {
@@ -1896,17 +1905,16 @@ body.is-spectating #hotbar-container {
 .addons-list {
     display: flex;
     flex-direction: column;
-    padding: 5px;
     gap: 5px;
 }
 
 .addon-item {
-    display: flex;
-    align-items: center;
-    background: #8B8B8B;
-    border: 2px solid #373737;
-    padding: 5px;
-    gap: 8px;
+  display: flex;
+  align-items: center;
+  background: var(--input-hover);
+  padding: 5px;
+  gap: 8px;
+  border-bottom: 1px solid var(--bg-hover);
 }
 
 .addon-icon {
@@ -1936,10 +1944,10 @@ body.is-spectating #hotbar-container {
 }
 
 .addon-desc {
-    font-size: 11px;
-    color: #333;
-    line-height: 1.2;
-    white-space: normal;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.2;
+  white-space: normal;
 }
 
 .addon-action-btn {
@@ -1957,7 +1965,7 @@ body.is-spectating #hotbar-container {
 }
 
 .addons-footer {
-    background: #8B8B8B;
+    background: var(--bg-panel);
     padding: 5px;
     border-top: 2px solid #555;
     display: flex;
@@ -1965,16 +1973,16 @@ body.is-spectating #hotbar-container {
 }
 
 .addon-more-btn {
-    background: transparent;
-    border: none;
-    color: #333;
-    font-weight: bold;
-    cursor: pointer;
-    font-size: 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 12px;
 }
 
 .addon-more-btn:hover {
-    color: #000;
+  color: var(--text);
 }
 
 /* ==========================================
@@ -2041,7 +2049,7 @@ select, option {
    ========================================== */
 
 .settings-sidebar {
-    width: 160px;
+    width: 161px;
     background: #A0A0A0;
     border-right: 2px solid #555;
     display: flex;
@@ -2079,4 +2087,30 @@ select, option {
 
 .settings-pane.active { 
     display: block; 
+}
+
+/* Esto hace que el botón mantenga el estilo de resaltado */
+.tab-btn.is-active, 
+.tab-btn.is-active:hover {
+    background-color: #C6C6C6; /* El color de fondo del panel */
+    color: #000 !important;
+    box-shadow: inset 2px 2px 0px rgba(255,255,255,0.5);
+    border-bottom: none; /* Para que parezca unido al panel de abajo */
+    z-index: 2001;
+}
+
+/* Opcional: Si quieres un color especial para el de Addons cuando esté abierto */
+#addons-dropdown-container .tab-btn.is-active {
+    color: #f1c40f !important; /* Mantiene el amarillo */
+    background-color: #8B8B8B;
+}
+
+/* 🛠️ Ocultar las flechas molestas de los inputs de número */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+input[type="number"] {
+    -moz-appearance: textfield; /* Para que también funcione en Firefox */
 }

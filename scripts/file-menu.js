@@ -361,38 +361,88 @@ window.formatBytes = function(bytes) {
 window.renderFullscreenWorldsList = async function() {
     const listDiv = document.getElementById("fs-local-worlds-list");
     if(!listDiv || typeof localDB === 'undefined') return;
-    const worlds = await localDB.getWorlds();
     
-    if(worlds.length === 0) {
-        listDiv.style.cssText = "display: flex; flex-direction: column; max-width: 900px;";
-        listDiv.className = "";
-        listDiv.innerHTML = `<div style="text-align: center; padding: 60px; background: var(--bg-dark); border-radius: 12px; border: 2px dashed var(--border);"><div style="font-size: 60px; opacity: 0.3; margin-bottom: 15px;">📭</div><h3 style="color: var(--text); font-size: 24px; margin: 0 0 10px 0;" data-i18n="fs_no_saved_worlds">No saved worlds yet</h3><button onclick="switchBackstageTab('templates')" style="margin-top: 25px; padding: 10px 30px; background: #4DA6FF; color: #FFF; border: none; font-weight: bold; cursor: pointer; font-size: 16px; border-radius: 4px;" data-i18n="fs_start_template">Start from a Template</button></div>`;
-        return;
-    }
-    
-    worlds.sort((a, b) => b.date - a.date);
+    // 1. DIBUJAR TARJETAS FANTASMA (Efecto YouTube / Skeleton)
     listDiv.style.cssText = ""; 
     listDiv.className = "template-grid";
     
-    listDiv.innerHTML = worlds.map(w => {
-        const dateObj = new Date(w.date);
-        const dateStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-        
-        // ✨ Usamos la nueva función unificada
-        const bytes = new Blob([w.data]).size;
-        const sizeFormatted = window.formatBytes(bytes);
-        
-        return createUnifiedWorldCard({ 
-            isTemplate: false, 
-            name: w.name, 
-            author: w.fileInfo ? w.fileInfo.author : "", 
-            version: w.fileInfo ? w.fileInfo.version : "", 
-            image: w.thumb, 
-            dateStr: dateStr, 
-            sizeStr: sizeFormatted, // <--- Aquí inyectamos el resultado
-            onClick: `loadSavedLocalWorld('${w.name}'); closeFileMenu();` 
-        });
-    }).join('');
+    // CSS para que las tarjetas vacías parpadeen suavemente
+    let skeletonsHTML = `<style>
+        @keyframes mbwPulse { 0% { opacity: 0.4; } 50% { opacity: 0.8; } 100% { opacity: 0.4; } }
+        .mbw-skeleton { animation: mbwPulse 1.5s infinite ease-in-out; pointer-events: none; }
+    </style>`;
+    
+    // Dibujamos 8 tarjetas genéricas usando tu clase "template-card"
+    for(let i=0; i<8; i++) {
+        skeletonsHTML += `
+        <div class="template-card mbw-skeleton">
+            <div class="template-thumb" style="background: rgba(150,150,150,0.15);"></div>
+            <div class="template-info" style="gap: 8px; display: flex; flex-direction: column;">
+                <div style="width: 80%; height: 16px; background: rgba(150,150,150,0.3); border-radius: 4px;"></div>
+                <div style="width: 50%; height: 12px; background: rgba(150,150,150,0.2); border-radius: 4px;"></div>
+                <div style="width: 60%; height: 12px; background: rgba(150,150,150,0.2); border-radius: 4px;"></div>
+            </div>
+        </div>`;
+    }
+    listDiv.innerHTML = skeletonsHTML;
+    
+    // 2. Esperamos 50ms para que el navegador pinte los esqueletos y luego cargamos la DB
+    setTimeout(async () => {
+        try {
+            const worlds = await localDB.getWorlds();
+            
+            if(worlds.length === 0) {
+                listDiv.style.cssText = "display: flex; flex-direction: column; max-width: 900px;";
+                listDiv.className = "";
+                listDiv.innerHTML = `<div style="text-align: center; padding: 60px; background: var(--bg-dark); border-radius: 12px; border: 2px dashed var(--border);"><div style="font-size: 60px; opacity: 0.3; margin-bottom: 15px;">📭</div><h3 style="color: var(--text); font-size: 24px; margin: 0 0 10px 0;" data-i18n="fs_no_saved_worlds">No saved worlds yet</h3><button onclick="switchBackstageTab('templates')" style="margin-top: 25px; padding: 10px 30px; background: #4DA6FF; color: #FFF; border: none; font-weight: bold; cursor: pointer; font-size: 16px; border-radius: 4px;" data-i18n="fs_start_template">Start from a Template</button></div>`;
+                return;
+            }
+            
+            worlds.sort((a, b) => b.date - a.date);
+            
+            // 3. REEMPLAZAR LOS ESQUELETOS POR LAS TARJETAS REALES
+            listDiv.innerHTML = worlds.map((w, index) => {
+                const dateObj = new Date(w.date);
+                const dateStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                const safeName = w.name.replace(/'/g, "\\'");
+                
+                return createUnifiedWorldCard({ 
+                    isTemplate: false, 
+                    name: w.name, 
+                    author: w.fileInfo ? w.fileInfo.author : "", 
+                    version: w.fileInfo ? w.fileInfo.version : "", 
+                    image: w.thumb, 
+                    dateStr: dateStr, 
+                    // Ponemos el span con el ID único
+                    sizeStr: `<span id="size-calc-${index}" style="opacity: 0.5;">Calculating...</span>`, 
+                    onClick: `loadSavedLocalWorld('${safeName}'); closeFileMenu();` 
+                });
+            }).join('');
+
+            // 4. CALCULAR LOS PESOS SIN LAG
+            let index = 0;
+            function processNextWorld() {
+                if (index >= worlds.length) return; 
+                
+                const w = worlds[index];
+                const spanCalc = document.getElementById(`size-calc-${index}`);
+                
+                if (spanCalc) {
+                    const stringLength = w.data ? w.data.length : 0;
+                    spanCalc.innerHTML = window.formatBytes(stringLength);
+                    spanCalc.style.opacity = "1"; // Le quitamos la transparencia al terminar
+                }
+                
+                index++;
+                requestAnimationFrame(processNextWorld);
+            }
+            requestAnimationFrame(processNextWorld);
+
+        } catch (error) {
+            console.error("Error al cargar los mundos:", error);
+            listDiv.innerHTML = `<div style="color: #ff6b6b; text-align: center; padding: 20px;">Error loading worlds.</div>`;
+        }
+    }, 50);
 };
 
 window.deleteSavedLocalWorld = async function(name) {

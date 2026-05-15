@@ -185,7 +185,7 @@
     .mob-item:hover { background: #666; border-color: #FFF; }
     .mob-name { 
         font-size: 14px; text-align: center; color: white; padding: 0 5px; width: 100%; box-sizing: border-box;
-        display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; word-wrap: break-word; 
+        display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; word-wrap: break-word; background-color: gray;
 }
     .mob-sidebar { width: 224px; background: #B0B0B0; display: flex; flex-direction: column; padding: 15px; align-items: center; overflow-y: auto; }
     .mob-info { width: 100%; text-align: center;}
@@ -231,7 +231,6 @@
         display: flex; justify-content: space-between; align-items: center;
         background: #8B8B8B; padding: 5px 10px; border-bottom: 2px solid #FFF;
         border-right: 2px solid #FFF; border-top: 1px solid #373737; border-left: 1px solid #373737;
-        margin-bottom: 5px;
     }
 
     .mbw-modal-header h3 { margin: 0; color: #FFF; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 0 #000; }
@@ -384,41 +383,41 @@
     <button class="tab-btn" onclick="openTab('create')" data-i18n="tab_create">Create</button>
     <button class="tab-btn" onclick="openTab('view')" data-i18n="tab_view">View</button>
 
-    <div class="dropdown-container" id="addons-dropdown-container" style="position: relative; display: flex; align-items: flex-end;">
-        <button class="tab-btn" onclick="toggleAddonsMenu()" style="color: #f1c40f; display: flex; flex-direction: row; align-items: center; gap: 4px; padding-bottom: 8px; white-space: nowrap;">
-    <span style="font-size: 12px;">➕ Addons</span>
-    <span style="font-size: 10px;">▼</span>
-</button>
-        
-        <div id="addons-dropdown" class="addons-menu-content">
-            <div class="addons-list">
-                <div class="addon-item">
-                    <div class="addon-icon" style="background: #2c3e50;">🧬</div>
-                    <div class="addon-info">
-                        <div class="addon-title">Spawnskins Preview</div>
-                        <div class="addon-desc">Upload skin spreadsheets to see the spawnskin preview in the world.</div>
-                    </div>
-                    <button class="addon-action-btn" onclick="openSpawnskinsModal(); document.getElementById('addons-dropdown').classList.remove('show');">Open</button>
+<div class="dropdown-container" id="addons-dropdown-container" style="position: relative; display: flex; align-items: flex-end;">
+    <button class="tab-btn" onclick="toggleAddonsMenu()" style="color: #f1c40f; display: flex; flex-direction: row; align-items: center; gap: 4px; padding-bottom: 8px; white-space: nowrap;">
+        <span style="font-size: 12px;" data-i18n="addons_tab_btn">➕ Addons</span>
+        <span style="font-size: 10px;">▼</span>
+    </button>
+    
+    <div id="addons-dropdown" class="addons-menu-content">
+        <div class="addons-list">
+            <div class="addon-item" style="margin-left: 8px;">
+                <div class="addon-icon" style="background: #2c3e50;">🧬</div>
+                <div class="addon-info">
+                    <div class="addon-title" data-i18n="addon_spawnskin_title">Spawnskins Preview</div>
+                    <div class="addon-desc" data-i18n="addon_spawnskin_desc">Upload skin spreadsheets to see the spawnskin preview in the world.</div>
                 </div>
-                
-                <div class="addon-item">
-                    <div class="addon-icon" style="background: #8e44ad; display: flex; align-items: center; justify-content: center;">
-                        <div style="width: 16px; height: 16px; background-image: url('assets/blocks.png'); background-position: 0px -2992px; transform: scale(1.5); image-rendering: pixelated;"></div>
-                    </div>
-                    <div class="addon-info">
-                        <div class="addon-title">[Demo] Pixel Art Auto-Builder</div>
-                        <div class="addon-desc">Convert any image in a big pixel art.</div>
-                    </div>
-                    <button class="addon-action-btn" onclick="openPixelArtModal(); document.getElementById('addons-dropdown').classList.remove('show');">Open</button>
-                </div>
+                <button class="addon-action-btn" onclick="openSpawnskinsModal(); document.getElementById('addons-dropdown').classList.remove('show');" data-i18n="btn_open_addon" style="margin-right: 8px;">Open</button>
             </div>
             
-            <div class="addons-footer">
-                <button class="addon-more-btn">➕ More Add-ins</button>
+            <div class="addon-item" style="margin-left: 8px;">
+                <div class="addon-icon" style="background: #8e44ad; display: flex; align-items: center; justify-content: center;">
+                    <div style="width: 16px; height: 16px; background-image: url('assets/blocks.png'); background-position: 0px -2992px; transform: scale(1.5); image-rendering: pixelated;"></div>
+                </div>
+                <div class="addon-info">
+                    <div class="addon-title" data-i18n="addon_pixelart_title">[Demo] Pixel Art Auto-Builder</div>
+                    <div class="addon-desc" data-i18n="addon_pixelart_desc">Convert any image in a big pixel art.</div>
+                </div>
+                <button class="addon-action-btn" onclick="openPixelArtModal(); document.getElementById('addons-dropdown').classList.remove('show');" data-i18n="btn_open_addon" style="margin-right: 8px;">Open</button>
             </div>
         </div>
+        
+        <div class="addons-footer">
+            <button class="addon-more-btn" data-i18n="btn_more_addons">➕ More Add-ins</button>
+        </div>
     </div>
-    
+</div>
+
     <div class="dropdown-container" id="export-dropdown-container" style="margin-left: auto; margin-bottom: 4px; align-self: flex-end; display: flex;">
         <button class="btn-ribbon-export" onclick="if(typeof fileManager !== 'undefined') fileManager.export();" style="margin: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: 1px solid #777;" title="Quick Export">
             <span data-i18n="btn_export">Export</span>
@@ -455,13 +454,11 @@
         <div class="ribbon-group">
             <div class="ribbon-group-content rg-flex-gap8">
                 <div class="rg-col-center gap-4">
-                    <div class="rg-row-center gap-5">
-                        <label class="lbl-small" data-i18n="lbl_size">Size</label>
-                        <select id="tool-size-select" class="input-tiny" onchange="updateToolSize(this.value)">
-                            <option value="1">1</option><option value="2">2</option><option value="3">3</option>
-                            <option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option>
-                        </select>
-                    </div>
+					<div class="rg-row-center gap-5">
+					<label class="lbl-small" data-i18n="lbl_size">Size</label>
+					<input type="range" id="tool-size-slider" min="1" max="100" value="1" style="width: 80px; cursor: pointer;" oninput="updateToolSize(this.value, 'slider')">
+					<input type="number" id="tool-size-display" value="1" min="1" max="100" oninput="updateToolSize(this.value, 'display')" onchange="updateToolSize(this.value, 'blur')" style="width: 32px; text-align: center; font-size: 12px; font-weight: bold; border: 1px solid #777; border-radius: 3px; background: var(--bg-panel); color: var(--text);">
+				</div>
                     <label class="lbl-check-small">
                         <input type="checkbox" id="tool-rounded-checkbox" onchange="updateToolRounded(this.checked)"> <span data-i18n="lbl_rounded">Rounded</span>
                     </label>
@@ -806,32 +803,32 @@
         <div class="mbw-modal-body" style="padding: 0; display: flex; flex-direction: row; height: 100%;">
             
             <div class="settings-sidebar">
-                <div class="settings-tab active" onclick="openSettingsTab('theme')">🎨 Theme</div>
-                <div class="settings-tab" onclick="openSettingsTab('autosave')">💾 Auto-save</div>
-                <div class="settings-tab" onclick="openSettingsTab('language')">🌍 Language</div>
-                <div class="settings-tab" onclick="openSettingsTab('startup')">🚀 Startup</div>
-                <div class="settings-tab" onclick="openSettingsTab('volume')">🔊 Volume</div>
-                <div class="settings-tab" onclick="openSettingsTab('controls')">⌨️ Controls</div>
+                <div class="settings-tab active" onclick="openSettingsTab('theme')" data-i18n="config_tab_theme">🎨 Theme</div>
+                <div class="settings-tab" onclick="openSettingsTab('autosave')" data-i18n="config_tab_autosave">💾 Auto-save</div>
+                <div class="settings-tab" onclick="openSettingsTab('language')" data-i18n="config_tab_language">🌍 Language</div>
+                <div class="settings-tab" onclick="openSettingsTab('startup')" data-i18n="config_tab_startup">🚀 Startup</div>
+                <div class="settings-tab" onclick="openSettingsTab('volume')" data-i18n="config_tab_volume">🔊 Volume</div>
+                <div class="settings-tab" onclick="openSettingsTab('controls')" data-i18n="config_tab_controls">⌨️ Controls</div>
             </div>
 
             <div style="flex: 1; padding: 15px; background: #C6C6C6; overflow-y: auto;">
                 
                 <div id="set-tab-theme" class="settings-pane active">
-                    <h3 style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">🎨 Theme</h3>
-                    <label data-i18n="config_theme">Select your preferred theme:</label>
+                    <h3 data-i18n="config_tab_theme" style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">🎨 Theme</h3>
+                    <label data-i18n="config_theme_select">Select your preferred theme:</label>
                     <select id="theme-select" onchange="setTheme(this.value)" style="width: 100%; padding: 8px; margin-top: 5px;">
-                        <option value="dark">⚫ Dark (Default)</option>
-                        <option value="white">⚪ White</option>
-                        <option value="pastel">🌸 Pastel</option>
-                        <option value="pastel2">🌸 Pastel 2 (Cool)</option>
-                        <option value="darkblue">🔵 Dark Blue</option>
-                        <option value="winxp">🪟 Windows XP</option>
+                        <option value="dark" data-i18n="theme_dark">⚫ Dark (Default)</option>
+                        <option value="white" data-i18n="theme_white">⚪ White</option>
+                        <option value="pastel" data-i18n="theme_pastel">🌸 Pastel</option>
+                        <option value="pastel2" data-i18n="theme_pastel2">🌸 Pastel 2 (Cool)</option>
+                        <option value="darkblue" data-i18n="theme_darkblue">🔵 Dark Blue</option>
+                        <option value="winxp" data-i18n="theme_winxp">🪟 Windows XP</option>
                     </select>
                 </div>
 
                 <div id="set-tab-autosave" class="settings-pane">
-                    <h3 style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">💾 Auto-save</h3>
-                    <label data-i18n="config_autosave">Auto-Save Interval:</label>
+                    <h3 data-i18n="config_tab_autosave" style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">💾 Auto-save</h3>
+                    <label data-i18n="config_autosave_label">Auto-Save Interval:</label>
                     <select id="autosave-interval" onchange="applyAutoSaveSettings()" style="width: 100%; padding: 8px; margin-top: 5px;">
                         <option value="0" data-i18n="config_off">Off (Disabled)</option>
                         <option value="1" data-i18n="config_1m">Every 1 minute</option>
@@ -841,8 +838,8 @@
                 </div>
 
                 <div id="set-tab-language" class="settings-pane">
-                    <h3 style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">🌍 Language</h3>
-                    <label data-i18n="config_language">Select Language:</label>
+                    <h3 data-i18n="config_tab_language" style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">🌍 Language</h3>
+                    <label data-i18n="config_language_label">Select Language:</label>
                     <select id="lang-select" onchange="setLanguage(this.value)" style="width: 100%; padding: 8px; margin-top: 5px;">
                         <option value="en">🇺🇸 English</option>
                         <option value="es">🇪🇸 Español [??%]</option>
@@ -851,8 +848,8 @@
                 </div>
 
                 <div id="set-tab-startup" class="settings-pane">
-                    <h3 style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">🚀 Startup Screen</h3>
-                    <label data-i18n="config_startup">Choose what to see when opening the app:</label>
+                    <h3 data-i18n="config_tab_startup" style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">🚀 Startup Screen</h3>
+                    <label data-i18n="config_startup_label">Choose what to see when opening the app:</label>
                     <select id="startup-screen-select" onchange="updateStartupMenu(this.value)" style="width: 100%; padding: 8px; margin-top: 5px;">
                         <option value="editor" data-i18n="startup_editor">Normal Editor</option>
                         <option value="filemenu" data-i18n="startup_filemenu">File Menu</option>
@@ -860,9 +857,9 @@
                 </div>
 
                 <div id="set-tab-volume" class="settings-pane">
-                    <h3 style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">🔊 Master Volume</h3>
+                    <h3 data-i18n="config_tab_volume" style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">🔊 Master Volume</h3>
                     <label style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 10px; margin-top: 10px;">
-                        <span data-i18n="config_volume">Adjust general audio level</span>
+                        <span data-i18n="config_volume_desc">Adjust general audio level</span>
                         <span id="volume-display" style="color: #000;">100%</span>
                     </label>
                     <input type="range" id="volume-slider" min="0" max="100" value="100" oninput="changeVolume(this.value)" style="width: 100%; cursor: pointer;">
@@ -870,13 +867,11 @@
 
                 <div id="set-tab-controls" class="settings-pane">
                     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #888; padding-bottom: 5px; margin-bottom: 10px;">
-                        <h3 style="margin: 0;">⌨️ Controls</h3>
-                        <button onclick="resetKeybinds()" style="background: #e74c3c; color: white; border: 2px solid #c0392b; padding: 4px 8px; cursor: pointer; font-weight: bold; font-size: 12px; border-radius: 3px;">Reset Defaults</button>
+                        <h3 data-i18n="config_tab_controls" style="margin: 0;">⌨️ Controls</h3>
+                        <button onclick="resetKeybinds()" data-i18n="btn_reset_keybinds" style="background: #e74c3c; color: white; border: 2px solid #c0392b; padding: 4px 8px; cursor: pointer; font-weight: bold; font-size: 12px; border-radius: 3px;">Reset Defaults</button>
                     </div>
-                    <p style="font-size: 13px; color: #333; margin-top: 0; margin-bottom: 10px;">Click a button and press a new key to change the shortcut.</p>
-                    
-                    <div id="keybinds-list" style="display: flex; flex-direction: column; max-height: 230px; overflow-y: auto; padding-right: 5px;">
-                        </div>
+                    <p data-i18n="controls_instructions" style="font-size: 13px; color: #333; margin-top: 0; margin-bottom: 10px;">Click a button and press a new key to change the shortcut.</p>
+                    <div id="keybinds-list" style="display: flex; flex-direction: column; max-height: 230px; overflow-y: auto; padding-right: 5px;"></div>
                 </div>
 
             </div>
@@ -976,7 +971,7 @@
             <div id="structures-grid"></div>
         </div>
         <div class="struct-sidebar">
-            <canvas id="struct-preview-canvas" width="96" height="96"></canvas>
+            <canvas id="struct-preview-canvas" width="256" height="256"></canvas>
             <div id="struct-chest-preview" class="struct-chest-preview"></div>
             <div class="struct-info">
                 <h3 id="struct-info-title" data-i18n="msg_select_first">Select an item</h3>
@@ -1280,7 +1275,7 @@
     <div class="status-right">
         <button class="status-btn" onclick="zoomHUD(-1)" data-i18n-title="tooltip_zoom_out" title="Zoom Out">-</button>
         
-        <input type="range" id="zoom-slider" min="0" max="7" step="1" value="3" oninput="updateZoomSlider(this.value)">
+        <input type="range" id="zoom-slider" min="0" max="13" step="1" value="6" oninput="updateZoomSlider(this.value)">
         
         <button class="status-btn" onclick="zoomHUD(1)" data-i18n-title="tooltip_zoom_in" title="Zoom In">+</button>
         <span id="zoom-value" data-i18n-title="tooltip_zoom_reset" title="Click to Reset" onclick="resetZoomHUD()">100%</span>
@@ -1424,16 +1419,31 @@ window.handleGlobalUsernameChange = function(newName) {
 
 // Al cargar y Unificar clics de Perfil
 window.addEventListener('DOMContentLoaded', () => {
-    const savedPic = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
-    const topImg = document.getElementById('top-profile-img');
-    if (topImg) topImg.src = savedPic;
-
-    document.body.addEventListener('click', (e) => {
-        if (e.target && (e.target.id === 'mp-pfp-preview' || e.target.id === 'mp-username-input' || e.target.closest('#mp-pfp-preview'))) {
-            e.preventDefault();
-            openUnifiedProfile();
-        }
+    // 1. Lo que ya tenías de los perfiles...
+    const tImg = document.getElementById('top-profile-img'); 
+    if (tImg) tImg.src = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
+    
+    document.body.addEventListener('click', e => { 
+        if (e.target && (['mp-pfp-preview', 'mp-username-input'].includes(e.target.id) || e.target.closest('#mp-pfp-preview'))) { 
+            e.preventDefault(); openUnifiedProfile(); 
+        } 
     });
+
+    // ✨ NUEVO: 2. Restaurar la cuadrícula con memoria
+    const savedGridState = localStorage.getItem('mbw_show_grid');
+    if (savedGridState !== null) {
+        showGrid = (savedGridState === 'true'); // Convertimos el texto a booleano
+    }
+    
+    // 3. Forzar a que la casilla visual coincida con la memoria de JavaScript
+    // Esto busca automáticamente el botón de la cuadrícula en tu HTML sin importar qué ID le pusiste
+    const gridCheckboxes = document.querySelectorAll('input[onchange*="toggleGrid"], input[onclick*="toggleGrid"]');
+    gridCheckboxes.forEach(cb => {
+        cb.checked = showGrid;
+    });
+
+    // Asegurarnos de que el mapa se dibuje correctamente con o sin cuadrícula al inicio
+    if (typeof worldDirty !== 'undefined') worldDirty = true;
 });
 </script>
 
@@ -1460,8 +1470,8 @@ window.addEventListener('DOMContentLoaded', () => {
             </p>
             
             <div style="position: absolute; bottom: 10px; left: 15px; font-size: 11px; color: gray; font-family: monospace;">
-                <span data-i18n="about_last_update">Last Update:</span> May 14, 2026<br>
-                v2.4 - Snapshot 18
+                <span data-i18n="about_last_update">Last Update:</span> May 15, 2026<br>
+                v2.4 - Snapshot 19
             </div>
             <div style="position: absolute; bottom: 10px; right: 15px; font-size: 12px; color: gray; font-weight: bold;">
                 2026
@@ -1607,30 +1617,30 @@ window.addEventListener('DOMContentLoaded', () => {
 <div id="spawnskins-addon-modal" class="modal" style="z-index: 3500;">
     <div class="modal-content mbw-standard-modal" style="width: 550px; height: 380px;">
         <div class="mbw-modal-header">
-            <h3>Spawnskins Preview Generator</h3>
+            <h3 data-i18n="spawnskin_modal_title">Spawnskins Preview Generator</h3>
             <span class="mbw-close-btn" onclick="closeSpawnskinsModal()">&times;</span>
         </div>
         <div class="mbw-modal-body" style="padding: 0; display: flex; flex-direction: row; height: 100%;">
             <div style="flex: 1; padding: 20px; display: flex; flex-direction: column; gap: 15px; border-right: 2px solid #555;">
-                <p style="margin: 0; font-size: 14px; color: #000; font-weight: normal;">To see the spawnskins in the editor, you need to use this tool.</p>
+                <p data-i18n="spawnskin_modal_desc" style="margin: 0; font-size: 14px; color: #000; font-weight: normal;">To see the spawnskins in the editor, you need to use this tool.</p>
                 
                 <div style="background: rgba(0,0,0,0.1); padding: 10px; border-radius: 4px; border: 1px solid #777;">
-                    <strong style="color: #000; font-size: 13px;">1. Open 'Spawnskins Preview Generator'</strong>
+                    <strong data-i18n="spawnskin_step1" style="color: #000; font-size: 13px;">1. Open 'Spawnskins Preview Generator'</strong>
                     <button onclick="window.open('https://crys1534.github.io/MB-Spawnskins-Preview-Generator/', '_blank')" style="margin-top: 8px; width: 100%; background: #3498db; color: white; padding: 8px; border: 2px solid #2980b9; cursor: pointer; font-weight: bold; border-radius: 3px; display: flex; align-items: center; justify-content: center; gap: 5px;">
-                        <span style="font-size: 16px;">🔗</span> Open Tool
+                        <span style="font-size: 16px;">🔗</span> <span data-i18n="btn_open_generator">Open Tool</span>
                     </button>
                 </div>
 
                 <div style="background: rgba(0,0,0,0.1); padding: 10px; border-radius: 4px; border: 1px solid #777;">
-                    <strong style="color: #000; font-size: 13px;">2. Load the skin list here:</strong>
+                    <strong data-i18n="spawnskin_step2" style="color: #000; font-size: 13px;">2. Load the skin list here:</strong>
                     <input type="file" id="skin-upload-input" multiple accept=".png, image/png" style="display: none;" onchange="importLocalSkins(event)">
                     <button onclick="document.getElementById('skin-upload-input').click()" style="margin-top: 8px; width: 100%; background: #2ecc71; color: white; padding: 8px; border: 2px solid #27ae60; cursor: pointer; font-weight: bold; border-radius: 3px; display: flex; align-items: center; justify-content: center; gap: 5px;">
-                    <span style="font-size: 16px;">📁</span> Import skins
+                        <span style="font-size: 16px;">📁</span> <span data-i18n="btn_import_skins">Import skins</span>
                     </button>
                 </div>
             </div>
             <div style="width: 200px; background: #B0B0B0; display: flex; flex-direction: column;">
-                <div style="padding: 8px; background: #8B8B8B; border-bottom: 2px solid #555; text-align: center; font-weight: bold; color: white; text-shadow: 1px 1px 0 #000;">Imported Spawnskins</div>
+                <div data-i18n="lbl_imported_skins" style="padding: 8px; background: #8B8B8B; border-bottom: 2px solid #555; text-align: center; font-weight: bold; color: white; text-shadow: 1px 1px 0 #000;">Imported Spawnskins</div>
                 <div id="loaded-skins-list" style="flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px; background: #999;"></div>
             </div>
         </div>
@@ -1640,24 +1650,32 @@ window.addEventListener('DOMContentLoaded', () => {
 <div id="pixelart-addon-modal" class="modal" style="z-index: 3500;">
     <div class="modal-content mbw-standard-modal" style="width: 400px;">
         <div class="mbw-modal-header">
-            <h3>Pixel Art Auto-Builder</h3>
+            <h3 data-i18n="pixelart_title">Pixel Art Auto-Builder</h3>
             <span class="mbw-close-btn" onclick="closeModal('pixelart-addon-modal')">&times;</span>
         </div>
         <div class="mbw-modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
-            <p style="margin: 0; font-size: 13px; color: #333;">Sube una imagen y el editor la construirá en el mundo usando bloques de lana y arcilla.</p>
+            <p data-i18n="pixelart_desc" style="margin: 0; font-size: 13px; color: #333;">Sube una imagen y el editor la construirá en el mundo usando bloques de lana y arcilla.</p>
+            
             <div style="display: flex; flex-direction: column; gap: 5px;">
-                <label style="font-size: 12px; font-weight: bold; color: #000;">Tamaño Máximo (Ancho en Bloques):</label>
+                <label data-i18n="pixelart_max_width" style="font-size: 12px; font-weight: bold; color: #000;">Tamaño Máximo (Ancho en Bloques):</label>
                 <input type="number" id="pixelart-max-width" value="64" min="10" max="200" style="padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
-                <small style="color: #666; font-size: 10px;">Imágenes muy grandes pueden dar lag.</small>
+                <small data-i18n="pixelart_warning" style="color: #666; font-size: 10px;">Imágenes muy grandes pueden dar lag.</small>
             </div>
+
+            <div style="background: rgba(0,0,0,0.05); padding: 8px 10px; border-radius: 4px; border: 1px solid #ccc;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #222; font-size: 12px; font-weight: bold; margin: 0;">
+                    <input type="checkbox" id="pixelart-dithering" checked style="width: 14px; height: 14px; cursor: pointer;">
+                    <span data-i18n="addon_pixelart_dither">Usar Dithering Floyd-Steinberg</span>
+                </label>
+            </div>
+
             <input type="file" id="pixelart-upload" accept="image/png, image/jpeg" style="display: none;" onchange="processPixelArt(event)">
             <button onclick="document.getElementById('pixelart-upload').click()" style="background: #8e44ad; color: white; padding: 10px; border: none; cursor: pointer; font-weight: bold; border-radius: 3px; display: flex; align-items: center; justify-content: center; gap: 5px;">
-                <span style="font-size: 16px;">🖼️</span> Cargar Imagen y Construir
+                <span style="font-size: 16px;">🖼️</span> <span data-i18n="btn_pixelart_upload">Cargar Imagen y Construir</span>
             </button>
         </div>
     </div>
 </div>
-
 
  <script src="scripts/lang.js"></script>
  <script src="scripts/ui-handler.js"></script>
