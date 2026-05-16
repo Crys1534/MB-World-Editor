@@ -526,20 +526,16 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding-top: 4px;
-  padding-bottom: 4px;
-  padding-left: 4px;
-  padding-right: 4px;
   z-index: 98;
   overflow-y: auto;
-  height: 396px;
+  height: 100%;
 }
 
 #toolbar-sidebar::-webkit-scrollbar { display: none; }
 
 .tool-btn {
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   background: transparent;
   color: var(--text);
   cursor: pointer;
@@ -552,7 +548,7 @@ body {
 }
 
 .tool-btn:hover {
-    background-color: rgba(128,128,128,0.2);
+    background-color: rgba(128, 128, 128, 0.25);
 }
 
 .tool-btn.active {
@@ -563,13 +559,13 @@ body {
 
 /* --- WORKSPACE (LIENZO COMPLETO) --- */
 #workspace {
-    position: absolute;
-    top: 202px;   
-    left: 47px;   
-    width: calc(100% - 47px); 
-    bottom: 28px; 
-    background-color: #1a1a1a;
-    overflow: hidden;
+  position: absolute;
+  top: 202px;
+  left: 41px;
+  width: calc(100% - 41px);
+  bottom: 28px;
+  background-color: #1a1a1a;
+  overflow: hidden;
 }
 
 canvas {
@@ -1636,11 +1632,11 @@ body.is-spectating #hotbar-container {
 .dropdown-content {
     display: none;
     position: absolute;
-    background-color: #ffffff;
+    background-color: var(--input-hover);
     min-width: 220px;
     box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
     z-index: 9999999;
-    border: 1px solid #ccc;
+    1px solid var(--bg-panel)
     border-radius: 4px;
     top: 100%; 
     left: 0;
@@ -1648,14 +1644,13 @@ body.is-spectating #hotbar-container {
 }
 
 .dropdown-content a {
-    color: #333;
-    padding: 12px 16px;
-    text-decoration: none;
-    display: block;
-    font-size: 14px;
-    border-bottom: 1px solid #f0f0f0;
-    font-family: inherit;
-    transition: background 0.2s;
+  color: var(--text);
+  padding: 12px 16px;
+  text-decoration: none;
+  display: block;
+  font-size: 14px;
+  border-bottom: 1px solid var(--bg-panel);
+  font-family: inherit;
 }
 
 .dropdown-content a:last-child {
@@ -1663,8 +1658,8 @@ body.is-spectating #hotbar-container {
 }
 
 .dropdown-content a:hover {
-    background-color: #f1f2f6;
-    color: #000;
+  background-color: var(--bg-hover);
+  color: var(--text-title);
 }
 
 .dropdown-content.show {
@@ -1770,7 +1765,7 @@ body.is-spectating #hotbar-container {
 .gap-4 { gap: 4px; }
 .gap-5 { gap: 5px; }
 
-.lbl-small { font-size: 12px; }
+.lbl-small { font-size: 12px; line-height: 1;}
 .lbl-tiny { font-size: 11px; text-align: center; margin-top: 2px; line-height: 1; }
 .lbl-check-small { font-size: 12px; cursor: pointer; display: flex; align-items: center; }
 .text-danger { color: #ff5555; font-weight: bold; }
@@ -1886,326 +1881,90 @@ body.is-spectating #hotbar-container {
 /* ==========================================
    📦 ADDONS MENU CSS
    ========================================== */
-.addons-menu-content {
-  display: none;
-  position: absolute;
-  top: 100%;
-  left: 0;
-  background-color: var(--input-hover);
-  min-width: 260px;
-  box-shadow: 4px 4px 0px rgba(0,0,0,0.2);
-  /* border: 2px solid #555; */
-  z-index: 2000;
-}
-
-.addons-menu-content.show {
-    display: block;
-}
-
-.addons-list {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-
-.addon-item {
-  display: flex;
-  align-items: center;
-  background: var(--input-hover);
-  padding: 5px;
-  gap: 8px;
-  border-bottom: 1px solid var(--bg-hover);
-}
-
-.addon-icon {
-    width: 32px;
-    height: 32px;
-    border: 2px solid #373737;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 18px;
-    flex-shrink: 0;
-}
-
-.addon-info {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-.addon-title {
-    font-size: 14px;
-    font-weight: bold;
-    color: #FFF;
-    white-space: nowrap;
-    text-shadow: 1px 1px 0 #000;
-}
-
-.addon-desc {
-  font-size: 11px;
-  color: var(--text-muted);
-  line-height: 1.2;
-  white-space: normal;
-}
-
-.addon-action-btn {
-    background: #4CAF50;
-    color: white;
-    border: 2px solid #2E7D32;
-    padding: 6px 12px;
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 12px;
-}
-
-.addon-action-btn:hover {
-    background: #66BB6A;
-}
-
-.addons-footer {
-    background: var(--bg-panel);
-    padding: 5px;
-    display: flex;
-    justify-content: center;
-}
-
-.addon-more-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  font-weight: bold;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.addon-more-btn:hover {
-  color: var(--text);
-}
+.addons-menu-content { display: none; position: absolute; top: 100%; left: 0; background-color: var(--input-hover); min-width: 260px; box-shadow: 4px 4px 0px rgba(0,0,0,0.2); /* border: 2px solid #555; */ z-index: 2000; }
+.addons-menu-content.show { display: block; }
+.addons-list { display: flex; flex-direction: column; gap: 5px; }
+.addon-item { display: flex; align-items: center; background: var(--input-hover); padding: 5px; gap: 8px; border-bottom: 1px solid var(--bg-hover); }
+.addon-icon { width: 32px; height: 32px; border: 2px solid #373737; display: flex; justify-content: center; align-items: center; font-size: 18px; flex-shrink: 0; }
+.addon-info { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.addon-title { font-size: 14px; font-weight: bold; color: #FFF; white-space: nowrap; text-shadow: 1px 1px 0 #000; }
+.addon-desc { font-size: 11px; color: var(--text-muted); line-height: 1.2; white-space: normal; }
+.addon-action-btn { background: #4CAF50; color: white; border: 2px solid #2E7D32; padding: 6px 12px; cursor: pointer; font-weight: bold; font-size: 12px; }
+.addon-action-btn:hover { background: #66BB6A; }
+.addons-footer { background: var(--bg-panel); padding: 5px; display: flex; justify-content: center; }
+.addon-more-btn { background: transparent; border: none; color: var(--text-muted); font-weight: bold; cursor: pointer; font-size: 12px; }
+.addon-more-btn:hover { color: var(--text); }
 
 /* ==========================================
    ⚙️ MODAL DE CONFIGURACIÓN Y ESTILO UNIFICADO
    ========================================== */
-
 /* Fix para que los selects se lean bien siempre */
-select, option { 
-    color: black !important; 
-    background-color: white; 
-}
-
+select, option { color: black !important; background-color: white; }
 /* Estructura base para los modales estándar */
-.mbw-standard-modal {
-    background: #C6C6C6;
-    border: 2px solid #555;
-    padding: 0; 
-    display: flex;
-    flex-direction: column;
-    color: black;
-    box-shadow: 4px 4px 0px rgba(0,0,0,0.2);
-}
-
-.mbw-modal-header {
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center;
-    background: #8B8B8B; 
-    padding: 5px 10px; 
-    border-bottom: 2px solid #FFF;
-    border-right: 2px solid #FFF; 
-    border-top: 1px solid #373737; 
-    border-left: 1px solid #373737;
-}
-
-.mbw-modal-header h3 { 
-    margin: 0; 
-    color: #FFF; 
-    font-size: 14px; 
-    font-weight: bold; 
-    text-shadow: 1px 1px 0 #000; 
-}
-
-.mbw-close-btn { 
-    cursor: pointer; 
-    font-weight: bold; 
-    color: #FFF; 
-    font-size: 16px; 
-    line-height: 1; 
-}
-
-.mbw-close-btn:hover { 
-    color: #FFD700; 
-}
-
-.mbw-modal-body { 
-    padding: 10px; 
-    flex: 1; 
-    overflow-y: auto; 
-}
+.mbw-standard-modal { background: #C6C6C6; border: 2px solid #555; padding: 0; display: flex; flex-direction: column; color: black; box-shadow: 4px 4px 0px rgba(0,0,0,0.2); }
+.mbw-modal-header { display: flex; justify-content: space-between; align-items: center; background: #8B8B8B; padding: 5px 10px; border-bottom: 2px solid #FFF; border-right: 2px solid #FFF; border-top: 1px solid #373737; border-left: 1px solid #373737; }
+.mbw-modal-header h3 { margin: 0; color: #FFF; font-size: 14px; font-weight: bold; text-shadow: 1px 1px 0 #000; }
+.mbw-close-btn { cursor: pointer; font-weight: bold; color: #FFF; font-size: 16px; line-height: 1; }
+.mbw-close-btn:hover { color: #FFD700; }
+.mbw-modal-body { padding: 10px; flex: 1; overflow-y: auto; }
 
 /* ==========================================
    🎨 PESTAÑAS LATERALES DE CONFIGURACIÓN
    ========================================== */
-
-.settings-sidebar {
-    width: 161px;
-    background: #A0A0A0;
-    border-right: 2px solid #555;
-    display: flex;
-    flex-direction: column;
-}
-
-.settings-tab {
-    padding: 10px 12px;
-    cursor: pointer;
-    font-weight: bold;
-    color: #333;
-    font-size: 14px;
-    border-bottom: 1px solid #888;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.settings-tab:hover { 
-    background: #909090; 
-    color: #000; 
-}
-
-.settings-tab.active {
-    background: #C6C6C6;
-    color: #000;
-    border-right: 2px solid #C6C6C6; /* Se funde con el fondo del panel */
-    margin-right: -2px; /* Se superpone para tapar la línea separadora */
-    box-shadow: inset 2px 2px 0px rgba(255,255,255,0.5);
-}
-
-.settings-pane { 
-    display: none; 
-}
-
-.settings-pane.active { 
-    display: block; 
-}
-
+.settings-sidebar { width: 161px; background: #A0A0A0; border-right: 2px solid #555; display: flex; flex-direction: column; }
+.settings-tab { padding: 10px 12px; cursor: pointer; font-weight: bold; color: #333; font-size: 14px; border-bottom: 1px solid #888; display: flex; align-items: center; gap: 8px; }
+.settings-tab:hover { background: #909090; color: #000; }
+.settings-tab.active { background: #C6C6C6; color: #000; border-right: 2px solid #C6C6C6; /* Se funde con el fondo del panel */ margin-right: -2px; /* Se superpone para tapar la línea separadora */ box-shadow: inset 2px 2px 0px rgba(255,255,255,0.5); }
+.settings-pane { display: none; }
+.settings-pane.active { display: block; }
 /* Esto hace que el botón mantenga el estilo de resaltado */
 .tab-btn.is-active, 
-.tab-btn.is-active:hover {
-    background-color: #C6C6C6; /* El color de fondo del panel */
-    color: #000 !important;
-    box-shadow: inset 2px 2px 0px rgba(255,255,255,0.5);
-    border-bottom: none; /* Para que parezca unido al panel de abajo */
-    z-index: 2001;
-}
-
+.tab-btn.is-active:hover { background-color: #C6C6C6; /* El color de fondo del panel */ color: #000 !important; box-shadow: inset 2px 2px 0px rgba(255,255,255,0.5); border-bottom: none; /* Para que parezca unido al panel de abajo */ z-index: 2001; }
 /* Opcional: Si quieres un color especial para el de Addons cuando esté abierto */
-#addons-dropdown-container .tab-btn.is-active {
-    color: #f1c40f !important; /* Mantiene el amarillo */
-    background-color: #8B8B8B;
-}
+#addons-dropdown-container .tab-btn.is-active { color: #f1c40f !important; /* Mantiene el amarillo */ background-color: #8B8B8B; }
 
 /* 🛠️ Ocultar las flechas molestas de los inputs de número */
 input[type="number"]::-webkit-outer-spin-button,
-input[type="number"]::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-}
-input[type="number"] {
-    -moz-appearance: textfield; /* Para que también funcione en Firefox */
-}
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+input[type="number"] { -moz-appearance: textfield; /* Para que también funcione en Firefox */ }
 
 /* =========================================
    🎚️ ESTILOS UNIFICADOS PARA SLIDERS (ZOOM Y BROCHA)
    ========================================= */
-
 /* 1. Reiniciar los estilos base para ambos */
 #zoom-slider, 
-#tool-size-slider {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 100%;
-    background: transparent;
-    outline: none;
-    margin: 10px 0;
-}
+#tool-size-slider { -webkit-appearance: none; appearance: none; width: 100%; background: transparent; outline: none; margin: 10px 0; }
 
 /* =========================================
    2. EL RIEL (La barra oscura de fondo)
    ========================================= */
-
 /* Chrome, Safari, Edge */
 #zoom-slider::-webkit-slider-runnable-track, 
-#tool-size-slider::-webkit-slider-runnable-track {
-    width: 100%;
-    height: 6px;
-    cursor: pointer;
-    background: #34495e;
-    border-radius: 4px;
-    border: 1px solid #1a252f;
-}
-
+#tool-size-slider::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: #34495e; border-radius: 4px; border: 1px solid #1a252f; }
 /* Firefox */
 #zoom-slider::-moz-range-track, 
-#tool-size-slider::-moz-range-track {
-    width: 100%;
-    height: 6px;
-    cursor: pointer;
-    background: #34495e;
-    border-radius: 4px;
-    border: 1px solid #1a252f;
-}
+#tool-size-slider::-moz-range-track { width: 100%; height: 6px; cursor: pointer; background: #34495e; border-radius: 4px; border: 1px solid #1a252f; }
 
 /* =========================================
    3. LA BOLITA (El pulgar arrastrable)
    ========================================= */
-
 /* Chrome, Safari, Edge */
 #zoom-slider::-webkit-slider-thumb, 
-#tool-size-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    height: 18px;
-    width: 8px;
-    background: #00abff; /* Tu azul característico */
-    cursor: pointer;
-    margin-top: -7px; /* (6px riel / 2) - (18px bolita / 2) = -6px o -7px */
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
-}
-
+#tool-size-slider::-webkit-slider-thumb { -webkit-appearance: none; height: 18px; width: 8px; background: #00abff; /* Tu azul característico */ cursor: pointer; margin-top: -7px; /* (6px riel / 2) - (18px bolita / 2) = -6px o -7px */ box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4); }
 /* Firefox */
 #zoom-slider::-moz-range-thumb, 
-#tool-size-slider::-moz-range-thumb {
-    height: 18px;
-    width: 8px;
-    background: #00abff;
-    cursor: pointer;
-    border: none;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
-}
+#tool-size-slider::-moz-range-thumb { height: 18px; width: 8px; background: #00abff; cursor: pointer; border: none; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4); }
 
 /* =========================================
    4. EFECTOS HOVER Y ACTIVE (Interacción)
    ========================================= */
-
 /* Al pasar el ratón por encima (Hover) */
 #zoom-slider::-webkit-slider-thumb:hover, 
-#tool-size-slider::-webkit-slider-thumb:hover {
-    background: cyan; /* Verde al tocar */
-    transform: scale(1.2); /* Crece 20% */
-}
-
+#tool-size-slider::-webkit-slider-thumb:hover { background: cyan; /* Verde al tocar */ transform: scale(1.2); /* Crece 20% */ }
 #zoom-slider::-moz-range-thumb:hover, 
-#tool-size-slider::-moz-range-thumb:hover {
-    background: cyan;
-    transform: scale(1.2);
-}
-
+#tool-size-slider::-moz-range-thumb:hover { background: cyan; transform: scale(1.2); }
 /* Mientras haces clic y arrastras (Active) */
 #zoom-slider:active::-webkit-slider-thumb, 
-#tool-size-slider:active::-webkit-slider-thumb {
-    transform: scale(1.1); /* Se encoge un poquito al apretar */
-}
-
+#tool-size-slider:active::-webkit-slider-thumb { transform: scale(1.1); /* Se encoge un poquito al apretar */ }
 #zoom-slider:active::-moz-range-thumb, 
-#tool-size-slider:active::-moz-range-thumb {
-    transform: scale(1.1);
-}
+#tool-size-slider:active::-moz-range-thumb { transform: scale(1.1); }

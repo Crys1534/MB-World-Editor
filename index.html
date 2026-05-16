@@ -58,7 +58,18 @@
     #tab-insert.active { justify-content: left; }
 
 /* --- OVERLAYS --- */
-    #coords-overlay { position: absolute; top: 8px; left: 85px; font-family: 'Consolas', monospace; font-size: 24px; font-weight: bold; color: white; text-shadow: 1px 1px 2px black; pointer-events: none; z-index: 10; }
+    #coords-overlay {
+  position: absolute;
+  top: 4px;
+  left: 32px;
+  font-family: 'Consolas', monospace;
+  font-size: 24px;
+  font-weight: bold;
+  color: white;
+  text-shadow: 1px 1px 2px black;
+  pointer-events: none;
+  z-index: 10;
+}
     #selection-overlay { position: absolute; top: 32px; left: 85px; font-family: 'Consolas', monospace; font-size: 18px; font-weight: bold; color: #FFD700; text-shadow: 1px 1px 2px black; pointer-events: none; z-index: 10; display: none; }
     #console-overlay { position: absolute; bottom: 70px; left: 120px; display: none; z-index: 2000; }
     .console-container { width: 350px; }
@@ -538,23 +549,37 @@
 
                 <div class="vertical-divider"></div>
 
-                <div class="rg-col-center gap-5">
-                    <div class="rg-row-between">
-                        <label class="lbl-small" data-i18n="lbl_day">Day:</label>
-                        <input type="text" id="gr-day" value="1" disabled data-i18n-title="tooltip_days_passed" title="Days passed (Read Only)" class="input-tiny input-disabled w-40">
-                    </div>
-                    <div class="rg-row-between">
-                        <label class="lbl-small" data-i18n="lbl_time">Time:</label>
-                        <input type="number" id="gr-time" min="0" max="99" value="0" class="input-tiny w-40">
-                        <label class="lbl-check-small text-accent"><input type="checkbox" id="live-time-toggle" onchange="toggleLiveTime(this)"> ⏱️ <span data-i18n="lbl_live_time">Live Time</span></label>
-                    </div>
-                    <div class="rg-row-between">
-                        <label class="lbl-small" data-i18n="lbl_weather">Weather</label>
-                        <select id="gr-weather" class="input-tiny w-60">
-                            <option value="clear" data-i18n="weather_clear" selected>Clear</option><option value="rain" data-i18n="weather_rain">Rain</option><option value="thunder" data-i18n="weather_thunder">Thunder</option>
-                        </select>
-                    </div>
-                </div>
+                <div class="rg-row-center" style="gap: 15px;">
+    
+    <div class="rg-col-center gap-5">
+        <div class="rg-row-between">
+            <label class="lbl-small" data-i18n="lbl_day">Day:</label>
+            <input type="text" id="gr-day" value="1" disabled="" data-i18n-title="tooltip_days_passed" title="Days passed (Read Only)" class="input-tiny input-disabled w-40">
+        </div>
+        <div class="rg-row-between">
+            <label class="lbl-small" data-i18n="lbl_time">Time:</label>
+            <input type="number" id="gr-time" min="0" max="99" value="0" class="input-tiny w-40" oninput="if(typeof updateTimeIcon === 'function') updateTimeIcon();">
+        </div>
+        <div class="rg-row-between">
+            <label class="lbl-small" data-i18n="lbl_weather">Weather</label>
+            <select id="gr-weather" class="input-tiny w-60">
+                <option value="clear" data-i18n="weather_clear" selected="">Clear</option>
+                <option value="rain" data-i18n="weather_rain">Rain</option>
+                <option value="thunder" data-i18n="weather_thunder">Thunder</option>
+            </select>
+        </div>
+    </div>
+
+    <label class="rg-col-center" style="cursor: pointer;">
+        <img id="live-time-icon" src="assets/sun.png" class="pixel-icon m-auto" style="width: 24px; height: 24px; margin-bottom: 4px; object-fit: contain;">
+        
+        <div class="rg-row-center gap-5 lbl-small text-accent">
+            <input type="checkbox" id="live-time-toggle" onchange="toggleLiveTime(this)"> 
+            <span data-i18n="lbl_live_time">Live Time</span>
+        </div>
+    </label>
+
+</div>
             </div>
             <div class="ribbon-group-label" data-i18n="lbl_world_settings">World Settings</div>
         </div>
@@ -705,11 +730,11 @@
         <div class="separator"></div>
 		
         <div class="ribbon-group">
-            <label class="ribbon-group-content rg-col-center gap-2 pointer">
-                <span class="icon-24 m-auto">🌌</span>
+            <label class="ribbon-group-content rg-col-center" style="cursor: pointer;">
+                <img src="assets/backgrounds.png" class="pixel-icon icon-24 m-auto">
                 <div class="rg-row-center gap-5 lbl-small">
                     <input type="checkbox" id="show-dim-bg" checked onchange="toggleDimBackgrounds(this.checked)"> 
-                    <span>Dims.<br>Backgrounds</span>
+                    <span>Backgrounds</span>
                 </div>
             </label>
             <div class="ribbon-group-label">Backgrounds</div>
@@ -1514,8 +1539,8 @@ window.addEventListener('DOMContentLoaded', () => {
             </p>
             
             <div style="position: absolute; bottom: 10px; left: 15px; font-size: 11px; color: gray; font-family: monospace;">
-                <span data-i18n="about_last_update">Last Update:</span> May 15, 2026<br>
-                v2.4 - Snapshot 21
+                <span data-i18n="about_last_update">Last Update:</span> May 16, 2026<br>
+                v2.4 - Release Candidate 1
             </div>
             <div style="position: absolute; bottom: 10px; right: 15px; font-size: 12px; color: gray; font-weight: bold;">
                 2026
