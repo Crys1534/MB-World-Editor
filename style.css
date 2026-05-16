@@ -2113,3 +2113,99 @@ input[type="number"]::-webkit-inner-spin-button {
 input[type="number"] {
     -moz-appearance: textfield; /* Para que también funcione en Firefox */
 }
+
+/* =========================================
+   🎚️ ESTILOS UNIFICADOS PARA SLIDERS (ZOOM Y BROCHA)
+   ========================================= */
+
+/* 1. Reiniciar los estilos base para ambos */
+#zoom-slider, 
+#tool-size-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    background: transparent;
+    outline: none;
+    margin: 10px 0;
+}
+
+/* =========================================
+   2. EL RIEL (La barra oscura de fondo)
+   ========================================= */
+
+/* Chrome, Safari, Edge */
+#zoom-slider::-webkit-slider-runnable-track, 
+#tool-size-slider::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 6px;
+    cursor: pointer;
+    background: #34495e;
+    border-radius: 4px;
+    border: 1px solid #1a252f;
+}
+
+/* Firefox */
+#zoom-slider::-moz-range-track, 
+#tool-size-slider::-moz-range-track {
+    width: 100%;
+    height: 6px;
+    cursor: pointer;
+    background: #34495e;
+    border-radius: 4px;
+    border: 1px solid #1a252f;
+}
+
+/* =========================================
+   3. LA BOLITA (El pulgar arrastrable)
+   ========================================= */
+
+/* Chrome, Safari, Edge */
+#zoom-slider::-webkit-slider-thumb, 
+#tool-size-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    height: 18px;
+    width: 8px;
+    background: #00abff; /* Tu azul característico */
+    cursor: pointer;
+    margin-top: -7px; /* (6px riel / 2) - (18px bolita / 2) = -6px o -7px */
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+}
+
+/* Firefox */
+#zoom-slider::-moz-range-thumb, 
+#tool-size-slider::-moz-range-thumb {
+    height: 18px;
+    width: 8px;
+    background: #00abff;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+}
+
+/* =========================================
+   4. EFECTOS HOVER Y ACTIVE (Interacción)
+   ========================================= */
+
+/* Al pasar el ratón por encima (Hover) */
+#zoom-slider::-webkit-slider-thumb:hover, 
+#tool-size-slider::-webkit-slider-thumb:hover {
+    background: cyan; /* Verde al tocar */
+    transform: scale(1.2); /* Crece 20% */
+}
+
+#zoom-slider::-moz-range-thumb:hover, 
+#tool-size-slider::-moz-range-thumb:hover {
+    background: cyan;
+    transform: scale(1.2);
+}
+
+/* Mientras haces clic y arrastras (Active) */
+#zoom-slider:active::-webkit-slider-thumb, 
+#tool-size-slider:active::-webkit-slider-thumb {
+    transform: scale(1.1); /* Se encoge un poquito al apretar */
+}
+
+#zoom-slider:active::-moz-range-thumb, 
+#tool-size-slider:active::-moz-range-thumb {
+    transform: scale(1.1);
+}

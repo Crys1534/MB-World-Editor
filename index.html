@@ -455,13 +455,18 @@
             <div class="ribbon-group-content rg-flex-gap8">
                 <div class="rg-col-center gap-4">
 					<div class="rg-row-center gap-5">
-					<label class="lbl-small" data-i18n="lbl_size">Size</label>
-					<input type="range" id="tool-size-slider" min="1" max="100" value="1" style="width: 80px; cursor: pointer;" oninput="updateToolSize(this.value, 'slider')">
-					<input type="number" id="tool-size-display" value="1" min="1" max="100" oninput="updateToolSize(this.value, 'display')" onchange="updateToolSize(this.value, 'blur')" style="width: 32px; text-align: center; font-size: 12px; font-weight: bold; border: 1px solid #777; border-radius: 3px; background: var(--bg-panel); color: var(--text);">
-				</div>
-                    <label class="lbl-check-small">
-                        <input type="checkbox" id="tool-rounded-checkbox" onchange="updateToolRounded(this.checked)"> <span data-i18n="lbl_rounded">Rounded</span>
-                    </label>
+					    <label class="lbl-small" data-i18n="lbl_size">Size</label>
+					    <input type="range" id="tool-size-slider" min="1" max="100" value="1" style="width: 80px; cursor: pointer;" oninput="updateToolSize(this.value, 'slider')">
+					    <input type="number" id="tool-size-display" value="1" min="1" max="100" oninput="updateToolSize(this.value, 'display')" onchange="updateToolSize(this.value, 'blur')" style="width: 32px; text-align: center; font-size: 12px; font-weight: bold; border: 1px solid #777; border-radius: 3px; background: var(--bg-panel); color: var(--text);">
+				    </div>
+                    <div class="rg-row-center gap-5" style="width: 100%; justify-content: space-between;">
+                        <label class="lbl-check-small">
+                            <input type="checkbox" id="tool-rounded-checkbox" onchange="updateToolRounded(this.checked)"> <span data-i18n="lbl_rounded">Rounded</span>
+                        </label>
+                        <button class="ribbon-btn-small" onclick="if(typeof flipClipboardHorizontal !== 'undefined') { flipClipboardHorizontal(); selectTool('paste'); }" style="padding: 2px 5px; font-size: 11px;" title="Flip Horizontal (F)" data-i18n-title="tooltip_flip_h">
+							<span>↔️ <span data-i18n="btn_flip">Flip</span></span>
+						</button>
+                    </div>
                 </div>
                 <button class="ribbon-btn-large" id="btn-tool-spray" onclick="toggleSpray(this)" data-i18n-title="tooltip_spray" title="Toggle Spray Mode">
                     <img src="assets/tool_spray.png" class="pixel-icon icon-32">
@@ -470,6 +475,7 @@
             </div>
             <div class="ribbon-group-label" data-i18n="lbl_brush_settings">Brush Settings</div>
         </div>
+		
         <div class="separator"></div>
 
         <div class="ribbon-group">
@@ -842,7 +848,7 @@
                     <label data-i18n="config_language_label">Select Language:</label>
                     <select id="lang-select" onchange="setLanguage(this.value)" style="width: 100%; padding: 8px; margin-top: 5px;">
                         <option value="en">🇺🇸 English</option>
-                        <option value="es">🇪🇸 Español [??%]</option>
+                        <option value="es">🇪🇸 Español [90%]</option>
                         <option value="pt">🇧🇷 Português [??%]</option>
                     </select>
                 </div>
@@ -1199,29 +1205,67 @@
  </div>
  
  <div id="news-modal" class="modal" style="z-index: 3500;">
-    <div class="modal-content mbw-standard-modal" style="width: 600px; height: 500px;">
-        <div class="mbw-modal-header">
-            <h3 id="news-modal-title" data-i18n="news_title">📰 Updates</h3>
-            <span class="mbw-close-btn" onclick="closeModal('news-modal')">&times;</span>
-        </div>
-        <div class="mbw-modal-body" style="padding: 0; display: flex; flex-direction: column; overflow: hidden;">
+<div class="modal-content mbw-standard-modal" style="width: 600px; height: 500px;">
+    <div class="mbw-modal-header">
+        <h3 id="news-modal-title" data-i18n="news_title">📰 Updates</h3>
+        <span class="mbw-close-btn" onclick="closeModal('news-modal')">×</span>
+    </div>
+    <div class="mbw-modal-body" style="padding: 0; display: flex; flex-direction: column; overflow: hidden;">
+        
+        <div id="news-list-view" style="flex: 1 1 0%; overflow-y: auto; padding: 15px; background: rgb(198, 198, 198); display: block;">
             
-            <div id="news-list-view" style="flex: 1; overflow-y: auto; padding: 15px; background: #C6C6C6;"></div>
-
-            <div id="news-detail-view" style="flex: 1; overflow-y: auto; padding: 5px 15px; background: #C6C6C6; display: none;">
-                <div style="width: 100%; height: 262px; background: #373737; border: 4px inset #FFF; display: flex; justify-content: center; align-items: center; overflow: hidden; margin-bottom: 15px; position: relative;">
-<button id="news-back-btn" onclick="showNewsList()">
-    ⬅️ <span data-i18n="btn_back">Back</span>
-</button>
-                    <img id="news-detail-image" src="" style="max-width: 100%; max-height: 100%; image-rendering: auto;">
+            <div class="news-card">
+                <img src="https://i.imgur.com/HLeNf8x.png" alt="News" onerror="this.src='favicon.ico'" style="image-rendering: auto;">
+                <div>
+                    <h4 style="margin: 0 0 5px 0; color: #333; font-size: 18px;" data-i18n="news_v23_title">v2.3 - Multiplayer Update</h4>
+                    <span style="font-size: 11px; color: #444; font-weight: bold; display: block; margin-bottom: 5px;" data-i18n="news_v23_date">April 25, 2026</span>
+                    <p style="margin: 0; font-size: 12px; color: #000;" data-i18n="news_v23_desc">Create a map with friends, chat with them, and more!</p>
                 </div>
-                <h2 id="news-detail-title" style="margin-top: 0; color: #333; font-size: 24px;"></h2>
-                <span id="news-detail-date" style="font-size: 12px; color: #555; font-weight: bold; display: block; margin-bottom: 15px;"></span>
-                <div id="news-detail-content" style="font-size: 14px; line-height: 1.5; color: #000;"></div>
+            </div>
+
+            <div class="news-card">
+                <img src="https://i.imgur.com/HX0oYeQ.png" alt="News" onerror="this.src='favicon.ico'" style="image-rendering: auto;">
+                <div>
+                    <h4 style="margin: 0 0 5px 0; color: #333; font-size: 18px;" data-i18n="news_v22_title">v2.2 - Chests Update</h4>
+                    <span style="font-size: 11px; color: #444; font-weight: bold; display: block; margin-bottom: 5px;" data-i18n="news_v22_date">March 23, 2026</span>
+                    <p style="margin: 0; font-size: 12px; color: #000;" data-i18n="news_v22_desc">Huge update including new structures, magic wand, custom items, tabs system, and much more!</p>
+                </div>
+            </div>
+
+            <div class="news-card">
+                <img src="https://i.imgur.com/8IIHD3d.png" alt="News" onerror="this.src='favicon.ico'" style="image-rendering: auto;">
+                <div>
+                    <h4 style="margin: 0 0 5px 0; color: #333; font-size: 18px;" data-i18n="news_v21_title">v2.1 - Structures Update</h4>
+                    <span style="font-size: 11px; color: #444; font-weight: bold; display: block; margin-bottom: 5px;" data-i18n="news_v21_date">February 23, 2026</span>
+                    <p style="margin: 0; font-size: 12px; color: #000;" data-i18n="news_v21_desc">Structures library, improved tools, new UI, and bug fixes.</p>
+                </div>
+            </div>
+
+            <div class="news-card">
+                <img src="https://i.imgur.com/4ZYclOO.png" alt="News" onerror="this.src='favicon.ico'" style="image-rendering: auto;">
+                <div>
+                    <h4 style="margin: 0 0 5px 0; color: #333; font-size: 18px;" data-i18n="news_v20_title">v2.0</h4>
+                    <span style="font-size: 11px; color: #444; font-weight: bold; display: block; margin-bottom: 5px;" data-i18n="news_v20_date">January 16, 2026</span>
+                    <p style="margin: 0; font-size: 12px; color: #000;" data-i18n="news_v20_desc">New UI, Copy-Paste, Zoom, and more!</p>
+                </div>
             </div>
 
         </div>
+
+        <div id="news-detail-view" style="flex: 1; overflow-y: auto; padding: 5px 15px; background: #C6C6C6; display: none;">
+            <div style="width: 100%; height: 262px; background: #373737; border: 4px inset #FFF; display: flex; justify-content: center; align-items: center; overflow: hidden; margin-bottom: 15px; position: relative;">
+                <button id="news-back-btn" onclick="showNewsList()">
+                    ⬅️ <span data-i18n="btn_back">Back</span>
+                </button>
+                <img id="news-detail-image" src="" style="max-width: 100%; max-height: 100%; image-rendering: auto;">
+            </div>
+            <h2 id="news-detail-title" style="margin-top: 0; color: #333; font-size: 24px;"></h2>
+            <span id="news-detail-date" style="font-size: 12px; color: #555; font-weight: bold; display: block; margin-bottom: 15px;"></span>
+            <div id="news-detail-content" style="font-size: 14px; line-height: 1.5; color: #000;"></div>
+        </div>
+
     </div>
+</div>
 </div>
 
 <div id="lightbox-modal" onclick="closeLightbox()" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:4000; justify-content:center; align-items:center;">
@@ -1275,7 +1319,7 @@
     <div class="status-right">
         <button class="status-btn" onclick="zoomHUD(-1)" data-i18n-title="tooltip_zoom_out" title="Zoom Out">-</button>
         
-        <input type="range" id="zoom-slider" min="0" max="13" step="1" value="6" oninput="updateZoomSlider(this.value)">
+        <input type="range" id="zoom-slider" min="0" max="12" step="1" value="6" oninput="updateZoomSlider(this.value)">
         
         <button class="status-btn" onclick="zoomHUD(1)" data-i18n-title="tooltip_zoom_in" title="Zoom In">+</button>
         <span id="zoom-value" data-i18n-title="tooltip_zoom_reset" title="Click to Reset" onclick="resetZoomHUD()">100%</span>
@@ -1471,7 +1515,7 @@ window.addEventListener('DOMContentLoaded', () => {
             
             <div style="position: absolute; bottom: 10px; left: 15px; font-size: 11px; color: gray; font-family: monospace;">
                 <span data-i18n="about_last_update">Last Update:</span> May 15, 2026<br>
-                v2.4 - Snapshot 20
+                v2.4 - Snapshot 21
             </div>
             <div style="position: absolute; bottom: 10px; right: 15px; font-size: 12px; color: gray; font-weight: bold;">
                 2026
@@ -1647,35 +1691,32 @@ window.addEventListener('DOMContentLoaded', () => {
     </div>
 </div>
 
+<!-- ✨ MODAL: PIXEL ART AUTO-BUILDER ✨ -->
 <div id="pixelart-addon-modal" class="modal" style="z-index: 3500;">
     <div class="modal-content mbw-standard-modal" style="width: 400px;">
         <div class="mbw-modal-header">
-            <h3 data-i18n="pixelart_title">Pixel Art Auto-Builder</h3>
+            <h3>Pixel Art Auto-Builder</h3>
             <span class="mbw-close-btn" onclick="closeModal('pixelart-addon-modal')">&times;</span>
         </div>
+        
         <div class="mbw-modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
-            <p data-i18n="pixelart_desc" style="margin: 0; font-size: 13px; color: #333;">Sube una imagen y el editor la construirá en el mundo usando bloques de lana y arcilla.</p>
+            <p style="margin: 0; font-size: 13px; color: #333;">Sube una imagen y el editor la construirá en el mundo usando bloques de lana y arcilla.</p>
             
             <div style="display: flex; flex-direction: column; gap: 5px;">
-                <label data-i18n="pixelart_max_width" style="font-size: 12px; font-weight: bold; color: #000;">Tamaño Máximo (Ancho en Bloques):</label>
+                <label style="font-size: 12px; font-weight: bold; color: #000;">Tamaño Máximo (Ancho en Bloques):</label>
                 <input type="number" id="pixelart-max-width" value="64" min="10" max="200" style="padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
-                <small data-i18n="pixelart_warning" style="color: #666; font-size: 10px;">Imágenes muy grandes pueden dar lag.</small>
-            </div>
-
-            <div style="background: rgba(0,0,0,0.05); padding: 8px 10px; border-radius: 4px; border: 1px solid #ccc;">
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #222; font-size: 12px; font-weight: bold; margin: 0;">
-                    <input type="checkbox" id="pixelart-dithering" checked style="width: 14px; height: 14px; cursor: pointer;">
-                    <span data-i18n="addon_pixelart_dither">Usar Dithering Floyd-Steinberg</span>
-                </label>
+                <small style="color: #666; font-size: 10px;">Imágenes muy grandes pueden dar lag.</small>
             </div>
 
             <input type="file" id="pixelart-upload" accept="image/png, image/jpeg" style="display: none;" onchange="processPixelArt(event)">
+            
             <button onclick="document.getElementById('pixelart-upload').click()" style="background: #8e44ad; color: white; padding: 10px; border: none; cursor: pointer; font-weight: bold; border-radius: 3px; display: flex; align-items: center; justify-content: center; gap: 5px;">
-                <span style="font-size: 16px;">🖼️</span> <span data-i18n="btn_pixelart_upload">Cargar Imagen y Construir</span>
+                <span style="font-size: 16px;">🖼️</span> Cargar Imagen y Construir
             </button>
         </div>
     </div>
 </div>
+
 
  <script src="scripts/lang.js"></script>
  <script src="scripts/ui-handler.js"></script>

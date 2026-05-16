@@ -976,4 +976,45 @@ function toggleSetSpawnMode() {
     }
 }
 
+// ==========================================
+// ✨ FIX: SINCRONIZAR TAMAÑO DE HERRAMIENTA AL RECARGAR
+// ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    const savedSlider = document.getElementById('tool-size-slider');
+    const savedDisplay = document.getElementById('tool-size-display');
+    
+    // Leemos el valor que el navegador haya restaurado en la caja de texto (o en la barra)
+    let restoredSize = 1;
+    if (savedDisplay && savedDisplay.value) {
+        restoredSize = savedDisplay.value;
+    } else if (savedSlider && savedSlider.value) {
+        restoredSize = savedSlider.value;
+    }
 
+    // Si existe la función, la disparamos simulando un 'blur' para que empate el código con la UI
+    if (typeof updateToolSize === 'function') {
+        updateToolSize(restoredSize, 'blur');
+    }
+});
+
+// ✨ FIX: Espejo Horizontal para el Portapapeles Moderno (v2.0+)
+window.flipClipboardHorizontal = function() {
+    if (!window.clipboard || !window.clipboard.data) {
+        console.log("No hay nada en el portapapeles para voltear.");
+        return;
+    }
+
+    const width = window.clipboard.width;
+    
+    // Invertimos la coordenada X de todos los bloques copiados
+    window.clipboard.data.forEach(block => {
+        // La nueva posición es (Ancho Total - 1) menos su posición actual
+        block.dx = (width - 1) - block.dx;
+    });
+
+    console.log("Estructura espejeada horizontalmente.");
+
+    // Forzamos al cursor a redibujar el fantasma al instante
+    if (typeof mouse !== 'undefined') mouse.calculateCoordinates();
+    if (typeof worldDirty !== 'undefined') worldDirty = true;
+};

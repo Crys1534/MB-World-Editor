@@ -71,5 +71,25 @@ const clipboard = {
                 }
             }
         }
+    },
+
+    // ✨ NUEVA FUNCIÓN: Espejo Horizontal
+    flipHorizontal: function() {
+        if (!this.data) {
+            console.log("No hay nada en el portapapeles para voltear.");
+            return;
+        }
+
+        // Invertimos las columnas (eje X)
+        this.data.reverse();
+        
+        console.log("Estructura en el portapapeles volteada horizontalmente.");
+        
+        // 🚨 FIX: Notificamos a la interfaz que el portapapeles cambió
+        // Para que el cursor fantasma se actualice inmediatamente
+        if (typeof window.selection !== 'undefined') {
+            // Un pequeño truco: forzamos a que el sistema crea que nos movimos 0 píxeles
+            // Esto obliga a drawUI a volver a renderizar el portapapeles con la nueva orientación
+            if (typeof mouse !== 'undefined') mouse.calculateCoordinates();
+        }
     }
-};

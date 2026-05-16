@@ -31,7 +31,7 @@ let tileSize = BASE_TILE_SIZE;
 
 // --- IMÁGENES GLOBALES ---
 // Agrega aquí los nombres de los PNGs que vayas metiendo a la carpeta assets/
-window.images = { names: ["blocks", "hotbar", "slot", "nether-bg", "end-bg", "zombie", "skeleton", "creeper", "enderman", "nethereye", "enderdragon", "pig", "cow", "chicken", "Player", "slime", "magmacube", "chicken", "blaze", "squid", "ghast", "rabbit", "cowctus cow", "mushroom cow", "dog", "sheep", "snowgolem", "wolf", "spider", "snowgolem", "zombiepigman", "bat", "zombie_supremo"] };
+window.images = { names: ["blocks", "hotbar", "slot", "nether-bg", "end-bg", "zombie", "skeleton", "creeper", "enderman", "nethereye", "enderdragon", "pig", "cow", "chicken", "Player", "slime", "magmacube", "chicken", "blaze", "squid", "ghast", "rabbit", "cowctus cow", "mushroom cow", "dog", "sheep", "snowgolem", "wolf", "spider", "snowgolem", "zombiepigman", "bat", "spawnskin"] };
 
 window.images.names.forEach((name) => {
     window.images[name] = new Image();
@@ -324,26 +324,69 @@ function drawMobs() {
 			mobWidth = tileSize * 1; mobHeight = tileSize * 2; }
 			
             if (mob.type === 'cow' || mob.type === 'cowctus cow' || mob.type === 'mushroom cow') { 
-			mobWidth = tileSize * 2.6; mobHeight = tileSize * 2; }
-            
-            let mobImg = window.images[mob.type];
+                mobWidth = tileSize * 2.6; mobHeight = tileSize * 2; 
+            }
 
+            // ✨ LÓGICA DE SKINS LOCALES ✨
+            let mobImg = null;
+            let isCustomSkin = false;
+
+            if (mob.type === 'spawnskin' && mob.skin) {
+                mobImg = window.getSpawnskinImage(mob.skin);
+                isCustomSkin = true;
+                mobWidth = tileSize * 1.4; // Ajuste para que se vea bien la skin
+                mobHeight = tileSize * 2.0; 
+            } else {
+                mobImg = window.images[mob.type];
+            }
+
+            // Si es un spawnskin y no encontró la imagen en la carpeta, usamos la por defecto
+            if (isCustomSkin && mobImg && mobImg.hasFailed) {
+                mobImg = window.images['spawnskin']; 
+            }
+
+            // DIBUJAMOS LA IMAGEN
             if (mobImg && mobImg.complete && mobImg.naturalWidth > 0) {
                 ctx.save(); 
                 ctx.translate(screenX, screenY);
                 if (mob.direction === 1) ctx.scale(-1, 1);
                 ctx.imageSmoothingEnabled = false;
+
+                // ✨ LA MAGIA DEL RECORTE (SPRITE CROPPING) ✨
+                let sourceX = 0;
+                let sourceY = 0;
+                let sourceWidth = mobImg.naturalWidth;
+                let sourceHeight = mobImg.naturalHeight;
+
+                // Si es un spawnskin, ignoramos el tamaño de la hoja de sprites
+                // y "recortamos" estrictamente el rectángulo de 16x22px
+                if (isCustomSkin) {
+                    sourceWidth = 16;
+                    sourceHeight = 22;
+                }
+
                 ctx.drawImage(
                     mobImg, 
-                    0, 0, mobImg.naturalWidth, mobImg.naturalHeight,
-                    -(mobWidth / 2), -mobHeight, mobWidth, mobHeight 
+                    sourceX, sourceY, sourceWidth, sourceHeight,     // QUÉ parte de la imagen original tomar
+                    -(mobWidth / 2), -mobHeight, mobWidth, mobHeight // DÓNDE y de qué tamaño dibujarlo en el Canvas
                 );
+                
                 ctx.restore(); 
+
+                // Si falló y estamos usando la textura de reemplazo, avisamos
+                if (isCustomSkin && window.skinCache[mob.skin] && window.skinCache[mob.skin].hasFailed) {
+                    ctx.fillStyle = "#FF5555";
+                    ctx.font = "bold 10px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillText("Falta " + mob.skin + ".png", screenX, screenY - (mobHeight / 2));
+                }
             } else {
+                // MIENTRAS CARGA LA IMAGEN
                 let color = "rgba(255, 0, 0, 0.4)"; 
                 if (mob.type === 'zombie') color = "rgba(46, 125, 50, 0.5)";
                 else if (mob.type === 'skeleton') color = "rgba(224, 224, 224, 0.5)";
                 else if (mob.type === 'enderman') color = "rgba(49, 27, 146, 0.5)";
+                else if (mob.type === 'spawnskin') color = "rgba(255, 0, 255, 0.5)";
                 
                 ctx.fillStyle = color;
                 ctx.fillRect(screenX - (mobWidth / 2), screenY - mobHeight, mobWidth, mobHeight);

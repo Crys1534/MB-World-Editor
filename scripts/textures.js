@@ -652,6 +652,8 @@ mbk: { x: 8, y: 213 },
 
 potion: { x: 10, y: 226 }, // <--- AQUÍ ESTÁ LA POCIÓN
 splash: { x: 9, y: 227 }, // <--- AQUÍ ESTÁ LA POCIÓN
+Scepter: { x: 5, y: 205 },
+scepters: { x: 6, y: 205 },
  // ALIAS para que aparezcan en el inventario bloques que no tienen textura base directa
 
 }

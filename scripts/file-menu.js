@@ -56,13 +56,13 @@ function initBackstageMenu() {
         .backstage-back-btn:hover { background-color: var(--input-bg); }
 
         .backstage-nav-btn {
-            background: transparent; color: var(--text); border: none; font-size: 16px; font-weight: bold;
+            background: transparent; color: var(--text); border: none; font-size: 16px; font-weight: normal;
             text-align: left; padding: 15px 25px; cursor: pointer; transition: background 0.2s;
             border-left: 5px solid transparent; display: flex; align-items: center; gap: 10px;
         }
-        .backstage-nav-btn:hover { background-color: var(--input-bg); }
+        .backstage-nav-btn:hover { background-color: var(--input-bg); font-weight: bold;}
         .backstage-nav-btn.active { 
-            background-color: var(--bg-panel); 
+            background-color: var(--bg-panel); font-weight: bold;
             border-left: 5px solid #4DA6FF; 
             color: #4DA6FF; 
         }
@@ -104,16 +104,16 @@ function initBackstageMenu() {
     const backstageHTML = `
         <div class="backstage-sidebar">
             <button class="backstage-back-btn" onclick="closeFileMenu()"><span>⬅️</span> <span data-i18n="menu_back">Back</span></button>
-            <button id="nav-btn-my-worlds" class="backstage-nav-btn active" onclick="switchBackstageTab('my-worlds')">📁 <span data-i18n="menu_my_worlds">My Worlds</span></button>
+            <button id="nav-btn-my-worlds" class="backstage-nav-btn active" onclick="switchBackstageTab('my-worlds')">🌍 <span data-i18n="menu_my_worlds">My Worlds</span></button>
             <button id="nav-btn-templates" class="backstage-nav-btn" onclick="switchBackstageTab('templates')">🌍 <span data-i18n="menu_templates">Templates</span></button>
             
             <div style="height: 1px; background: var(--border); margin: 5px 25px; opacity: 0.5;"></div>
             <button id="nav-btn-multiplayer" class="backstage-nav-btn" onclick="switchBackstageTab('multiplayer')">🌐 <span data-i18n="menu_multiplayer">Multiplayer</span></button>
             
             <div style="height: 1px; background: var(--border); margin: 5px 25px; opacity: 0.5;"></div>
-            <button class="backstage-nav-btn" onclick="document.getElementById('file-input').click(); closeFileMenu();" style="font-weight: normal; font-size: 14px; opacity: 0.8;" data-i18n="menu_load_world">Load World</button>
-            <button class="backstage-nav-btn" onclick="if(typeof fileManager !== 'undefined') fileManager.export(); closeFileMenu();" style="font-weight: normal; font-size: 14px; opacity: 0.8;" data-i18n="menu_export">Export</button>
-            <button class="backstage-nav-btn" onclick="openModal('settings-modal'); closeFileMenu();" style="font-weight: normal; font-size: 14px; opacity: 0.8; margin-top: auto; margin-bottom: 10px;" data-i18n="menu_configuration">Configuration</button>
+            <button class="backstage-nav-btn" onclick="document.getElementById('file-input').click(); closeFileMenu();">📂 <span data-i18n="menu_load_world">Load World</span></button>
+            <button class="backstage-nav-btn" onclick="if(typeof fileManager !== 'undefined') fileManager.export(); closeFileMenu();">💾 <span data-i18n="menu_export">Export</span></button>
+            <button class="backstage-nav-btn" onclick="openModal('settings-modal'); closeFileMenu();" style="margin-top: auto; margin-bottom: 10px;">⚙️ <span data-i18n="menu_configuration">Configuration</span></button>
         </div>
         
         <div class="backstage-content">
@@ -281,13 +281,33 @@ function createUnifiedWorldCard(data) {
     let imageStyle = data.image ? `background-image: url('${data.image}');` : '';
     let fallbackIcon = data.image ? '' : '<span style="font-size:60px; opacity:0.3; color: var(--text);">🌍</span>';
     
-    // Botón de Borrar (Rojo)
-    let deleteBtnHTML = !data.isTemplate ? `<button class="delete-btn" onclick="event.stopPropagation(); deleteSavedLocalWorld('${data.name}');" style="position: absolute; top: 10px; right: 10px; background: rgba(231, 76, 60, 0.9); color: white; border: 2px solid #c0392b; border-radius: 4px; width: 34px; height: 34px; font-size: 18px; cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.5);" data-i18n-title="tooltip_delete_world" title="Delete World">🗑️</button>` : '';
+    // Protegemos el nombre por si tiene comillas
+    let safeName = data.name.replace(/'/g, "\\'");
+
+    // Botón de Borrar (Rojo) -> Derecha: 10px
+    let deleteBtnHTML = !data.isTemplate ? `<button class="delete-btn" onclick="event.stopPropagation(); deleteSavedLocalWorld('${safeName}');" style="position: absolute; top: 10px; right: 10px; background: rgba(231, 76, 60, 0.9); color: white; border: 2px solid #c0392b; border-radius: 4px; width: 34px; height: 34px; font-size: 18px; cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.5);" title="Delete World">🗑️</button>` : '';
     
-    // ✨ NUEVO: Botón de Historial/Backups (Azul)
-    let historyBtnHTML = !data.isTemplate ? `<button class="history-btn delete-btn" onclick="event.stopPropagation(); openBackupsModal('${data.name}');" style="position: absolute; top: 10px; right: 50px; background: rgba(52, 152, 219, 0.9); color: white; border: 2px solid #2980b9; border-radius: 4px; width: 34px; height: 34px; font-size: 18px; cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.5);" title="Restore Version">🕒</button>` : '';
+    // Botón de Historial (Azul) -> Derecha: 50px
+    let historyBtnHTML = !data.isTemplate ? `<button class="history-btn delete-btn" onclick="event.stopPropagation(); openBackupsModal('${safeName}');" style="position: absolute; top: 10px; right: 50px; background: rgba(52, 152, 219, 0.9); color: white; border: 2px solid #2980b9; border-radius: 4px; width: 34px; height: 34px; font-size: 18px; cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.5);" title="Restore Version">🕒</button>` : '';
+
+    // Botón de Fijar -> Izquierda: 10px (Adentro del Thumb)
+    let isPinned = data.isPinned || false;
+    let pinIcon = isPinned ? '📌' : '📍'; 
+    let pinBg = isPinned ? 'rgba(241, 196, 15, 0.9)' : 'rgba(127, 140, 141, 0.9)';
+    let pinBorder = isPinned ? '#f39c12' : '#95a5a6';
     
-    return `<div class="template-card" style="position: relative;">${deleteBtnHTML}${historyBtnHTML}<div class="template-thumb" style="${imageStyle}" onclick="${data.onClick}">${fallbackIcon}</div><div class="template-info" onclick="${data.onClick}"><div class="t-name" title="${data.name}">${data.name}</div><div class="t-meta"><b><span data-i18n="side_info_version">Version:</span></b> ${data.version || ""}</div><div class="t-meta"><b><span data-i18n="side_info_author">Author:</span></b> ${data.author || ""}</div>${data.dateStr ? `<div class="t-meta">📆 ${data.dateStr}</div>` : ''}${data.sizeStr ? `<div class="t-meta">📄 ${data.sizeStr}</div>` : ''}</div></div>`;
+    // Si no está fijado, opacidad 0 (invisible). Si está fijado, opacidad 1.
+    let initialOpacity = isPinned ? '1' : '0'; 
+    
+    let pinBtnHTML = !data.isTemplate ? `<button class="pin-btn" onclick="event.stopPropagation(); togglePinWorld('${safeName}');" style="position: absolute; top: 10px; left: 10px; background: ${pinBg}; color: white; border: 2px solid ${pinBorder}; border-radius: 4px; width: 34px; height: 34px; font-size: 18px; cursor: pointer; display: flex; justify-content: center; align-items: center; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.5); opacity: ${initialOpacity}; transition: opacity 0.2s, transform 0.1s;" title="${isPinned ? 'Unpin World' : 'Pin World'}" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">${pinIcon}</button>` : '';
+    
+    // Borde amarillo si está fijado (El prefijo del título fue eliminado)
+    let cardStyle = isPinned ? 'border-color: #f1c40f;' : '';
+
+    // Magia Hover para mostrar el pin transparente al pasar el ratón
+    let hoverEvents = !data.isTemplate ? `onmouseenter="let p = this.querySelector('.pin-btn'); if(p) p.style.opacity='1';" onmouseleave="let p = this.querySelector('.pin-btn'); if(p && !${isPinned}) p.style.opacity='0';"` : '';
+
+    return `<div class="template-card" style="position: relative; ${cardStyle}" ${hoverEvents}>${deleteBtnHTML}${historyBtnHTML}<div class="template-thumb" style="${imageStyle} position: relative;" onclick="${data.onClick}">${pinBtnHTML}${fallbackIcon}</div><div class="template-info" onclick="${data.onClick}"><div class="t-name" title="${data.name}">${data.name}</div><div class="t-meta"><b><span data-i18n="side_info_version">Version:</span></b> ${data.version || ""}</div><div class="t-meta"><b><span data-i18n="side_info_author">Author:</span></b> ${data.author || ""}</div>${data.dateStr ? `<div class="t-meta">📆 ${data.dateStr}</div>` : ''}${data.sizeStr ? `<div class="t-meta">📄 ${data.sizeStr}</div>` : ''}</div></div>`;
 }
 
 window.openFileMenu = function() {
@@ -366,13 +386,11 @@ window.renderFullscreenWorldsList = async function() {
     listDiv.style.cssText = ""; 
     listDiv.className = "template-grid";
     
-    // CSS para que las tarjetas vacías parpadeen suavemente
     let skeletonsHTML = `<style>
         @keyframes mbwPulse { 0% { opacity: 0.4; } 50% { opacity: 0.8; } 100% { opacity: 0.4; } }
         .mbw-skeleton { animation: mbwPulse 1.5s infinite ease-in-out; pointer-events: none; }
     </style>`;
     
-    // Dibujamos 8 tarjetas genéricas usando tu clase "template-card"
     for(let i=0; i<8; i++) {
         skeletonsHTML += `
         <div class="template-card mbw-skeleton">
@@ -398,7 +416,18 @@ window.renderFullscreenWorldsList = async function() {
                 return;
             }
             
-            worlds.sort((a, b) => b.date - a.date);
+            // ✨ Leemos cuáles mundos están fijados de la memoria local
+            const pinnedWorlds = JSON.parse(localStorage.getItem('mbw_pinned_worlds') || "[]");
+
+            // ✨ ORDEN MÁGICO: Primero los Fijados (📌), luego los más recientes
+            worlds.sort((a, b) => {
+                let aPinned = pinnedWorlds.includes(a.name);
+                let bPinned = pinnedWorlds.includes(b.name);
+                
+                if (aPinned && !bPinned) return -1; // A sube
+                if (!aPinned && bPinned) return 1;  // B sube
+                return b.date - a.date; // Si empatan (ambos fijados o ninguno), gana el más reciente
+            });
             
             // 3. REEMPLAZAR LOS ESQUELETOS POR LAS TARJETAS REALES
             listDiv.innerHTML = worlds.map((w, index) => {
@@ -408,12 +437,12 @@ window.renderFullscreenWorldsList = async function() {
                 
                 return createUnifiedWorldCard({ 
                     isTemplate: false, 
+                    isPinned: pinnedWorlds.includes(w.name), // 📌 Le decimos a la tarjeta que active el estilo amarillo
                     name: w.name, 
                     author: w.fileInfo ? w.fileInfo.author : "", 
                     version: w.fileInfo ? w.fileInfo.version : "", 
                     image: w.thumb, 
                     dateStr: dateStr, 
-                    // Ponemos el span con el ID único
                     sizeStr: `<span id="size-calc-${index}" style="opacity: 0.5;">Calculating...</span>`, 
                     onClick: `loadSavedLocalWorld('${safeName}'); closeFileMenu();` 
                 });
@@ -429,8 +458,8 @@ window.renderFullscreenWorldsList = async function() {
                 
                 if (spanCalc) {
                     const stringLength = w.data ? w.data.length : 0;
-                    spanCalc.innerHTML = window.formatBytes(stringLength);
-                    spanCalc.style.opacity = "1"; // Le quitamos la transparencia al terminar
+                    spanCalc.innerHTML = window.formatBytes ? window.formatBytes(stringLength) : (stringLength / 1024).toFixed(1) + ' KB';
+                    spanCalc.style.opacity = "1"; 
                 }
                 
                 index++;
@@ -443,6 +472,23 @@ window.renderFullscreenWorldsList = async function() {
             listDiv.innerHTML = `<div style="color: #ff6b6b; text-align: center; padding: 20px;">Error loading worlds.</div>`;
         }
     }, 50);
+};
+
+window.togglePinWorld = function(worldName) {
+    // Leemos la lista de mundos fijados desde la memoria del navegador
+    let pinnedWorlds = JSON.parse(localStorage.getItem('mbw_pinned_worlds') || "[]");
+    
+    if (pinnedWorlds.includes(worldName)) {
+        // Si ya estaba fijado, lo quitamos
+        pinnedWorlds = pinnedWorlds.filter(name => name !== worldName);
+    } else {
+        // Si no estaba fijado, lo agregamos a la lista
+        pinnedWorlds.push(worldName);
+    }
+    
+    // Guardamos la nueva lista y refrescamos la pantalla
+    localStorage.setItem('mbw_pinned_worlds', JSON.stringify(pinnedWorlds));
+    if (typeof renderFullscreenWorldsList === 'function') renderFullscreenWorldsList();
 };
 
 window.deleteSavedLocalWorld = async function(name) {

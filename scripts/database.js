@@ -67,7 +67,7 @@ window.inventoryCategories = {
             'WoodenAxe', 'StoneAxe', 'IronAxe', 'GoldAxe', 'DiamondAxe',
             'WoodenShovel', 'StoneShovel', 'IronShovel', 'GoldShovel', 'DiamondShovel',
             'WoodenHoe', 'StoneHoe', 'IronHoe', 'GoldHoe', 'DiamondHoe',
-            'fr', 'frodcarrot', 'Shear'
+            'fr', 'frodcarrot', 'Shear', 'Scepter'
         ]
     },
     
