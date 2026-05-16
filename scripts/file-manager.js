@@ -936,3 +936,145 @@ window.restoreWorldBackup = async function(worldName, backupIndex) {
         console.error(err);
     }
 };
+
+// ==========================================
+// ✨ BOTÓN: BACKUP GLOBAL DE MUNDOS (.ZIP)
+// ==========================================
+window.backupAllWorlds = async function() {
+    if (typeof JSZip === 'undefined') {
+        const script = document.createElement('script');
+        script.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+        document.head.appendChild(script);
+        script.onload = () => backupAllWorlds();
+        return;
+    }
+
+    try {
+        const db = await fileManager.initDB();
+        const transaction = db.transaction([fileManager.storeName], 'readonly');
+        const store = transaction.objectStore(fileManager.storeName);
+        const request = store.getAll();
+
+        request.onsuccess = function() {
+            const worlds = request.result;
+            if (!worlds || worlds.length === 0) {
+                alert("No tienes mundos locales para respaldar.");
+                return;
+            }
+
+            document.body.style.cursor = 'wait';
+            const zip = new JSZip();
+
+            worlds.forEach(world => {
+                let filename = world.name || "Mundo_Sin_Nombre";
+                if (!filename.toLowerCase().endsWith('.mbw')) filename += '.mbw';
+                zip.file(filename, world.data);
+            });
+
+            zip.generateAsync({ type: "blob" }).then(function(content) {
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(content);
+                const date = new Date();
+                const fechaTxt = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                link.download = `MBW_Backup_${fechaTxt}.zip`;
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                document.body.style.cursor = 'default';
+                alert(`✅ Backup exitoso!\nSe comprimieron ${worlds.length} mundos.`);
+            }).catch(function(err) {
+                console.error("Error al empaquetar:", err);
+                document.body.style.cursor = 'default';
+                alert("Ocurrió un error al crear el archivo ZIP.");
+            });
+        };
+        request.onerror = function() { alert("Error al intentar leer la base de datos."); };
+    } catch (e) {
+        console.error("Backup error:", e);
+        alert("Fallo al acceder a los mundos locales.");
+    }
+};
+
+// ==========================================
+// ✨ BOTÓN: IMPORTAR MUNDOS (Desde .ZIP o .MBW)
+// ==========================================
+window.importBackupFiles = async function(event) {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    // Asegurar que JSZip está cargado por si suben un zip
+    if (typeof JSZip === 'undefined') {
+        await new Promise(resolve => {
+            const script = document.createElement('script');
+            script.src = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
+            document.head.appendChild(script);
+            script.onload = resolve;
+        });
+    }
+
+    document.body.style.cursor = 'wait';
+    let mundosImportados = 0;
+
+    // Función auxiliar para leer y guardar un .mbw en IndexedDB
+    const procesarMBW = async (filename, stringData) => {
+        let worldName = filename.replace(/\.[^/.]+$/, ""); // Quita la extensión
+        
+        const db = await fileManager.initDB();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction([fileManager.storeName], "readwrite");
+            const store = tx.objectStore(fileManager.storeName);
+            // Guarda el mundo usando la estructura normal de file-manager
+            store.put({ name: worldName, data: stringData, lastModified: Date.now() }, worldName);
+            
+            tx.oncomplete = () => { mundosImportados++; resolve(); };
+            tx.onerror = () => reject();
+        });
+    };
+
+    try {
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+
+            if (file.name.toLowerCase().endsWith('.zip')) {
+                // Si es un archivo comprimido, lo abrimos con JSZip
+                const zip = await JSZip.loadAsync(file);
+                
+                for (let relativePath in zip.files) {
+                    const zipEntry = zip.files[relativePath];
+                    
+                    // Solo importamos los archivos que sean .mbw y no sean carpetas
+                    if (!zipEntry.dir && relativePath.toLowerCase().endsWith('.mbw')) {
+                        const contentString = await zipEntry.async("string");
+                        await procesarMBW(relativePath, contentString);
+                    }
+                }
+            } else if (file.name.toLowerCase().endsWith('.mbw')) {
+                // Si subió el .mbw suelto, lo leemos directamente
+                const contentString = await new Promise(resolve => {
+                    const reader = new FileReader();
+                    reader.onload = e => resolve(e.target.result);
+                    reader.readAsText(file);
+                });
+                await procesarMBW(file.name, contentString);
+            }
+        }
+
+        document.body.style.cursor = 'default';
+        event.target.value = ""; // Limpiar input
+        
+        // Recargar la lista visual de mundos
+        if (typeof updateLocalWorldsList === 'function') {
+            updateLocalWorldsList();
+        }
+        
+        alert(`✅ Importación finalizada!\nSe han cargado ${mundosImportados} mundo(s) en tu biblioteca local.`);
+
+    } catch (err) {
+        console.error("Error al importar:", err);
+        document.body.style.cursor = 'default';
+        event.target.value = "";
+        alert("Ocurrió un error al intentar importar los archivos. Asegúrate de que no estén corruptos.");
+    }
+};

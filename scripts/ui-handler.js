@@ -2206,8 +2206,8 @@ function populateWorldInfo() {
         enderDisplay.textContent = isDefeated ? "Yes" : "No";
         enderDisplay.style.color = isDefeated ? "#2E7D32" : "#C0392B";
     }
-	
-	// ==========================================
+    
+    // ==========================================
     // ✨ CALCULAR Y MOSTRAR EL PESO DEL ARCHIVO
     // ==========================================
     const sizeSpan = document.getElementById('world-info-size');
@@ -2225,6 +2225,13 @@ function populateWorldInfo() {
         sizeSpan.innerText = sizeText;
     } else if (sizeSpan) {
         sizeSpan.innerText = "Unknown";
+    }
+
+    // ==========================================
+    // ✨ FIX: LLAMAR A LA FUNCIÓN DE COORDENADAS
+    // ==========================================
+    if (typeof populateLocationSettings === 'function') {
+        populateLocationSettings();
     }
 }
 

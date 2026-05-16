@@ -57,12 +57,16 @@ function checkSelectionState() {
 function selectTool(toolName) {
     currentTool = toolName;
     document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
-    const btn = document.getElementById('tool-' + toolName);
+    
+    // ✨ FIX: Si es una forma, activamos el botón agrupado. Si no, buscamos el botón normal.
+    let btnId = ['line', 'rect-shape', 'circle'].includes(toolName) ? 'tool-shapes-main' : 'tool-' + toolName;
+    const btn = document.getElementById(btnId);
     if (btn) btn.classList.add('active');
     
     const selOverlay = document.getElementById('selection-overlay');
     if (selOverlay) selOverlay.style.display = 'none';
 
+    // Reseteamos las selecciones
     if (toolName !== 'select' && toolName !== 'lasso') {
         window.selection.dragging = false; 
         window.selection.path = []; 
@@ -70,6 +74,9 @@ function selectTool(toolName) {
         window.selection.p2 = null;
         window.selection.subRects = [];
     }
+    
+    window.shapeState.isDrawing = false;
+    window.shapeState.startX = null;
     
     setTimeout(checkSelectionState, 10);
 }
@@ -1018,3 +1025,45 @@ window.flipClipboardHorizontal = function() {
     if (typeof mouse !== 'undefined') mouse.calculateCoordinates();
     if (typeof worldDirty !== 'undefined') worldDirty = true;
 };
+
+// Variable para recordar qué forma estamos usando actualmente
+window.currentShapeTool = 'line';
+
+// 1. Mostrar/Ocultar el submenú con clic derecho
+window.toggleShapeMenu = function(e) {
+    e.preventDefault(); // Evita que salga el menú feo del navegador
+    const menu = document.getElementById('shape-dropdown');
+    
+    // Si ya está abierto, lo cierra. Si está cerrado, lo abre.
+    if (menu) menu.classList.toggle('show');
+};
+
+// 2. Elegir una forma desde el submenú
+window.selectShapeTool = function(toolName, iconEmoji) {
+    window.currentShapeTool = toolName;
+    
+    // Cambiamos el icono del botón principal por la figura elegida
+    const mainBtn = document.getElementById('tool-shapes-main');
+    if (mainBtn) {
+        mainBtn.innerText = iconEmoji;
+        mainBtn.title = "Shape Tool: " + toolName + " (Right Click for more)";
+    }
+    
+    // Ocultamos el submenú
+    const menu = document.getElementById('shape-dropdown');
+    if (menu) menu.classList.remove('show');
+    
+    // Seleccionamos la herramienta en el sistema central
+    selectTool(toolName);
+};
+
+// 3. ✨ EXTRA: Ocultar el menú emergente si hacemos clic en cualquier otro lado
+document.addEventListener('click', function(e) {
+    const shapeMenu = document.getElementById('shape-dropdown');
+    const shapeBtnContainer = e.target.closest('.tool-btn-container');
+    
+    // Si hicimos clic en cualquier parte de la pantalla que NO sea el contenedor del botón
+    if (shapeMenu && shapeMenu.classList.contains('show') && !shapeBtnContainer) {
+        shapeMenu.classList.remove('show');
+    }
+});

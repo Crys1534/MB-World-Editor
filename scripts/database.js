@@ -126,3 +126,81 @@ window.ITEM_IDS = {
 
 // Diccionario Inverso generado automáticamente
 window.REVERSE_IDS = Object.fromEntries(Object.entries(window.ITEM_IDS).map(([k, v]) => [v, k]));
+
+// ==========================================
+// ✨ BACKUP GLOBAL DE MUNDOS (CREAR ZIP)
+// ==========================================
+window.backupAllWorlds = async function() {
+    if (typeof JSZip === 'undefined') {
+        alert("Error: JSZip library not loaded.");
+        return;
+    }
+
+    try {
+        const db = await initDB();
+        const transaction = db.transaction(['worlds'], 'readonly');
+        const store = transaction.objectStore('worlds');
+        const request = store.getAll();
+
+        request.onsuccess = function() {
+            const worlds = request.result;
+            
+            if (!worlds || worlds.length === 0) {
+                alert("No saved worlds to backup.");
+                return;
+            }
+
+            // Cambiamos el texto del botón mientras procesa
+            const btn = document.querySelector('button[onclick="backupAllWorlds()"]');
+            const originalText = btn ? btn.innerHTML : "💾 Backup All";
+            if (btn) btn.innerHTML = "⏳ Zipping...";
+
+            const zip = new JSZip();
+
+            // Añadimos cada mundo al ZIP
+            worlds.forEach(world => {
+                // Aseguramos que el nombre tenga la extensión .mbw
+                let filename = world.name;
+                if (!filename.endsWith('.mbw')) {
+                    filename += '.mbw';
+                }
+                
+                // Agregamos el contenido del mundo al ZIP
+                zip.file(filename, world.data);
+            });
+
+            // Generar el archivo ZIP
+            zip.generateAsync({ type: "blob" })
+                .then(function(content) {
+                    // Descargar usando un enlace invisible
+                    const link = document.createElement("a");
+                    link.href = URL.createObjectURL(content);
+                    
+                    // Nombrar el ZIP con la fecha actual
+                    const date = new Date();
+                    const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                    link.download = `MBW_Backup_${dateString}.zip`;
+                    
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    // Restaurar botón
+                    if (btn) btn.innerHTML = originalText;
+                })
+                .catch(function(err) {
+                    console.error(err);
+                    alert("Error creating ZIP file.");
+                    if (btn) btn.innerHTML = originalText;
+                });
+        };
+
+        request.onerror = function() {
+            alert("Error reading worlds from database.");
+        };
+
+    } catch (e) {
+        console.error("Backup error:", e);
+        alert("Failed to access local database.");
+    }
+};
