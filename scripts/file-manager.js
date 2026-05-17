@@ -144,11 +144,19 @@ const fileManager = {
                    });
                }
 
+               // ✨ FIX: Sincronizar el nombre al cargar un mundo
                const filenameInput = document.getElementById("filename-display");
-               if (filenameInput && fileManager.file) {
+               if (fileManager.file) {
                    let cleanName = fileManager.file.name.replace(/\.mbw$/i, "");
+                   
+                   // 1. Lo mostramos visualmente
+                   if (filenameInput) filenameInput.value = cleanName;
                    if (typeof updateFilename === 'function') updateFilename(cleanName);
-                   else filenameInput.value = cleanName;
+                   
+                   // 2. Le avisamos explícitamente a Firebase que cambiamos de mundo
+                   if (typeof window.myPresenceRef !== 'undefined' && window.myPresenceRef) {
+                       window.myPresenceRef.update({ worldName: cleanName });
+                   }
                }
 
                if (typeof initializeWorldCache === 'function') initializeWorldCache();

@@ -49,10 +49,19 @@ function initBackstageMenu() {
         }
 
         .backstage-back-btn {
-            background: transparent; color: var(--text); border: none; font-size: 22px;
-            text-align: left; padding: 15px 20px; cursor: pointer; font-weight: bold;
-            margin-bottom: 20px; display: flex; align-items: center; gap: 10px;
-        }
+  background: transparent;
+  color: var(--text);
+  border: none;
+  font-size: 22px;
+  text-align: left;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-weight: bold;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
         .backstage-back-btn:hover { background-color: var(--input-bg); }
 
         .backstage-nav-btn {
@@ -68,8 +77,19 @@ function initBackstageMenu() {
         }
 
         .backstage-content {
-            flex: 1; background-color: var(--bg-panel); color: var(--text);
-            display: flex; flex-direction: column; overflow: hidden;
+            flex: 1; 
+            /* ✨ FIX: Imagen de fondo de los árboles con capa de oscurecimiento */
+            background-color: var(--bg-panel);
+            background-image: linear-gradient(rgba(0, 0, 0, 0.46), rgba(0, 0, 0, 0.03)), url('assets/UI/background_trees.png');
+            background-size: cover;
+            background-position: top;
+            background-repeat: no-repeat;
+            image-rendering: pixelated; /* Mantiene el estilo Minecraft nítido */
+            
+            color: var(--text);
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden;
         }
 
         .backstage-panel { 
@@ -107,10 +127,10 @@ function initBackstageMenu() {
             <button id="nav-btn-my-worlds" class="backstage-nav-btn active" onclick="switchBackstageTab('my-worlds')">🌍 <span data-i18n="menu_my_worlds">My Worlds</span></button>
             <button id="nav-btn-templates" class="backstage-nav-btn" onclick="switchBackstageTab('templates')">🌍 <span data-i18n="menu_templates">Templates</span></button>
             
-            <div style="height: 1px; background: var(--border); margin: 5px 25px; opacity: 0.5;"></div>
+            <div style="height: 1px; background: var(--border); margin: 1px 25px; opacity: 0.5;"></div>
             <button id="nav-btn-multiplayer" class="backstage-nav-btn" onclick="switchBackstageTab('multiplayer')">🌐 <span data-i18n="menu_multiplayer">Multiplayer</span></button>
             
-            <div style="height: 1px; background: var(--border); margin: 5px 25px; opacity: 0.5;"></div>
+            <div style="height: 1px; background: var(--border); margin: 1px 25px; opacity: 0.5;"></div>
             <button class="backstage-nav-btn" onclick="document.getElementById('file-input').click(); closeFileMenu();">📂 <span data-i18n="menu_load_world">Load World</span></button>
             <button class="backstage-nav-btn" onclick="if(typeof fileManager !== 'undefined') fileManager.export(); closeFileMenu();">💾 <span data-i18n="menu_export">Export</span></button>
             <button class="backstage-nav-btn" onclick="openModal('settings-modal'); closeFileMenu();" style="margin-top: auto; margin-bottom: 10px;">⚙️ <span data-i18n="menu_configuration">Configuration</span></button>
@@ -131,11 +151,11 @@ function initBackstageMenu() {
                     🔔
                     <span id="badge-invites" style="display: none; position: absolute; top: -5px; right: -10px; background: #e74c3c; color: white; font-size: 14px; font-weight: bold; font-family: Arial; padding: 2px 6px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">0</span>
                 </div>
-                <div id="mp-pfp-preview" onclick="document.getElementById('profile-upload').click()" data-i18n-title="tooltip_change_pfp" title="Click to change picture" style="width: 36px; height: 36px; border-radius: 50%; background-size: cover; background-position: center; border: 2px solid var(--border); cursor: pointer; background-color: var(--input-bg); transition: 0.2s;" onmouseover="this.style.borderColor='#4DA6FF'" onmouseout="this.style.borderColor='var(--border)'"></div>
+                <div id="mp-pfp-preview" onclick="document.getElementById('profile-upload').click()" data-i18n-title="tooltip_change_pfp" title="Click to change picture" style="width: 36px; height: 36px; border-radius: 50%; background-size: cover; background-position: center; border: 2px solid var(--border); cursor: pointer; background-color: var(--input-bg); image-rendering: auto; transition: 0.2s;" onmouseover="this.style.borderColor='#4DA6FF'" onmouseout="this.style.borderColor='var(--border)'"></div>
             </div>
 
             <div id="panel-my-worlds" class="backstage-panel active">
-                <div style="display: flex; justify-content: space-between; align-items: center; max-width: 900px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; max-width: 900px;">
                     <h2 style="margin: 0; color: white; font-family: 'Pixeltype', sans-serif; font-size: 32px; text-shadow: 2px 2px 0 #000;" data-i18n="lbl_my_worlds">My Worlds</h2>
                     <div style="display: flex; gap: 10px;">
     <button onclick="document.getElementById('backup-upload-input').click()" 

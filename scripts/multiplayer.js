@@ -821,7 +821,7 @@ function recibirMensajeDeRed(datos) {
 // ==========================================
 // ✨ PRESENCIA GLOBAL Y RENDERIZADO
 // ==========================================
-let myPresenceRef = null;
+window.myPresenceRef = null;
 
 function initPresenceSystem(isReload = false) {
     if (typeof database === 'undefined') return;
@@ -840,7 +840,8 @@ function initPresenceSystem(isReload = false) {
     if (!isReload) {
         connectedRef.on('value', (snap) => {
             if (snap.val() === true) {
-                myPresenceRef = database.ref('online_users/' + myUID);
+                // ✨ FIX: Ahora es window.myPresenceRef
+                window.myPresenceRef = database.ref('online_users/' + myUID);
                 
                 // ✨ NUEVO: El Latido (Heartbeat) de Estado persistente
                 const myStatusRef = database.ref('users_status/' + myUID);
@@ -853,15 +854,18 @@ function initPresenceSystem(isReload = false) {
                     lastSeen: firebase.database.ServerValue.TIMESTAMP
                 });
 
-                myPresenceRef.onDisconnect().remove().then(() => {
+                window.myPresenceRef.onDisconnect().remove().then(() => {
                     const myName = localStorage.getItem('mbw_username') || "Player";
                     const myPfp = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
+                    const wInput = document.getElementById('filename-display');
+                    const myWorld = wInput ? wInput.value : "world";
 					
                     // Sobrescribimos el registro si ya existía
-                    myPresenceRef.set({ 
+                    window.myPresenceRef.set({ 
                         uid: myUID, 
                         username: myName, 
-                        pfp: myPfp, 
+                        pfp: myPfp,
+                        worldName: myWorld,
                         timestamp: firebase.database.ServerValue.TIMESTAMP 
                     });
                 });
@@ -908,23 +912,34 @@ window.renderPresenceList = function() {
 
         const borderColor = (isMe || isFriend) ? '#1e293b' : '#34495e';
         const safeName = window.escapeHTML ? window.escapeHTML(u.username) : u.username;
+        // ✨ Obtenemos el nombre del mundo, si no tiene, dice Unknown
+        const safeWorld = window.escapeHTML ? window.escapeHTML(u.worldName || "Unknown") : (u.worldName || "Unknown");
 
         htmlBuilder += `
             <div style="background: rgba(0,0,0,0.4); border: 2px solid ${borderColor}; padding: 10px; display: flex; align-items: center; gap: 12px; border-radius: 6px;">
                 <div style="width: 40px; height: 40px; border-radius: 50%; background-image: url('${u.pfp}'); background-size: cover; background-position: center; border: 2px solid #bdc3c7;"></div>
-                <span style="color: white; font-family: 'Pixeltype', sans-serif; font-size: 26px;">${safeName}</span>
+                
+                <div style="display: flex; flex-direction: column; justify-content: center;">
+                    <span style="color: white; font-family: 'Pixeltype', sans-serif; font-size: 26px; line-height: 1;">${safeName}</span>
+                    <span style="color: #a0a0a0; font-family: 'Pixeltype', sans-serif; font-size: 16px; line-height: 1;">Editing: ${safeWorld}</span>
+                </div>
+
                 ${isMe ? 
                     '<span style="color: #2ecc71; font-size: 16px; margin-left: auto; font-weight: bold;">(You)</span>' 
                     : 
                     `<div style="margin-left: auto; display: flex; gap: 8px;">
                         ${actionBtn}
-                        ${!isFriend ? `<button onclick="sendFriendRequest('${u.uid}', '${safeName}')" style="background: #e67e22; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#d35400'" onmouseout="this.style.background='#e67e22'">➕ Add</button>` : ''}
-                        ${isFriend ? `<button onclick="openMpSidebar('chats'); setTimeout(() => openPrivateChat('${u.uid}', '${safeName}', '${u.pfp}'), 50);" style="background: transparent; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#2980b9'" onmouseout="this.style.background='transparent'">💬</button>` : ''}
+                        <button onclick="openDirectMessage('${u.uid}', '${safeName}')" style="background: transparent; border: 1px solid #7f8c8d; padding: 4px 8px; border-radius: 4px; cursor: pointer; color: white; font-size: 14px;" title="Enviar mensaje">💬</button>
                     </div>`
                 }
             </div>
         `;
     }
+
+    if (htmlBuilder === '') {
+        htmlBuilder = '<p style="color: #95a5a6; font-family: \'Pixeltype\', sans-serif; font-size: 20px; text-align: center;">No hay otros jugadores en línea.</p>';
+    }
+
     if (listContainer) listContainer.innerHTML = htmlBuilder;
 };
 

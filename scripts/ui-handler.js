@@ -2090,6 +2090,7 @@ function toggleWeatherAnimation(isChecked) {
 // ==========================================
 
 // 1. Sincronizar el nombre en todas partes
+// 1. Sincronizar el nombre en todas partes
 window.updateFilename = function(newName) {
     // A) Actualizar el input de la barra superior (Top bar)
     const topInput = document.getElementById('filename-display');
@@ -2103,31 +2104,24 @@ window.updateFilename = function(newName) {
         sidebarInput.value = newName;
     }
     
-    // ✨ C) EL FIX: Actualizar la memoria del sistema de pestañas
+    // ✨ C) EL FIX: Actualizar la memoria del sistema de pestañas y MULTIJUGADOR
     if (typeof WorldTabsManager !== 'undefined' && WorldTabsManager.activeWorldId) {
         const activeWorld = WorldTabsManager.openWorlds.find(w => w.id === WorldTabsManager.activeWorldId);
         if (activeWorld) {
-            // Guardamos el nuevo nombre en la memoria, asegurando que tenga su extensión .mbw
-            activeWorld.filename = newName.endsWith('.mbw') ? newName : newName + '.mbw';
             
-            // Actualizamos la pestaña visual (buscando el span interno correcto)
-            const nameSpan = document.querySelector('.world-tab.active .world-tab-name');
-            if (nameSpan) {
-                nameSpan.innerText = activeWorld.filename;
-                nameSpan.title = activeWorld.filename; // Actualiza el tooltip al pasar el mouse
+            // ✨ AVISAMOS A FIREBASE CÓMO SE LLAMA NUESTRO MUNDO AHORA
+            if (typeof myPresenceRef !== 'undefined' && myPresenceRef) {
+                myPresenceRef.update({ worldName: newName });
             }
+
+            // Guardamos el nuevo nombre en la memoria, asegurando que tenga su extensión .mbw
+            let safeName = newName.trim();
+            if (!safeName.toLowerCase().endsWith('.mbw')) {
+                safeName += '.mbw';
+            }
+            activeWorld.filename = safeName;
+            WorldTabsManager.renderTabs();
         }
-    }
-    
-    // D) Actualizar la variable global fileInfo
-    if (typeof window.fileInfo !== 'undefined' && window.fileInfo !== null) {
-        window.fileInfo.name = newName;
-    }
-    
-    // ✨ E) Doble seguro: Actualizar el fileInfo profundo del mundo para que se guarde en el archivo final
-    if (typeof mbwom !== 'undefined' && mbwom.world) {
-        if (!mbwom.world.fileInfo) mbwom.world.fileInfo = {};
-        mbwom.world.fileInfo.name = newName;
     }
 };
 

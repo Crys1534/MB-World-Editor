@@ -574,11 +574,11 @@ DragonCap: { x: 5, y: 229 },
 DragonShirt: { x: 5, y: 230 },
 DragonPants: { x: 5, y: 231 },
 DragonShoes: { x: 5, y: 232 },
-SnowCap: { x: 0000, y: 0000 },
-AfroCap: { x: 0000, y: 0000 },
-PartyCap: { x: 0000, y: 0000 },
-ShadesCap: { x: 0000, y: 0000 },
-MustacheCap: { x: 0000, y: 0000 },
+SnowCap: { x: 2, y: 233 },
+AfroCap: { x: 0, y: 233 },
+PartyCap: { x: 1, y: 233 },
+ShadesCap: { x: 3, y: 233 },
+MustacheCap: { x: 4, y: 233 },
 frodcarrot: { x: 2, y: 209 },
 Shear: { x: 3, y: 209 },
 bow: { x: 7, y: 209 },
@@ -654,6 +654,7 @@ potion: { x: 10, y: 226 }, // <--- AQUÍ ESTÁ LA POCIÓN
 splash: { x: 9, y: 227 }, // <--- AQUÍ ESTÁ LA POCIÓN
 Scepter: { x: 5, y: 205 },
 scepters: { x: 6, y: 205 },
+slimeb: { x: 1, y: 30 },
  // ALIAS para que aparezcan en el inventario bloques que no tienen textura base directa
 
 }
