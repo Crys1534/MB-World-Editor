@@ -93,3 +93,4 @@ const clipboard = {
             if (typeof mouse !== 'undefined') mouse.calculateCoordinates();
         }
     }
+}

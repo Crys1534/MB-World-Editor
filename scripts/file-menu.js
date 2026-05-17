@@ -138,13 +138,20 @@ function initBackstageMenu() {
                 <div style="display: flex; justify-content: space-between; align-items: center; max-width: 900px; margin-bottom: 20px;">
                     <h2 style="margin: 0; color: white; font-family: 'Pixeltype', sans-serif; font-size: 32px; text-shadow: 2px 2px 0 #000;" data-i18n="lbl_my_worlds">My Worlds</h2>
                     <div style="display: flex; gap: 10px;">
-                        <button onclick="document.getElementById('backup-upload-input').click()" style="background: #3498db; color: white; border: 2px solid #2980b9; padding: 6px 12px; font-family: 'Pixeltype', sans-serif; font-size: 20px; font-weight: bold; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 5px; box-shadow: 2px 2px 0 rgba(0,0,0,0.5);">
-                            <span style="font-size: 24px; line-height: 1;">📂</span> Import
-                        </button>
-                        <button onclick="backupAllWorlds()" style="background: #2ecc71; color: white; border: 2px solid #27ae60; padding: 6px 12px; font-family: 'Pixeltype', sans-serif; font-size: 20px; font-weight: bold; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 5px; box-shadow: 2px 2px 0 rgba(0,0,0,0.5);">
-                            <span style="font-size: 24px; line-height: 1;">💾</span> Backup All
-                        </button>
-                    </div>
+    <button onclick="document.getElementById('backup-upload-input').click()" 
+            onmouseover="this.style.backgroundColor='#41b3ff'" 
+            onmouseout="this.style.backgroundColor='#3498db'" 
+            style="background: #3498db; color: white; border: 2px solid #2980b9; padding: 6px 12px; font-family: 'Pixeltype', sans-serif; font-size: 20px; font-weight: bold; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 5px; box-shadow: 2px 2px 0 rgba(0,0,0,0.5);">
+        <span style="font-size: 24px; line-height: 1;">📂</span> Import
+    </button>
+    
+    <button onclick="backupAllWorlds()" 
+            onmouseover="this.style.backgroundColor='#36ff8b'" 
+            onmouseout="this.style.backgroundColor='#2ecc71'" 
+            style="background: #2ecc71; color: white; border: 2px solid #27ae60; padding: 6px 12px; font-family: 'Pixeltype', sans-serif; font-size: 20px; font-weight: bold; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 5px; box-shadow: 2px 2px 0 rgba(0,0,0,0.5);">
+        <span style="font-size: 24px; line-height: 1;">💾</span> Backup All
+    </button>
+</div>
                 </div>
                 <div id="fs-local-worlds-list" style="display: flex; flex-direction: column; max-width: 900px;"></div>
                 
