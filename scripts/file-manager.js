@@ -377,8 +377,8 @@ saveLocal: async function(isAutoSave = false) {
     try {
         const mainCanvas = document.getElementById('canvas');
         if (mainCanvas) {
-            // Formato JPEG a 50% de calidad
-            thumbnailBase64 = mainCanvas.toDataURL('image/jpeg', 0.5); 
+            // ✨ FIX: Formato PNG para calidad perfecta (Pixel-Perfect)
+            thumbnailBase64 = mainCanvas.toDataURL('image/png'); 
         }
     } catch (error) {
         console.warn("El navegador bloqueó la foto por seguridad (CORS). Se guardará sin miniatura.");

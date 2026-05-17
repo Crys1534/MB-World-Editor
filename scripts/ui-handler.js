@@ -2333,7 +2333,7 @@ function renderRecentMobs() {
         // Usamos la misma clase que ya tienes para las estructuras!
         html += `
         <button class="quick-struct-btn" onclick="selectMobToSpawn('${mob}')" title="Spawn ${niceName}">
-            <img src="${imgSrc}" alt="${niceName}" style="width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated;" onerror="this.onerror=null; this.src='assets/${mob}.png'">
+            <img src="${imgSrc}" alt="${niceName}" style="width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated;" onerror="this.onerror=null; this.src='assets/mobs/${mob}.png'">
         </button>
         `;
     });
@@ -2420,7 +2420,7 @@ function filterMobs(dimension) {
         // ✨ AQUÍ USAMOS LAS NUEVAS CLASES EXCLUSIVAS 'mob-item' y 'mob-name' ✨
         container.innerHTML += `
         <div class="mob-item" onclick="previewMob('${mob}')" title="${niceName}" style="margin: 0; height: 156px; border-bottom: 2px solid #272727; border-right: 2px solid #272727;">
-            <img src="${imgSrc}" style="width: 90%; height: 90%; object-fit: contain; image-rendering: pixelated;" onerror="this.onerror=null; this.src='assets/${mob}.png'">
+            <img src="${imgSrc}" style="width: 90%; height: 90%; object-fit: contain; image-rendering: pixelated;" onerror="this.onerror=null; this.src='assets/mobs/${mob}.png'">
             <span class="mob-name" style="font-size: 14px; margin-top: 0px;">${niceName}</span>
         </div>
         `;
