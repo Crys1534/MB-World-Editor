@@ -950,9 +950,11 @@ window.backupAllWorlds = async function() {
     }
 
     try {
-        const db = await fileManager.initDB();
-        const transaction = db.transaction([fileManager.storeName], 'readonly');
-        const store = transaction.objectStore(fileManager.storeName);
+        // ✨ FIX: Apuntamos a localDB
+        const db = await localDB.init();
+        
+        const transaction = db.transaction([localDB.storeName], 'readonly');
+        const store = transaction.objectStore(localDB.storeName);
         const request = store.getAll();
 
         request.onsuccess = function() {
@@ -993,6 +995,7 @@ window.backupAllWorlds = async function() {
         request.onerror = function() { alert("Error al intentar leer la base de datos."); };
     } catch (e) {
         console.error("Backup error:", e);
+        document.body.style.cursor = 'default';
         alert("Fallo al acceder a los mundos locales.");
     }
 };
@@ -1004,7 +1007,6 @@ window.importBackupFiles = async function(event) {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
-    // Asegurar que JSZip está cargado por si suben un zip
     if (typeof JSZip === 'undefined') {
         await new Promise(resolve => {
             const script = document.createElement('script');
@@ -1017,16 +1019,16 @@ window.importBackupFiles = async function(event) {
     document.body.style.cursor = 'wait';
     let mundosImportados = 0;
 
-    // Función auxiliar para leer y guardar un .mbw en IndexedDB
     const procesarMBW = async (filename, stringData) => {
-        let worldName = filename.replace(/\.[^/.]+$/, ""); // Quita la extensión
+        let worldName = filename.replace(/\.[^/.]+$/, ""); 
         
-        const db = await fileManager.initDB();
+        // ✨ FIX: Apuntamos a localDB
+        const db = await localDB.init();
+        
         return new Promise((resolve, reject) => {
-            const tx = db.transaction([fileManager.storeName], "readwrite");
-            const store = tx.objectStore(fileManager.storeName);
-            // Guarda el mundo usando la estructura normal de file-manager
-            store.put({ name: worldName, data: stringData, lastModified: Date.now() }, worldName);
+            const tx = db.transaction([localDB.storeName], "readwrite");
+            const store = tx.objectStore(localDB.storeName);
+            store.put({ name: worldName, data: stringData, lastModified: Date.now(), date: Date.now() });
             
             tx.oncomplete = () => { mundosImportados++; resolve(); };
             tx.onerror = () => reject();
@@ -1038,20 +1040,16 @@ window.importBackupFiles = async function(event) {
             const file = files[i];
 
             if (file.name.toLowerCase().endsWith('.zip')) {
-                // Si es un archivo comprimido, lo abrimos con JSZip
                 const zip = await JSZip.loadAsync(file);
                 
                 for (let relativePath in zip.files) {
                     const zipEntry = zip.files[relativePath];
-                    
-                    // Solo importamos los archivos que sean .mbw y no sean carpetas
                     if (!zipEntry.dir && relativePath.toLowerCase().endsWith('.mbw')) {
                         const contentString = await zipEntry.async("string");
                         await procesarMBW(relativePath, contentString);
                     }
                 }
             } else if (file.name.toLowerCase().endsWith('.mbw')) {
-                // Si subió el .mbw suelto, lo leemos directamente
                 const contentString = await new Promise(resolve => {
                     const reader = new FileReader();
                     reader.onload = e => resolve(e.target.result);
@@ -1062,11 +1060,11 @@ window.importBackupFiles = async function(event) {
         }
 
         document.body.style.cursor = 'default';
-        event.target.value = ""; // Limpiar input
+        event.target.value = ""; 
         
-        // Recargar la lista visual de mundos
-        if (typeof updateLocalWorldsList === 'function') {
-            updateLocalWorldsList();
+        // ✨ FIX: Refrescamos la lista llamando a tu función correcta
+        if (typeof loadMyWorldsList === 'function') {
+            loadMyWorldsList();
         }
         
         alert(`✅ Importación finalizada!\nSe han cargado ${mundosImportados} mundo(s) en tu biblioteca local.`);
