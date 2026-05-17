@@ -136,10 +136,7 @@ window.addEventListener('DOMContentLoaded', () => {
             new Audio('assets/sfx/glass2.mp3'),
             new Audio('assets/sfx/glass3.mp3')
         ],
-        wood: new Audio('assets/sfx/wood_break.mp3'),
-        stone: new Audio('assets/sfx/stone_break.mp3'),
-        dirt: new Audio('assets/sfx/dirt_break.mp3'),
-        leaves: new Audio('assets/sfx/leaves_break.mp3'),
+
         default: new Audio('assets/sfx/block.mp3')
     };
 

@@ -1062,12 +1062,20 @@ window.importBackupFiles = async function(event) {
         document.body.style.cursor = 'default';
         event.target.value = ""; 
         
-        // ✨ FIX: Refrescamos la lista llamando a tu función correcta
-        if (typeof loadMyWorldsList === 'function') {
+        // ✨ FIX: Refrescamos la lista forzando la recarga en el panel de Backstage
+        if (typeof window.loadMyWorldsList === 'function') {
+            window.loadMyWorldsList();
+        } else if (typeof loadMyWorldsList !== 'undefined') {
             loadMyWorldsList();
         }
         
         alert(`✅ Importación finalizada!\nSe han cargado ${mundosImportados} mundo(s) en tu biblioteca local.`);
+        
+        // 🔄 Doble seguridad: Si la pestaña de "My Worlds" está abierta, simulamos un clic para que se refresque visualmente
+        const myWorldsTabBtn = document.getElementById('btn-tab-my-worlds');
+        if (myWorldsTabBtn) {
+            myWorldsTabBtn.click();
+        }
 
     } catch (err) {
         console.error("Error al importar:", err);
