@@ -573,7 +573,7 @@
     </div>
 
     <label class="rg-col-center" style="cursor: pointer;">
-        <img id="live-time-icon" src="assets/sun.png" class="pixel-icon m-auto" style="width: 24px; height: 24px; margin-bottom: 4px; object-fit: contain;">
+        <img id="live-time-icon" src="assets/sun.png" class="pixel-icon m-auto" style="width: 32px; height: 32px; object-fit: contain;">
         
         <div class="rg-row-center gap-5 lbl-small text-accent">
             <input type="checkbox" id="live-time-toggle" onchange="toggleLiveTime(this)"> 
@@ -600,22 +600,42 @@
 
         <div class="ribbon-group">
             <div class="ribbon-group-content rg-flex-gap12">
-                <div class="gamerule-item">
-                    <span class="icon-18">🎒</span><label class="lbl-tiny" data-i18n="lbl_keep_inv">Keep<br>Inv.</label><input type="checkbox" id="gr-keepinventory">
-                </div>
-                <div class="gamerule-item">
-                    <span class="icon-18">☀️</span><label class="lbl-tiny" data-i18n="lbl_daylight_cycle">Daylight<br>Cycle</label><input type="checkbox" id="gr-dodaylightcycle" checked>
-                </div>
-                <div class="gamerule-item">
-                    <span class="icon-18">💥</span><label class="lbl-tiny" data-i18n="lbl_mob_griefing">Mob<br>Griefing</label><input type="checkbox" id="gr-mobgriefing" checked>
-                </div>
-                <div class="gamerule-item">
-                    <span class="icon-18">🥩</span><label class="lbl-tiny" data-i18n="lbl_mob_loot">Mob<br>Loot</label><input type="checkbox" id="gr-domobloot" checked>
-                </div>
-                <div class="gamerule-item">
-                    <span class="icon-18">🔥</span><label class="lbl-tiny" data-i18n="lbl_fire_tick">Fire<br>Tick</label><input type="checkbox" id="gr-dofiretick" checked>
-                </div>
-            </div>
+    <div class="gamerule-item">
+        <span class="icon-18">🎒</span>
+        <div style="display: flex; align-items: flex-start; gap: 4px; margin-top: 4px;">
+            <input type="checkbox" id="gr-keepinventory" style="margin: 0; margin-top: 2px;">
+            <label class="lbl-tiny" data-i18n="lbl_keep_inv" style="text-align: left;">Keep<br>Inv.</label>
+        </div>
+    </div>
+    <div class="gamerule-item">
+        <img src="assets/UI/Daylight Cycle.png" class="icon-18" style="image-rendering: pixelated; width: 32px;">
+        <div style="display: flex; align-items: flex-start; gap: 4px; margin-top: 4px;">
+            <input type="checkbox" id="gr-dodaylightcycle" checked style="margin: 0; margin-top: 2px;">
+            <label class="lbl-tiny" data-i18n="lbl_daylight_cycle" style="text-align: left;">Daylight<br>Cycle</label>
+        </div>
+    </div>
+    <div class="gamerule-item">
+        <span class="icon-18">💥</span>
+        <div style="display: flex; align-items: flex-start; gap: 4px; margin-top: 4px;">
+            <input type="checkbox" id="gr-mobgriefing" checked style="margin: 0; margin-top: 2px;">
+            <label class="lbl-tiny" data-i18n="lbl_mob_griefing" style="text-align: left;">Mob<br>Griefing</label>
+        </div>
+    </div>
+    <div class="gamerule-item">
+        <img src="assets/UI/Mob Loot.png" class="icon-18" style="image-rendering: pixelated; width: 32px;">
+        <div style="display: flex; align-items: flex-start; gap: 4px; margin-top: 4px;">
+            <input type="checkbox" id="gr-domobloot" checked style="margin: 0; margin-top: 2px;">
+            <label class="lbl-tiny" data-i18n="lbl_mob_loot" style="text-align: left;">Mob<br>Loot</label>
+        </div>
+    </div>
+    <div class="gamerule-item">
+        <img src="assets/UI/Fire Tick.png" class="icon-18" style="image-rendering: pixelated; width: 32px;">
+        <div style="display: flex; align-items: flex-start; gap: 4px; margin-top: 4px;">
+            <input type="checkbox" id="gr-dofiretick" checked style="margin: 0; margin-top: 2px;">
+            <label class="lbl-tiny" data-i18n="lbl_fire_tick" style="text-align: left;">Fire<br>Tick</label>
+        </div>
+    </div>
+</div>
             <div class="ribbon-group-label" data-i18n="lbl_gamerules">Game Rules</div>
         </div>
         

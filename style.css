@@ -505,7 +505,7 @@ body {
     color: var(--text);
     cursor: pointer;
     border-radius: 3px;
-    font-size: 12px;
+    font-size: 16px;
     text-align: left;
 }
 .ribbon-btn-small:hover {
@@ -1804,12 +1804,12 @@ body.is-spectating #hotbar-container {
 
 .pixel-icon { object-fit: contain; margin-bottom: 0px; image-rendering: pixelated; }
 .icon-16 { width: 16px; height: 16px; object-fit: contain; }
-.icon-18 { font-size: 18px; line-height: 1; }
-.icon-24 { font-size: 24px; line-height: 1; text-align: center; margin: 0 auto; }
-.icon-28 { width: 28px; height: 28px; }
+.icon-18 { font-size: 32px; line-height: 1; }
+.icon-24 { font-size: 32px; line-height: 1; text-align: center; margin: 0 auto; }
+.icon-28 { width: 32px; height: 32px; }
 .icon-32 { width: 32px; height: 32px; }
 .m-auto { margin: 0 auto; }
-.mt-2 { margin-top: 2px; }
+.mt-2 { margin-top: 0px; }
 .pointer { cursor: pointer; }
 
 .mp-limit-btn {
@@ -1817,6 +1817,7 @@ body.is-spectating #hotbar-container {
     border: 2px solid #7f8c8d; border-radius: 5px;
     font-family: 'Pixeltype', sans-serif; font-size: 24px;
     cursor: pointer; transition: 0.2s;
+	justify-content: center;
 }
 .mp-limit-btn:hover { background: #7f8c8d; }
 .selected-limit { background: #f1c40f !important; color: black; border-color: #f39c12; transform: scale(1.1); }

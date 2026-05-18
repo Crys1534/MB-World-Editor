@@ -917,7 +917,7 @@ window.renderPresenceList = function() {
 
         htmlBuilder += `
             <div style="background: rgba(0,0,0,0.4); border: 2px solid ${borderColor}; padding: 10px; display: flex; align-items: center; gap: 12px; border-radius: 6px;">
-                <div style="width: 40px; height: 40px; border-radius: 50%; background-image: url('${u.pfp}'); background-size: cover; background-position: center; border: 2px solid #bdc3c7;"></div>
+                <div style="width: 40px; height: 40px; border-radius: 50%; background-image: url('${u.pfp}'); background-size: cover; background-position: center; border: 2px solid #bdc3c7; image-rendering: auto;"></div>
                 
                 <div style="display: flex; flex-direction: column; justify-content: center;">
                     <span style="color: white; font-family: 'Pixeltype', sans-serif; font-size: 26px; line-height: 1;">${safeName}</span>

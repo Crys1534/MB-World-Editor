@@ -98,7 +98,7 @@ function initBackstageMenu() {
         }
         .backstage-panel.active { display: flex; }
         
-        #panel-my-worlds, #panel-templates { padding: 50px 80px; }
+        #panel-my-worlds, #panel-templates { padding: 16px 64px; }
         #panel-multiplayer { padding: 0; background: #2c3e50; }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -133,7 +133,7 @@ function initBackstageMenu() {
             <div style="height: 1px; background: var(--border); margin: 1px 25px; opacity: 0.5;"></div>
             <button class="backstage-nav-btn" onclick="document.getElementById('file-input').click(); closeFileMenu();">📂 <span data-i18n="menu_load_world">Load World</span></button>
             <button class="backstage-nav-btn" onclick="if(typeof fileManager !== 'undefined') fileManager.export(); closeFileMenu();">💾 <span data-i18n="menu_export">Export</span></button>
-            <button class="backstage-nav-btn" onclick="openModal('settings-modal'); closeFileMenu();" style="margin-top: auto; margin-bottom: 10px;">⚙️ <span data-i18n="menu_configuration">Configuration</span></button>
+            <button class="backstage-nav-btn" onclick="openModal('settings-modal'); closeFileMenu();" style="margin-top: auto;">⚙️ <span data-i18n="menu_configuration">Configuration</span></button>
         </div>
         
         <div class="backstage-content">
@@ -208,7 +208,7 @@ function initBackstageMenu() {
 
                             <div id="mp-view-create-1" style="display: none; width: 100%; max-width: 450px; margin-top: 20px;">
                                 <h3 style="margin-bottom: 10px; color: #bdc3c7; font-size: 28px;" data-i18n="mp_players_limit">Players Limit:</h3>
-                                <div id="mp-player-buttons" style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+                                <div id="mp-player-buttons" style="display: flex; justify-content: center; margin-bottom: 20px; gap: 16px;">
                                     <button class="mp-limit-btn selected-limit" onclick="setMpLimit(2)">2</button>
                                     <button class="mp-limit-btn" onclick="setMpLimit(3)">3</button>
                                     <button class="mp-limit-btn" onclick="setMpLimit(4)">4</button>
@@ -289,7 +289,7 @@ function initBackstageMenu() {
                         <style>
                             @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
                         </style>
-                        <div id="sidebar-list-view" style="flex: 1; display: flex; flex-direction: column;">
+                        <div id="sidebar-list-view" style="flex: 1; display: flex; flex-direction: column; height: 100%;">
                             <div style="background: #2c3e50; padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1a252f;">
                                 <h3 id="sidebar-title" style="margin: 0; color: white; font-size: 32px;" data-i18n="mp_inbox">Bandeja</h3>
                                 <span onclick="closeMpSidebar()" style="color: white; cursor: pointer; font-size: 28px;">&times;</span>
