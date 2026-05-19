@@ -1575,14 +1575,13 @@ document.addEventListener('mousemove', (e) => {
     }
 });
 
-
 // ==========================================
 // 📰 BASE DE DATOS DE NOTICIAS
 // ==========================================
 const newsDatabase = [
-
-{
+    {
         id: 4,
+        type: "updates", // Muestra esto en la pestaña "Updates"
         title: "v2.3 - Multiplayer Update",
         date: "April 25, 2026", 
         image: "https://i.imgur.com/HLeNf8x.png", 
@@ -1594,49 +1593,49 @@ const newsDatabase = [
                     <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
                         <li>up to 6 players</li>
                         <li>spectator mode!</li>
-						<li>server chat</li>
-						<li>server invites</li>
-						<li>kick players</li>
-						<li>🔔Notifications, 👥Friend Requests and ✉MDs</li>
-						<li>reply, edit and delete messages</li>
-						<li>reactions to messages</li>
-						<li>emojis & emotes</li>
-					</ul>
-				<li><b>Menu</b></li>
+                        <li>server chat</li>
+                        <li>server invites</li>
+                        <li>kick players</li>
+                        <li>🔔Notifications, 👥Friend Requests and ✉MDs</li>
+                        <li>reply, edit and delete messages</li>
+                        <li>reactions to messages</li>
+                        <li>emojis & emotes</li>
+                    </ul>
+                <li><b>Menu</b></li>
                     <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
                         <li>saved worlds</li>
                         <li>world templates</li>
-					</ul>
-				<li><code class="code-tag">[beta]</code>🐷Mobs!</li>
+                    </ul>
+                <li><code class="code-tag">[beta]</code>🐷Mobs!</li>
                 <li><code class="code-tag">[beta]</code>🎒Inventory</li>
-					<ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
-						<li>food</li>
-						<li>new items</li>
-					</ul>
-				<li>💾 auto-save</li>
+                    <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
+                        <li>food</li>
+                        <li>new items</li>
+                    </ul>
+                <li>💾 auto-save</li>
                 <li>🎨 new theme: Pastel 2 (Cool)</li>
-				<li>weather animation</li>
-				<li>day & night animation</li>
-				<li>now you can see your position in the world</li>
+                <li>weather animation</li>
+                <li>day & night animation</li>
+                <li>now you can see your position in the world</li>
                 <li><code class="code-tag">[change]</code>  the magic wand now selects more area and works up to x=6000</li>
                 <li><code class="code-tag">[change]</code>  configuration</li>
-					<ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
-						<li>volume</li>
-						<li>auto-save</li>
-					</ul>
+                    <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
+                        <li>volume</li>
+                        <li>auto-save</li>
+                    </ul>
                 <li><code class="code-tag">[fixed]</code>  enchantments for fishing rod</li>
             </ul>
         `,
-		
-		gallery: [
+        gallery: [
             "https://i.imgur.com/OGBQD83.gif", 
             "https://i.imgur.com/5hObGAo.png", 
             "https://i.imgur.com/q8VDWc4.png",
-			"https://i.imgur.com/My2zgUi.png"
+            "https://i.imgur.com/My2zgUi.png"
         ]
     },
-{
+    {
         id: 3,
+        type: "updates", // Muestra esto en la pestaña "Updates"
         title: "v2.2 - Chests Update",
         date: "March 23, 2026", 
         image: "https://i.imgur.com/HX0oYeQ.png", 
@@ -1707,18 +1706,18 @@ const newsDatabase = [
                 <li><code class="code-tag">[Fixed]</code>  screenshot tool</li>
             </ul>
         `,
-		
-		gallery: [
+        gallery: [
             "https://i.imgur.com/LgECGcx.png", 
             "https://i.imgur.com/JVCV5E1.png", 
             "https://i.imgur.com/ilXaPlD.png"
         ]
     },
-{
+    {
         id: 2,
+        type: "updates", // Muestra esto en la pestaña "Updates"
         title: "v2.1 - Structures Update",
-        date: "February 23, 2026", // Ajusta la fecha real
-        image: "https://i.imgur.com/8IIHD3d.png", // Cambia esto por la imagen que prefieras
+        date: "February 23, 2026",
+        image: "https://i.imgur.com/8IIHD3d.png",
         excerpt: "Structures library, improved tools, new UI, and bug fixes.",
         content: `
             <h3 style="margin-top: 0; color: #333;">Changelog:</h3>
@@ -1760,11 +1759,12 @@ const newsDatabase = [
             </ul>
         `
     },
-{
+    {
         id: 1,
+        type: "updates", // Muestra esto en la pestaña "Updates"
         title: "v2.0",
-        date: "January 16, 2026", // Ajusta la fecha real
-        image: "https://i.imgur.com/4ZYclOO.png", // Cambia esto por la imagen que prefieras
+        date: "January 16, 2026",
+        image: "https://i.imgur.com/4ZYclOO.png",
         excerpt: "New UI, Copy-Paste, Zoom, and more!",
         content: `
             <h3 style="margin-top: 0; color: #333;">Changelog:</h3>
@@ -1778,11 +1778,68 @@ const newsDatabase = [
             </ul>
         `
     },
+    {
+        id: 100,
+        type: "snapshots", // Muestra esto en la pestaña "Updates"
+        title: "v2.4 - Release Candidate 1",
+        date: "May 18, 2026", 
+        image: "https://i.imgur.com/dF9pGoN.png", 
+        excerpt: "Languages, spawnskins, addons, sounds, and more!",
+        content: `
+			<ul class="pixel-list">
+			<li>Changelogs for Snapshots!</li>
+            <li><code class="code-tag">[FIXED]</code>  CRITICAL BUG: spawned mobs no longer moves to the overworld</li>
+			<li><code class="code-tag">[FIXED]</code>  render for ghast, magmacubes and blazes</li>
+            </ul>
+        `,
+        gallery: [
+            "https://i.imgur.com/4agjCDx.png", 
+            "https://i.imgur.com/KewIXUk.png", 
+            "https://i.imgur.com/JhFxPFF.png", 
+            "https://i.imgur.com/sawRIux.png", 
+            "https://i.imgur.com/H7szZBx.png", 
+			"https://i.imgur.com/ADpMMP5.png",
+        ]
+    },
+
+    // Puedes añadir tus Snapshots aquí abajo cambiandoles el type a "snapshots"
 ];
 
 // ==========================================
 // 📰 FUNCIONES DEL SISTEMA DE NOTICIAS
 // ==========================================
+window.currentNewsTab = 'updates';
+
+window.switchNewsTab = function(tabName) {
+    window.currentNewsTab = tabName;
+    
+    // Cambiar estilos de botones
+    const btnUpdates = document.getElementById('news-tab-updates');
+    const btnSnapshots = document.getElementById('news-tab-snapshots');
+    
+    if (btnUpdates && btnSnapshots) {
+        if (tabName === 'updates') {
+            btnUpdates.style.background = '#444';
+            btnUpdates.style.color = 'white';
+            btnUpdates.style.borderBottom = '3px solid #2ecc71';
+            
+            btnSnapshots.style.background = 'transparent';
+            btnSnapshots.style.color = '#aaa';
+            btnSnapshots.style.borderBottom = '3px solid transparent';
+        } else {
+            btnSnapshots.style.background = '#444';
+            btnSnapshots.style.color = 'white';
+            btnSnapshots.style.borderBottom = '3px solid #e67e22'; // Naranja para snapshots
+            
+            btnUpdates.style.background = 'transparent';
+            btnUpdates.style.color = '#aaa';
+            btnUpdates.style.borderBottom = '3px solid transparent';
+        }
+    }
+    
+    showNewsList();
+};
+
 function openNewsModal() {
     openModal('news-modal'); // Asume que tienes una función openModal general
     showNewsList();
@@ -1797,11 +1854,27 @@ function showNewsList() {
     document.getElementById('news-list-view').style.display = 'block';
     document.getElementById('news-detail-view').style.display = 'none';
     
+    // Mostramos las pestañas de navegación cuando estamos en la lista
+    const tabsContainer = document.getElementById('news-tab-updates')?.parentElement;
+    if (tabsContainer) tabsContainer.style.display = 'flex';
+    
     const listContainer = document.getElementById('news-list-view');
     listContainer.innerHTML = '';
     
+    // ✨ FIX: Filtramos la base de datos de noticias según la pestaña seleccionada
+    let filteredNews = newsDatabase.filter(news => {
+        let type = news.type || 'updates';
+        return type === window.currentNewsTab;
+    });
+    
     // Ordenamos para que la más nueva (ID más alto) salga arriba
-    const sortedNews = [...newsDatabase].sort((a, b) => b.id - a.id);
+    const sortedNews = filteredNews.sort((a, b) => b.id - a.id);
+    
+    // Si la pestaña está vacía, mostramos un mensaje
+    if (sortedNews.length === 0) {
+        listContainer.innerHTML = `<p style="text-align:center; color:#555; margin-top: 20px; font-weight:bold;">There is no news here yet.</p>`;
+        return;
+    }
     
     sortedNews.forEach(news => {
         let card = document.createElement('div');
@@ -1827,6 +1900,10 @@ function showNewsDetail(id) {
 
     document.getElementById('news-list-view').style.display = 'none';
     document.getElementById('news-detail-view').style.display = 'block';
+
+    // Ocultamos las pestañas cuando estamos leyendo el artículo
+    const tabsContainer = document.getElementById('news-tab-updates')?.parentElement;
+    if (tabsContainer) tabsContainer.style.display = 'none';
 
     document.getElementById('news-detail-image').src = news.image;
     document.getElementById('news-detail-title').innerText = news.title;
@@ -1880,7 +1957,6 @@ function checkUnreadNews() {
 
 // Comprueba si hay noticias nuevas cuando arranca el programa
 window.addEventListener('DOMContentLoaded', checkUnreadNews);
-
 
 // ==========================================
 // 🌧️⚡ SISTEMA DE CLIMA COMPLETO (Lluvia, Zoom y Tormenta)

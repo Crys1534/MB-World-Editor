@@ -254,7 +254,7 @@ const i18n = {
         "btn_no": "No",
 
         // --- MODAL: NEWS ---
-        "news_title": "📰 Updates",
+        "news_title": "📰 News",
         "btn_back": "Back",
 
         // --- MODAL: LIGHTBOX ---
@@ -391,7 +391,7 @@ const i18n = {
         "spawnskin_step2": "2. Load the skin list here:",
         "btn_import_skins": "Import skins",
         "lbl_imported_skins": "Imported Spawnskins",
-		"news_title": "📰 Updates",
+		"news_title": "📰 News",
     "btn_back": "Back",
     "news_v23_title": "v2.3 - Multiplayer Update",
     "news_v23_date": "April 25, 2026",

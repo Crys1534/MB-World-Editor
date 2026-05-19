@@ -611,6 +611,9 @@ canvas.addEventListener("mousedown", function (event) {
                 mbwom.mobs[newId].x = mouse.worldX;
                 mbwom.mobs[newId].y = -mouse.worldY;
                 mbwom.mobs[newId].id = newId;
+                
+                // ✨ FIX CRÍTICO: Asignar al mob la escena actual para que no se escape al Overworld
+                mbwom.mobs[newId].scene = typeof mbwom.currentScene !== 'undefined' ? mbwom.currentScene : 1;
 
                 // ✨ ADD HISTORY: Crear Mob Nuevo
                 historyManager.startAction();
