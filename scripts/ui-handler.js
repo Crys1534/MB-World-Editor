@@ -1584,9 +1584,9 @@ const newsDatabase = [
         type: "updates",
         title: "v2.4 - QoL Update",
         date: "May 26, 2026", 
-        image: "https://i.imgur.com/HLeNf8x.png", 
-		heroImage: "https://i.imgur.com/HLeNf8x.png", 
-        excerpt: "Create a map with friends, chat with them, and more!",
+        image: "https://i.imgur.com/xo6OpcV.png", 
+		heroImage: "https://i.imgur.com/xo6OpcV.png", 
+        excerpt: "Languages, sounds and other Quality of Life updates!",
         content: `
             <h3 style="margin-top: 0; color: #333;">Changelog:</h3>
             <ul class="pixel-list">
@@ -1615,35 +1615,43 @@ const newsDatabase = [
 						<li>mooshroom & cowctus cow</li>
 						<li>slime</li>
                     </ul>
-                <li><code class="code-tag">[beta]</code><b>🎒 Inventario</b></li>
+                <li><code class="code-tag">[beta]</code><b>🎒 Inventory</b></li>
                     <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
                         <li>slime block</li>
-						<li>mostacho</li>
-						<li>gorro navideño</li>
-						<li>gorro de fiesta</li>
-						<li>gafas de sol</li>
+						<li>moustache</li>
+						<li>santa hat</li>
+						<li>party hat</li>
+						<li>sunglasses</li>
 						<li>scepter</li>
 						<li>scepter stone</li>
                     </ul>
-                <li>💾 copias de seguridad para mundos guardados</li>
-                <li>🔍 más niveles de zoom: 3%, 4%, 5%, 75%, 400%, 500%, 600%</li>
-                <li>⚙️ rediseño para Configuración</li>
+                <li>💾 backups for saved worlds</li>
+                <li>🔍 more zoom levels: 3%, 4%, 5%, 75%, 400%, 500%, 600%</li>
+                <li>⚙️ configuration redesign</li>
                     <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
-                        <li>barra de herramientas personalizable</li>
+                        <li>customizable toolbar</li>
                     </ul>
-                <li>la brocha ahora puede medir de 1-100 bloques</li>
-                <li>historial de versiones de mundos</li>
-				<li>ahora se pueden anclar mundos en el menú</li>
-				<li>ahora las dimensiones tienen fondo</li>
-				<li>la miniatura de los mundos ahora se guarda en PNG (mejor calidad)</li>
-				<li>nuevos iconos:</li>
+                <li>pencil now has 1-100 sizes</li>
+                <li>versions history for worlds</li>
+				<li>worlds can now be pinned in the menu</li>
+				<li>dimensions now has backgrounds</li>
+				<li>thumbnails for saved worlds now saves as PNG (better quality)</li>
+				<li>new icons:</li>
                     <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
                         <li>spray</li>
-						<li>fondos de dimensiones</li>
+						<li>background for dimensions</li>
                     </ul>
-				<li>lista de cambios para Snapshots</li>
+				<li>changelogs for Snapshots</li>
 				
                 <li><code class="code-tag">[fixed]</code>  enchantments for fishing rod</li>
+				<li><code class="code-tag">[fixed]</code>  items can no longer be enchanted with Unbreakable I-III in Custom Items</li>
+				<li><code class="code-tag">[fixed]</code>  auto-save works with all open worlds</li>
+				<li><code class="code-tag">[fixed]</code>  multiple areas can be selected again</li>
+				<li><code class="code-tag">[fixed]</code>  bucket, brush, select, and lasso tools</li>
+				<li><code class="code-tag">[fixed]</code>  structures now attach to air blocks</li>
+				<li><code class="code-tag">[fixed]</code>  block rendering when zooming</li>
+				<li><code class="code-tag">[fixed]</code>  rendering for Ghasts, Magmacubes, and Blazes</li>
+				<li><code class="code-tag">[fixed]</code>  the grid is no longer disabled when refreshing the page</li>
         `,
         gallery: [
             "https://i.imgur.com/4agjCDx.png", 
@@ -1857,6 +1865,27 @@ const newsDatabase = [
             </ul>
         `
     },
+	
+	    {
+        id: 101,
+        type: "snapshots", // Muestra esto en la pestaña "Updates"
+        title: "v2.4b - Snapshot 1",
+        date: "May 27, 2026", 
+        image: "https://i.imgur.com/dF9pGoN.png", 
+		heroImage: "https://i.imgur.com/dF9pGoN.png", 
+        excerpt: "Generated Chests upgrade",
+        content: `
+			<ul class="pixel-list">
+            <li>status-bar is now smaller</li>
+			<li>Normal & OP options for Generated Chests</li>
+            </ul>
+        `,
+        gallery: [
+            "https://i.imgur.com/ywOhzEz.png",
+			"https://i.imgur.com/K9hNb66.png",
+			"https://i.imgur.com/RFbpOjN.png",
+        ]
+    },
     {
         id: 100,
         type: "snapshots", // Muestra esto en la pestaña "Updates"
@@ -1882,7 +1911,6 @@ const newsDatabase = [
         ]
     },
 
-    // Puedes añadir tus Snapshots aquí abajo cambiandoles el type a "snapshots"
 ];
 
 // ==========================================

@@ -776,8 +776,10 @@
     <button class="tool-btn" id="tool-magic" onclick="selectTool('magic')" data-i18n-title="tooltip_tool_magic" title="Magic Wand">🪄</button>
     <button class="tool-btn" id="tool-lasso" onclick="selectTool('lasso')" data-i18n-title="tooltip_tool_lasso" title="Free form">➰</button>
     <button class="tool-btn" id="tool-eyedropper" onclick="selectTool('eyedropper')" data-i18n-title="tooltip_tool_eyedropper" title="Gotero">💧</button>
+    
     <div class="toolbar-separator"></div>
-    <button class="tool-btn" id="tool-screenshot" onclick="takeScreenshot()" data-i18n-title="tooltip_screenshot" title="Screenshot">📷</button>
+    
+    <button class="tool-btn" onclick="takeScreenshot()" data-i18n-title="tooltip_screenshot" title="Screenshot">📷</button>
 </div>
 
  <div id="workspace">
@@ -1050,10 +1052,16 @@
                     <option value="PixelArt" data-i18n="sub_pixel_art">Pixel Art</option>
                     <option value="Other" data-i18n="sub_other">Other</option>
                 </select>
-                <button id="btn-generate-chest" class="btn-gen-chest" onclick="generateRandomLootChest()">
-                    <img src="assets/UI/Create Loot Chest.png" class="icon-16 pixel-icon">
-                    <span data-i18n="btn_gen_chest">Generate Chest</span>
-                </button>
+                <div style="display: flex; gap: 5px; align-items: center;">
+                    <select id="chest-loot-type" class="struct-select" style="width: 80px;">
+                        <option value="normal">Normal</option>
+                        <option value="op">OP</option>
+                    </select>
+                    <button id="btn-generate-chest" class="btn-gen-chest" onclick="generateRandomLootChest()">
+                        <img src="assets/UI/Create Loot Chest.png" class="icon-16 pixel-icon">
+                        <span data-i18n="btn_gen_chest">Generate Chest</span>
+                    </button>
+                </div>
             </div>
 
             <div id="structures-grid"></div>
@@ -1565,8 +1573,8 @@ window.addEventListener('DOMContentLoaded', () => {
             </p>
             
             <div style="position: absolute; bottom: 10px; left: 15px; font-size: 11px; color: gray; font-family: monospace;">
-                <span data-i18n="about_last_update">Last Update:</span> May 26, 2026<br>
-                v2.4 - QoL Update!
+                <span data-i18n="about_last_update">Last Update:</span> May 16, 2026<br>
+                v2.4 - Release Candidate 7
             </div>
             <div style="position: absolute; bottom: 10px; right: 15px; font-size: 12px; color: gray; font-weight: bold;">
                 2026
