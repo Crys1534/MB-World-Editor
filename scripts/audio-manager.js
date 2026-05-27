@@ -290,3 +290,27 @@ window.addEventListener('DOMContentLoaded', () => {
         });
     });
 });
+
+window.audioSettings = { master: 100, sfx: 100, ui: 100, notif: 100 };
+
+window.updateAudioChannel = function(channel, value) {
+    window.audioSettings[channel] = parseInt(value);
+    document.getElementById(`vol-${channel}-display`).innerText = value + '%';
+    localStorage.setItem('mbw_audio_' + channel, value);
+    // Aquí puedes disparar una lógica extra si necesitas actualizar el audio en tiempo real
+    console.log(`Canal ${channel} ajustado a ${value}`);
+};
+
+// Cargar al iniciar
+window.addEventListener('DOMContentLoaded', () => {
+    ['master', 'sfx', 'ui', 'notif'].forEach(ch => {
+        let saved = localStorage.getItem('mbw_audio_' + ch);
+        if (saved !== null) {
+            window.audioSettings[ch] = parseInt(saved);
+            let slider = document.querySelector(`input[oninput="updateAudioChannel('${ch}', this.value)"]`);
+            let display = document.getElementById(`vol-${ch}-display`);
+            if (slider) slider.value = saved;
+            if (display) display.innerText = saved + '%';
+        }
+    });
+});

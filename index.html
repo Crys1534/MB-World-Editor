@@ -776,10 +776,8 @@
     <button class="tool-btn" id="tool-magic" onclick="selectTool('magic')" data-i18n-title="tooltip_tool_magic" title="Magic Wand">🪄</button>
     <button class="tool-btn" id="tool-lasso" onclick="selectTool('lasso')" data-i18n-title="tooltip_tool_lasso" title="Free form">➰</button>
     <button class="tool-btn" id="tool-eyedropper" onclick="selectTool('eyedropper')" data-i18n-title="tooltip_tool_eyedropper" title="Gotero">💧</button>
-    
     <div class="toolbar-separator"></div>
-    
-    <button class="tool-btn" onclick="takeScreenshot()" data-i18n-title="tooltip_screenshot" title="Screenshot">📷</button>
+    <button class="tool-btn" id="tool-screenshot" onclick="takeScreenshot()" data-i18n-title="tooltip_screenshot" title="Screenshot">📷</button>
 </div>
 
  <div id="workspace">
@@ -847,7 +845,7 @@
  </div>
 
 <div id="settings-modal" class="modal">
-    <div class="modal-content mbw-standard-modal" style="width: 550px; height: 350px;">
+    <div class="modal-content mbw-standard-modal" style="width: 550px; height: 500px;">
         <div class="mbw-modal-header">
             <h3 data-i18n="config_title">⚙️ Configuration</h3>
             <span class="mbw-close-btn" onclick="closeModal('settings-modal')">&times;</span>
@@ -858,6 +856,8 @@
             <div class="settings-sidebar">
                 <div class="settings-tab active" onclick="openSettingsTab('theme')" data-i18n="config_tab_theme">🎨 Theme</div>
                 <div class="settings-tab" onclick="openSettingsTab('autosave')" data-i18n="config_tab_autosave">💾 Auto-save</div>
+				<div class="settings-tab" onclick="openSettingsTab('display')" data-i18n="config_tab_display">📺 Display</div>
+				<div class="settings-tab" onclick="openSettingsTab('toolbar')" data-i18n="config_tab_toolbar">🛠️ Toolbar</div>
                 <div class="settings-tab" onclick="openSettingsTab('language')" data-i18n="config_tab_language">🌍 Language</div>
                 <div class="settings-tab" onclick="openSettingsTab('startup')" data-i18n="config_tab_startup">🚀 Startup</div>
                 <div class="settings-tab" onclick="openSettingsTab('volume')" data-i18n="config_tab_volume">🔊 Volume</div>
@@ -878,6 +878,15 @@
                         <option value="winxp" data-i18n="theme_winxp">🪟 Windows XP</option>
                     </select>
                 </div>
+
+<div id="set-tab-display" class="settings-pane">
+    <h3 data-i18n="config_tab_display" style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">📺 Display</h3>
+    <label style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 10px; margin-top: 10px;">
+        <span data-i18n="config_grid_opacity">Grid Opacity</span>
+        <span id="grid-opacity-display" style="color: #000;">20%</span>
+    </label>
+    <input type="range" id="grid-opacity-slider" min="0" max="100" value="20" oninput="changeGridOpacity(this.value)" style="width: 100%; cursor: pointer;">
+</div>
 
                 <div id="set-tab-autosave" class="settings-pane">
                     <h3 data-i18n="config_tab_autosave" style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">💾 Auto-save</h3>
@@ -910,13 +919,32 @@
                 </div>
 
                 <div id="set-tab-volume" class="settings-pane">
-                    <h3 data-i18n="config_tab_volume" style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">🔊 Master Volume</h3>
-                    <label style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 10px; margin-top: 10px;">
-                        <span data-i18n="config_volume_desc">Adjust general audio level</span>
-                        <span id="volume-display" style="color: #000;">100%</span>
-                    </label>
-                    <input type="range" id="volume-slider" min="0" max="100" value="100" oninput="changeVolume(this.value)" style="width: 100%; cursor: pointer;">
-                </div>
+    <h3 data-i18n="config_tab_volume" style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">🔊 Volume</h3>
+    
+    <label style="display: flex; justify-content: space-between; font-weight: bold; margin-top: 10px;">
+        <span>Master Volume</span>
+        <span id="vol-master-display">100%</span>
+    </label>
+    <input type="range" min="0" max="100" value="100" oninput="updateAudioChannel('master', this.value)">
+
+    <label style="display: flex; justify-content: space-between; font-weight: bold; margin-top: 10px;">
+        <span>SFX Volume</span>
+        <span id="vol-sfx-display">100%</span>
+    </label>
+    <input type="range" min="0" max="100" value="100" oninput="updateAudioChannel('sfx', this.value)">
+
+    <label style="display: flex; justify-content: space-between; font-weight: bold; margin-top: 10px;">
+        <span>UI Volume</span>
+        <span id="vol-ui-display">100%</span>
+    </label>
+    <input type="range" min="0" max="100" value="100" oninput="updateAudioChannel('ui', this.value)">
+
+    <label style="display: flex; justify-content: space-between; font-weight: bold; margin-top: 10px;">
+        <span>Notifications</span>
+        <span id="vol-notif-display">100%</span>
+    </label>
+    <input type="range" min="0" max="100" value="100" oninput="updateAudioChannel('notif', this.value)">
+	</div>
 
                 <div id="set-tab-controls" class="settings-pane">
                     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #888; padding-bottom: 5px; margin-bottom: 10px;">
@@ -926,6 +954,13 @@
                     <p data-i18n="controls_instructions" style="font-size: 13px; color: #333; margin-top: 0; margin-bottom: 10px;">Click a button and press a new key to change the shortcut.</p>
                     <div id="keybinds-list" style="display: flex; flex-direction: column; max-height: 230px; overflow-y: auto; padding-right: 5px;"></div>
                 </div>
+
+<div id="set-tab-toolbar" class="settings-pane">
+    <h3 data-i18n="config_tab_toolbar" style="margin-top: 0; border-bottom: 2px solid #888; padding-bottom: 5px;">🛠️ Toolbar Customization</h3>
+    <p style="font-size: 13px; color: #333; margin-bottom: 15px;">Selecciona qué herramientas quieres que sean visibles en el panel izquierdo.</p>
+    <div id="toolbar-visibility-list" style="display: flex; flex-direction: column; gap: 0px; max-height: 100%; overflow-y: auto;">
+        </div>
+</div>
 
             </div>
         </div>
@@ -1335,7 +1370,7 @@
     <div class="status-right">
         <button class="status-btn" onclick="zoomHUD(-1)" data-i18n-title="tooltip_zoom_out" title="Zoom Out">-</button>
         
-        <input type="range" id="zoom-slider" min="0" max="12" step="1" value="6" oninput="updateZoomSlider(this.value)">
+        <input type="range" id="zoom-slider" min="0" max="14" step="1" value="7" oninput="updateZoomSlider(this.value)">
         
         <button class="status-btn" onclick="zoomHUD(1)" data-i18n-title="tooltip_zoom_in" title="Zoom In">+</button>
         <span id="zoom-value" data-i18n-title="tooltip_zoom_reset" title="Click to Reset" onclick="resetZoomHUD()">100%</span>
@@ -1530,8 +1565,8 @@ window.addEventListener('DOMContentLoaded', () => {
             </p>
             
             <div style="position: absolute; bottom: 10px; left: 15px; font-size: 11px; color: gray; font-family: monospace;">
-                <span data-i18n="about_last_update">Last Update:</span> May 16, 2026<br>
-                v2.4 - Release Candidate 7
+                <span data-i18n="about_last_update">Last Update:</span> May 26, 2026<br>
+                v2.4 - QoL Update!
             </div>
             <div style="position: absolute; bottom: 10px; right: 15px; font-size: 12px; color: gray; font-weight: bold;">
                 2026

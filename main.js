@@ -18,15 +18,15 @@ const uiElements = {
     ribbon: document.getElementById('ribbon'),
 };
 
-const ZOOM_LEVELS = [2, 5, 10, 25, 50, 100, 150, 200, 250, 300, 400, 500, 600];
-let currentZoomIndex = 5; 
+const ZOOM_LEVELS = [3, 4, 5, 10, 25, 50, 75, 100, 150, 200, 250, 300, 400, 500, 600];
+let currentZoomIndex = 7; 
 let currentZoom = 100;
 const BASE_TILE_SIZE = 16;
 let showGrid = false;
 const grid = { width: 60, height: 30 };
 let tileSize = BASE_TILE_SIZE;
 
-window.images = { names: ["blocks", "hotbar", "slot", "nether-bg", "end-bg", "overworld-bg", "zombie", "skeleton", "creeper", "enderman", "nethereye", "enderdragon", "pig", "cow", "chicken", "Player", "slime", "magmacube", "chicken", "blaze", "squid", "ghast", "rabbit", "cowctus cow", "mushroom cow", "dog", "sheep", "snowgolem", "wolf", "spider", "snowgolem", "zombiepigman", "bat", "spawnskin", "sun", "moon"] };
+window.images = { names: ["blocks", "hotbar", "slot", "nether-bg", "end-bg", "overworld-bg", "zombie", "skeleton", "creeper", "enderman", "nethereye", "enderdragon", "pig", "cow", "cowctus", "mushroom", "chicken", "Player", "slime", "magmacube", "chicken", "blaze", "squid", "ghast", "rabbit", "dog", "sheep", "snowgolem", "wolf", "spider", "snowgolem", "zombiepigman", "bat", "spawnskin", "sun", "moon"] };
 
 window.images.names.forEach((name) => {
     window.images[name] = new Image();
@@ -226,24 +226,31 @@ function renderWorldToBuffer() {
     
     if (showGrid) {
         if (tileSize >= 4) {
-            let gridOpacity = 0.2;
+            let baseOpacity = window.gridOpacity !== undefined ? window.gridOpacity / 100 : 0.2;
+            let gridOpacity = baseOpacity;
             if (tileSize < 12) {
-                gridOpacity = 0.2 * ((tileSize - 4) / (12 - 4)); 
+                gridOpacity = baseOpacity * ((tileSize - 4) / (12 - 4)); 
             }
             
             offscreenCtx.strokeStyle = `rgba(255, 255, 255, ${gridOpacity})`;
-            offscreenCtx.lineWidth = 2;
+            offscreenCtx.lineWidth = 3;
             offscreenCtx.beginPath();
             
-            const offset = 0.5; 
-            
-            for (let x = 0; x <= grid.width; x++) {
-                const xPos = Math.floor(x * tileSize) + offset;
+            const startX = Math.floor(camera.x);
+            const startY = Math.floor(camera.y);
+            const endX = startX + grid.width;
+            const endY = startY + grid.height;
+
+            const offsetX = (camera.x - startX) * tileSize;
+            const offsetY = (camera.y - startY) * tileSize;
+
+            for (let x = 0; x <= grid.width + 1; x++) {
+                const xPos = Math.round(x * tileSize - offsetX);
                 offscreenCtx.moveTo(xPos, 0);
                 offscreenCtx.lineTo(xPos, offscreenCanvas.height);
             }
-            for (let y = 0; y <= grid.height; y++) {
-                const yPos = Math.floor(offscreenCanvas.height - (y * tileSize)) + offset;
+            for (let y = 0; y <= grid.height + 1; y++) {
+                const yPos = Math.round(offscreenCanvas.height - (y * tileSize - offsetY));
                 offscreenCtx.moveTo(0, yPos);
                 offscreenCtx.lineTo(offscreenCanvas.width, yPos);
             }
@@ -304,25 +311,20 @@ function drawMobs() {
             let mobWidth = tileSize * 1;
             let mobHeight = tileSize * 2;
             
-            if (['chicken', 'slime', 'magmacube'].includes(mob.type)) { 
+            // Dimensiones personalizadas por tipo de mob
+            if (mob.type === 'chicken' || mob.type === 'slime' || mob.type === 'magmacube') { 
                 mobWidth = tileSize * 1; mobHeight = tileSize * 1; 
-            }
-            if (mob.type === 'enderdragon') { 
+            } else if (mob.type === 'enderdragon') { 
                 mobWidth = tileSize * 24; mobHeight = tileSize * 8; 
-            }
-            if (['nethereye', 'rabbit', 'bat'].includes(mob.type)) { 
+            } else if (mob.type === 'nethereye' || mob.type === 'rabbit' || mob.type === 'bat') { 
                 mobWidth = tileSize * 0.75; mobHeight = tileSize * 0.75; 
-            }
-            if (['pig', 'wolf', 'spider', 'sheep'].includes(mob.type)) { 
+            } else if (mob.type === 'pig' || mob.type === 'wolf' || mob.type === 'spider' || mob.type === 'sheep') { 
                 mobWidth = tileSize * 2; mobHeight = tileSize * 1.2; 
-            }
-            if (mob.type === 'enderman') { 
+            } else if (mob.type === 'enderman') { 
                 mobWidth = tileSize * 1.2; mobHeight = tileSize * 3; 
-            }
-            if (mob.type === 'squid') { 
+            } else if (mob.type === 'squid') { 
                 mobWidth = tileSize * 1; mobHeight = tileSize * 2; 
-            }
-            if (['cow', 'cowctus cow', 'mushroom cow'].includes(mob.type)) { 
+            } else if (mob.type === 'cow' || mob.type === 'cowctus' || mob.type === 'mushroom') { 
                 mobWidth = tileSize * 2.6; mobHeight = tileSize * 2; 
             }
 
@@ -332,8 +334,7 @@ function drawMobs() {
             if (mob.type === 'spawnskin' && mob.skin) {
                 mobImg = window.getSpawnskinImage(mob.skin);
                 isCustomSkin = true;
-                mobWidth = tileSize * 1.4; 
-                mobHeight = tileSize * 2.0; 
+                mobWidth = tileSize * 1.4; mobHeight = tileSize * 2; 
             } else {
                 mobImg = window.images[mob.type];
             }

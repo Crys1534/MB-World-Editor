@@ -929,6 +929,8 @@ window.renderPresenceList = function() {
                     : 
                     `<div style="margin-left: auto; display: flex; gap: 8px;">
                         ${actionBtn}
+                        <button onclick="sendFriendRequest('${u.uid}', '${safeName}')" style="background: #2ecc71; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#27ae60'" onmouseout="this.style.background='#2ecc71'" title="Añadir amigo">➕ Add</button>
+                        
                         <button onclick="openDirectMessage('${u.uid}', '${safeName}')" style="background: transparent; border: 1px solid #7f8c8d; padding: 4px 8px; border-radius: 4px; cursor: pointer; color: white; font-size: 14px;" title="Enviar mensaje">💬</button>
                     </div>`
                 }

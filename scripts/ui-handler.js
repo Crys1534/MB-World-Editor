@@ -1579,12 +1579,88 @@ document.addEventListener('mousemove', (e) => {
 // 📰 BASE DE DATOS DE NOTICIAS
 // ==========================================
 const newsDatabase = [
-    {
+        {
+        id: 5,
+        type: "updates",
+        title: "v2.4 - QoL Update",
+        date: "May 26, 2026", 
+        image: "https://i.imgur.com/HLeNf8x.png", 
+		heroImage: "https://i.imgur.com/HLeNf8x.png", 
+        excerpt: "Create a map with friends, chat with them, and more!",
+        content: `
+            <h3 style="margin-top: 0; color: #333;">Changelog:</h3>
+            <ul class="pixel-list">
+                <li><b>🗣️ Languages!</b></li>
+                    <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
+                        <li>Spanish</li>
+                        <li>Portuguese</li>
+                    </ul>
+                <li><b>➕ ¡Addons!</b></li>
+                    <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
+                        <li>Spawnskins Preview</li>
+                        <li>Pixel Art Auto-Builder</li>
+                    </ul>
+                <li><code class="code-tag">[beta]</code><b>🐷Mobs!</b></li>
+                    <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
+                        <li>🦑squid</li>
+                        <li>⛄snowgolem</li>
+                    </ul>
+				<li><code class="code-tag">[beta]</code><b>🔉SFX!</b></li>
+                    <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
+                        <li>clic</li>
+                        <li>xp orb</li>
+						<li>level up</li>
+						<li>broken glass</li>
+						<li>wolf</li>
+						<li>mooshroom & cowctus cow</li>
+						<li>slime</li>
+                    </ul>
+                <li><code class="code-tag">[beta]</code><b>🎒 Inventario</b></li>
+                    <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
+                        <li>slime block</li>
+						<li>mostacho</li>
+						<li>gorro navideño</li>
+						<li>gorro de fiesta</li>
+						<li>gafas de sol</li>
+						<li>scepter</li>
+						<li>scepter stone</li>
+                    </ul>
+                <li>💾 copias de seguridad para mundos guardados</li>
+                <li>🔍 más niveles de zoom: 3%, 4%, 5%, 75%, 400%, 500%, 600%</li>
+                <li>⚙️ rediseño para Configuración</li>
+                    <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
+                        <li>barra de herramientas personalizable</li>
+                    </ul>
+                <li>la brocha ahora puede medir de 1-100 bloques</li>
+                <li>historial de versiones de mundos</li>
+				<li>ahora se pueden anclar mundos en el menú</li>
+				<li>ahora las dimensiones tienen fondo</li>
+				<li>la miniatura de los mundos ahora se guarda en PNG (mejor calidad)</li>
+				<li>nuevos iconos:</li>
+                    <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
+                        <li>spray</li>
+						<li>fondos de dimensiones</li>
+                    </ul>
+				<li>lista de cambios para Snapshots</li>
+				
+                <li><code class="code-tag">[fixed]</code>  enchantments for fishing rod</li>
+        `,
+        gallery: [
+            "https://i.imgur.com/4agjCDx.png", 
+            "https://i.imgur.com/KewIXUk.png", 
+            "https://i.imgur.com/JhFxPFF.png", 
+            "https://i.imgur.com/sawRIux.png", 
+            "https://i.imgur.com/H7szZBx.png", 
+			"https://i.imgur.com/ADpMMP5.png",
+        ]
+    },
+	{
         id: 4,
         type: "updates", // Muestra esto en la pestaña "Updates"
         title: "v2.3 - Multiplayer Update",
         date: "April 25, 2026", 
         image: "https://i.imgur.com/HLeNf8x.png", 
+		heroImage: "https://i.imgur.com/HLeNf8x.png", 
         excerpt: "Create a map with friends, chat with them, and more!",
         content: `
             <h3 style="margin-top: 0; color: #333;">Changelog:</h3>
@@ -1639,6 +1715,7 @@ const newsDatabase = [
         title: "v2.2 - Chests Update",
         date: "March 23, 2026", 
         image: "https://i.imgur.com/HX0oYeQ.png", 
+		heroImage: "https://i.imgur.com/HX0oYeQ.png", 
         excerpt: "Huge update including new structures, magic wand, custom items, tabs system, and much more!",
         content: `
             <h3 style="margin-top: 0; color: #333;">Changelog:</h3>
@@ -1718,6 +1795,7 @@ const newsDatabase = [
         title: "v2.1 - Structures Update",
         date: "February 23, 2026",
         image: "https://i.imgur.com/8IIHD3d.png",
+		heroImage: "https://i.imgur.com/8IIHD3d.png",
         excerpt: "Structures library, improved tools, new UI, and bug fixes.",
         content: `
             <h3 style="margin-top: 0; color: #333;">Changelog:</h3>
@@ -1764,7 +1842,8 @@ const newsDatabase = [
         type: "updates", // Muestra esto en la pestaña "Updates"
         title: "v2.0",
         date: "January 16, 2026",
-        image: "https://i.imgur.com/4ZYclOO.png",
+        image: "/favicon.ico",
+		heroImage: "https://i.imgur.com/4ZYclOO.png",
         excerpt: "New UI, Copy-Paste, Zoom, and more!",
         content: `
             <h3 style="margin-top: 0; color: #333;">Changelog:</h3>
@@ -1784,6 +1863,7 @@ const newsDatabase = [
         title: "v2.4 - Release Candidate 1",
         date: "May 18, 2026", 
         image: "https://i.imgur.com/dF9pGoN.png", 
+		heroImage: "https://i.imgur.com/dF9pGoN.png", 
         excerpt: "Languages, spawnskins, addons, sounds, and more!",
         content: `
 			<ul class="pixel-list">
@@ -1905,7 +1985,9 @@ function showNewsDetail(id) {
     const tabsContainer = document.getElementById('news-tab-updates')?.parentElement;
     if (tabsContainer) tabsContainer.style.display = 'none';
 
-    document.getElementById('news-detail-image').src = news.image;
+    // ✨ FIX: Usa la imagen héroe si existe, sino usa la miniatura estándar
+    document.getElementById('news-detail-image').src = news.heroImage ? news.heroImage : news.image;
+    
     document.getElementById('news-detail-title').innerText = news.title;
     document.getElementById('news-detail-date').innerText = news.date;
     
@@ -2376,7 +2458,7 @@ let recentMobsList = ['zombie', 'skeleton', 'creeper'];
 
 // Lista de todos los mobs soportados
 const ALL_MOBS_DB = [
-    "zombie", "skeleton", "creeper", "spider", "slime", "pig", "cow", "cowctus cow", "mushroom cow", "chicken", "sheep",
+    "zombie", "skeleton", "creeper", "spider", "slime", "pig", "cow", "cowctus", "mushroom", "chicken", "sheep",
     "zombiepigman", "ghast", "blaze", "magmacube", "nethereye", "enderman", "enderdragon", "snowgolem", "bat", "rabbit", "squid",
 ];
 
@@ -2449,7 +2531,7 @@ const MOBS_HP_DB = {
 
 // Mobs organizados por dimensión
 const MOBS_BY_DIMENSION = {
-	"Animals": ["bat", "chicken", "pig", "cow", "cowctus cow", "mushroom cow", "rabbit", "sheep", "squid", "wolf"],
+	"Animals": ["bat", "chicken", "pig", "cow", "cowctus", "mushroom", "rabbit", "sheep", "squid", "wolf"],
 	"Overworld": ["creeper", "skeleton", "slime", "snowgolem", "spider", "zombie"],
 	"Nether": ["blaze", "ghast", "magmacube", "nethereye", "zombiepigman"],
 	"End": ["enderman", "enderdragon"]
@@ -3403,3 +3485,96 @@ window.addEventListener('keydown', function(e) {
         window.renderKeybinds(); // Redibuja la lista al instante
     }
 });
+
+window.gridOpacity = 25; // Valor por defecto
+
+window.changeGridOpacity = function(val) {
+    window.gridOpacity = parseInt(val);
+    document.getElementById('grid-opacity-display').innerText = val + '%';
+    localStorage.setItem('mbw_grid_opacity', val);
+    if (typeof worldDirty !== 'undefined') worldDirty = true;
+};
+
+// Cargar opacidad guardada cuando el editor arranca
+window.addEventListener('DOMContentLoaded', () => {
+    let savedOpacity = localStorage.getItem('mbw_grid_opacity');
+    if (savedOpacity !== null) {
+        window.gridOpacity = parseInt(savedOpacity);
+        let slider = document.getElementById('grid-opacity-slider');
+        let display = document.getElementById('grid-opacity-display');
+        if (slider) slider.value = window.gridOpacity;
+        if (display) display.innerText = window.gridOpacity + '%';
+    }
+});
+
+// ==========================================
+// 🛠️ CONFIGURACIÓN DE TOOLBAR
+// ==========================================
+
+const availableTools = [
+    { id: 'tool-move', icon: '👆', name: 'Move Tool' },
+    { id: 'tool-eraser', icon: '🧼', name: 'Eraser' },
+    { id: 'tool-bucket', icon: '🪣', name: 'Bucket' },
+    { id: 'tool-select', icon: '🔳', name: 'Select' },
+    { id: 'tool-magic', icon: '🪄', name: 'Magic Wand' },
+    { id: 'tool-lasso', icon: '➰', name: 'Lasso / Free Form' },
+    { id: 'tool-eyedropper', icon: '💧', name: 'Eyedropper' },
+	{ id: 'tool-screenshot', icon: '📷', name: 'Screenshot' },
+];
+
+window.toolbarConfig = {};
+
+window.initToolbarSettings = function() {
+    // Cargar config o crear una por defecto (todas encendidas)
+    let saved = localStorage.getItem('mbw_toolbar_config');
+    if (saved) {
+        window.toolbarConfig = JSON.parse(saved);
+    } else {
+        availableTools.forEach(t => window.toolbarConfig[t.id] = true);
+    }
+    
+    applyToolbarVisibility();
+    renderToolbarSettingsList();
+};
+
+window.toggleToolVisibility = function(toolId, isVisible) {
+    window.toolbarConfig[toolId] = isVisible;
+    localStorage.setItem('mbw_toolbar_config', JSON.stringify(window.toolbarConfig));
+    applyToolbarVisibility();
+};
+
+function applyToolbarVisibility() {
+    availableTools.forEach(t => {
+        let btn = document.getElementById(t.id);
+        if (btn) {
+            btn.style.display = window.toolbarConfig[t.id] ? 'inline-block' : 'none';
+        }
+    });
+}
+
+function renderToolbarSettingsList() {
+    const list = document.getElementById('toolbar-visibility-list');
+    if (!list) return;
+    
+    list.innerHTML = '';
+    
+    availableTools.forEach(t => {
+        let isChecked = window.toolbarConfig[t.id];
+        
+        let row = document.createElement('div');
+        row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.5); padding: 8px; border-radius: 4px; border: 1px solid #999;';
+        
+        row.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 20px;">${t.icon}</span>
+                <span style="font-weight: bold; color: #333;">${t.name}</span>
+            </div>
+            <label style="cursor: pointer; display: flex; align-items: center;">
+                <input type="checkbox" onchange="toggleToolVisibility('${t.id}', this.checked)" ${isChecked ? 'checked' : ''} style="width: 18px; height: 18px; margin: 0;">
+            </label>
+        `;
+        list.appendChild(row);
+    });
+}
+
+window.addEventListener('DOMContentLoaded', initToolbarSettings);

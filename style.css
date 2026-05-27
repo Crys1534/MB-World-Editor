@@ -1800,7 +1800,7 @@ body.is-spectating #hotbar-container {
 .recent-ribbon-container { display: flex; align-items: center; }
 .empty-text { font-size: 10px; color: #555; }
 .vertical-divider { width: 1px; height: 35px; background: #555; margin: 0 5px; }
-.gamerule-item { display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100%; }
+.gamerule-item { display: flex; flex-direction: column; align-items: center; }
 
 .pixel-icon { object-fit: contain; margin-bottom: 0px; image-rendering: pixelated; }
 .icon-16 { width: 16px; height: 16px; object-fit: contain; }
