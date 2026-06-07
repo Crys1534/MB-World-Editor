@@ -58,6 +58,19 @@ const mbwom = {
 	loadScene: function (index) {
 		for (let i = 0; i < this.sceneList.length; i++) {
 			const element = this.sceneList[i];
+			
+			// ✨ FIX: Si la dimensión no tiene este dato guardado, lo creamos desde cero 
+			// para que no se mezcle por accidente con la dimensión anterior
+			if (this.world[element + index] === undefined) {
+				if (element === "scene" || element === "sceneBG") {
+					this.world[element + index] = [];
+				} else if (element === "mobs" || element === "states") {
+					this.world[element + index] = {};
+				} else {
+					this.world[element + index] = 0;
+				}
+			}
+			
 			this[element] = this.world[element + index];
 		}
 	},

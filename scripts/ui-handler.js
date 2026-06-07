@@ -1579,7 +1579,28 @@ document.addEventListener('mousemove', (e) => {
 // 📰 BASE DE DATOS DE NOTICIAS
 // ==========================================
 const newsDatabase = [
-        {
+    {
+        id: 6,
+        type: "updates",
+        title: "v2.4b Patch",
+        date: "Jun 7, 2026", 
+        image: "https://i.imgur.com/dF9pGoN.png", 
+		heroImage: "https://i.imgur.com/dF9pGoN.png", 
+        excerpt: "Dimensions Patch",
+        content: `
+			<ul class="pixel-list">
+				<li><code class="code-tag">[fixed]</code>  CRITICAL BUG: Mobs no longer disappear when you switch dimensions</li>
+				<li>status-bar is now smaller</li>
+				<li>Normal & OP options for Generated Chests</li>
+            </ul>
+        `,
+        gallery: [
+            "https://i.imgur.com/ywOhzEz.png",
+			"https://i.imgur.com/K9hNb66.png",
+			"https://i.imgur.com/RFbpOjN.png",
+        ]
+    },
+    {
         id: 5,
         type: "updates",
         title: "v2.4 - QoL Update",
@@ -1866,7 +1887,7 @@ const newsDatabase = [
         `
     },
 	
-	    {
+	{
         id: 101,
         type: "snapshots", // Muestra esto en la pestaña "Updates"
         title: "v2.4b - Snapshot 1",
@@ -1889,7 +1910,7 @@ const newsDatabase = [
     {
         id: 100,
         type: "snapshots", // Muestra esto en la pestaña "Updates"
-        title: "v2.4 - Release Candidate 1",
+        title: "v2.4 - Pre-release 1",
         date: "May 18, 2026", 
         image: "https://i.imgur.com/dF9pGoN.png", 
 		heroImage: "https://i.imgur.com/dF9pGoN.png", 
