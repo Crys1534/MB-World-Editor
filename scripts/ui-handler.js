@@ -1580,6 +1580,22 @@ document.addEventListener('mousemove', (e) => {
 // ==========================================
 const newsDatabase = [
     {
+        id: 7,
+        type: "updates",
+        title: "v2.4c Patch",
+        date: "Jun 8, 2026", 
+        image: "https://i.imgur.com/dF9pGoN.png", 
+		heroImage: "https://i.imgur.com/dF9pGoN.png", 
+        excerpt: "Dimensions Patch",
+        content: `
+			<ul class="pixel-list">
+				<li><code class="code-tag">[fixed]</code>  CRITICAL BUG: Mobs no longer disappear when you switch dimensions</li>
+            </ul>
+        `,
+        gallery: [
+        ]
+    },
+	{
         id: 6,
         type: "updates",
         title: "v2.4b Patch",

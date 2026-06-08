@@ -291,26 +291,36 @@ prepareData: function() {
         "zombiepigman", "ghast", "blaze", "magmacube", "nethereye", "enderman", "enderdragon", "snowgolem", "bat", "rabbit",
     ];
 
+    // ✨ FIX CRÍTICO: Recolectar todos los mobs de TODAS las dimensiones antes de limpiar
+    let allMobs = [];
+    for(let s=1; s<=3; s++) {
+        let dimensionMobs = mbwom.world["mobs" + s];
+        if (dimensionMobs) {
+            for (let key in dimensionMobs) {
+                allMobs.push(dimensionMobs[key]);
+            }
+        }
+    }
+
+    // AHORA SÍ limpiamos las dimensiones de forma segura
     mbwom.world.mobs1 = {}; mbwom.world.mobs2 = {}; mbwom.world.mobs3 = {};
     let mobCounts = {}; let globalMobCount = { 1: 0, 2: 0, 3: 0 };
     for(let s=1; s<=3; s++) knownMobs.forEach(t => { mobCounts[t + "Num" + s] = 0; });
 
-    if (mbwom.mobs) {
-        for (let key in mbwom.mobs) {
-            let m = mbwom.mobs[key];
-            if (!m || !m.type || m.type.startsWith('custom_')) continue; 
-            
-            let s = m.scene || 1; 
-            globalMobCount[s]++;
-            let internalId = "mob" + globalMobCount[s];
-            m.id = internalId; 
-            m.x = isNaN(Number(m.x)) ? 0 : Number(m.x);
-            m.y = isNaN(Number(m.y)) ? 0 : Number(m.y);
-            
-            mbwom.world["mobs" + s][internalId] = m;
-            mobCounts[m.type + "Num" + s] = (mobCounts[m.type + "Num" + s] || 0) + 1;
-        }
-    }
+    // Volvemos a colocar todos los mobs recopilados en sus respectivos cajones
+    allMobs.forEach(m => {
+        if (!m || !m.type || String(m.type).startsWith('custom_')) return; 
+        
+        let s = m.scene || 1; 
+        globalMobCount[s]++;
+        let internalId = "mob" + globalMobCount[s];
+        m.id = internalId; 
+        m.x = isNaN(Number(m.x)) ? 0 : Number(m.x);
+        m.y = isNaN(Number(m.y)) ? 0 : Number(m.y);
+        
+        mbwom.world["mobs" + s][internalId] = m;
+        mobCounts[m.type + "Num" + s] = (mobCounts[m.type + "Num" + s] || 0) + 1;
+    });
 
     mbwom.world.mobNum1 = globalMobCount[1];
     mbwom.world.mobNum2 = globalMobCount[2];

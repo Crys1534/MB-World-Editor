@@ -55,25 +55,24 @@ const mbwom = {
 		"zombiepigmanNum",
 		"squidNum"
 	],
-	loadScene: function (index) {
-		for (let i = 0; i < this.sceneList.length; i++) {
-			const element = this.sceneList[i];
-			
-			// ✨ FIX: Si la dimensión no tiene este dato guardado, lo creamos desde cero 
-			// para que no se mezcle por accidente con la dimensión anterior
-			if (this.world[element + index] === undefined) {
-				if (element === "scene" || element === "sceneBG") {
-					this.world[element + index] = [];
-				} else if (element === "mobs" || element === "states") {
-					this.world[element + index] = {};
-				} else {
-					this.world[element + index] = 0;
-				}
-			}
-			
-			this[element] = this.world[element + index];
-		}
-	},
+	// En scripts/mbwom.js
+loadScene: function (index) {
+    for (let i = 0; i < this.sceneList.length; i++) {
+        const element = this.sceneList[i];
+        
+        // Si el índice de dimensión no existe en el mundo guardado, lo inicializamos vacío
+        if (this.world[element + index] === undefined) {
+            if (element === "scene" || element === "sceneBG") {
+                this.world[element + index] = [];
+            } else if (element === "mobs" || element === "states") {
+                this.world[element + index] = {};
+            } else {
+                this.world[element + index] = 0;
+            }
+        }
+        this[element] = this.world[element + index];
+    }
+},
 	getBlock: function (x, y) {
         // ✨ FIX: Prevenimos el crasheo si la escena aún no carga
 		if (this.scene && this.scene[x]) {

@@ -564,14 +564,15 @@ canvas.addEventListener("mousedown", function (event) {
     }
     // ✨ PONER UN MOB EN EL MUNDO (SPAWN CON LA PLANTILLA PERFECTA DEL CERDO)
     else if (currentTool === 'spawn_mob' && mouse.left) {
-        if (typeof mbwom !== 'undefined') {
-            // Vincular Mobs a la dimensión actual
-            if (!mbwom.mobs) {
-                mbwom.mobs = {};
-                if (mbwom.world && mbwom.currentScene) {
-                    mbwom.world["mobs" + mbwom.currentScene] = mbwom.mobs;
-                }
+    if (typeof mbwom !== 'undefined') {
+        // VINCULACIÓN CRÍTICA:
+        if (!mbwom.mobs) {
+            mbwom.mobs = {};
+            // Si el objeto de la dimensión no existe, lo vinculamos ahora
+            if (mbwom.world && mbwom.currentScene) {
+                mbwom.world["mobs" + mbwom.currentScene] = mbwom.mobs;
             }
+        }
 
             const newId = "mob_spawn_" + Date.now() + Math.floor(Math.random() * 1000);
 
