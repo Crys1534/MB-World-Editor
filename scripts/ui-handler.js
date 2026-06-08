@@ -1584,15 +1584,16 @@ const newsDatabase = [
         type: "updates",
         title: "v2.4c Patch",
         date: "Jun 8, 2026", 
-        image: "https://i.imgur.com/dF9pGoN.png", 
-		heroImage: "https://i.imgur.com/dF9pGoN.png", 
+        image: "https://i.imgur.com/aE1tlNJ.png", 
+		heroImage: "https://i.imgur.com/aE1tlNJ.png", 
         excerpt: "Dimensions Patch",
         content: `
 			<ul class="pixel-list">
-				<li><code class="code-tag">[fixed]</code>  CRITICAL BUG: Mobs no longer disappear when you switch dimensions</li>
+				<li><code class="code-tag">[fixed]</code>  CRITICAL BUG: Mobs from other dimensions no longer disappear when you export the world</li>
             </ul>
         `,
         gallery: [
+            "https://i.imgur.com/aE1tlNJ.png",
         ]
     },
 	{
