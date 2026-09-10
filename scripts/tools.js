@@ -145,18 +145,49 @@ window.addEventListener('keydown', function(e) {
     // LÍNEAS DE Ctrl+X, Ctrl+C y Ctrl+V FUERON ELIMINADAS AQUÍ.
 });
 
-// --- NUEVO SISTEMA DE SCREENSHOT CON RECORTE Y SCROLL ---
+// --- NUEVO SISTEMA DE SCREENSHOT CON RECORTE Y SCROLL (WASD + ZOOM) ---
 let snipState = {
     active: false, isDragging: false,
     startX: 0, startY: 0, currentX: 0, currentY: 0,
     camX: 0, camY: 0,
-    rawMouseX: 0, rawMouseY: 0,
-    scrollLoop: null, tileSize: 16
+    keys: {},
+    camLoop: null, tileSize: 16
 };
+
+// ✨ BLOQUEO GLOBAL DE TECLAS (Evita que el juego principal se mueva)
+if (!window.snipKeysAttached) {
+    window.addEventListener('keydown', (e) => {
+        if (snipState.active) {
+            const k = e.key.toLowerCase();
+            if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) {
+                snipState.keys[k] = true;
+                e.stopImmediatePropagation();
+                e.preventDefault();
+            }
+        }
+    }, { capture: true });
+
+    window.addEventListener('keyup', (e) => {
+        if (snipState.active) {
+            const k = e.key.toLowerCase();
+            if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) {
+                snipState.keys[k] = false;
+                e.stopImmediatePropagation();
+                e.preventDefault();
+            }
+        }
+    }, { capture: true });
+    window.snipKeysAttached = true;
+}
 
 window.takeScreenshot = function() {
     initSnippingUI();
     snipState.active = true;
+    snipState.keys = {}; 
+    snipState.tileSize = 16; // Restablecer el zoom al abrir
+    
+    const zoomBtn = document.getElementById('btn-snip-zoom');
+    if (zoomBtn) zoomBtn.innerText = `Zoom: 16x`;
     
     snipState.camX = (typeof camera !== 'undefined' ? Math.floor(camera.x) : 0);
     snipState.camY = (typeof camera !== 'undefined' ? Math.floor(camera.y) : 0);
@@ -164,8 +195,8 @@ window.takeScreenshot = function() {
     document.getElementById('snip-modal').style.display = 'flex';
     renderSnipPreview();
     
-    if (!snipState.scrollLoop) {
-        snipState.scrollLoop = requestAnimationFrame(edgeScrollLoop);
+    if (!snipState.camLoop) {
+        snipState.camLoop = requestAnimationFrame(snipCamLoop);
     }
 };
 
@@ -178,13 +209,14 @@ function initSnippingUI() {
 
     modal.innerHTML = `
         <div style="color:white; font-family:'Pixeltype', sans-serif; font-size:32px; margin-bottom:10px; text-shadow:2px 2px 0 #000;">
-            📷 Select Area to Capture <span style="font-size:18px; color:#aaa;">(Drag near edges to scroll)</span>
+            📷 Select Area to Capture <span style="font-size:18px; color:#aaa;">(Use WASD to move)</span>
         </div>
         <div id="snip-container" style="position:relative; width:80vw; height:70vh; border:4px solid #555; background:#7385b9; overflow:hidden; cursor:crosshair; box-shadow:0 10px 30px rgba(0,0,0,0.8);">
             <canvas id="snip-canvas" style="position:absolute; top:0; left:0; width:100%; height:100%; image-rendering:pixelated;"></canvas>
         </div>
         <div style="margin-top:15px; display:flex; gap:15px;">
             <button onclick="confirmScreenshot()" style="background:#2ecc71; color:white; border:none; padding:10px 20px; font-family:'Pixeltype', sans-serif; font-size:24px; border-radius:4px; cursor:pointer;">Download Image</button>
+            <button id="btn-snip-zoom" onclick="cycleSnipZoom()" style="background:#3498db; color:white; border:none; padding:10px 20px; font-family:'Pixeltype', sans-serif; font-size:24px; border-radius:4px; cursor:pointer;">Zoom: 16x</button>
             <button onclick="closeSnippingUI()" style="background:#e74c3c; color:white; border:none; padding:10px 20px; font-family:'Pixeltype', sans-serif; font-size:24px; border-radius:4px; cursor:pointer;">Cancel</button>
         </div>
     `;
@@ -192,21 +224,27 @@ function initSnippingUI() {
 
     const cvs = document.getElementById('snip-canvas');
     
-    function getMouseWorldCoords(e) {
+    // Anula el menú del clic derecho
+    cvs.addEventListener('contextmenu', (e) => e.preventDefault());
+    
+    function getMouseGridCoords(e) {
         const rect = cvs.getBoundingClientRect();
-        snipState.rawMouseX = e.clientX - rect.left;
-        snipState.rawMouseY = e.clientY - rect.top;
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
         
-        const wx = Math.floor(snipState.rawMouseX / snipState.tileSize) + Math.floor(snipState.camX);
-        const wy = Math.floor(snipState.rawMouseY / snipState.tileSize) + Math.floor(snipState.camY);
+        const wx = Math.floor(mx / snipState.tileSize) + Math.floor(snipState.camX);
+        const wy = Math.floor((cvs.height - my) / snipState.tileSize) + Math.floor(snipState.camY);
         return {wx, wy};
     }
 
     cvs.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return; // ✨ FILTRO DE CLIC IZQUIERDO
+        
         cvs.width = cvs.parentElement.clientWidth;
         cvs.height = cvs.parentElement.clientHeight;
         snipState.isDragging = true;
-        const coords = getMouseWorldCoords(e);
+        
+        const coords = getMouseGridCoords(e);
         snipState.startX = coords.wx;
         snipState.startY = coords.wy;
         snipState.currentX = coords.wx;
@@ -214,23 +252,33 @@ function initSnippingUI() {
         renderSnipPreview();
     });
 
-    // Escuchamos a toda la ventana para que puedas arrastrar fuera de la vista previa
     window.addEventListener('mousemove', (e) => {
         if (!snipState.active) return;
-        
-        const coords = getMouseWorldCoords(e);
         if (snipState.isDragging) {
+            const coords = getMouseGridCoords(e);
             snipState.currentX = coords.wx;
             snipState.currentY = coords.wy;
             renderSnipPreview();
         }
     });
 
-    // Soltamos el clic sin importar dónde esté el ratón en la pantalla
     window.addEventListener('mouseup', () => { 
         if (snipState.active) snipState.isDragging = false; 
     });
 }
+
+// ✨ FUNCIÓN PARA CICLAR EL ZOOM
+window.cycleSnipZoom = function() {
+    const levels = [16, 8, 4, 2, 1];
+    let idx = levels.indexOf(snipState.tileSize);
+    idx = (idx + 1) % levels.length;
+    snipState.tileSize = levels[idx];
+    
+    const btn = document.getElementById('btn-snip-zoom');
+    if (btn) btn.innerText = `Zoom: ${snipState.tileSize}x`;
+    
+    renderSnipPreview();
+};
 
 window.closeSnippingUI = function() {
     document.getElementById('snip-modal').style.display = 'none';
@@ -238,28 +286,21 @@ window.closeSnippingUI = function() {
     snipState.isDragging = false;
 };
 
-function edgeScrollLoop() {
+function snipCamLoop() {
     if (snipState.active) {
-        if (snipState.isDragging) {
-            const cvs = document.getElementById('snip-canvas');
-            const edge = 50; 
-            const speed = 0.6; 
-            let moved = false;
+        const speed = (16 / snipState.tileSize) * 0.5; // Ajusta la velocidad según el zoom
+        let moved = false;
 
-            if (snipState.rawMouseX < edge) { snipState.camX -= speed; moved = true; }
-            if (snipState.rawMouseX > cvs.width - edge) { snipState.camX += speed; moved = true; }
-            if (snipState.rawMouseY < edge) { snipState.camY -= speed; moved = true; }
-            if (snipState.rawMouseY > cvs.height - edge) { snipState.camY += speed; moved = true; }
+        if (snipState.keys['w'] || snipState.keys['arrowup']) { snipState.camY += speed; moved = true; }
+        if (snipState.keys['s'] || snipState.keys['arrowdown']) { snipState.camY -= speed; moved = true; }
+        if (snipState.keys['a'] || snipState.keys['arrowleft']) { snipState.camX -= speed; moved = true; }
+        if (snipState.keys['d'] || snipState.keys['arrowright']) { snipState.camX += speed; moved = true; }
 
-            if (moved) {
-                snipState.currentX = Math.floor(snipState.rawMouseX / snipState.tileSize) + Math.floor(snipState.camX);
-                snipState.currentY = Math.floor(snipState.rawMouseY / snipState.tileSize) + Math.floor(snipState.camY);
-                renderSnipPreview();
-            }
-        }
-        snipState.scrollLoop = requestAnimationFrame(edgeScrollLoop);
+        if (moved) renderSnipPreview();
+        
+        snipState.camLoop = requestAnimationFrame(snipCamLoop);
     } else {
-        snipState.scrollLoop = null;
+        snipState.camLoop = null;
     }
 }
 
@@ -271,7 +312,6 @@ function renderSnipPreview() {
     cvs.width = cvs.parentElement.clientWidth;
     cvs.height = cvs.parentElement.clientHeight;
 
-    // ✨ PINTAMOS EL CIELO
     ctx.fillStyle = '#7385b9';
     ctx.fillRect(0, 0, cvs.width, cvs.height);
     ctx.imageSmoothingEnabled = false;
@@ -287,7 +327,6 @@ function renderSnipPreview() {
             for (let y = startWY; y <= endWY; y++) {
                 let rawBlock = typeof mbwom.getBlockState === 'function' ? mbwom.getBlockState(x, y) : mbwom.scene[x][y];
                 
-                // ✨ FILTRO ESTRICTO: Si no tiene tipo, lo ignoramos por completo
                 if (!rawBlock || !rawBlock.type || rawBlock.type === 'air' || rawBlock.type === 0 || rawBlock.type === '0') continue;
 
                 let safeState = { type: rawBlock.type };
@@ -300,7 +339,7 @@ function renderSnipPreview() {
                 if (!renderObj) continue;
 
                 const drawX = (x - Math.floor(snipState.camX)) * snipState.tileSize;
-                const drawY = (y - Math.floor(snipState.camY)) * snipState.tileSize;
+                const drawY = cvs.height - ((y - Math.floor(snipState.camY)) * snipState.tileSize) - snipState.tileSize;
 
                 if (window.images && window.images.blocks && window.images.blocks.complete) {
                     ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, drawX, drawY, snipState.tileSize, snipState.tileSize);
@@ -316,7 +355,7 @@ function renderSnipPreview() {
         const maxY = Math.max(snipState.startY, snipState.currentY);
 
         const boxX = (minX - Math.floor(snipState.camX)) * snipState.tileSize;
-        const boxY = (minY - Math.floor(snipState.camY)) * snipState.tileSize;
+        const boxY = cvs.height - ((maxY - Math.floor(snipState.camY)) * snipState.tileSize) - snipState.tileSize;
         const boxW = (maxX - minX + 1) * snipState.tileSize;
         const boxH = (maxY - minY + 1) * snipState.tileSize;
 
@@ -345,7 +384,6 @@ window.confirmScreenshot = function() {
     finalCanvas.height = (maxY - minY + 1) * exportSize;
     const ctx = finalCanvas.getContext('2d');
     
-    // ✨ PINTAMOS EL CIELO EN LA FOTO FINAL TAMBIÉN
     ctx.fillStyle = '#7385b9';
     ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
     ctx.imageSmoothingEnabled = false;
@@ -356,7 +394,6 @@ window.confirmScreenshot = function() {
             for (let y = minY; y <= maxY; y++) {
                 let rawBlock = typeof mbwom.getBlockState === 'function' ? mbwom.getBlockState(x, y) : mbwom.scene[x][y];
                 
-                // ✨ FILTRO ESTRICTO AL EXPORTAR
                 if (!rawBlock || !rawBlock.type || rawBlock.type === 'air' || rawBlock.type === 0 || rawBlock.type === '0') continue;
 
                 let safeState = { type: rawBlock.type };
@@ -369,7 +406,7 @@ window.confirmScreenshot = function() {
                 if (!renderObj) continue;
 
                 const drawX = (x - minX) * exportSize;
-                const drawY = (y - minY) * exportSize;
+                const drawY = (maxY - y) * exportSize;
 
                 if (window.images && window.images.blocks && window.images.blocks.complete) {
                     ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, drawX, drawY, exportSize, exportSize);
