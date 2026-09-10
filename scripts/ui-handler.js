@@ -14,7 +14,7 @@ const inventoryCategories = {
         icon: 'ObsidianPickaxe', 
         items: [] // Se llena por LocalStorage
     },
-	
+    
     // 🧱 Blocks
     Blocks: { 
         icon: 'bricks', 
@@ -52,7 +52,7 @@ const inventoryCategories = {
             'craft', 'oven', 'chest', 'echest', 'cmp', 'enchant', 'anvil', 'ntag', 'bed1_red', 'dr2', 'idr2', 'bdr2', 'td1', 'sign', 'sl', 'lv', 'lv1', 'lv2', 'lv3', 'lv4', 'st', 'ladder', 'fnc', 'fncg', 'nfnc', 'nfncg', 'ibar', 'th_1',
         ]
     },
-	
+    
     // 🌿 Transportation
     Transportation: { 
         icon: 'rail', 
@@ -70,32 +70,32 @@ const inventoryCategories = {
             'WoodenAxe', 'StoneAxe', 'IronAxe', 'GoldAxe', 'DiamondAxe',
             'WoodenShovel', 'StoneShovel', 'IronShovel', 'GoldShovel', 'DiamondShovel',
             'WoodenHoe', 'StoneHoe', 'IronHoe', 'GoldHoe', 'DiamondHoe',
-			'fr', 'frodcarrot', 'Shear',
+            'fr', 'frodcarrot', 'Shear',
         ]
     },
-	
+    
     // 🌿 Food and Crops
     Food: { 
         icon: 'bread', 
         items: [
             'egg', 'fireegg', 'cegg', 'or', 'lemon', 'gasd', 'gap', 'capple', 'crml', 
-			'sugar', 'icec', 'potato', 'ppotato', 'bsed', 'beet', 'wseed', 'gmels', 'pseed', 
-			'pkp', 'carrot', 'gcarrot', 'wheat', 'bread', 'cookie', 'ccane', 
-			'cake_1', 'cake_2', 'cake_3', 'cake_4', 'cake_5', 'cake_6', 'cake_7', 
-			'ccake_1', 'ccake_2', 'ccake_3', 'ccake_4', 'ccake_5', 'ccake_6', 'ccake_7', 
-			'nw', 'nw_2', 'nw_3', 'nw_4', 'nw_5', 'nw_6', 'nw_7', 
-			'seed', 'seed_2', 'seed_3', 'seed_4', 'seed_5', 'seed_6', 'seed_7', 
-			'carrot_1', 'carrot_2', 'carrot_3', 'carrot_4', 'carrot_5', 'carrot_6', 'carrot_7', 
-			'wseed_1', 'wseed_2', 'wseed_3', 'wseed_4', 'wseed_5', 'wseed_6', 'wseed_7',
-			'pseed_2', 'pseed_3', 'pseed_4', 'pseed_5', 'pseed_6', 'pseed_7',
-			'pork', 'cpork', 'bacon', 'cbacon', 'beef', 'cbeef', 'chicken', 'cchicken', 'nugget',
-			'mutton', 'cmutton', 'rabbit', 'crabbit', 'fi', 'cfi', 'salmon', 'csalmon', 'clown', 'puff',
-			'rf', 'bowl', 'soup', 'rabbitsoup', 'beetsoup', 'lade', 'apade', 'orade', 'mbk', 
+            'sugar', 'icec', 'potato', 'ppotato', 'bsed', 'beet', 'wseed', 'gmels', 'pseed', 
+            'pkp', 'carrot', 'gcarrot', 'wheat', 'bread', 'cookie', 'ccane', 
+            'cake_1', 'cake_2', 'cake_3', 'cake_4', 'cake_5', 'cake_6', 'cake_7', 
+            'ccake_1', 'ccake_2', 'ccake_3', 'ccake_4', 'ccake_5', 'ccake_6', 'ccake_7', 
+            'nw', 'nw_2', 'nw_3', 'nw_4', 'nw_5', 'nw_6', 'nw_7', 
+            'seed', 'seed_2', 'seed_3', 'seed_4', 'seed_5', 'seed_6', 'seed_7', 
+            'carrot_1', 'carrot_2', 'carrot_3', 'carrot_4', 'carrot_5', 'carrot_6', 'carrot_7', 
+            'wseed_1', 'wseed_2', 'wseed_3', 'wseed_4', 'wseed_5', 'wseed_6', 'wseed_7',
+            'pseed_2', 'pseed_3', 'pseed_4', 'pseed_5', 'pseed_6', 'pseed_7',
+            'pork', 'cpork', 'bacon', 'cbacon', 'beef', 'cbeef', 'chicken', 'cchicken', 'nugget',
+            'mutton', 'cmutton', 'rabbit', 'crabbit', 'fi', 'cfi', 'salmon', 'csalmon', 'clown', 'puff',
+            'rf', 'bowl', 'soup', 'rabbitsoup', 'beetsoup', 'lade', 'apade', 'orade', 'mbk', 
         ]
     },
     
     // 🌿 Armor
-    Armor: { // Corregido el nombre de la categoría (antes decía Tools de nuevo)
+    Armor: { 
         icon: 'DiamondShirt', 
         items: [
             'LeatherCap', 'LeatherShirt', 'LeatherPants', 'LeatherShoes', 'IronCap', 'IronShirt', 'IronPants', 'IronShoes', 'GoldCap', 
@@ -103,19 +103,19 @@ const inventoryCategories = {
             'DragonPants', 'DragonShoes','SnowCap', 'AfroCap', 'PartyCap', 'ShadesCap', 'MustacheCap',
         ]
     },
-	
-	// 🧪 Pociones
+    
+    // 🧪 Pociones
     Potions: {
-        icon: 'potion', // Asegúrate de que exista un ícono base
+        icon: 'potion', 
         items: [] 
     },
-	
+    
 // 📚 Libros Encantados
     EnchantedBooks: {
         icon: 'ebook',
         items: [] 
     },
-	
+    
 };
 
 // =================================================================
@@ -216,13 +216,11 @@ document.addEventListener('mousemove', (e) => {
 
 let isBuildingChest = false;
 let customChestInventory = new Array(27).fill(null);
-let isCreatingCustomItem = false; // ✨ NUEVA
 
 function toggleInventory() {
     const modal = document.getElementById('inventory-modal');
-    const modalContent = modal.querySelector('.modal-content'); // ✨ NUEVO: Selecciona la caja principal
+    const modalContent = modal.querySelector('.modal-content'); 
     const chestPanel = document.getElementById('chest-builder-panel');
-    const customPanel = document.getElementById('custom-item-builder-panel'); // ✨
     const title = document.getElementById('inventory-modal-title');
     const hotbarContainer = document.getElementById('modal-hotbar-container');
 
@@ -231,16 +229,13 @@ function toggleInventory() {
         heldItem = null; 
         updateFloatingItem();
         isBuildingChest = false; 
-        isCreatingCustomItem = false; // ✨
     } else {
         modal.style.display = 'block';
         
         if (title) title.innerText = "Inventory";
         if (chestPanel) chestPanel.style.display = 'none'; 
-        if (customPanel) customPanel.style.display = 'none'; // ✨
         if (hotbarContainer) hotbarContainer.style.display = 'grid'; // Mostramos la hotbar
 
-        // ✨ NUEVO: Encogemos la ventana a 1 columna (584px)
         if (modalContent) modalContent.style.width = '584px';
 
         const searchInput = document.getElementById('inventory-search');
@@ -369,9 +364,8 @@ function populateInventory() {
             enchantments[enchantKey] = "enchant"; 
 
             const item = document.createElement('div');
-            item.className = 'inv-item enchanted-slot'; // Añadimos la clase mágica aquí
+            item.className = 'inv-item enchanted-slot'; 
             
-            // ELIMINAMOS el item.title nativo y no inyectamos div in-line
             item.title = ""; 
             
             // GUARDAMOS EL TEXTO MÁGICO EN EL DATASET PARA EL TOOLTIP MAESTRO
@@ -417,7 +411,7 @@ function populateInventory() {
             grid.appendChild(item);
         });
         
-        return; // Detenemos la función para que no se rompa buscando texturas
+        return; 
     }
 
 // ========================================================
@@ -500,9 +494,9 @@ function populateInventory() {
         
         return; 
     }
-	
+    
     // ========================================================
-    // --- LÓGICA ESPECIAL: PESTAÑA CUSTOM (LIMPIA) ---
+    // --- LÓGICA ESPECIAL: PESTAÑA CUSTOM ---
     // ========================================================
     if (activeInventoryTab === 'Custom') {
         let savedCustomItems = JSON.parse(localStorage.getItem('mbw_custom_items')) || [];
@@ -517,17 +511,8 @@ function populateInventory() {
             item.className = 'inv-item';
             
             item.onclick = () => {
-                // Verificamos si el Creador de Ítems está abierto
-                if (typeof isCreatingCustomItem !== 'undefined' && isCreatingCustomItem) {
-                    // Lo mandamos al panel para editar en lugar de agarrarlo
-                    if (typeof selectCustomItem === 'function') {
-                        selectCustomItem(itemID);
-                    }
-                } else {
-                    // Si el panel NO está abierto, lo agarramos normal (tu drag custom)
-                    heldItem = { type: itemID, count: itemCount, states1: itemDamage, nbt: enchantments };
-                    updateFloatingItem();
-                }
+                heldItem = { type: itemID, count: itemCount, states1: itemDamage, nbt: enchantments };
+                updateFloatingItem();
             };
 
             item.oncontextmenu = (e) => {
@@ -558,12 +543,11 @@ function populateInventory() {
 
             if (isEnchanted) {
                 item.classList.add('enchanted-slot');
-                item.title = ""; // Ocultamos el título nativo si tiene magia
+                item.title = ""; 
 
                 let enchantTooltipHTML = typeof formatEnchantments === 'function' ? formatEnchantments(enchantments) : "";
                 item.dataset.enchantTooltip = `<strong>${itemNameStr}</strong>${enchantTooltipHTML}`;
             } else {
-                // Si solo le cambiaron el nombre pero no tiene magias, usamos el tooltip normal
                 item.title = itemNameStr + " (Custom)";
             }
 
@@ -610,12 +594,7 @@ function populateInventory() {
         item.title = blockType; 
         
         item.onclick = () => {
-            // Si el creador de items está abierto, manda el bloque para allá
-            if (typeof isCreatingCustomItem !== 'undefined' && isCreatingCustomItem) {
-                if (typeof selectCustomItem === 'function') selectCustomItem(blockType);
-            } else {
-                pickupItemFromInventory(blockType); // Si no, recógelo normal en la mano
-            }
+            pickupItemFromInventory(blockType);
         };
         
         item.style.width = '64px';
@@ -1004,25 +983,20 @@ function toggleHardcore(isHardcore) {
 
 function openCreateChestModal() {
     isBuildingChest = true;
-    if (typeof isCreatingCustomItem !== 'undefined') isCreatingCustomItem = false;
     
     customChestInventory = new Array(27).fill(null); 
     
     const modal = document.getElementById('inventory-modal');
-    const modalContent = modal.querySelector('.modal-content'); // ✨ NUEVO: Buscamos la caja
+    const modalContent = modal.querySelector('.modal-content'); 
     const chestPanel = document.getElementById('chest-builder-panel');
-    const customPanel = document.getElementById('custom-item-builder-panel'); // ✨ FIX: Agregamos la referencia
     const title = document.getElementById('inventory-modal-title');
     
     modal.style.display = 'block';
     
-    // ✨ NUEVO: Estiramos la ventana a 2 columnas (1190px)
     if (modalContent) modalContent.style.width = '1190px';
     
     if (title) title.innerText = "Create Loot Chest";
     
-    // ✨ FIX: Apagamos el Item y Encendemos el Cofre
-    if (customPanel) customPanel.style.display = 'none';
     if (chestPanel) chestPanel.style.display = 'block'; 
     
     const nameInput = document.getElementById('custom-chest-name');
@@ -1240,10 +1214,10 @@ const enchantTranslations = {
     "respiration1": "Respiration I", "respiration2": "Respiration II", "respiration3": "Respiration III",
     "aquaaffinity1": "Aqua Affinity",
     "thorns1": "Thorns I", "thorns2": "Thorns II", "thorns3": "Thorns III",
-	
-	// Cañas de pescar
-	"luckofthesea1": "Luck Of The Sea I", "luckofthesea2": "Luck Of The Sea II", "luckofthesea3": "Luck Of The Sea III", 
-	"lure1": "Lure I", "lure2": "Lure II", "lure3": "Lure III", 
+    
+    // Cañas de pescar
+    "luckofthesea1": "Luck Of The Sea I", "luckofthesea2": "Luck Of The Sea II", "luckofthesea3": "Luck Of The Sea III", 
+    "lure1": "Lure I", "lure2": "Lure II", "lure3": "Lure III", 
 };
 
 // Función auxiliar para formatear el texto
@@ -1377,7 +1351,7 @@ saveCurrentWorldStateToMemory: function(id) {
             };
         }
     },
-	
+    
     loadWorldStateFromMemory: function(id) {
         const world = this.openWorlds.find(w => w.id === id);
         if (!world) return;
@@ -1538,7 +1512,7 @@ enchantedTooltipStyle.innerHTML = `
     /* Estilo para el título dorado dentro del tooltip */
     .master-enchant-tooltip strong {
         color: #ffffff !important; /* Dorado/Amarillo Minecraft */
-		font-size: 26px !important; /* <--- AQUÍ LE DAS EL TAMAÑO AL NOMBRE DEL ÍTEM */
+        font-size: 26px !important; /* <--- AQUÍ LE DAS EL TAMAÑO AL NOMBRE DEL ÍTEM */
         display: block;
         margin-bottom: 0px;
     }
@@ -1599,16 +1573,16 @@ const newsDatabase = [
         title: "v2.4d Update",
         date: "Jun 14, 2026", 
         image: "https://i.imgur.com/ohQQP6r.png", 
-		heroImage: "https://i.imgur.com/ohQQP6r.png", 
+        heroImage: "https://i.imgur.com/ohQQP6r.png", 
         excerpt: "Chats Upgrade",
         content: `
-			<ul class="pixel-list">
-				<li><code class="code-tag">[fixed]</code>  option to hide mob names</li>
-				<li><code class="code-tag">[fixed]</code>  8% zoom level</li>
-				<li><code class="code-tag">[fixed]</code>  the public and private chat now accept links</li>
-				<li><code class="code-tag">[fixed]</code>  you can now press Enter to start a new line when typing a message</li>
-				<li><code class="code-tag">[fixed]</code>  the private message button works again</li>
-				<li><code class="code-tag">[fixed]</code>  the file size is now displayed compressed.</li>
+            <ul class="pixel-list">
+                <li><code class="code-tag">[fixed]</code>  option to hide mob names</li>
+                <li><code class="code-tag">[fixed]</code>  8% zoom level</li>
+                <li><code class="code-tag">[fixed]</code>  the public and private chat now accept links</li>
+                <li><code class="code-tag">[fixed]</code>  you can now press Enter to start a new line when typing a message</li>
+                <li><code class="code-tag">[fixed]</code>  the private message button works again</li>
+                <li><code class="code-tag">[fixed]</code>  the file size is now displayed compressed.</li>
             </ul>
         `,
         gallery: [
@@ -1621,36 +1595,36 @@ const newsDatabase = [
         title: "v2.4c Patch",
         date: "Jun 8, 2026", 
         image: "https://i.imgur.com/aE1tlNJ.png", 
-		heroImage: "https://i.imgur.com/aE1tlNJ.png", 
+        heroImage: "https://i.imgur.com/aE1tlNJ.png", 
         excerpt: "Dimensions Patch",
         content: `
-			<ul class="pixel-list">
-				<li><code class="code-tag">[fixed]</code>  CRITICAL BUG: Mobs from other dimensions no longer disappear when you export the world</li>
+            <ul class="pixel-list">
+                <li><code class="code-tag">[fixed]</code>  CRITICAL BUG: Mobs from other dimensions no longer disappear when you export the world</li>
             </ul>
         `,
         gallery: [
             "https://i.imgur.com/aE1tlNJ.png",
         ]
     },
-	{
+    {
         id: 6,
         type: "updates",
         title: "v2.4b Patch",
         date: "Jun 7, 2026", 
         image: "https://i.imgur.com/dF9pGoN.png", 
-		heroImage: "https://i.imgur.com/dF9pGoN.png", 
+        heroImage: "https://i.imgur.com/dF9pGoN.png", 
         excerpt: "Dimensions Patch",
         content: `
-			<ul class="pixel-list">
-				<li><code class="code-tag">[fixed]</code>  CRITICAL BUG: Mobs no longer disappear when you switch dimensions</li>
-				<li>status-bar is now smaller</li>
-				<li>Normal & OP options for Generated Chests</li>
+            <ul class="pixel-list">
+                <li><code class="code-tag">[fixed]</code>  CRITICAL BUG: Mobs no longer disappear when you switch dimensions</li>
+                <li>status-bar is now smaller</li>
+                <li>Normal & OP options for Generated Chests</li>
             </ul>
         `,
         gallery: [
             "https://i.imgur.com/ywOhzEz.png",
-			"https://i.imgur.com/K9hNb66.png",
-			"https://i.imgur.com/RFbpOjN.png",
+            "https://i.imgur.com/K9hNb66.png",
+            "https://i.imgur.com/RFbpOjN.png",
         ]
     },
     {
@@ -1659,7 +1633,7 @@ const newsDatabase = [
         title: "v2.4 - QoL Update",
         date: "May 26, 2026", 
         image: "https://i.imgur.com/xo6OpcV.png", 
-		heroImage: "https://i.imgur.com/xo6OpcV.png", 
+        heroImage: "https://i.imgur.com/xo6OpcV.png", 
         excerpt: "Languages, sounds and other Quality of Life updates!",
         content: `
             <h3 style="margin-top: 0; color: #333;">Changelog:</h3>
@@ -1679,25 +1653,25 @@ const newsDatabase = [
                         <li>🦑squid</li>
                         <li>⛄snowgolem</li>
                     </ul>
-				<li><code class="code-tag">[beta]</code><b>🔉SFX!</b></li>
+                <li><code class="code-tag">[beta]</code><b>🔉SFX!</b></li>
                     <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
                         <li>clic</li>
                         <li>xp orb</li>
-						<li>level up</li>
-						<li>broken glass</li>
-						<li>wolf</li>
-						<li>mooshroom & cowctus cow</li>
-						<li>slime</li>
+                        <li>level up</li>
+                        <li>broken glass</li>
+                        <li>wolf</li>
+                        <li>mooshroom & cowctus cow</li>
+                        <li>slime</li>
                     </ul>
                 <li><code class="code-tag">[beta]</code><b>🎒 Inventory</b></li>
                     <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
                         <li>slime block</li>
-						<li>moustache</li>
-						<li>santa hat</li>
-						<li>party hat</li>
-						<li>sunglasses</li>
-						<li>scepter</li>
-						<li>scepter stone</li>
+                        <li>moustache</li>
+                        <li>santa hat</li>
+                        <li>party hat</li>
+                        <li>sunglasses</li>
+                        <li>scepter</li>
+                        <li>scepter stone</li>
                     </ul>
                 <li>💾 backups for saved worlds</li>
                 <li>🔍 more zoom levels: 3%, 4%, 5%, 75%, 400%, 500%, 600%</li>
@@ -1707,25 +1681,25 @@ const newsDatabase = [
                     </ul>
                 <li>pencil now has 1-100 sizes</li>
                 <li>versions history for worlds</li>
-				<li>worlds can now be pinned in the menu</li>
-				<li>dimensions now has backgrounds</li>
-				<li>thumbnails for saved worlds now saves as PNG (better quality)</li>
-				<li>new icons:</li>
+                <li>worlds can now be pinned in the menu</li>
+                <li>dimensions now has backgrounds</li>
+                <li>thumbnails for saved worlds now saves as PNG (better quality)</li>
+                <li>new icons:</li>
                     <ul class="pixel-list" style="margin-top: 5px; margin-bottom: 5px;">
                         <li>spray</li>
-						<li>background for dimensions</li>
+                        <li>background for dimensions</li>
                     </ul>
-				<li>changelogs for Snapshots</li>
-				
+                <li>changelogs for Snapshots</li>
+                
                 <li><code class="code-tag">[fixed]</code>  enchantments for fishing rod</li>
-				<li><code class="code-tag">[fixed]</code>  items can no longer be enchanted with Unbreakable I-III in Custom Items</li>
-				<li><code class="code-tag">[fixed]</code>  auto-save works with all open worlds</li>
-				<li><code class="code-tag">[fixed]</code>  multiple areas can be selected again</li>
-				<li><code class="code-tag">[fixed]</code>  bucket, brush, select, and lasso tools</li>
-				<li><code class="code-tag">[fixed]</code>  structures now attach to air blocks</li>
-				<li><code class="code-tag">[fixed]</code>  block rendering when zooming</li>
-				<li><code class="code-tag">[fixed]</code>  rendering for Ghasts, Magmacubes, and Blazes</li>
-				<li><code class="code-tag">[fixed]</code>  the grid is no longer disabled when refreshing the page</li>
+                <li><code class="code-tag">[fixed]</code>  items can no longer be enchanted with Unbreakable I-III in Custom Items</li>
+                <li><code class="code-tag">[fixed]</code>  auto-save works with all open worlds</li>
+                <li><code class="code-tag">[fixed]</code>  multiple areas can be selected again</li>
+                <li><code class="code-tag">[fixed]</code>  bucket, brush, select, and lasso tools</li>
+                <li><code class="code-tag">[fixed]</code>  structures now attach to air blocks</li>
+                <li><code class="code-tag">[fixed]</code>  block rendering when zooming</li>
+                <li><code class="code-tag">[fixed]</code>  rendering for Ghasts, Magmacubes, and Blazes</li>
+                <li><code class="code-tag">[fixed]</code>  the grid is no longer disabled when refreshing the page</li>
         `,
         gallery: [
             "https://i.imgur.com/4agjCDx.png", 
@@ -1733,16 +1707,16 @@ const newsDatabase = [
             "https://i.imgur.com/JhFxPFF.png", 
             "https://i.imgur.com/sawRIux.png", 
             "https://i.imgur.com/H7szZBx.png", 
-			"https://i.imgur.com/ADpMMP5.png",
+            "https://i.imgur.com/ADpMMP5.png",
         ]
     },
-	{
+    {
         id: 4,
         type: "updates", // Muestra esto en la pestaña "Updates"
         title: "v2.3 - Multiplayer Update",
         date: "April 25, 2026", 
         image: "https://i.imgur.com/HLeNf8x.png", 
-		heroImage: "https://i.imgur.com/HLeNf8x.png", 
+        heroImage: "https://i.imgur.com/HLeNf8x.png", 
         excerpt: "Create a map with friends, chat with them, and more!",
         content: `
             <h3 style="margin-top: 0; color: #333;">Changelog:</h3>
@@ -1797,7 +1771,7 @@ const newsDatabase = [
         title: "v2.2 - Chests Update",
         date: "March 23, 2026", 
         image: "https://i.imgur.com/HX0oYeQ.png", 
-		heroImage: "https://i.imgur.com/HX0oYeQ.png", 
+        heroImage: "https://i.imgur.com/HX0oYeQ.png", 
         excerpt: "Huge update including new structures, magic wand, custom items, tabs system, and much more!",
         content: `
             <h3 style="margin-top: 0; color: #333;">Changelog:</h3>
@@ -1877,7 +1851,7 @@ const newsDatabase = [
         title: "v2.1 - Structures Update",
         date: "February 23, 2026",
         image: "https://i.imgur.com/8IIHD3d.png",
-		heroImage: "https://i.imgur.com/8IIHD3d.png",
+        heroImage: "https://i.imgur.com/8IIHD3d.png",
         excerpt: "Structures library, improved tools, new UI, and bug fixes.",
         content: `
             <h3 style="margin-top: 0; color: #333;">Changelog:</h3>
@@ -1925,7 +1899,7 @@ const newsDatabase = [
         title: "v2.0",
         date: "January 16, 2026",
         image: "/favicon.ico",
-		heroImage: "https://i.imgur.com/4ZYclOO.png",
+        heroImage: "https://i.imgur.com/4ZYclOO.png",
         excerpt: "New UI, Copy-Paste, Zoom, and more!",
         content: `
             <h3 style="margin-top: 0; color: #333;">Changelog:</h3>
@@ -1939,25 +1913,25 @@ const newsDatabase = [
             </ul>
         `
     },
-	
-	{
+    
+    {
         id: 101,
         type: "snapshots", // Muestra esto en la pestaña "Updates"
         title: "v2.4b - Snapshot 1",
         date: "May 27, 2026", 
         image: "https://i.imgur.com/dF9pGoN.png", 
-		heroImage: "https://i.imgur.com/dF9pGoN.png", 
+        heroImage: "https://i.imgur.com/dF9pGoN.png", 
         excerpt: "Generated Chests upgrade",
         content: `
-			<ul class="pixel-list">
+            <ul class="pixel-list">
             <li>status-bar is now smaller</li>
-			<li>Normal & OP options for Generated Chests</li>
+            <li>Normal & OP options for Generated Chests</li>
             </ul>
         `,
         gallery: [
             "https://i.imgur.com/ywOhzEz.png",
-			"https://i.imgur.com/K9hNb66.png",
-			"https://i.imgur.com/RFbpOjN.png",
+            "https://i.imgur.com/K9hNb66.png",
+            "https://i.imgur.com/RFbpOjN.png",
         ]
     },
     {
@@ -1966,13 +1940,13 @@ const newsDatabase = [
         title: "v2.4 - Pre-release 1",
         date: "May 18, 2026", 
         image: "https://i.imgur.com/dF9pGoN.png", 
-		heroImage: "https://i.imgur.com/dF9pGoN.png", 
+        heroImage: "https://i.imgur.com/dF9pGoN.png", 
         excerpt: "Languages, spawnskins, addons, sounds, and more!",
         content: `
-			<ul class="pixel-list">
-			<li>Changelogs for Snapshots!</li>
+            <ul class="pixel-list">
+            <li>Changelogs for Snapshots!</li>
             <li><code class="code-tag">[FIXED]</code>  CRITICAL BUG: spawned mobs no longer moves to the overworld</li>
-			<li><code class="code-tag">[FIXED]</code>  render for ghast, magmacubes and blazes</li>
+            <li><code class="code-tag">[FIXED]</code>  render for ghast, magmacubes and blazes</li>
             </ul>
         `,
         gallery: [
@@ -1981,7 +1955,7 @@ const newsDatabase = [
             "https://i.imgur.com/JhFxPFF.png", 
             "https://i.imgur.com/sawRIux.png", 
             "https://i.imgur.com/H7szZBx.png", 
-			"https://i.imgur.com/ADpMMP5.png",
+            "https://i.imgur.com/ADpMMP5.png",
         ]
     },
 
@@ -2589,6 +2563,7 @@ let recentMobsList = ['zombie', 'skeleton', 'creeper'];
 const ALL_MOBS_DB = [
     "zombie", "skeleton", "creeper", "spider", "slime", "pig", "cow", "cowctus", "mushroom", "chicken", "sheep",
     "zombiepigman", "ghast", "blaze", "magmacube", "nethereye", "enderman", "enderdragon", "snowgolem", "bat", "rabbit", "squid",
+    "wolf", "dog"
 ];
 
 // 1. Dibuja los botones en el menú superior (Estilo Estructuras)
@@ -2653,17 +2628,19 @@ let activeMobTab = 'Overworld'; // Dimensión por defecto al abrir
 // Base de datos rápida de vida para la previsualización (HP)
 const MOBS_HP_DB = {
     "chicken": 4, "snowgolem": 4, "bat": 6, "rabbit": 3,
+    "wolf": 8,
     "sheep": 8, "pig": 8, "cow": 10, "ghast": 10, "slime": 16, "magmacube": 16,
-    "zombie": 20, "skeleton": 20, "creeper": 20, "spider": 20, "zombiepigman": 20, "blaze": 20,
-    "enderman": 40, "enderdragon": 333, "nethereye": 20,
+    "zombie": 20, "skeleton": 20, "creeper": 20, "spider": 20, "zombiepigman": 20, "blaze": 20, "nethereye": 20,
+    "dog": 20,
+    "enderman": 40, "enderdragon": 333
 };
 
 // Mobs organizados por dimensión
 const MOBS_BY_DIMENSION = {
-	"Animals": ["bat", "chicken", "pig", "cow", "cowctus", "mushroom", "rabbit", "sheep", "squid", "wolf"],
-	"Overworld": ["creeper", "skeleton", "slime", "snowgolem", "spider", "zombie"],
-	"Nether": ["blaze", "ghast", "magmacube", "nethereye", "zombiepigman"],
-	"End": ["enderman", "enderdragon"]
+    "Animals": ["bat", "chicken", "pig", "cow", "cowctus", "mushroom", "rabbit", "sheep", "squid", "wolf", "dog"],
+    "Overworld": ["creeper", "skeleton", "slime", "snowgolem", "spider", "zombie"],
+    "Nether": ["blaze", "ghast", "magmacube", "nethereye", "zombiepigman"],
+    "End": ["enderman", "enderdragon"]
 };
 
 // Abre la ventana modal
@@ -2677,7 +2654,7 @@ function filterMobs(dimension) {
     activeMobTab = dimension;
     
     // 1. Actualizar el CSS de las pestañas
-	document.getElementById('tab-mob-animals').classList.remove('active');
+    document.getElementById('tab-mob-animals').classList.remove('active');
     document.getElementById('tab-mob-overworld').classList.remove('active');
     document.getElementById('tab-mob-nether').classList.remove('active');
     document.getElementById('tab-mob-end').classList.remove('active');
@@ -2713,8 +2690,11 @@ function filterMobs(dimension) {
     }
 }
 
-// Actualiza el panel lateral derecho con el mob seleccionado
-function previewMob(mob) {
+// ==========================================
+// 🐷 LÓGICA DEL MOB BROWSER ORIGINAL
+// ==========================================
+
+window.previewMob = function(mob) {
     currentlyPreviewedMob = mob;
     
     let niceName = mob.charAt(0).toUpperCase() + mob.slice(1);
@@ -2739,18 +2719,19 @@ function previewMob(mob) {
         hpEl.innerText = `Health: ${hp} HP`;
     }
 
-    // ✨ NUEVO: Disparamos el sonido del mob al previsualizarlo
+    // Sonido
     if (typeof audioManager !== 'undefined') {
         audioManager.playMobSound(mob);
     }
-}
+};
 
-// Se ejecuta al darle al botón verde "Spawn Mob" del panel lateral
-function spawnPreviewedMob() {
+window.spawnPreviewedMob = function() {
     if (currentlyPreviewedMob) {
-        selectMobToSpawn(currentlyPreviewedMob);
+        if (typeof selectMobToSpawn === 'function') {
+            selectMobToSpawn(currentlyPreviewedMob);
+        }
     }
-}
+};
 
 // Inicializamos la barra al cargar la página
 window.addEventListener('DOMContentLoaded', () => {
@@ -2871,554 +2852,6 @@ function toggleLiveTime(checkbox) {
         console.log("⏸️ Live Time: PAUSED");
     }
 }
-
-
-// ==========================================
-// ✨ LÓGICA DE LA BARRA DE ESTADO (STATUS BAR) ✨
-// ==========================================
-
-// 1. Botones de + y - (Sincronizado con tu barra deslizable)
-window.zoomHUD = function(direction) {
-    // direction es -1 (out) o 1 (in)
-    if (typeof currentZoomIndex !== 'undefined' && typeof ZOOM_LEVELS !== 'undefined') {
-        let newIndex = currentZoomIndex + direction;
-        // Evitamos que se salga de los límites
-        if (newIndex >= 0 && newIndex < ZOOM_LEVELS.length) {
-            // Reutilizamos tu función original
-            updateZoomSlider(newIndex);
-        }
-    }
-};
-
-// 2. Reiniciar Zoom al hacer clic en el porcentaje ("100%")
-window.resetZoomHUD = function() {
-    if (typeof ZOOM_LEVELS !== 'undefined') {
-        let index100 = ZOOM_LEVELS.indexOf(100);
-        if (index100 !== -1) {
-            updateZoomSlider(index100);
-        }
-    }
-};
-
-// 3. Botón de Pantalla Completa
-window.toggleFullscreenHUD = function() {
-    if (!document.fullscreenElement) {
-        // Entrar a pantalla completa
-        document.documentElement.requestFullscreen().catch(err => {
-            console.log(`Error while fullscreen: ${err.message}`);
-        });
-    } else {
-        // Salir de pantalla completa
-        if (document.exitFullscreen) {
-            document.exitFullscreen();
-        }
-    }
-};
-
-// 4. Medidor de FPS Real en vivo (Con Semáforo de Rendimiento)
-let lastFrameTime = performance.now();
-let frameCount = 0;
-
-function updateFPS() {
-    const now = performance.now();
-    frameCount++;
-    
-    // Cada 1000 milisegundos (1 segundo), actualizamos el texto
-    if (now - lastFrameTime >= 1000) {
-        const fpsDisplay = document.getElementById('fps-display');
-        if (fpsDisplay) {
-            fpsDisplay.innerText = frameCount + " FPS";
-            
-            // ✨ MAGIA DE COLORES ✨
-            if (frameCount >= 50) {
-                fpsDisplay.style.color = "#2ecc71"; // Verde (Súper fluido)
-            } else if (frameCount >= 30) {
-                fpsDisplay.style.color = "#f1c40f"; // Amarillo (Bajón leve)
-            } else {
-                fpsDisplay.style.color = "#e74c3c"; // Rojo (Lag severo)
-            }
-        }
-        
-        // Reiniciamos los contadores para el siguiente segundo
-        frameCount = 0;
-        lastFrameTime = now;
-    }
-    
-    requestAnimationFrame(updateFPS);
-}
-
-// Iniciar el contador de FPS
-requestAnimationFrame(updateFPS);
-
-
-// ==========================================
-// 🧬 LÓGICA DEL CUSTOM MOB CREATOR
-// ==========================================
-
-let activeCustomTab = 'Overworld';
-let selectedCustomMob = 'zombie';
-
-// 1. Abre el nuevo modal
-window.openCustomMobBuilder = function() {
-    document.getElementById('create-mob-modal').style.display = 'block';
-    filterCustomMobs(activeCustomTab); 
-};
-
-// 2. Filtra los mobs y llena el grid (Ahora soporta la pestaña Custom)
-window.filterCustomMobs = function(dimension) {
-    activeCustomTab = dimension;
-    
-    // Actualizar pestañas
-    const tabs = ['Custom', 'Animals', 'Overworld', 'Nether', 'End'];
-    tabs.forEach(tab => {
-        let btn = document.getElementById('tab-cmob-' + tab.toLowerCase());
-        if (btn) {
-            if (tab === dimension) btn.classList.add('active');
-            else btn.classList.remove('active');
-        }
-    });
-
-    const container = document.getElementById('cmobs-grid');
-    if (!container) return;
-    container.innerHTML = ''; 
-    
-    let mobsToShow = [];
-    let isCustomTab = (dimension === 'Custom');
-
-    if (isCustomTab) {
-        mobsToShow = Object.keys(window.CUSTOM_MOBS_DB || {}); 
-    } else {
-        mobsToShow = MOBS_BY_DIMENSION[dimension] || [];
-    }
-
-    if (mobsToShow.length === 0 && isCustomTab) {
-        container.innerHTML = `<p style="color: #888; text-align: center; width: 100%; margin-top: 40px; font-family: 'Pixeltype', sans-serif; font-size: 24px;">No bases found.</p>`;
-        return;
-    }
-    
-    mobsToShow.forEach(mobId => {
-        let niceName, imgSrc, baseMob;
-
-        if (isCustomTab) {
-            let customData = window.CUSTOM_MOBS_DB[mobId];
-            niceName = customData.name;
-            baseMob = customData.baseMob;
-        } else {
-            niceName = mobId.charAt(0).toUpperCase() + mobId.slice(1);
-            baseMob = mobId;
-        }
-
-        imgSrc = (window.images && window.images[baseMob] && window.images[baseMob].src) 
-                 ? window.images[baseMob].src : `assets/mobs/${baseMob}.png`;
-
-        container.innerHTML += `
-        <div class="mob-item" onclick="previewCustomMob('${mobId}')" title="${niceName}" style="margin: 0; height: 156px; border-bottom: 2px solid #272727; border-right: 2px solid #272727;">
-            <img src="${imgSrc}" style="width: 90%; height: 90%; object-fit: contain; image-rendering: pixelated;" onerror="this.onerror=null; this.src='assets/mobs/${baseMob}.png'">
-            <span class="mob-name" style="font-size: 14px; margin-top: 0px;">${niceName}</span>
-        </div>
-        `;
-    });
-
-    if (mobsToShow.length > 0) previewCustomMob(mobsToShow[0]);
-};
-
-
-// ==========================================
-// 💾 SISTEMA DE GUARDADO: MOBS CUSTOM
-// ==========================================
-
-// 1. Inicializamos la Base de Datos (Carga desde LocalStorage)
-window.CUSTOM_MOBS_DB = JSON.parse(localStorage.getItem('mbw_custom_mobs')) || {};
-
-// 2. Parcheamos filterMobs para que lea la base de datos en la pestaña Custom
-window.filterMobs = function(dimension) {
-    activeMobTab = dimension;
-    
-    // A) Actualizar el CSS de las pestañas
-    const tabs = ['Custom', 'Animals', 'Overworld', 'Nether', 'End'];
-    tabs.forEach(tab => {
-        let btn = document.getElementById('tab-mob-' + tab.toLowerCase());
-        if (btn) {
-            if (tab === dimension) btn.classList.add('active');
-            else btn.classList.remove('active');
-        }
-    });
-
-    // B) Llenar la cuadrícula
-    const container = document.getElementById('mobs-grid');
-    if (!container) return;
-    container.innerHTML = ''; 
-
-    let mobsToShow = [];
-    let isCustomTab = (dimension === 'Custom');
-
-    if (isCustomTab) {
-        mobsToShow = Object.keys(window.CUSTOM_MOBS_DB); // Trae los IDs guardados
-    } else {
-        mobsToShow = MOBS_BY_DIMENSION[dimension] || [];
-    }
-    
-    // Mensaje si no hay custom mobs
-    if (mobsToShow.length === 0 && isCustomTab) {
-        container.innerHTML = `<p style="color: #888; text-align: center; width: 100%; margin-top: 40px; font-family: 'Pixeltype', sans-serif; font-size: 24px;">No custom mobs yet.<br>Go to Create > Custom Mob!</p>`;
-        return;
-    }
-
-    // Dibujar los items
-    mobsToShow.forEach(mobId => {
-        let niceName, imgSrc, baseMob;
-
-        if (isCustomTab) {
-            let customData = window.CUSTOM_MOBS_DB[mobId];
-            niceName = customData.name;
-            baseMob = customData.baseMob;
-        } else {
-            niceName = mobId.charAt(0).toUpperCase() + mobId.slice(1);
-            baseMob = mobId;
-        }
-
-        imgSrc = (window.images && window.images[baseMob] && window.images[baseMob].src) 
-                 ? window.images[baseMob].src : `assets/mobs/${baseMob}.png`;
-
-        container.innerHTML += `
-        <div class="mob-item" onclick="previewMob('${mobId}')" title="${niceName}" style="margin: 0; height: 156px; border-bottom: 2px solid #272727; border-right: 2px solid #272727;">
-            <img src="${imgSrc}" style="width: 90%; height: 90%; object-fit: contain; image-rendering: pixelated;" onerror="this.onerror=null; this.src='assets/mobs/${baseMob}.png'">
-            <span class="mob-name" style="font-size: 14px; margin-top: 0px;">${niceName}</span>
-        </div>
-        `;
-    });
-
-    // Auto-seleccionar el primero
-    if (mobsToShow.length > 0) previewMob(mobsToShow[0]);
-};
-
-// 4. Parcheamos el Spawn para que diferencie entre Mobs normales y Custom
-window.spawnPreviewedMob = function() {
-    if (!currentlyPreviewedMob) return;
-
-    if (window.CUSTOM_MOBS_DB[currentlyPreviewedMob]) {
-        // Spawnear el Custom Mob
-        let customData = window.CUSTOM_MOBS_DB[currentlyPreviewedMob];
-        let newMob = JSON.parse(JSON.stringify(customData.template));
-        
-        let worldInstanceId = 'inst_' + Date.now();
-        newMob.id = worldInstanceId; // Le damos un ID único en el mundo
-        
-        if (typeof camera !== 'undefined') {
-            newMob.x = camera.x;
-            newMob.y = -camera.y;
-        }
-
-        if (typeof mbwom !== 'undefined' && mbwom.world) {
-            if (!mbwom.mobs) mbwom.mobs = {};
-            mbwom.mobs[worldInstanceId] = newMob;
-            
-            try { closeModal('mobs-modal'); } catch(e){}
-            if (typeof agregarMensajeChatPublico !== 'undefined') {
-                agregarMensajeChatPublico("Sistema", `⚡ Has spawneado tu creación: ${customData.name}!`);
-            }
-        }
-    } else {
-        // Spawnear Mob Normal (Tu código original)
-        if (typeof selectMobToSpawn === 'function') selectMobToSpawn(currentlyPreviewedMob);
-    }
-};
-
-// ==========================================
-// 🛡️ DICCIONARIO Y LÓGICA DE ARMADURAS
-// ==========================================
-const ARMOR_DATA = {
-    caps: ['air', 'LeatherCap', 'IronCap', 'GoldCap', 'DiamondCap', 'DragonCap'],
-    shirts: ['air', 'LeatherShirt', 'IronShirt', 'GoldShirt', 'DiamondShirt', 'DragonShirt'],
-    pants: ['air', 'LeatherPants', 'IronPants', 'GoldPants', 'DiamondPants', 'DragonPants'],
-    shoes: ['air', 'LeatherShoes', 'IronShoes', 'GoldShoes', 'DiamondShoes', 'DragonShoes']
-};
-
-// ==========================================
-// 🎒 SISTEMA DE INVENTARIO DEL MOB
-// ==========================================
-// Lista de los items más comunes para soltar (puedes agregar más a esta lista luego)
-const INVENTORY_ITEMS = [
-    'Apple', 'Arrow', 'Beef', 'Bone', 'Bow', 'Bread', 'Coal', 'Cobblestone', 
-    'Diamond', 'DiamondSword', 'Dirt', 'Emerald', 'GoldIngot', 'GoldenApple', 
-    'Gunpowder', 'IronIngot', 'RottenFlesh', 'Slimeball', 'SpiderEye', 'Stick', 'String', 'Wood'
-];
-
-window.addMobInventorySlot = function(itemName = 'Diamond', qty = 1) {
-    const list = document.getElementById('cmob-inventory-list');
-    if (!list) return;
-
-    // Crear un ID único para poder borrar esta fila específica si nos arrepentimos
-    const slotId = 'inv-slot-' + Date.now() + Math.floor(Math.random() * 1000);
-
-    // Generar las opciones del selector
-    const optionsHtml = INVENTORY_ITEMS.map(item => {
-        let niceName = item.replace(/([A-Z])/g, ' $1').trim();
-        return `<option value="${item}" ${item === itemName ? 'selected' : ''}>${niceName}</option>`;
-    }).join('');
-
-    const row = document.createElement('div');
-    row.id = slotId;
-    row.style.display = 'flex';
-    row.style.alignItems = 'center';
-    row.style.justifyContent = 'space-between';
-    row.style.gap = '5px';
-
-    row.innerHTML = `
-        <select class="inv-item-select" style="flex: 1; background: #111; color: white; border: 1px solid #333; font-family: 'Pixeltype', sans-serif; font-size: 16px; padding: 2px;" onchange="window.updateArmorPreview(this.id, 'img-${slotId}')" id="sel-${slotId}">
-            ${optionsHtml}
-        </select>
-        
-        <div style="width: 26px; height: 26px; background: #000; border: 1px solid #444; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
-            <div id="img-${slotId}" style="width: 24px; height: 24px; image-rendering: pixelated; background-image: url('assets/${itemName}.png'); background-size: contain; background-position: center; background-repeat: no-repeat;"></div>
-        </div>
-        
-        <input type="number" class="inv-item-qty" value="${qty}" min="1" max="64" title="Quantity" style="width: 40px; background: #111; border: 1px solid #333; color: white; font-family: 'Pixeltype', sans-serif; font-size: 16px; text-align: center; padding: 2px;">
-        
-        <button onclick="document.getElementById('${slotId}').remove()" style="background: #500; color: white; border: 1px solid #f55; cursor: pointer; padding: 2px 6px; font-family: 'Arial'; font-size: 12px; font-weight: bold;">X</button>
-    `;
-    
-    list.appendChild(row);
-    
-    // Forzamos la actualización de la imagen aprovechando nuestra función existente!
-    if (typeof window.updateArmorPreview === 'function') {
-        window.updateArmorPreview(`sel-${slotId}`, `img-${slotId}`);
-    }
-};
-
-// Actualiza la imagen cargando directamente el archivo individual (.png)
-window.updateArmorPreview = function(selectId, previewBoxId) {
-    const itemName = document.getElementById(selectId).value; // Ej: "LeatherCap"
-    const boxEl = document.getElementById(previewBoxId);
-    
-    if (!boxEl) return;
-
-    if (itemName === 'air') {
-        boxEl.style.backgroundImage = 'none'; 
-        return; 
-    }
-
-    // 1. Convertimos "LeatherCap" a "Leather Cap" para que coincida con tu archivo
-    const fileName = itemName.replace(/([A-Z])/g, ' $1').trim();
-
-    // 2. Cargamos la imagen directamente desde la carpeta assets
-    boxEl.style.backgroundImage = `url('assets/${fileName}.png')`;
-    boxEl.style.backgroundPosition = "center";
-    boxEl.style.backgroundSize = "contain"; 
-    boxEl.style.backgroundRepeat = "no-repeat";
-};
-
-window.setupArmorSelectors = function() {
-    const fill = (id, list, previewId) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.innerHTML = list.map(item => `<option value="${item}">${item === 'air' ? 'None' : item.replace(/[A-Z]/g, ' $&').trim()}</option>`).join('');
-        // Forzamos actualización de la imagen inicial
-        window.updateArmorPreview(id, previewId);
-    };
-    
-    fill('cmob-helmet', ARMOR_DATA.caps, 'prev-helmet');
-    fill('cmob-shirt', ARMOR_DATA.shirts, 'prev-shirt');
-    fill('cmob-pants', ARMOR_DATA.pants, 'prev-pants');
-    fill('cmob-shoes', ARMOR_DATA.shoes, 'prev-shoes');
-};
-
-// Actualizamos previewCustomMob para reiniciar las vistas previas
-const originalPreviewCustomMob = window.previewCustomMob;
-
-// ==========================================
-// 🧬 PREVISUALIZACIÓN DE MOB CUSTOM
-// ==========================================
-window.previewCustomMob = function(mobId) {
-    selectedCustomMob = mobId; 
-    
-    let niceName, imgSrc, baseMob, defaultHp;
-
-    // A) Determinar si es un mob guardado o una plantilla base
-    if (window.CUSTOM_MOBS_DB && window.CUSTOM_MOBS_DB[mobId]) {
-        let customData = window.CUSTOM_MOBS_DB[mobId];
-        niceName = customData.name;
-        baseMob = customData.baseMob;
-        defaultHp = customData.health;
-    } else {
-        niceName = mobId.charAt(0).toUpperCase() + mobId.slice(1);
-        baseMob = mobId;
-        defaultHp = (typeof MOBS_HP_DB !== 'undefined' && MOBS_HP_DB[mobId]) ? MOBS_HP_DB[mobId] : 20;
-    }
-
-    // B) Actualizar Interfaz (Imagen, Título y Stats básicos)
-    imgSrc = (window.images && window.images[baseMob] && window.images[baseMob].src) 
-                 ? window.images[baseMob].src : `assets/mobs/${baseMob}.png`;
-    document.getElementById('cmob-preview-image').src = imgSrc;
-    document.getElementById('cmob-info-title').innerText = niceName;
-    document.getElementById('cmob-hp').value = defaultHp;
-    document.getElementById('cmob-name').value = window.CUSTOM_MOBS_DB[mobId] ? niceName + " V2" : ''; 
-
-    // C) Resetear Checkboxes
-    if (document.getElementById('cmob-persists')) document.getElementById('cmob-persists').checked = true;
-    if (document.getElementById('cmob-default-drops')) document.getElementById('cmob-default-drops').checked = true;
-
-    // D) Limpiar y Cargar Inventario (Drops)
-    const invList = document.getElementById('cmob-inventory-list');
-    if (invList) invList.innerHTML = ''; 
-
-    if (window.CUSTOM_MOBS_DB && window.CUSTOM_MOBS_DB[mobId] && window.CUSTOM_MOBS_DB[mobId].template.drops) {
-        // Diccionario inverso para que el editor sepa de qué item se trata
-        const REVERSE_IDS = { 'dm':'Diamond', 'gi':'GoldIngot', 'ii':'IronIngot', 'em':'Emerald', 'c':'Coal', 'rf':'RottenFlesh', 'bo':'Bone', 'a':'Arrow', 'gp':'Gunpowder', 'st':'String', 'se':'SpiderEye', 'sl':'Slimeball', 's':'Stick', 'ap':'Apple', 'gap':'GoldenApple', 'br':'Bread', 'bf':'Beef', 'w':'Wood', 'cb':'Cobblestone' };
-
-        window.CUSTOM_MOBS_DB[mobId].template.drops.forEach(dropData => {
-            // Convertimos el "dm" de vuelta a "Diamond" para la UI
-            let itemNiceName = REVERSE_IDS[dropData.type] ? REVERSE_IDS[dropData.type] : dropData.type;
-            if (typeof window.addMobInventorySlot === 'function') {
-                window.addMobInventorySlot(itemNiceName, dropData.quantity);
-            }
-        });
-        
-        // Cargar estado de defaultDrops si estaba guardado
-        if (typeof window.CUSTOM_MOBS_DB[mobId].template.defaultDrops !== 'undefined') {
-            document.getElementById('cmob-default-drops').checked = window.CUSTOM_MOBS_DB[mobId].template.defaultDrops;
-        }
-    }
-
-    // E) Mostrar/Ocultar Armadura (Solo Zombies)
-    const armorSection = document.getElementById('cmob-armor-section');
-    if (armorSection) {
-        if (baseMob === 'zombie') {
-            armorSection.style.display = 'block';
-            if (typeof window.setupArmorSelectors === 'function') window.setupArmorSelectors();
-            
-            // Cargar porcentajes si existen (de decimal a entero)
-            let drops = [100, 100, 100, 100];
-            if (window.CUSTOM_MOBS_DB && window.CUSTOM_MOBS_DB[mobId] && window.CUSTOM_MOBS_DB[mobId].template.armorDropChances) {
-                drops = window.CUSTOM_MOBS_DB[mobId].template.armorDropChances.map(val => Math.round(val * 100));
-            }
-            if (document.getElementById('cmob-drop-helmet')) document.getElementById('cmob-drop-helmet').value = drops[0];
-            if (document.getElementById('cmob-drop-shirt')) document.getElementById('cmob-drop-shirt').value = drops[1];
-            if (document.getElementById('cmob-drop-pants')) document.getElementById('cmob-drop-pants').value = drops[2];
-            if (document.getElementById('cmob-drop-shoes')) document.getElementById('cmob-drop-shoes').value = drops[3];
-        } else {
-            armorSection.style.display = 'none';
-        }
-    }
-};
-
-// ==========================================
-// ⚡ INYECCIÓN DE MUTACIÓN (GUARDAR Y SPAWNEAR)
-// ==========================================
-window.injectCustomMob = function() {
-    try {
-        if (!window.CUSTOM_MOBS_DB) window.CUSTOM_MOBS_DB = JSON.parse(localStorage.getItem('mbw_custom_mobs')) || {};
-        if (typeof selectedCustomMob === 'undefined' || !selectedCustomMob) window.selectedCustomMob = 'zombie';
-
-        let templateMob, baseMobName;
-
-        // A) Determinar el ADN base
-        if (window.CUSTOM_MOBS_DB[selectedCustomMob]) {
-            templateMob = JSON.parse(JSON.stringify(window.CUSTOM_MOBS_DB[selectedCustomMob].template));
-            baseMobName = window.CUSTOM_MOBS_DB[selectedCustomMob].baseMob;
-        } else if (typeof MOB_TEMPLATES !== 'undefined' && MOB_TEMPLATES[selectedCustomMob]) {
-            templateMob = JSON.parse(JSON.stringify(MOB_TEMPLATES[selectedCustomMob]));
-            baseMobName = selectedCustomMob;
-        } else {
-            alert("Error: No encontré la plantilla de " + selectedCustomMob);
-            return;
-        }
-
-        // B) Leer valores de UI
-        const customName = document.getElementById('cmob-name').value.trim();
-        const hp = Number(document.getElementById('cmob-hp').value) || 20;
-        let displayName = customName || "Mutant " + baseMobName;
-
-        templateMob.name = displayName;
-        templateMob.health = hp;
-        templateMob.maxHealth = hp; 
-        
-        templateMob.persists = document.getElementById('cmob-persists') ? document.getElementById('cmob-persists').checked : false;
-        templateMob.defaultDrops = document.getElementById('cmob-default-drops') ? document.getElementById('cmob-default-drops').checked : true;
-
-        // C) LEER EL INVENTARIO DINÁMICO (Drops)
-        templateMob.drops = []; 
-        const ITEM_IDS = { 'Diamond':'dm', 'GoldIngot':'gi', 'IronIngot':'ii', 'Emerald':'em', 'Coal':'c', 'RottenFlesh':'rf', 'Bone':'bo', 'Arrow':'a', 'Gunpowder':'gp', 'String':'st', 'SpiderEye':'se', 'Slimeball':'sl', 'Stick':'s', 'Apple':'ap', 'GoldenApple':'gap', 'Bread':'br', 'Beef':'bf', 'Wood':'w', 'Cobblestone':'cb' };
-
-        const invRows = document.getElementById('cmob-inventory-list') ? document.getElementById('cmob-inventory-list').children : [];
-        for (let i = 0; i < invRows.length; i++) {
-            const selectEl = invRows[i].querySelector('.inv-item-select');
-            const qtyEl = invRows[i].querySelector('.inv-item-qty');
-            
-            if (selectEl && qtyEl) {
-                let rawItemName = selectEl.value;
-                let gameItemId = ITEM_IDS[rawItemName] ? ITEM_IDS[rawItemName] : rawItemName;
-                
-                templateMob.drops.push({
-                    "type": gameItemId,
-                    "quantity": Number(qtyEl.value),
-                    "randomBonus": 0,
-                    "lootBonus": 0,
-                    "extras": {},
-                    "properties": {}
-                });
-            }
-        }
-
-        // D) EQUIPAR ARMADURA Y CONVERTIR PORCENTAJES (Solo Zombies)
-        if (baseMobName === 'zombie') {
-            const cap = document.getElementById('cmob-helmet') ? document.getElementById('cmob-helmet').value : 'air';
-            const shirt = document.getElementById('cmob-shirt') ? document.getElementById('cmob-shirt').value : 'air';
-            const pants = document.getElementById('cmob-pants') ? document.getElementById('cmob-pants').value : 'air';
-            const shoes = document.getElementById('cmob-shoes') ? document.getElementById('cmob-shoes').value : 'air';
-
-            templateMob.armor = [
-                [cap, 1, 0, {}],
-                [shirt, 1, 0, {}],
-                [pants, 1, 0, {}],
-                [shoes, 1, 0, {}]
-            ];
-            
-            // Convertir porcentaje de UI a decimales para el motor del juego
-            const dropCap = (Number(document.getElementById('cmob-drop-helmet').value) || 0) / 100;
-            const dropShirt = (Number(document.getElementById('cmob-drop-shirt').value) || 0) / 100;
-            const dropPants = (Number(document.getElementById('cmob-drop-pants').value) || 0) / 100;
-            const dropShoes = (Number(document.getElementById('cmob-drop-shoes').value) || 0) / 100;
-
-            templateMob.armorDropChances = [dropCap, dropShirt, dropPants, dropShoes];
-        }
-
-        // E) GUARDAR EN LOCALSTORAGE
-        const dbId = 'cmob_' + Date.now();
-        window.CUSTOM_MOBS_DB[dbId] = {
-            baseMob: baseMobName,
-            name: displayName,
-            health: hp,
-            template: templateMob 
-        };
-        localStorage.setItem('mbw_custom_mobs', JSON.stringify(window.CUSTOM_MOBS_DB));
-
-        // F) SPAWNEAR EN EL MUNDO
-        const worldMob = JSON.parse(JSON.stringify(templateMob));
-        worldMob.id = 'inst_' + Date.now();
-        
-        if (typeof camera !== 'undefined') {
-            worldMob.x = camera.x;
-            worldMob.y = -camera.y;
-        } else {
-            worldMob.x = 0; worldMob.y = 0;
-        }
-
-        if (typeof mbwom !== 'undefined' && mbwom.world) {
-            if (!mbwom.mobs) mbwom.mobs = {};
-            mbwom.mobs[worldMob.id] = worldMob;
-            
-            const modal = document.getElementById('create-mob-modal');
-            if (modal) modal.style.display = 'none';
-            
-            if (typeof agregarMensajeChatPublico !== 'undefined') {
-                agregarMensajeChatPublico("Sistema", `⚡ Creado y guardado: ${displayName}`);
-            }
-        }
-    } catch(error) {
-        console.error("🔥 Error en injectCustomMob:", error);
-    }
-};
 
 
 // ==========================================
@@ -3645,7 +3078,7 @@ const availableTools = [
     { id: 'tool-select', icon: '🔳', name: 'Select' },
     { id: 'tool-magic', icon: '🪄', name: 'Magic Wand' },
     { id: 'tool-lasso', icon: '➰', name: 'Lasso / Free Form' },
-	{ id: 'tool-screenshot', icon: '📷', name: 'Screenshot' },
+    { id: 'tool-screenshot', icon: '📷', name: 'Screenshot' },
 ];
 
 window.toolbarConfig = {};

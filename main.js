@@ -341,7 +341,12 @@ function drawMobs() {
                 isCustomSkin = true;
                 mobWidth = tileSize * 1.4; mobHeight = tileSize * 2; 
             } else {
-                mobImg = window.images[mob.type];
+                // ✨ MAGIA PARA EL PERRO: Si es un lobo y está domesticado, forzamos el sprite 'dog'
+                if (mob.type === 'wolf' && mob.tamed === true) {
+                    mobImg = window.images['dog'];
+                } else {
+                    mobImg = window.images[mob.type];
+                }
             }
 
             if (isCustomSkin && mobImg && mobImg.hasFailed) {
@@ -742,11 +747,15 @@ function drawUI() {
             ctx.imageSmoothingEnabled = false; 
             
             let tSize = typeof tileSize !== 'undefined' ? tileSize : 16;
-            let drawWidth = tSize * 1.2; 
+            let drawWidth = tSize * 1.2; // Tamaño por defecto (ej. Zombies, Esqueletos)
             
+            // ✨ FIX: Le enseñamos al fantasma el ancho real de todos los animales anchos/pequeños
             if (currentMobToSpawn === 'enderdragon') drawWidth = tSize * 6;
             if (currentMobToSpawn === 'ghast' || currentMobToSpawn === 'slime' || currentMobToSpawn === 'magmacube') drawWidth = tSize * 2.5;
             if (currentMobToSpawn === 'spider') drawWidth = tSize * 1.5;
+            if (currentMobToSpawn === 'cow' || currentMobToSpawn === 'cowctus' || currentMobToSpawn === 'mushroom') drawWidth = tSize * 2.6;
+            if (currentMobToSpawn === 'pig' || currentMobToSpawn === 'wolf' || currentMobToSpawn === 'dog' || currentMobToSpawn === 'sheep') drawWidth = tSize * 2.0;
+            if (currentMobToSpawn === 'rabbit' || currentMobToSpawn === 'bat' || currentMobToSpawn === 'nethereye') drawWidth = tSize * 0.75;
 
             let ratio = mobImg.naturalHeight / mobImg.naturalWidth;
             let drawHeight = drawWidth * ratio; 

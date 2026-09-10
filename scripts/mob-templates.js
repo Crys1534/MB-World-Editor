@@ -81,52 +81,6 @@ const MOB_TEMPLATES = {
         "persists": false
     },
 	
-	"wolf": {
-        "type": "wolf",
-        "health": 20,
-        "name": "",
-        "variant": "",
-        "direction": 0,
-        "speedX": 0,
-        "speedY": 0,
-        "falling": false,
-        "wasFalling": false,
-        "wasFallingSpeed": 0,
-        "air": 11,
-        "airTimer": 60,
-        "startUnderwaterTimer": 0,
-        "babyTimer": 0,
-        "breedTimer": 0,
-        "aggressiveness": 0,
-        "attackCooldown": 0,
-        "hitCooldown": 0,
-        "lastDamageID": "",
-        "lastDamageType": "",
-        "ticksSinceLastDamageID": 0,
-        "target": null,
-        "focus": null,
-        "riding": null,
-        "riddenBy": null,
-        "leash": null,
-        "keys": { "right": false, "up": false, "left": false },
-        "animationType": "idle",
-        "animationFrame": 0,
-        "effects": {},
-        "inventory": [],
-        "handItems": [],
-        "armor": [],
-        "handDropChances": [0.085, 0.085],
-        "armorDropChances": [0.085, 0.085, 0.085, 0.085],
-        "defaultDrops": true,
-        "persists": false,
-        // ✨ PROPIEDADES ÚNICAS DEL LOBO
-        "tameable": true,
-        "tamed": false,
-        "tamedBy": null,
-        "sitting": false,
-        "collarColor": "red"
-    },
-    
     "pig": {
         "type": "pig",
         "health": 10,
@@ -1099,58 +1053,29 @@ const MOB_TEMPLATES = {
   "persists": false
 },
 
-	"dog":	{
-  "lastDamageID": "",
-  "handDropChances": [0.085, 0.085],
-  "effects": {},
-  "defaultDrops": true,
-  "ticksSinceLastDamageID": 2041,
-  "startUnderwaterTimer": 0,
-  "variant": "",
-  "collarColor": "red",
-  "falling": false,
-  "wasFallingSpeed": 7.61421982038953,
-  "animationFrame": 273,
-  "air": 11,
-  "name": "",
-  "sitting": false,
-  "scene": 1,
-  "babyTimer": 0,
-  "breedTimer": 0,
-  "speedX": 1.63397295157768e-21,
-  "target": null,
-  "handItems": [],
-  "armorDropChances": [0.085, 0.085, 0.085, 0.085],
-  "speedY": 0,
-  "attackCooldown": 0,
-  "keys": {
-    "right": false,
-    "up": false,
-    "left": false
-  },
-  "riding": null,
-  "tamedBy": "char",
-  "riddenBy": null,
-  "focus": "char",
-  "x": 499.116881852808,
-  "y": -111.833333333333,
-  "type": "wolf",
-  "aggressiveness": 0,
-  "id": "mob2",
-  "airTimer": 60,
-  "health": 20,
-  "inventory": [],
-  "leash": null,
-  "wasFalling": false,
-  "hitCooldown": 9,
-  "animationType": "idle",
-  "tamed": true,
-  "tameable": true,
-  "lastDamageType": "",
-  "direction": 1,
-  "armor": [],
-  "persists": false
-},
+
+
+
+	"wolf": {
+        "type": "wolf",
+        "health": 8, // Los lobos salvajes tienen menos vida
+        "tamed": false,
+        "tameable": true,
+        "aggressiveness": 0,
+        "collarColor": ""
+    },
+    
+	"dog": {
+        "type": "wolf", // IMPORTANTE: El motor lo sigue leyendo como lobo
+        "health": 20,   // Los perros domesticados son más fuertes
+        "tamed": true,
+        "tameable": true,
+        "sitting": false,
+        "collarColor": "red",
+        "aggressiveness": 0
+    },
+
+
 
 	"squid": {
   "lastDamageID": "",

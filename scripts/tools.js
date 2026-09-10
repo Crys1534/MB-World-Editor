@@ -141,8 +141,6 @@ window.addEventListener('keydown', function(e) {
     if (e.key === '+' || e.code === 'NumpadAdd') updateToolSize(toolSize + 1);
     if (e.key === '-' || e.code === 'NumpadSubtract') updateToolSize(toolSize - 1);
     if (e.key === 'Delete' || e.code === 'Delete') deleteSelection();
-
-    // LÍNEAS DE Ctrl+X, Ctrl+C y Ctrl+V FUERON ELIMINADAS AQUÍ.
 });
 
 // --- NUEVO SISTEMA DE SCREENSHOT CON RECORTE Y SCROLL (WASD + ZOOM) ---
@@ -430,34 +428,6 @@ window.confirmScreenshot = function() {
     closeSnippingUI();
 };
 
-function toggleConsole() {
-    const consoleDiv = document.getElementById('console-overlay');
-    const input = document.getElementById('console-input');
-    if (consoleDiv.style.display === 'flex') {
-        consoleDiv.style.display = 'none';
-    } else {
-        consoleDiv.style.display = 'flex';
-        input.focus();
-    }
-	
-// Agrega esto en tu función toggleConsole() cuando se muestra la consola
-document.querySelectorAll('.console-msg').forEach(msg => msg.classList.remove('fade-out'));
-}
-
-document.getElementById('console-input').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') {
-        const command = this.value.trim().toLowerCase();
-        const match = command.match(/^(\/)?tp\s+(-?\d+)\s+(-?\d+)$/);
-        if (match) {
-            const x = parseInt(match[2]); const y = parseInt(match[3]);
-            camera.x = x - Math.floor(grid.width / 2); camera.y = y - Math.floor(grid.height / 2);
-            this.value = ''; document.getElementById('console-overlay').style.display = 'none';
-        } else {
-            this.style.borderColor = "red"; setTimeout(() => this.style.borderColor = "#555", 500);
-        }
-    }
-});
-
 function isPointInPolygon(x, y, polygon) {
     let inside = false;
     for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
@@ -601,181 +571,6 @@ window.handleSelectionInput = function(action, worldX, worldY, isCtrlPressed = f
         if (typeof checkSelectionState === 'function') checkSelectionState();
     }
 };
-
-function setSelectionPoint(point, x, y) {
-    window.selection.type = 'rect'; 
-    if (point === 1) window.selection.p1 = { x, y };
-    if (point === 2) window.selection.p2 = { x, y };
-    updateSelectionInfo(); checkSelectionState(); 
-}
-
-function copySelection(keepSelection = false) {
-    const bounds = getSelectionBounds();
-    if (!bounds) { alert("Select an area."); return; }
-    if (window.selection.type === 'poly' && window.selection.path.length < 3) { alert("Invalid area."); return; }
-
-    const data = [];
-    for (let x = bounds.minX; x <= bounds.maxX; x++) {
-        for (let y = bounds.minY; y <= bounds.maxY; y++) {
-            
-            // MAGIA: Solo guarda en memoria los bloques de la silueta azul
-            if (!isPointSelected(x, y)) continue;
-
-            const state = mbwom.getBlockState(x, y);
-            let stateToSave = null;
-            if (state && state.type != null) stateToSave = structuredClone(state);
-            data.push({ dx: x - bounds.minX, dy: y - bounds.minY, state: stateToSave });
-        }
-    }
-    
-    // Guardamos los datos sin borrar las funciones del objeto
-window.clipboard.width = bounds.maxX - bounds.minX + 1;
-window.clipboard.height = bounds.maxY - bounds.minY + 1;
-window.clipboard.data = data;
-    
-    if (!keepSelection) {
-        window.selection.p1 = null; window.selection.p2 = null; window.selection.path = []; window.selection.subRects = [];
-        const overlay = document.getElementById('selection-overlay');
-        if (overlay) overlay.style.display = 'none';
-        checkSelectionState(); 
-    }
-    console.log("Copied.");
-}
-
-function cutSelection() {
-    copySelection(true);
-    deleteSelection();
-}
-
-function deleteSelection(isFromNetwork = false, networkDeletedBlocks = [], networkDeletedMobs = []) {
-    if (isFromNetwork) {
-        if (typeof mbwom !== 'undefined' && mbwom.scene) {
-            networkDeletedBlocks.forEach(pos => {
-                if (mbwom.scene[pos.x] && mbwom.scene[pos.x][pos.y]) {
-                    delete mbwom.scene[pos.x][pos.y];
-                    if (typeof renderBlock === 'function') renderBlock(pos.x, pos.y);
-                }
-            });
-            networkDeletedMobs.forEach(key => { delete mbwom.mobs[key]; });
-            if (typeof worldDirty !== 'undefined') worldDirty = true;
-        }
-        return;
-    }
-
-    const bounds = getSelectionBounds();
-    if (!bounds && window.selection.type !== 'poly') return;
-
-    historyManager.startAction();
-    let changed = false;
-    let deletedBlocksToSync = [];
-    let deletedMobsToSync = [];
-
-    if (window.selection.type === 'poly') {
-        if (typeof mbwom !== 'undefined' && mbwom.mobs) {
-            for (let key in mbwom.mobs) {
-                let m = mbwom.mobs[key];
-                if (!m) continue;
-                let mobWorldX = Math.round(Number(m.x));
-                let mobWorldY = Math.round(-Number(m.y)); 
-                if (isPointSelected(mobWorldX, mobWorldY)) {
-                    delete mbwom.mobs[key]; 
-                    changed = true;
-                    deletedMobsToSync.push(key);
-                }
-            }
-        }
-        if (changed && typeof worldDirty !== 'undefined') worldDirty = true;
-
-    } else {
-        for (let x = bounds.minX; x <= bounds.maxX; x++) {
-            for (let y = bounds.minY; y <= bounds.maxY; y++) {
-                if (!isPointSelected(x, y)) continue;
-                changed = true; 
-                if (mbwom.scene[x] && mbwom.scene[x][y]) {
-                    historyManager.recordChange(x, y, mbwom.scene[x][y], null);
-                    delete mbwom.scene[x][y];
-                    renderBlock(x, y);
-                    deletedBlocksToSync.push({x: x, y: y});
-                }
-            }
-        }
-        if (changed && typeof mbwom !== 'undefined' && mbwom.scene) {
-            for (let x = bounds.minX; x <= bounds.maxX; x++) {
-                let col = mbwom.scene[x];
-                if (!col || !Array.isArray(col)) continue;
-                for (let y = bounds.minY; y <= bounds.maxY; y++) {
-                    if (isPointSelected(x, y)) {
-                        let b = col[y];
-                        if (b && (b.type === "air" || b.type === 0 || b.type === "0" || b.type === "")) col[y] = null; 
-                    }
-                }
-                while (col.length > 0) {
-                    let ultimoBloque = col[col.length - 1];
-                    if (!ultimoBloque || ultimoBloque.type === null || ultimoBloque.type === "air" || ultimoBloque.type === 0 || ultimoBloque.type === "") {
-                        col.pop(); 
-                    } else break; 
-                }
-            }
-            if (typeof worldDirty !== 'undefined') worldDirty = true;
-        }
-    }
-
-    if (typeof enviarMensajeEnRed === 'function') {
-        if (deletedBlocksToSync.length > 0 || deletedMobsToSync.length > 0) {
-            enviarMensajeEnRed({ tipo: "accion_borrar_seleccion", bloques: deletedBlocksToSync, mobs: deletedMobsToSync });
-        }
-    }
-
-    historyManager.commitAction();
-    const overlay = document.getElementById('selection-overlay');
-    if (overlay) overlay.style.display = 'none';
-    window.selection.p1 = null; window.selection.p2 = null; window.selection.path = []; window.selection.subRects = [];
-    checkSelectionState(); 
-}
-
-function activatePasteMode() {
-    if (!window.clipboard) { alert("Clipboard empty."); return; }
-    selectTool('paste');
-}
-
-function performPaste(targetX, targetY, replaceAir = false, isFromNetwork = false, networkClipboard = null) {
-    const currentClipboard = isFromNetwork ? networkClipboard : window.clipboard;
-    if (!currentClipboard) return;
-    historyManager.startAction();
-
-    // PEGAMOS LA ESTRUCTURA: Solo iteramos sobre los puntos exactos que fueron copiados (la forma azul)
-    currentClipboard.data.forEach(blockData => {
-        // Si NO está presionado Shift (!replaceAir), ignoramos el aire
-        // Si SÍ está presionado Shift (replaceAir), sobrescribimos SOLO los puntos de la selección azul
-        if (!replaceAir && (!blockData.state || blockData.state.type === "air" || blockData.state.type === "0" || blockData.state.type === 0)) return;
-
-        const absX = targetX + blockData.dx; 
-        const absY = targetY + blockData.dy;
-        const oldState = mbwom.getBlockState(absX, absY);
-        
-        // Ahorro de memoria: si en el destino hay aire y pegamos aire, no hacemos nada
-        if (!oldState && !blockData.state) return;
-        
-        historyManager.recordChange(absX, absY, oldState, blockData.state);
-        
-        if (blockData.state) {
-            mbwom.setBlockState(absX, absY, blockData.state);
-        } else {
-            if (mbwom.scene[absX]) delete mbwom.scene[absX][absY]; 
-        }
-        
-        if (typeof renderBlock === 'function') renderBlock(absX, absY);
-    });
-    
-    if (!isFromNetwork && typeof enviarMensajeEnRed === 'function') {
-        enviarMensajeEnRed({ 
-            tipo: "accion_pegar", x: targetX, y: targetY, replaceAir: replaceAir, clipboard: currentClipboard 
-        });
-    }
-    
-    if (typeof worldDirty !== 'undefined') worldDirty = true;
-    historyManager.commitAction();
-}
 
 function setSelectionPoint(point, x, y) {
     window.selection.type = 'rect'; 
@@ -972,7 +767,7 @@ function performPaste(targetX, targetY, replaceAir = false, isFromNetwork = fals
 }
 
 const hotbar = { offset: { x: 0, y: 0 }, slots: [{ type: "dt" }, { type: "dt_1" }, { type: "ib" }, { type: "clb" }, { type: "tob" }, { type: "lapb" }, { type: "wp" }, { type: "fire" }, { type: "b" }] }
-function drawHotbar() { if (!images.hotbar.complete) return; }
+
 function eyedropper(x, y) {
  const states = mbwom.getBlockState(x, y);
  if (states && states.type != null) {
@@ -983,8 +778,6 @@ function eyedropper(x, y) {
 
 // === HERRAMIENTA BORRADOR ===
 function eraser(cx, cy) {
-    // ✨ FIX: Hemos quitado el startAction y commitAction de aquí
-    
     const offsetStart = Math.floor(toolSize / 2);
     const offsetEnd = Math.floor((toolSize - 1) / 2);
     const centerX = cx - offsetStart + (toolSize - 1) / 2;
@@ -1008,8 +801,6 @@ function eraser(cx, cy) {
 // === HERRAMIENTA PINCEL ===
 function brush(cx, cy) {
     const target = hotbar.slots[slotIndex];
-    
-    // ✨ FIX: Hemos quitado el startAction y commitAction de aquí también
     
     if (toolSize === 1) {
          const current = mbwom.getBlockState(cx, cy);
@@ -1059,7 +850,6 @@ function mineAndPlace() {
 // ==========================================
 // ✨ FIX GLOBAL DEL HISTORIAL (1 Clic = 1 Undo)
 // ==========================================
-// Agrega esto en tu archivo (afuera de cualquier función, preferiblemente abajo de mineAndPlace)
 window.addEventListener('mousedown', function(e) {
     if (e.target.id !== 'canvas' && e.target.tagName !== 'CANVAS') return;
     
@@ -1226,9 +1016,6 @@ function toggleSetSpawnMode() {
         
         // Cambiar cursor para indicar que se debe hacer clic
         if (canvas) canvas.style.cursor = "crosshair";
-        
-        // Opcional: Desactivar otras herramientas si es necesario
-        // selectTool(null); 
     } else {
         // DESACTIVAR MODO
         if (btn) btn.classList.remove('active-tool');
