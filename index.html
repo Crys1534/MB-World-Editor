@@ -344,6 +344,7 @@
         </div>
     </div>
     
+<div id="top-area">
 <div id="top-bar" class="top-bar">
   <div class="left-group">
    <img src="favicon.ico" class="app-icon" alt="App Icon">
@@ -359,7 +360,7 @@
     </label>
    </div>
    
-   <button class="icon-btn btn-multiplayer" onclick="openFileMenu(); setTimeout(() => switchBackstageTab('multiplayer'), 10);">
+   <button class="icon-btn btn-multiplayer" onclick="openFileMenu('multiplayer');">
     🌐 <span data-i18n="btn_multiplayer">Multiplayer</span>
     <div id="global-mp-badge" class="badge-global-mp">0</div>
    </button>
@@ -507,14 +508,14 @@
 		
         <div class="separator"></div>
 
-        <div class="ribbon-group">
-            <div class="ribbon-group-content">
+        <div class="ribbon-group" id="ribbon-hotbar-group">
+            <div class="ribbon-group-content" id="ribbon-hotbar-content">
                 <div id="hotbar-container"></div>
                 <button class="mini-arrow-btn arrow-top" onclick="toggleInventory()" data-i18n-title="tooltip_inventory" title="Open Inventory (E)"><span>»</span></button>
             </div>
             <div class="ribbon-group-label" data-i18n="lbl_inventory">Inventory (E)</div>
         </div>
-        <div class="separator"></div>
+        <div class="separator" id="ribbon-hotbar-sep"></div>
         
         <div class="ribbon-group">
             <div class="ribbon-group-content">
@@ -806,6 +807,9 @@
 
   </div> 
 </div>
+</div><!-- /ui-collapse-inner (antes quedaba abierta hasta el final de la página) -->
+</div><!-- /ui-collapse-wrapper -->
+</div><!-- /top-area -->
 
 <div id="toolbar-sidebar">
     <button class="tool-btn" id="tool-move" onclick="selectTool('move')" data-i18n-title="tooltip_tool_move" title="Move Tool">👆</button>
@@ -934,6 +938,31 @@
         <span data-i18n="config_smooth_scroll">Smooth scrolling</span>
     </label>
     <small data-i18n="config_smooth_scroll_hint" style="display: block; margin-top: 4px; margin-left: 24px; color: #444;">The camera glides pixel by pixel instead of jumping one block at a time.</small>
+
+    <h4 data-i18n="config_focus_title" style="margin: 22px 0 6px 0; border-bottom: 2px solid #888; padding-bottom: 4px;">🧘 Focus &amp; performance</h4>
+
+    <button id="set-zen-btn" onclick="toggleZenMode(); closeModal('settings-modal');" data-i18n="config_zen_btn" style="padding: 6px 10px; cursor: pointer; font-weight: bold;">🧘 Zen mode</button>
+    <small data-i18n="config_zen_hint" style="display: block; margin-top: 4px; color: #444;">Full-screen work mode: the world fills the window and the bars hide by themselves. Move the mouse to the top, left or bottom edge to bring them back. Press H (or the 🧘 button) to leave it. You can change the key in Controls.</small>
+
+    <label style="display: flex; align-items: center; gap: 8px; font-weight: bold; margin-top: 14px; cursor: pointer;">
+        <input type="checkbox" id="float-panels-toggle" onchange="setFloatPanels(this.checked)" style="margin: 0; cursor: pointer;">
+        <span data-i18n="config_float_panels">Floating toolbar and hotbar</span>
+    </label>
+    <small data-i18n="config_float_panels_hint" style="display: block; margin-top: 4px; margin-left: 24px; color: #444;">The left toolbar and the hotbar float over the world, a little see-through, so you get more room.</small>
+
+    <label style="display: flex; justify-content: space-between; font-weight: bold; margin-top: 12px;">
+        <span data-i18n="config_panel_opacity">Panel opacity</span>
+        <span id="panel-opacity-display" style="color: #000;">85%</span>
+    </label>
+    <input type="range" id="panel-opacity-slider" min="20" max="100" step="5" value="85" oninput="setPanelOpacity(this.value)" style="width: 100%; cursor: pointer;">
+
+    <label for="fps-limit-select" style="display: block; font-weight: bold; margin-top: 14px;" data-i18n="config_fps_limit">FPS limit</label>
+    <select id="fps-limit-select" onchange="setFpsLimit(this.value)" style="width: 100%; padding: 6px; margin-top: 4px;">
+        <option value="0" data-i18n="fps_unlimited">No limit</option>
+        <option value="60">60 FPS</option>
+        <option value="30">30 FPS</option>
+    </select>
+    <small data-i18n="config_fps_limit_hint" style="display: block; margin-top: 4px; color: #444;">A lower limit makes the computer work less (cooler, less fan noise, longer battery).</small>
 </div>
 
                 <div id="set-tab-autosave" class="settings-pane">
@@ -1435,12 +1464,16 @@
         </div>
     </div>
 
+<div id="float-hotbar"><button id="float-inv-btn" onclick="toggleInventory()" data-i18n-title="tooltip_inventory" title="Open Inventory (E)">»</button></div>
+
 <div id="chat-container" style="display: none; position: absolute; bottom: 48px; left: 64px; width: 300px; z-index: 5000; font-family: 'Pixeltype', sans-serif;">
     <div id="chat-messages" style="height: 150px; overflow-y: auto; background: rgba(0,0,0,0.6); color: white; padding: 10px; border-radius: 5px 5px 0 0; font-size: 20px; display: flex; flex-direction: column; gap: 4px; text-shadow: 1px 1px 0 #000; pointer-events: auto;">
         </div>
     <input type="text" id="chat-input" data-i18n-placeholder="pl_chat" placeholder="Press Enter to chat..." style="width: 284px; padding: 8px; border: none; background: rgba(255,255,255,0.9); border-radius: 0 0 5px 5px; outline: none; font-size: 24px; font-family: Pixeltpe; pointer-events: auto;">
 </div>
 
+
+<button id="zen-exit-btn" onclick="toggleZenMode(false)" data-i18n-title="tooltip_zen_exit" title="Exit Zen mode (H)">🧘 ✕</button>
 
 <div id="status-bar">
     <div class="status-left">
@@ -1460,6 +1493,7 @@
         
         <div class="status-divider"></div>
         
+        <button class="status-btn" id="zen-btn" onclick="toggleZenMode()" data-i18n-title="tooltip_zen" title="Zen mode (H)">🧘</button>
         <button class="status-btn" id="fullscreen-btn" onclick="toggleFullscreenHUD()" data-i18n-title="tooltip_fullscreen" title="Fullscreen">⛶</button>
     </div>
 </div>
@@ -1595,6 +1629,7 @@
  <script src="scripts/profile.js"></script>
  <script src="main.js"></script>
 <script src="scripts/status-bar.js"></script>
+<script src="scripts/ui-modes.js"></script>
 <script src="scripts/custom-items.js"></script>
  <script src="scripts/player-inventory.js"></script>
  <script src="scripts/audio-manager.js"></script>

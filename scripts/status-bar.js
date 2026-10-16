@@ -64,6 +64,9 @@ window.toggleFullscreenHUD = function () {
 
     let windowStart = performance.now();
     let frames = 0;
+    // Se cuentan los cuadros que el editor DIBUJÓ de verdad (main.js suma window.framesDrawn en cada uno):
+    // con el límite de FPS activado (Ajustes > Display) el contador marca 30 o 60, no los cuadros que "pasa" el navegador.
+    let drawnAtStart = (typeof window.framesDrawn === 'number') ? window.framesDrawn : 0;
 
     function tick(now) {
         frames++;
@@ -73,14 +76,20 @@ window.toggleFullscreenHUD = function () {
             // Si la pestaña estuvo oculta (el navegador pausa los cuadros),
             // esa medición no sirve: se descarta en vez de mostrar "1 FPS".
             if (elapsed < 3000) {
-                const fps = Math.max(0, Math.round(frames * 1000 / elapsed));
+                let drawn = (typeof window.framesDrawn === 'number') ? window.framesDrawn - drawnAtStart : 0;
+                // Sin ningún mundo abierto el editor todavía no dibuja nada: se cuentan los cuadros del navegador (con el tope del límite, si hay)
+                if (drawn <= 0) drawn = window.fpsLimit > 0 ? Math.min(frames, Math.ceil(window.fpsLimit * elapsed / 1000)) : frames;
+                const fps = Math.max(0, Math.round(drawn * 1000 / elapsed));
                 window.currentFPS = fps;
                 fpsDisplay.innerText = fps + ' FPS';
-                fpsDisplay.style.color = fps >= 50 ? '#2ecc71'   // verde
-                                       : fps >= 30 ? '#f1c40f'   // amarillo
-                                       :             '#e74c3c';  // rojo
+                // El semáforo se mide contra la meta: 60 sin límite, o el límite elegido (a 30 FPS "30" es lo esperado, no un bajón)
+                const ratio = fps / (window.fpsLimit > 0 ? window.fpsLimit : 60);
+                fpsDisplay.style.color = ratio >= 50 / 60 ? '#2ecc71'   // verde
+                                       : ratio >= 0.5     ? '#f1c40f'   // amarillo
+                                       :                    '#e74c3c';  // rojo
             }
             frames = 0;
+            drawnAtStart = (typeof window.framesDrawn === 'number') ? window.framesDrawn : 0;
             windowStart = now;
         }
         requestAnimationFrame(tick);

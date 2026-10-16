@@ -42,6 +42,12 @@ const mouse = {
 const CAMERA_START_MS = 25;
 const CAMERA_STOP_MS = 60;
 
+// Cuántos "cuadros de 60 FPS" vale cada cuadro que se dibuja (1 si no hay límite; 2 si el límite es de 30 FPS)
+function frameScale() {
+    const lim = window.fpsLimit | 0;
+    return lim > 0 && lim < 60 ? 60 / lim : 1;
+}
+
 function cameraMovement() {
     // ✨ LÓGICA DE MODO ESPECTADOR
     if (typeof isMultiplayer !== 'undefined' && isMultiplayer && window.spectatingTargetId) {
@@ -51,8 +57,10 @@ function cameraMovement() {
             let targetData = window.networkCursors[targetPlayer.name];
             
             // Movemos la cámara suavemente hacia él
-            camera.x += (targetData.x - (grid.width / 2) - camera.x) * 0.1;
-            camera.y += (targetData.y - (grid.height / 2) - camera.y) * 0.1;
+            // (con límite de FPS cada cuadro dibujado vale por varios: se compensa para que siga igual de rápido)
+            const follow = 1 - Math.pow(0.9, frameScale());
+            camera.x += (targetData.x - (grid.width / 2) - camera.x) * follow;
+            camera.y += (targetData.y - (grid.height / 2) - camera.y) * follow;
             
             worldDirty = true;
             return; // ⛔ SALIMOS de la función aquí para que tu teclado no pueda mover la cámara
@@ -64,10 +72,13 @@ function cameraMovement() {
     if (typeof camera.accX === 'undefined') { camera.accX = 0; camera.accY = 0; }
     let moveX = 0; let moveY = 0;
 
-    if (keys.KeyW) moveY += camera.speed;
-    if (keys.KeyS) moveY -= camera.speed;
-    if (keys.KeyD) moveX += camera.speed;
-    if (keys.KeyA) moveX -= camera.speed;
+    // Sin desplazamiento fluido la cámara avanza "por cuadro dibujado" (pensado para 60 FPS): con un límite de 30 FPS
+    // cada cuadro dibuja el doble de lejos, para que la velocidad real sea la misma.
+    const step = camera.speed * frameScale();
+    if (keys.KeyW) moveY += step;
+    if (keys.KeyS) moveY -= step;
+    if (keys.KeyD) moveX += step;
+    if (keys.KeyA) moveX -= step;
 
     // Desplazamiento fluido: la cámara avanza en decimales (no en cuadros enteros) y según el TIEMPO que pasó,
     // así va igual de rápido a 60 que a 144 fotogramas por segundo. La velocidad es la misma de siempre
@@ -169,7 +180,8 @@ window.addEventListener("keydown", function (event) {
     if (keys.hasOwnProperty(event.code)) keys[event.code] = true;
 
     if (event.code === 'Tab') {
-        teleportSwitch();
+        // Tab es el teletransporte de la cámara; si la persona le puso Tab al Modo Zen (Settings > Controls), manda el Zen
+        if (!keybindMatches(event, 'zen', 'h')) teleportSwitch();
         event.preventDefault();
     }
 
@@ -242,6 +254,8 @@ window.addEventListener("keydown", function (event) {
     if (keybindMatches(event, 'mobs', 'm')) { event.preventDefault(); try { openMobModal(); } catch(e) { } }
     // R: gira el bloque de la barra rápida (el mismo trabajo que el botón Rotate); si el bloque no se puede girar, no pasa nada
     if (keybindMatches(event, 'rotate', 'r')) { event.preventDefault(); try { rotateHeldBlock(); } catch(e) { } }
+    // H (de fábrica): Modo Zen. Si se deja la tecla apretada no parpadea (solo cuenta la primera vez)
+    if (keybindMatches(event, 'zen', 'h')) { event.preventDefault(); if (!event.repeat) { try { toggleZenMode(); } catch(e) { } } }
 
     if (event.code.startsWith('Digit')) {
         let num = parseInt(event.code.charAt(5));

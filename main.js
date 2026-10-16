@@ -48,8 +48,32 @@ window.images.names.forEach((name) => {
 // ¡Sintaxis reparada aquí!
 const camera = { x: 0, y: 148, speed: 1 };
 
+// Cuando el lienzo cambia de tamaño (pantalla completa, Modo Zen, paneles que se esconden, cambiar el tamaño de la ventana...)
+// la cámara se corre para que lo que estaba en el CENTRO de la vista siga en el centro: el mundo no "salta" y el zoom no cambia.
+// La cámara solo puede quedar en cuadros enteros (sin desplazamiento fluido) o en píxeles enteros (con desplazamiento fluido);
+// lo que sobra al redondear se guarda (carry) y se suma en el siguiente cambio. Así entrar y salir de pantalla completa
+// deja la cámara EXACTAMENTE donde estaba, sin irse corriendo medio cuadro cada vez.
+const viewCarry = { x: 0, y: 0, sx: null, sy: null };
+function keepViewCentered(oldW, oldH) {
+    if (!(oldW > 0 && oldH > 0) || !(tileSize > 0)) return;
+    if (oldW === canvas.width && oldH === canvas.height) return;
+    if (viewCarry.sx !== camera.x || viewCarry.sy !== camera.y) { viewCarry.x = 0; viewCarry.y = 0; }   // la cámara se movió por otro lado: se parte de cero
+    // Se cuenta en "pasos" de la cámara: 1 cuadro (normal) o 1 píxel (fluido)
+    const smooth = !!window.smoothScroll;
+    const toSteps = (tiles) => smooth ? tiles * tileSize : tiles;
+    const toTiles = (steps) => smooth ? steps / tileSize : steps;
+    const nx = toSteps(camera.x) + toSteps((oldW - canvas.width) / 2 / tileSize) + viewCarry.x;
+    const ny = toSteps(camera.y) + toSteps((oldH - canvas.height) / 2 / tileSize) + viewCarry.y;
+    const rx = Math.round(nx), ry = Math.round(ny);
+    viewCarry.x = nx - rx; viewCarry.y = ny - ry;
+    camera.x = toTiles(rx); camera.y = toTiles(ry);
+    viewCarry.sx = camera.x; viewCarry.sy = camera.y;
+}
+let canvasSizedOnce = false;   // la primera vez el lienzo trae el tamaño de fábrica (300x150): no hay nada que conservar
+
 function resizeCanvas() {
     const workspace = document.getElementById('workspace');
+    const oldW = canvasSizedOnce ? canvas.width : 0, oldH = canvasSizedOnce ? canvas.height : 0;
     if (workspace) {
         canvas.width = workspace.clientWidth;
         canvas.height = workspace.clientHeight;
@@ -57,6 +81,8 @@ function resizeCanvas() {
         canvas.width = window.innerWidth - 60;
         canvas.height = window.innerHeight - 112;
     }
+    canvasSizedOnce = true;
+    keepViewCentered(oldW, oldH);
     
     offscreenCanvas.width = canvas.width;
     offscreenCanvas.height = canvas.height;
@@ -138,6 +164,57 @@ window.toggleDimBackgrounds = function(enabled) {
 window.worldCacheSource = new WeakMap();   // para cada foto del mundo: de qué mapa (escena) salió. Lo usan las pestañas para saber si pueden reutilizarla.
 let worldCacheToken = 0;                    // si empieza una construcción nueva, la anterior (en tandas) se cancela sola
 
+// ==========================================================
+// 🪵 FENCE QUE SE CONECTA (solo se ve así en el editor · Ronda 15)
+// El bloque guardado en el mundo sigue siendo "fnc" de siempre: solo cambia el DIBUJO según lo que tenga al lado.
+//   · nada a la izquierda ni a la derecha  -> assets/fncalone.png (solo el poste)
+//   · algo a la derecha (otro fence o cualquier bloque) -> assets/fncright.png
+//   · algo a la izquierda                    -> assets/fncleft.png
+//   · algo a los dos lados                   -> los dos juntos (fncleft + fncright), poste con travesaños a ambos lados
+// Si alguna imagen no carga (o todavía no llega), se sigue viendo el fence de siempre.
+// ==========================================================
+window.fenceVisual = (function () {
+    const files = { alone: 'assets/fncalone.png', left: 'assets/fncleft.png', right: 'assets/fncright.png' };
+    const tex = {};
+    // "both" (algo a los dos lados) no tiene imagen propia: se arma juntando fncleft y fncright, así los travesaños quedan a la misma altura que en los vecinos
+    tex.both = { x: 0, y: 0, img: null };
+    const buildBoth = function () {
+        if (tex.both.img) return;
+        const l = tex.left.img, r = tex.right.img;
+        if (!(l.complete && l.naturalWidth > 0 && r.complete && r.naturalWidth > 0)) return;
+        const c = document.createElement('canvas'); c.width = 16; c.height = 16;
+        const g = c.getContext('2d');
+        g.drawImage(l, 0, 0, 16, 16); g.drawImage(r, 0, 0, 16, 16);
+        tex.both.img = c;
+    };
+    Object.keys(files).forEach(function (k) {
+        const img = new Image();
+        img.onload = function () { buildBoth(); if (typeof worldDirty !== 'undefined') worldDirty = true; };   // ya llegó: se vuelve a pintar el mundo
+        img.src = files[k];
+        tex[k] = { x: 0, y: 0, img: img };   // x e y se llenan con el fence de siempre (por si algo lo dibuja sin pasar por drawBlock)
+    });
+    const baseTex = function () { return window.texturesMap && window.texturesMap.fnc; };
+    return {
+        tex: tex,
+        // ¿Qué dibujo le toca al fence que está en (x, y)? "base" es el dibujo normal (el de siempre): se usa mientras las imágenes no hayan cargado.
+        pick: function (scene, x, y, base) {
+            const left = scene[x - 1], right = scene[x + 1];
+            const hasL = !!left && left[y] != null, hasR = !!right && right[y] != null;
+            const t = (hasL && hasR) ? tex.both : (hasR ? tex.right : (hasL ? tex.left : tex.alone));
+            const b = base || baseTex();
+            if (b) { t.x = b.x; t.y = b.y; }
+            return t;
+        },
+        // Vuelve a dibujar (en la foto del mundo) el fence de (x, y) si hay uno ahí. Se usa con los vecinos de un bloque que cambió.
+        refreshAt: function (x, y) {
+            const scene = (typeof mbwom !== 'undefined') ? mbwom.scene : null;
+            if (!scene || !scene[x] || scene[x][y] !== 'fnc') return;
+            if (!window.worldCache[x]) window.worldCache[x] = [];
+            window.worldCache[x][y] = this.pick(scene, x, y, getBlockObject(mbwom.getBlockState(x, y)));
+        }
+    };
+})();
+
 function makeWorldCacheBuilder() {
     const scene = mbwom.scene, states = mbwom.states || {};
     const defaultRenderer = window.renderers.default, specialRenderers = window.blockData;
@@ -151,6 +228,11 @@ function makeWorldCacheBuilder() {
             if (type == null) continue;
             const renderer = specialRenderers[type] || defaultRenderer;
             let texture;
+            if (type === 'fnc') {
+                // el fence se dibuja según lo que tenga a los lados (solo visual)
+                out[y] = window.fenceVisual.pick(scene, x, y, getTexture(type, states['blockX' + x + 'Y' + y]));
+                continue;
+            }
             if (renderer === defaultRenderer) {
                 const variant = states['blockX' + x + 'Y' + y];
                 if (variant === undefined) {
@@ -211,13 +293,21 @@ function renderBlock(x, y) {
     const states = mbwom.getBlockState(x, y);
     if (states.type != null) {
         worldCache[x][y] = getBlockObject(states);
+        if (states.type === 'fnc') worldCache[x][y] = window.fenceVisual.pick(mbwom.scene, x, y, worldCache[x][y]);
     } else {
         delete worldCache[x][y];
     }
+    // un fence que está al lado cambia de dibujo cuando aquí se pone o se quita un bloque
+    window.fenceVisual.refreshAt(x - 1, y);
+    window.fenceVisual.refreshAt(x + 1, y);
     worldDirty = true;
 }
 
 function drawBlock(texture, values, targetCtx = ctx) {
+    if (texture.img) {   // dibujo suelto (el fence que se conecta): si su imagen todavía no cargó, se usa el fence de siempre
+        const im = texture.img;
+        if (im.tagName === 'CANVAS' || (im.complete && im.naturalWidth > 0)) { targetCtx.drawImage(im, 0, 0, 16, 16, values.x, values.y, values.width, values.height); return; }
+    }
     if (window.images.blocks && window.images.blocks.complete && window.images.blocks.naturalWidth !== 0) {
         targetCtx.drawImage(window.images.blocks, texture.x, texture.y, 16, 16, values.x, values.y, values.width, values.height);
     }
@@ -415,8 +505,9 @@ window.toggleSmoothScroll = function(enabled) {
 
 // Lo guardado en el navegador: se aplica al arrancar y se marca la casilla
 (function loadSmoothScrollSetting() {
-    let on = false;
-    try { on = localStorage.getItem('mbw_smooth_scroll') === '1'; } catch (e) { on = false; }
+    // De fábrica está ENCENDIDO: solo se apaga si la persona lo apagó ella misma (queda guardado '0')
+    let on = true;
+    try { const saved = localStorage.getItem('mbw_smooth_scroll'); if (saved !== null) on = saved === '1'; } catch (e) { on = true; }
     window.smoothScroll = on;
     const sync = function() {
         const box = document.getElementById('smooth-scroll-toggle');
@@ -1162,7 +1253,21 @@ window.updateTimeIcon = function() {
     }
 };
 
-function mainLoop() {
+// Límite de FPS (Ajustes > Display): 0 = sin límite, 30 o 60. Se salta cuadros hasta que toca dibujar el siguiente.
+// nextFrameAt va "sumando" el intervalo (no usa la hora de cada cuadro), así en pantallas de 120 o 144 Hz el límite de 60 sale 60 de verdad.
+let nextFrameAt = 0;
+window.framesDrawn = 0;   // cuántos cuadros se dibujaron de verdad (lo lee el medidor de FPS de la barra de estado)
+function mainLoop(ts) {
+    const limit = window.fpsLimit | 0;
+    if (limit > 0) {
+        const now = (typeof ts === 'number') ? ts : performance.now();
+        const interval = 1000 / limit;
+        if (now < nextFrameAt - 1) { requestAnimationFrame(mainLoop); return; }   // todavía no toca
+        nextFrameAt = (nextFrameAt === 0 || now - nextFrameAt > interval * 2) ? now + interval : nextFrameAt + interval;
+    } else {
+        nextFrameAt = 0;
+    }
+    window.framesDrawn++;
     // Sin mundo abierto (por ejemplo, al cerrar la última pestaña) no hay nada que dibujar ni mover:
     // se deja el lienzo vacío y el bucle sigue vivo para cuando se abra otro mundo.
     if (typeof mbwom === 'undefined' || !mbwom.scene) {

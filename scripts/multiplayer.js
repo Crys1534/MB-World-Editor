@@ -1078,7 +1078,7 @@ window.openMpSidebar = function(mode) {
     if (typeof openFileMenu === 'function') {
         const backstageMenu = document.getElementById('backstage-menu');
         if (!backstageMenu || backstageMenu.style.display === 'none') {
-            openFileMenu(); 
+            openFileMenu('multiplayer'); 
         }
     }
     if (typeof switchBackstageTab === 'function') {
@@ -1377,7 +1377,7 @@ window.startFriendListeners = function() {
         const inv = snapshot.val();
         if (typeof audioManager !== 'undefined') audioManager.playTone(800, 'sine', 0.1, 0.3); 
         showDesktopNotification("🎮 " + inv.hostName + " invited you", "Map: " + inv.mapName, inv.hostPfp, () => {
-            if (typeof openFileMenu === 'function') openFileMenu();
+            if (typeof openFileMenu === 'function') openFileMenu('multiplayer');
             setTimeout(() => { openMpSidebar('invites'); }, 100);
         });
     };
@@ -1408,15 +1408,22 @@ window.startFriendListeners = function() {
 
         if (chat.unreadCount && chat.unreadCount > 0 && !isLookingAtThisChat) {
             if (typeof audioManager !== 'undefined') audioManager.playTone(600, 'sine', 0.1, 0.2);
-            showDesktopNotification("💬 " + info.name, chat.lastMsg || '', info.pfp, () => {
-                if (typeof openFileMenu === 'function') openFileMenu();
+            const openThisChat = () => {
+                if (typeof openFileMenu === 'function') openFileMenu('multiplayer');
                 // openMpSidebar acomoda las vistas con un pequeño retraso: abrimos el chat DESPUÉS
                 // (antes se abría en seguida y la vista lo volvía a ocultar)
                 setTimeout(() => {
                     openMpSidebar('chats');
                     setTimeout(() => { openPrivateChat(snapshot.key, info.name, info.pfp); }, 60);
                 }, 100);
-            });
+            };
+            // En Modo Zen, con las barras escondidas o en pantalla completa no se ve el contador de arriba y el aviso grande
+            // estorba: sale un globito discreto (scripts/ui-modes.js). En la pantalla normal sigue el aviso de siempre.
+            if (typeof window.mbwFocusModeActive === 'function' && window.mbwFocusModeActive() && typeof window.showMessageBubble === 'function') {
+                window.showMessageBubble(info.name, chat.lastMsg || '', info.pfp, openThisChat);
+            } else {
+                showDesktopNotification("💬 " + info.name, chat.lastMsg || '', info.pfp, openThisChat);
+            }
         }
     };
     database.ref('user_chats/' + myUID).on('child_added', handleNewMessage);
@@ -1429,7 +1436,7 @@ window.startFriendListeners = function() {
         if (req.status) return; 
         if (typeof audioManager !== 'undefined') audioManager.playTone(800, 'sine', 0.1, 0.3);
         showDesktopNotification("👥 Friend Request", req.username + " added you.", req.pfp, () => {
-            if (typeof openFileMenu === 'function') openFileMenu();
+            if (typeof openFileMenu === 'function') openFileMenu('multiplayer');
             setTimeout(() => { openMpSidebar('friends'); }, 100);
         });
     };
@@ -1673,7 +1680,7 @@ window.openDirectMessage = function(uid, name) {
     if (typeof openFileMenu === 'function') {
         const backstageMenu = document.getElementById('backstage-menu');
         if (!backstageMenu || backstageMenu.style.display === 'none') {
-            openFileMenu(); 
+            openFileMenu('multiplayer'); 
         }
     }
     

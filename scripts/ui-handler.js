@@ -2903,6 +2903,7 @@ const DEFAULT_KEYBINDS = {
     structures: { key: 'y', label: '🏘️ Open Structures' },
     mobs: { key: 'm', label: '🐷 Open Mobs Browser' },
     rotate: { key: 'r', label: '🔄 Rotate Block' },
+    zen: { key: 'h', label: '🧘 Zen Mode' },
     brush_up: { key: '+', label: '🖌️ Brush Size +' },
     brush_down: { key: '-', label: '🖌️ Brush Size -' },
     delete: { key: 'delete', label: '💥 Delete Selection' },

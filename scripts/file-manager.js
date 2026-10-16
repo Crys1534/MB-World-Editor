@@ -609,16 +609,18 @@ const localDB = {
                 }
                 
                 // 4. Guardamos el nuevo estado, adjuntando la lista de backups
-                let putReq = store.put({ 
+                let newRecord = { 
                     name: name, 
                     data: dataString, 
                     date: Date.now(), 
                     thumb: thumbnail, 
                     fileInfo: fileInfo,
                     backups: backups 
-                });
+                };
+                let putReq = store.put(newRecord);
                 
                 putReq.onsuccess = () => {
+                    localDB.metaPut(localDB.metaFromRecord(newRecord));   // ficha ligera para que la lista de mundos cargue rápido (Ronda 15)
                     resolve();
                     // Primer mundo guardado: se abre el perfil (profile.js) para que elija nombre y foto
                     if (isFirstWorld && typeof window.promptProfileAfterFirstSave === 'function') window.promptProfileAfterFirstSave();
@@ -638,6 +640,148 @@ const localDB = {
         });
     },
     
+    // ----------------------------------------------------------------------------------
+    // ⚡ LISTA RÁPIDA DE MUNDOS (Ronda 15)
+    // Antes, para dibujar "My Worlds" se leían los mundos ENTEROS (cada uno con sus hasta 10 respaldos) y además dos veces:
+    // con 4 mundos grandes eran ~215 MB leídos en cada apertura. La lista solo necesita nombre, fecha, foto e info del mundo.
+    // Ahora esos datos chicos se guardan aparte (en otra base: "MBEditorMetaDB") y los mundos solo se leen enteros UNA vez,
+    // la primera vez. Si algo falla con esa base aparte, todo funciona como antes (se lee de la forma de siempre).
+    // Los mundos NO se tocan: la base original queda exactamente igual.
+    // ----------------------------------------------------------------------------------
+    metaDbName: "MBEditorMetaDB",
+    metaStoreName: "worldsMeta",
+    _metaDbPromise: null,
+    
+    initMeta: function() {
+        if (this._metaDbPromise) return this._metaDbPromise;
+        this._metaDbPromise = new Promise(resolve => {
+            try {
+                const request = indexedDB.open(this.metaDbName, 1);
+                request.onupgradeneeded = (e) => {
+                    const mdb = e.target.result;
+                    if (!mdb.objectStoreNames.contains(this.metaStoreName)) mdb.createObjectStore(this.metaStoreName, { keyPath: "name" });
+                };
+                request.onsuccess = (e) => {
+                    const mdb = e.target.result;
+                    mdb.onversionchange = () => { try { mdb.close(); } catch (err) {} localDB._metaDbPromise = null; };
+                    resolve(mdb);
+                };
+                request.onerror = () => resolve(null);
+                request.onblocked = () => resolve(null);
+            } catch (err) { resolve(null); }
+        });
+        return this._metaDbPromise;
+    },
+    
+    // La "ficha" de un mundo: lo que necesita la lista (sin los datos del mundo ni sus respaldos).
+    // size = peso del archivo .mbw; se calcula la primera vez que se ve (null mientras no se sepa) y se recuerda.
+    metaFromRecord: function(w) {
+        return { name: w.name, date: w.date, thumb: w.thumb || "", fileInfo: w.fileInfo || null, size: null };
+    },
+    
+    metaPut: async function(entry) {
+        try {
+            const mdb = await this.initMeta();
+            if (!mdb) return;
+            await new Promise(res => {
+                const tx = mdb.transaction(this.metaStoreName, "readwrite");
+                tx.objectStore(this.metaStoreName).put(entry);
+                tx.oncomplete = tx.onerror = tx.onabort = () => res();
+            });
+        } catch (err) { /* la ficha es solo una ayuda: si falla, se reconstruye sola la próxima vez */ }
+    },
+    
+    metaDelete: async function(name) {
+        try {
+            const mdb = await this.initMeta();
+            if (!mdb) return;
+            await new Promise(res => {
+                const tx = mdb.transaction(this.metaStoreName, "readwrite");
+                tx.objectStore(this.metaStoreName).delete(name);
+                tx.oncomplete = tx.onerror = tx.onabort = () => res();
+            });
+        } catch (err) { }
+    },
+    
+    // Recuerda el peso ya calculado de un mundo (solo si el mundo sigue siendo la misma versión: misma fecha).
+    metaSetSize: async function(name, date, bytes) {
+        try {
+            const mdb = await this.initMeta();
+            if (!mdb) return;
+            await new Promise(res => {
+                const tx = mdb.transaction(this.metaStoreName, "readwrite");
+                const os = tx.objectStore(this.metaStoreName);
+                const g = os.get(name);
+                g.onsuccess = () => { const m = g.result; if (m && m.date === date) { m.size = bytes; os.put(m); } };
+                tx.oncomplete = tx.onerror = tx.onabort = () => res();
+            });
+        } catch (err) { }
+    },
+    
+    metaAll: async function() {
+        try {
+            const mdb = await this.initMeta();
+            if (!mdb) return null;
+            return await new Promise(res => {
+                const r = mdb.transaction(this.metaStoreName, "readonly").objectStore(this.metaStoreName).getAll();
+                r.onsuccess = () => res(r.result || []);
+                r.onerror = () => res(null);
+            });
+        } catch (err) { return null; }
+    },
+    
+    // Cuántos mundos hay (sin leerlos).
+    countWorlds: async function() {
+        let db = await this.init();
+        return new Promise((resolve, reject) => {
+            let request = db.transaction(this.storeName, "readonly").objectStore(this.storeName).count();
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    },
+    
+    // Un mundo completo (con datos y respaldos).
+    getWorldRecord: async function(name) {
+        let db = await this.init();
+        return new Promise((resolve, reject) => {
+            let request = db.transaction(this.storeName, "readonly").objectStore(this.storeName).get(name);
+            request.onsuccess = () => resolve(request.result || null);
+            request.onerror = () => reject(request.error);
+        });
+    },
+    
+    // La lista de mundos SIN los datos pesados: [{ name, date, thumb, fileInfo, size }].
+    getWorldsLight: async function() {
+        let db = await this.init();
+        const store = db.transaction(this.storeName, "readonly").objectStore(this.storeName);
+        if (typeof store.getAllKeys !== 'function') return this.getWorlds();
+        const names = await new Promise((resolve, reject) => {
+            const r = store.getAllKeys();
+            r.onsuccess = () => resolve(r.result || []);
+            r.onerror = () => reject(r.error);
+        });
+        const metas = await this.metaAll();
+        if (metas === null) return this.getWorlds();   // sin fichas: la forma de siempre
+        
+        const byName = new Map(metas.map(m => [m.name, m]));
+        const present = new Set(names);
+        metas.forEach(m => { if (!present.has(m.name)) this.metaDelete(m.name); });   // mundos que ya no existen
+        
+        const out = [];
+        for (const name of names) {
+            let m = byName.get(name);
+            if (!m || typeof m.date !== 'number') {
+                // Primera vez que se ve este mundo: se lee entero UNA vez y se guarda su ficha
+                const w = await this.getWorldRecord(name);
+                if (!w) continue;
+                m = this.metaFromRecord(w);
+                await this.metaPut(m);
+            }
+            out.push(m);
+        }
+        return out;
+    },
+    
     loadWorld: async function(name) {
         let db = await this.init();
         return new Promise((resolve, reject) => {
@@ -651,6 +795,7 @@ const localDB = {
         let db = await this.init();
         let transaction = db.transaction(this.storeName, "readwrite");
         transaction.objectStore(this.storeName).delete(name);
+        this.metaDelete(name);
     }
 };
 
@@ -1002,6 +1147,7 @@ window.restoreWorldBackup = async function(worldName, backupIndex) {
                 
                 let putReq = store.put(world);
                 putReq.onsuccess = () => {
+                    localDB.metaPut(localDB.metaFromRecord(world));   // la lista de mundos muestra la versión restaurada
                     closeModal('backups-modal');
                     alert("✅ Time Machine successful! The world has been restored.");
                     
@@ -1110,9 +1256,10 @@ window.importBackupFiles = async function(event) {
         return new Promise((resolve, reject) => {
             const tx = db.transaction([localDB.storeName], "readwrite");
             const store = tx.objectStore(localDB.storeName);
-            store.put({ name: worldName, data: stringData, lastModified: Date.now(), date: Date.now() });
+            const importedAt = Date.now();
+            store.put({ name: worldName, data: stringData, lastModified: importedAt, date: importedAt });
             
-            tx.oncomplete = () => { mundosImportados++; resolve(); };
+            tx.oncomplete = () => { mundosImportados++; localDB.metaPut({ name: worldName, date: importedAt, thumb: "", fileInfo: null, size: null }); resolve(); };
             tx.onerror = () => reject();
         });
     };

@@ -381,7 +381,13 @@ function createUnifiedWorldCard(data) {
     return `<div class="template-card" style="position: relative; ${cardStyle}" ${hoverEvents}>${deleteBtnHTML}${historyBtnHTML}<div class="template-thumb" style="${imageStyle} position: relative;" onclick="${data.onClick}">${pinBtnHTML}${fallbackIcon}</div><div class="template-info" onclick="${data.onClick}"><div class="t-name" title="${data.name}">${data.name}</div><div class="t-meta"><b><span data-i18n="side_info_version">Version:</span></b> ${data.version || ""}</div><div class="t-meta"><b><span data-i18n="side_info_author">Author:</span></b> ${data.author || ""}</div>${data.dateStr ? `<div class="t-meta">📆 ${data.dateStr}</div>` : ''}${data.sizeStr ? `<div class="t-meta">📄 ${data.sizeStr}</div>` : ''}</div></div>`;
 }
 
-window.openFileMenu = async function() {
+// Cuenta cada cambio de pestaña del menú File. Sirve para que la decisión "¿a qué pestaña abro?" (que tarda un poquito)
+// NO pise una pestaña que la persona (o otro botón, como 🌐 Multiplayer) ya eligió mientras tanto.
+window.__backstageTabSeq = 0;
+
+// openFileMenu()            -> abre el menú y elige sola la pestaña (Mis Mundos, o Plantillas si no hay mundos guardados).
+// openFileMenu('multiplayer') -> abre el menú DIRECTO en esa pestaña, sin mirar la configuración de inicio ni los mundos guardados.
+window.openFileMenu = async function(tab) {
     const menu = document.getElementById('backstage-menu');
     if (menu) menu.style.display = 'flex';
     
@@ -389,24 +395,31 @@ window.openFileMenu = async function() {
     const lobbyPfp = document.getElementById('mp-pfp-preview');
     if (lobbyPfp) lobbyPfp.style.backgroundImage = savedPic ? `url('${savedPic}')` : `url('assets/default pfp.png')`;
     
-    // ✨ MAGIA: Revisamos cuántos mundos tiene antes de decidir a qué pestaña llevarlo
+    // Una pestaña pedida a propósito (por ejemplo desde el botón 🌐 Multiplayer): se va directo, sin esperar nada.
+    if (typeof tab === 'string' && tab) {
+        switchBackstageTab(tab);
+        return;
+    }
+    
+    // Apuntamos cuántos cambios de pestaña van hasta ahora: si cambia mientras revisamos, la persona ya eligió y no tocamos nada.
+    const seqAtOpen = window.__backstageTabSeq;
+    let target = 'my-worlds';
+    
+    // ✨ Revisamos si tiene mundos guardados antes de decidir a qué pestaña llevarlo.
+    // (Solo se CUENTAN: antes se leían enteros, con todos sus respaldos, y a veces tardaba más de un segundo.)
     if (typeof localDB !== 'undefined') {
         try {
-            const worlds = await localDB.getWorlds();
-            if (worlds.length === 0) {
-                // Es un usuario nuevo o sin mapas, lo mandamos a las plantillas
-                switchBackstageTab('templates');
-            } else {
-                // Si ya tiene mapas, lo mandamos a "Mis Mundos" como siempre
-                switchBackstageTab('my-worlds');
-            }
+            const total = localDB.countWorlds ? await localDB.countWorlds() : (await localDB.getWorlds()).length;
+            // Es un usuario nuevo o sin mapas → plantillas. Si ya tiene mapas → "Mis Mundos" como siempre.
+            if (total === 0) target = 'templates';
         } catch (error) {
             // Si la base de datos falla, por defecto va a Mis Mundos
-            switchBackstageTab('my-worlds');
         }
-    } else {
-        switchBackstageTab('my-worlds');
     }
+    
+    // Si mientras tanto la persona (o otro botón) ya cambió de pestaña, respetamos su elección.
+    if (window.__backstageTabSeq !== seqAtOpen) return;
+    switchBackstageTab(target);
 };
 
 window.closeFileMenu = function() {
@@ -415,6 +428,7 @@ window.closeFileMenu = function() {
 };
 
 window.switchBackstageTab = function(tabName) {
+    window.__backstageTabSeq++;   // alguien cambió de pestaña (la persona o un botón): las decisiones automáticas pendientes ya no deben pisarla
     document.querySelectorAll('.backstage-panel').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.backstage-nav-btn').forEach(b => b.classList.remove('active'));
     const targetPanel = document.getElementById('panel-' + tabName);
@@ -468,9 +482,25 @@ window.formatBytes = function(bytes) {
     }
 };
 
+// Calcula el peso (en bytes) que tendría el archivo .mbw de un mundo guardado.
+window.computeWorldFileBytes = function(data) {
+    let encodedData = data || "";
+    if (typeof mbwAlgorithm !== 'undefined' && data) {
+        try {
+            const parsedData = JSON.parse(data);
+            const stringified = JSON.stringify(parsedData);
+            encodedData = mbwAlgorithm.encode(stringified);
+        } catch(e) {}
+    }
+    return new Blob([encodedData]).size;
+};
+
+window.__worldsListToken = 0;   // cada vez que se dibuja la lista sube; así un dibujo viejo que termina tarde no pisa al nuevo
+
 window.renderFullscreenWorldsList = async function() {
     const listDiv = document.getElementById("fs-local-worlds-list");
     if(!listDiv || typeof localDB === 'undefined') return;
+    const myToken = ++window.__worldsListToken;
     
     // 1. DIBUJAR TARJETAS FANTASMA (Efecto YouTube / Skeleton)
     listDiv.style.cssText = ""; 
@@ -497,7 +527,9 @@ window.renderFullscreenWorldsList = async function() {
     // 2. Esperamos 50ms para que el navegador pinte los esqueletos y luego cargamos la DB
     setTimeout(async () => {
         try {
-            const worlds = await localDB.getWorlds();
+            // ⚡ Solo lo que necesita la lista (nombre, fecha, foto, info y peso recordado): sin leer los mundos enteros
+            const worlds = localDB.getWorldsLight ? await localDB.getWorldsLight() : await localDB.getWorlds();
+            if (myToken !== window.__worldsListToken) return;   // mientras tanto se pidió dibujar la lista otra vez: esta ya no sirve
             
             if(worlds.length === 0) {
                 listDiv.style.cssText = "display: flex; flex-direction: column; max-width: 900px;";
@@ -533,36 +565,38 @@ window.renderFullscreenWorldsList = async function() {
                     version: w.fileInfo ? w.fileInfo.version : "", 
                     image: w.thumb, 
                     dateStr: dateStr, 
-                    sizeStr: `<span id="size-calc-${index}" style="opacity: 0.5;">Calculating...</span>`, 
+                    sizeStr: (w.size != null && w.data === undefined)
+                        ? `<span id="size-calc-${index}">${window.formatBytes ? window.formatBytes(w.size) : (w.size / 1024).toFixed(1) + ' KB'}</span>`   // peso ya recordado: sale al instante
+                        : `<span id="size-calc-${index}" style="opacity: 0.5;" data-pending="1">Calculating...</span>`, 
                     onClick: `loadSavedLocalWorld('${safeName}'); closeFileMenu();` 
                 });
             }).join('');
 
-            // 4. CALCULAR LOS PESOS SIN LAG
+            // 4. CALCULAR LOS PESOS SIN LAG (solo los que todavía no se conocen; el resultado se recuerda)
             let index = 0;
-            function processNextWorld() {
+            async function processNextWorld() {
+                if (myToken !== window.__worldsListToken) return;   // la lista se volvió a dibujar: este trabajo ya no hace falta
                 if (index >= worlds.length) return; 
                 
-                const w = worlds[index];
-                const spanCalc = document.getElementById(`size-calc-${index}`);
+                const i = index++;
+                const w = worlds[i];
+                const spanCalc = document.getElementById(`size-calc-${i}`);
                 
-                if (spanCalc) {
-                    // Calculamos el peso del mundo comprimido
-                    let encodedData = w.data || "";
-                    if (typeof mbwAlgorithm !== 'undefined' && w.data) {
-                        try {
-                            const parsedData = JSON.parse(w.data);
-                            const stringified = JSON.stringify(parsedData);
-                            encodedData = mbwAlgorithm.encode(stringified);
-                        } catch(e) {}
+                if (spanCalc && spanCalc.getAttribute('data-pending') === '1') {
+                    let data = w.data;
+                    if (data === undefined) {
+                        // Ficha ligera: el mundo se lee solo ahora, uno por uno, y el peso queda guardado para la próxima vez
+                        try { data = await localDB.loadWorld(w.name); } catch (e) { data = ""; }
+                        if (myToken !== window.__worldsListToken) return;
                     }
-                    const bytes = new Blob([encodedData]).size;
+                    const bytes = window.computeWorldFileBytes(data);
                     
                     spanCalc.innerHTML = window.formatBytes ? window.formatBytes(bytes) : (bytes / 1024).toFixed(1) + ' KB';
                     spanCalc.style.opacity = "1"; 
+                    spanCalc.removeAttribute('data-pending');
+                    if (w.data === undefined && localDB.metaSetSize) localDB.metaSetSize(w.name, w.date, bytes);
                 }
                 
-                index++;
                 requestAnimationFrame(processNextWorld);
             }
             requestAnimationFrame(processNextWorld);
