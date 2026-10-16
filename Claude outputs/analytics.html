@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MBWE Analytics</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root{--bg:#111;--panel:#1a1a1a;--border:#333;--accent:#4DA6FF;--text:#eee;--green:#3fb950;--red:#ff4e45}
+        body{background-color:var(--bg);background-image:radial-gradient(#333 1px,transparent 1px);background-size:20px 20px;color:var(--text);font-family:'Segoe UI',Arial,sans-serif;margin:0;display:flex}
+        .sidebar{width:240px;background-color:var(--panel);height:100vh;border-right:3px solid var(--border);padding:30px 0;position:fixed;box-sizing:border-box;z-index:100;box-shadow:5px 0 15px rgba(0,0,0,.5)}
+        .logo-area{padding:0 20px 30px;text-align:center;border-bottom:3px dashed var(--border);margin-bottom:20px}
+        .logo-area h2{margin:0;color:#fff;font-size:26px;font-weight:900;text-transform:uppercase;letter-spacing:1px;text-shadow:2px 2px 0 var(--accent)}
+        .logo-area span{color:#888;font-size:12px;font-weight:700;letter-spacing:3px}
+        .menu-item{padding:14px 24px;color:#aaa;font-weight:700;cursor:pointer;transition:.1s;border-left:6px solid transparent;text-transform:uppercase;font-size:13px;letter-spacing:1px;}
+        .menu-item:hover{background-color:rgba(255,255,255,.05);color:#fff}
+        .menu-item.active{background-color:rgba(77,166,255,.1);border-left:6px solid var(--accent);color:var(--accent)}
+        .main-content{margin-left:240px;padding:10px 32px 0;width:calc(100% - 240px);box-sizing:border-box}
+        .view-section{display:none;animation:slideFade .3s cubic-bezier(.175,.885,.32,1.275)}
+        .view-section.active{display:block}
+        @keyframes slideFade{from{opacity:0;transform:translateY(20px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+        .header{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:12px}
+        .time-filter{background:#000;color:#fff;border:1px solid var(--border);padding:8px 12px;border-radius:0;font-size:14px;font-weight:700;outline:0;cursor:pointer;transition:.2s;text-transform:uppercase;box-shadow:3px 3px 0 var(--border)}
+        .time-filter:hover{transform:translate(-2px,-2px);box-shadow:5px 5px 0 var(--accent);border-color:var(--accent)}
+        .time-filter:active{transform:translate(2px,2px);box-shadow:0 0 0 var(--accent)}
+        .cards-container{display:flex;gap:25px;margin-bottom:20px}
+        .card{background:var(--panel);border:1px solid var(--border);border-radius:0;padding:10px;flex:1;position:relative;box-shadow:6px 6px 0 rgba(0,0,0,.6);transition:.2s}
+        .card:hover{transform:translate(-3px,-3px);box-shadow:9px 9px 0 rgba(0,0,0,.8);border-color:#666}
+        .card::before{content:'';position:absolute;top:0;left:0;width:100%;height:4px;background:var(--border)}
+        .card:nth-child(1)::before{background:var(--accent)}.card:nth-child(2)::before{background:var(--red)}.card:nth-child(3)::before{background:var(--green)}
+        .card-title{color:#888;font-size:11px;font-weight:501;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px}
+        .card-value{font-size:42px;font-weight:900;margin:0;letter-spacing:-1px;text-shadow:3px 3px 0 rgba(0,0,0,.8)}
+        .val-blue{color:var(--accent)}.val-red{color:var(--red)}.val-green{color:var(--green)}
+        .dashboard-row{display:flex;gap:25px;margin-bottom:20px}
+        .chart-container{background:var(--panel);border:1px solid var(--border);padding:20px;flex:2;height:420px;box-sizing:border-box;box-shadow:6px 6px 0 rgba(0,0,0,.6);position:relative}
+        .chart-container::before{content:'';position:absolute;top:0;left:0;width:100%;height:4px;background:#888}
+        .side-column{flex:1;display:flex;flex-direction:column;height:420px}
+        .sources-container{background:var(--panel);border:1px solid var(--border);padding:15px;flex:1;overflow-y:auto;box-sizing:border-box;box-shadow:6px 6px 0 rgba(0,0,0,.6)}
+        .source-list{list-style:none;padding:0;margin:0}
+        .source-item{display:flex;justify-content:space-between;align-items:center;padding:10px;border-bottom:2px dashed #333;font-size:14px;transition:.2s}
+        .source-item:hover{background:rgba(255,255,255,.05);padding-left:15px}
+        .source-item:last-child{border-bottom:none}
+        .source-name{color:#fff;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px}
+        .source-stats{color:#111;background:var(--green);font-weight:900;flex-shrink:0;text-align:right;padding:4px 8px;font-size:12px;box-shadow:2px 2px 0 #111;text-transform:uppercase}
+        .sub-text{display:block;font-size:9px;color:#888;font-weight:600;margin-top:0px;text-transform:uppercase}
+        ::-webkit-scrollbar{width:12px}::-webkit-scrollbar-track{background:#111;border-left:2px solid #333}::-webkit-scrollbar-thumb{background:#444;border:2px solid #111}::-webkit-scrollbar-thumb:hover{background:var(--accent)}
+        
+        /* ESTILOS DEL MODAL */
+        .modal-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:1000; align-items:center; justify-content:center; backdrop-filter:blur(5px); }
+        .modal-box { background:var(--panel); border:3px solid var(--border); padding:25px; width:450px; box-shadow:10px 10px 0 rgba(0,0,0,0.9); position: relative; }
+        .modal-box::before { content:''; position:absolute; top:0; left:0; width:100%; height:5px; background:var(--accent); }
+        .modal-title { margin:0 0 20px 0; color:#fff; text-transform:uppercase; font-weight:900; font-size:22px; letter-spacing: 1px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display:block; margin-bottom:5px; color:#aaa; font-size:12px; font-weight:bold; text-transform:uppercase; }
+        .form-group input { width:100%; padding:10px; background:#000; border:2px solid var(--border); color:#fff; font-family:inherit; font-weight:bold; box-sizing:border-box; outline:none; transition: 0.2s; }
+        .form-group input:focus { border-color:var(--accent); }
+        .time-row { display: flex; gap: 15px; }
+        .time-row .form-group { flex: 1; }
+        .modal-actions { display:flex; justify-content:flex-end; gap:15px; margin-top:25px; }
+        .btn-modal { padding:10px 20px; font-weight:900; cursor:pointer; text-transform:uppercase; border:2px solid var(--border); background:#000; color:#fff; transition:0.2s; }
+        .btn-modal.save { background:var(--green); color:#111; border-color:var(--green); }
+        .btn-modal:hover { transform:translate(-2px,-2px); box-shadow:4px 4px 0 var(--border); }
+        .btn-modal.save:hover { box-shadow:4px 4px 0 #111; }
+        .form-group .hint { margin-top:6px; font-size:11px; color:#888; }
+        .edit-pencil { cursor:pointer; font-size:16px; opacity:.6; transition:.2s; }
+        .edit-pencil:hover { opacity:1; }
+    </style>
+</head>
+<body onclick="habilitarAudio()">
+    
+    <!-- MODAL DE EDICIÓN NATIVA -->
+    <div class="modal-overlay" id="modal-edicion">
+        <div class="modal-box">
+            <h2 class="modal-title">✏️ Editar Jugador</h2>
+            
+            <div class="form-group">
+                <label>Nombre del Jugador</label>
+                <input type="text" id="edit-nombre" placeholder="Ej. Player2" maxlength="40">
+                <div class="hint">Es un apodo solo para ti (se guarda en este navegador). Déjalo vacío para usar el nombre que el jugador guardó en el editor.</div>
+            </div>
+            
+            <div style="border-top: 2px dashed var(--border); margin: 25px 0 15px;"></div>
+            <h3 style="margin:0 0 15px 0; color:#fff; font-size: 14px; text-transform: uppercase;">✚ Agregar Tiempo Manual</h3>
+            
+            <div class="time-row">
+                <div class="form-group">
+                    <label>Horas</label>
+                    <input type="number" id="edit-horas" min="0" value="0">
+                </div>
+                <div class="form-group">
+                    <label>Minutos</label>
+                    <input type="number" id="edit-mins" min="0" max="59" value="0">
+                </div>
+            </div>
+            <div class="time-row">
+                <div class="form-group">
+                    <label>Día (Fecha)</label>
+                    <input type="date" id="edit-fecha">
+                </div>
+                <div class="form-group">
+                    <label>Hora Exacta</label>
+                    <input type="time" id="edit-hora">
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn-modal" onclick="cerrarModalEdicion()">Cancelar</button>
+                <button class="btn-modal save" onclick="guardarEdicion()">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <div class="logo-area"><h2>MB Studio</h2><span>ANALYTICS</span></div>
+        <div class="menu-item active" id="tab-resumen" onclick="cambiarPestana('resumen')">📊 Resumen</div>
+        <div class="menu-item" id="tab-fuentes" onclick="cambiarPestana('fuentes')">🚦 Fuentes</div>
+        <div class="menu-item" id="tab-jugadores" onclick="cambiarPestana('jugadores')">👥 Jugadores</div>
+    </div>
+    <div class="main-content">
+        
+        <!-- PESTAÑA: RESUMEN -->
+        <div id="view-resumen" class="view-section active">
+            <div class="header">
+                <div>
+                    <div style="margin-top: 10px; display: flex; align-items: center; gap: 15px;">
+                        <label class="time-filter" style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
+                            <input type="checkbox" id="filtroMisDatos" onchange="procesarDatos()" style="margin: 0; cursor: pointer;"> 💎 Solo Crystal
+                        </label>
+                    </div>
+                </div>
+                <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                    <select id="timeFilter" class="time-filter" onchange="checkPersonalizado()" style="margin-bottom: 5px;">
+                        <option value="hoy">Hoy</option>
+                        <option value="24h">Últ. 24 horas</option>
+                        <option value="ayer">Ayer</option>
+                        <option value="semana">Esta semana</option>
+                        <option value="mes" selected>Este mes</option>
+                        <option value="mespasado">El mes pasado</option>
+                        <option value="anio">Este año</option>
+                        <option value="aniopasado">El año pasado</option>
+                        <option value="personalizado">Personalizado</option>
+                        <option value="all">Desde siempre</option>
+                    </select>
+                    <div id="customDateContainer" style="display:none; gap: 5px;">
+                        <input type="date" id="dateStart" class="time-filter" onchange="procesarDatos()">
+                        <input type="date" id="dateEnd" class="time-filter" onchange="procesarDatos()">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="cards-container">
+                <div class="card"><div class="card-title">Visitas Totales</div><div class="card-value val-blue" id="totalVisits">...</div></div>
+                <div class="card"><div class="card-title">Usuarios Activos</div><div class="card-value val-red" id="activeUsers">0</div></div>
+                <div class="card"><div class="card-title">Tiempo Total</div><div class="card-value val-green" id="totalDuration">-</div></div>
+            </div>
+            
+            <div class="dashboard-row">
+                <div class="chart-container"><canvas id="visitsChart"></canvas></div>
+                <div class="side-column">
+                    <div class="sources-container">
+                        <div class="card-title" style="margin-bottom:5px;">Usuarios Activos</div>
+                        <ul class="source-list" id="activeUsersList"></ul>
+                    </div>
+                    <div class="sources-container">
+                        <div class="card-title" style="margin-bottom:5px;">Historial de Sesiones</div>
+                        <ul class="source-list" id="lastSessionsList"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PESTAÑA: FUENTES DE TRÁFICO -->
+        <div id="view-fuentes" class="view-section">
+            <div class="header"><div><h1 style="margin:0;font-size:28px;font-weight:900;text-transform:uppercase;color:#fff;text-shadow:2px 2px 0 var(--accent);">Fuentes de Tráfico</h1></div></div>
+            
+            <div class="dashboard-row" style="margin-top: 20px;">
+                <div class="chart-container" style="flex:1;">
+                    <canvas id="sourcesChart"></canvas>
+                </div>
+                <div class="sources-container" style="height: 420px; flex:1;">
+                    <ul class="source-list" id="trafficSourcesGlobal"></ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- PESTAÑA: JUGADORES -->
+        <div id="view-jugadores" class="view-section">
+            <div class="header"><div><h1 style="margin:0;font-size:28px;font-weight:900;text-transform:uppercase;color:#fff;text-shadow:2px 2px 0 var(--accent);">Registro de Jugadores</h1></div></div>
+            <div class="sources-container" style="height: auto; max-height: 86vh;">
+                <ul class="source-list" id="playersList"></ul>
+            </div>
+        </div>
+
+        <!-- PESTAÑA: DETALLE DE JUGADOR (NUEVA) -->
+        <div id="view-detalle-jugador" class="view-section">
+            <div class="header" style="justify-content: flex-start; gap: 20px; margin-bottom: 20px;">
+                <button class="btn-modal" style="padding: 6px 12px; font-size: 14px;" onclick="cerrarDetalleJugador()">⬅ VOLVER</button>
+                <div><h1 style="margin:0;font-size:28px;font-weight:900;text-transform:uppercase;color:#fff;text-shadow:2px 2px 0 var(--accent);" id="detalleJugadorTitulo">Detalle</h1></div>
+            </div>
+            
+            <!-- CONTENEDOR DE LA GRÁFICA DEL JUGADOR -->
+            <div class="dashboard-row" style="margin-bottom: 20px;">
+                <div class="chart-container" style="flex:1; height: 250px; padding: 15px;">
+                    <canvas id="detalleJugadorChart"></canvas>
+                </div>
+            </div>
+
+            <div class="sources-container" style="height: auto; max-height: 50vh;">
+                <ul class="source-list" id="detalleJugadorList"></ul>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const firebaseConfig={apiKey:"AIzaSyDawixERthu8gHpy-ckb8PMNVOMhlBEQMs",authDomain:"mbwe-multiplayer.firebaseapp.com",databaseURL:"https://mbwe-multiplayer-default-rtdb.firebaseio.com",projectId:"mbwe-multiplayer"};firebase.initializeApp(firebaseConfig);const db=firebase.database();let rawData=[],chartInstance=null,sourcesChartInstance=null,detalleChartInstance=null,titleInterval=null,lastActiveCount=0,audioContextHabilitado=!1;
+        
+        let editUid = null;
+
+        // ===== NOMBRES DE LOS JUGADORES =====
+        // De dónde sale el nombre de cada jugador (de más importante a menos importante):
+        //  1) El nombre fijo (el tuyo) o el que tú escribes con el lápiz ✏️ (se guarda solo en ESTE navegador)
+        //  2) El username que el editor manda en cada sesión (campo "nombre" de visitas_editor) -> se actualiza solo
+        //  3) El username que está en online_users ahora mismo (sirve para editores viejos que todavía no mandan "nombre")
+        //  4) El último nombre del punto 3 que este navegador guardó
+        //  5) "User: usr_xxxx" si no hay ninguno
+        const MI_UID = "usr_7tsrn0vvl";
+        const NOMBRES_FIJOS = { [MI_UID]: "Crystal" };
+        const mapa = () => Object.create(null);   // diccionario sin "herencia": un uid raro como "constructor" ya no rompe nada
+        let nombresSesion = mapa(), nombresVivos = mapa(), cacheNombres = mapa();
+        let validVisitsActuales = [], detalleUidActual = null, showRed = true, refrescoPendiente = null;
+        const consultaVivo = mapa();
+
+        // Todo lo que viene de la base de datos lo puede escribir cualquiera (nombres, fuentes...):
+        // se limpia y se "escapa" antes de pintarlo en la página, para que nadie pueda meter código.
+        const ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+        function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ESC_MAP[c]); }
+        function limpiarTexto(s, max) { return typeof s === 'string' ? s.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, max || 80) : ''; }
+        function esNombreReal(n) { if (typeof n !== 'string') return false; const x = n.trim().toLowerCase(); return x !== '' && !['player', 'user', 'unknown user', 'undefined', 'null'].includes(x); }
+        function uidValido(u) { return typeof u === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(u); }
+
+        function leerTextosGuardados(clave) {
+            const o = mapa();
+            try {
+                const j = JSON.parse(localStorage.getItem(clave) || "{}");
+                if (j && typeof j === 'object' && !Array.isArray(j)) Object.keys(j).forEach(k => { if (typeof j[k] === 'string') o[k] = j[k]; });
+            } catch (e) {}
+            return o;
+        }
+        // Nombres que tú escribiste con el lápiz. Se ignoran los "usr_abcd..." que una versión anterior guardaba por error.
+        function leerNombresCrudos() {
+            const o = leerTextosGuardados('mbwe_custom_names');
+            Object.keys(o).forEach(k => { if (/^usr_[A-Za-z0-9]{1,8}\.\.\.$/.test(o[k])) delete o[k]; });
+            return o;
+        }
+        function leerNombresManuales() { return Object.assign(leerNombresCrudos(), NOMBRES_FIJOS); }
+        cacheNombres = leerTextosGuardados('mbwe_auto_names');
+
+        function nombreAuto(uid) { return nombresSesion[uid] || nombresVivos[uid] || cacheNombres[uid] || ''; }
+        function nombreDe(uid, respaldo) {
+            if (!uid || uid === 'Desconocido') return respaldo || 'Desconocido';
+            return leerNombresManuales()[uid] || nombreAuto(uid) || ('User: ' + (uid.length > 10 ? uid.substring(0, 8) + '...' : uid));
+        }
+        function guardarCacheNombres() {
+            let cambio = false;
+            Object.keys(nombresVivos).forEach(u => { if (cacheNombres[u] !== nombresVivos[u]) { cacheNombres[u] = nombresVivos[u]; cambio = true; } });
+            if (!cambio) return;
+            const ks = Object.keys(cacheNombres);
+            if (ks.length > 500) ks.slice(0, ks.length - 500).forEach(k => delete cacheNombres[k]);
+            try { localStorage.setItem('mbwe_auto_names', JSON.stringify(cacheNombres)); } catch (e) {}
+        }
+        // Cuando llega un nombre nuevo se vuelven a pintar solo las listas (no las gráficas)
+        function programarRefrescoNombres() {
+            if (refrescoPendiente) return;
+            refrescoPendiente = setTimeout(() => {
+                refrescoPendiente = null;
+                renderizarJugadores(); calcularUsuariosActivos(); renderizarUltimasSesiones(validVisitsActuales);
+                if (detalleUidActual) actualizarTituloDetalle();
+            }, 200);
+        }
+        // Para los jugadores conectados que todavía no tienen nombre en sus sesiones (editor viejo), se lee su username de online_users.
+        // Solo se pide el campo "username" (no la foto) y como mucho una vez cada 2 minutos por jugador.
+        function consultarNombresVivos(uids) {
+            const ahora = Date.now();
+            uids.forEach(uid => {
+                if (!uidValido(uid) || nombresSesion[uid]) return;
+                if (consultaVivo[uid] && ahora - consultaVivo[uid] < 120000) return;
+                consultaVivo[uid] = ahora;
+                try {
+                    db.ref('online_users/' + uid + '/username').once('value').then(s => {
+                        const n = limpiarTexto(s.val(), 40);
+                        if (esNombreReal(n) && nombresVivos[uid] !== n) { nombresVivos[uid] = n; guardarCacheNombres(); programarRefrescoNombres(); }
+                    }).catch(() => {});
+                } catch (e) {}
+            });
+        }
+
+        // PLUGIN NEO-RETRO PARA SEPARAR AÑOS (Línea gris punteada puramente visual)
+        const pluginSeparadorAnios = {
+            id: 'separadorAnios',
+            beforeDraw: (chart) => {
+                const xAxis = chart.scales.x;
+                const labels = chart.data.labels;
+                
+                // Evitar errores si la gráfica no tiene eje X
+                if (!xAxis || !labels || labels.length === 0) return;
+                
+                const ctx = chart.ctx;
+                ctx.save();
+                ctx.strokeStyle = '#888888'; // Color gris
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]); // Línea punteada
+                
+                // Busca un año de 4 dígitos en el string
+                const getYear = lbl => { const m = String(lbl).match(/\b(20\d{2})\b/); return m ? m[1] : null; };
+                
+                for (let i = 1; i < labels.length; i++) {
+                    const prev = getYear(labels[i - 1]);
+                    const curr = getYear(labels[i]);
+                    
+                    // Solo dibuja la línea si cambiamos de año de una barra a otra
+                    if (curr && prev && curr !== prev) {
+                        const prevX = xAxis.getPixelForValue(i - 1);
+                        const currX = xAxis.getPixelForValue(i);
+                        const x = (prevX + currX) / 2;
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(x, chart.chartArea.top);
+                        ctx.lineTo(x, chart.chartArea.bottom);
+                        ctx.stroke();
+                    }
+                }
+                ctx.restore();
+            }
+        };
+
+        function habilitarAudio(){audioContextHabilitado=!0}
+        function reproducirNotificacion(){if(!audioContextHabilitado)return;try{const a=window.AudioContext||window.webkitAudioContext;if(!a)return;const b=new a,c=b.createOscillator(),d=b.createGain();c.connect(d),d.connect(b.destination),c.type="sine",c.frequency.setValueAtTime(880,b.currentTime),d.gain.setValueAtTime(.1,b.currentTime),d.gain.exponentialRampToValueAtTime(1e-5,b.currentTime+.5),c.start(b.currentTime),c.stop(b.currentTime+.5)}catch(a){console.error("Error de audio:",a)}}
+        
+        function cambiarPestana(id){detalleUidActual=null;document.querySelectorAll(".menu-item").forEach(b=>b.classList.remove("active"));document.querySelectorAll(".view-section").forEach(b=>b.classList.remove("active"));document.getElementById("tab-"+id).classList.add("active");document.getElementById("view-"+id).classList.add("active");}
+        
+        db.ref("visitas_editor").on("value", a => {
+            let datosTemporales = [];
+            if (a.exists()) {
+                a.forEach(b => {
+                    const c = b.val();
+                    if (!c || typeof c !== 'object') return;
+                    const fecha = Number(c.fecha);
+                    if (!Number.isFinite(fecha) || fecha <= 0) return;
+                    const dur = Number(c.duracion);
+                    datosTemporales.push({
+                        fecha: fecha,
+                        duracion: Number.isFinite(dur) && dur > 0 ? dur : 0,
+                        fuente: limpiarTexto(c.fuente, 80) || "Directo / Desconocido",
+                        uid: limpiarTexto(c.uid, 64) || "Desconocido",
+                        nombre: limpiarTexto(c.nombre, 40)
+                    });
+                });
+            }
+
+            datosTemporales.sort((x, y) => x.fecha - y.fecha);
+
+            // El nombre más reciente de cada jugador: el editor lo manda en cada sesión (y al guardar su username)
+            const nuevosNombres = mapa();
+            datosTemporales.forEach(c => { if (c.uid !== "Desconocido" && esNombreReal(c.nombre)) nuevosNombres[c.uid] = c.nombre; });
+            nombresSesion = nuevosNombres;
+
+            rawData = [];
+            let ultimaSesionUsuario = mapa();
+
+            datosTemporales.forEach(c => {
+                let idx = ultimaSesionUsuario[c.uid];
+                if (idx !== undefined) {
+                    let ultima = rawData[idx];
+                    let finUltima = ultima.fecha + ultima.duracion;
+
+                    if (c.fecha - finUltima < 3600000) {
+                        let nuevoFin = c.fecha + c.duracion;
+                        if (nuevoFin > finUltima) {
+                            ultima.duracion = nuevoFin - ultima.fecha;
+                        }
+                        return;
+                    }
+                }
+                rawData.push({...c});
+                ultimaSesionUsuario[c.uid] = rawData.length - 1;
+            });
+
+            procesarDatos();
+            calcularUsuariosActivos();
+            renderizarJugadores();
+            renderizarFuentesGlobales();
+            if (detalleUidActual) actualizarTituloDetalle();
+        });
+        
+        function calcularUsuariosActivos(){
+            const ahora = Date.now();
+            let n = 0, activosData = [];
+            rawData.forEach(c => { if (ahora - (c.fecha + c.duracion) < 60000) { n++; activosData.push(c); } });
+            document.getElementById("activeUsers").innerText = n;
+            if (n > lastActiveCount) reproducirNotificacion();
+            lastActiveCount = n;
+            if (n > 0) {
+                if (!titleInterval) {
+                    showRed = true;
+                    titleInterval = setInterval(() => { document.title = showRed ? "🔴 MBWE Analytics" : "MBWE Analytics"; showRed = !showRed; }, 1000);
+                }
+            } else {
+                if (titleInterval) { clearInterval(titleInterval); titleInterval = null; }
+                document.title = "MBWE Analytics";
+            }
+
+            let actGrp = mapa();
+            activosData.forEach(v => { if (!actGrp[v.uid] || v.fecha > actGrp[v.uid].fecha) actGrp[v.uid] = v; });
+            consultarNombresVivos(Object.keys(actGrp));
+
+            let activeHtml = "";
+            Object.values(actGrp).forEach(a => {
+                const dispName = nombreDe(a.uid, "Desconocido");
+                let hrs = Math.floor(a.duracion / 36e5), d = Math.floor((a.duracion % 36e5) / 6e4), e = Math.floor((a.duracion % 6e4) / 1e3);
+                let timeStr = hrs > 0 ? `${hrs}h ${d}m` : `${d}m ${e}s`;
+                activeHtml += `<li class="source-item"><div class="source-name" title="${esc(a.uid)}">🟢 ${esc(dispName)}<span class="sub-text">Activo ahora | ${esc(a.fuente)}</span></div><span class="source-stats" style="background:var(--accent); color:#111; box-shadow:2px 2px 0 #111;">${timeStr}</span></li>`;
+            });
+            document.getElementById("activeUsersList").innerHTML = activeHtml === '' ? '<li style="color:#888;padding:10px 0;text-align:center;">Nadie conectado</li>' : activeHtml;
+        }
+        setInterval(calcularUsuariosActivos,5e3);
+        
+        function renderizarUltimasSesiones(visitas){
+            validVisitsActuales = visitas;
+            let agrupado = mapa();
+
+            visitas.forEach(v => {
+                let key = v.uid;
+                if (!agrupado[key]) {
+                    agrupado[key] = { uid: v.uid, fechaFiltro: v.fecha, duracionTotal: 0, fuente: v.fuente, cant: 0 };
+                }
+                agrupado[key].duracionTotal += (v.duracion || 0);
+                agrupado[key].cant++;
+
+                if (v.fecha > agrupado[key].fechaFiltro) {
+                    agrupado[key].fechaFiltro = v.fecha;
+                    agrupado[key].fuente = v.fuente;
+                }
+            });
+
+            const arr = Object.values(agrupado).sort((a, b) => b.duracionTotal - a.duracionTotal);
+            let b = "";
+
+            arr.forEach((a, c) => {
+                let hrs = Math.floor(a.duracionTotal / 36e5),
+                    d = Math.floor((a.duracionTotal % 36e5) / 6e4),
+                    e = Math.floor((a.duracionTotal % 6e4) / 1e3);
+
+                let f = new Date(a.fechaFiltro),
+                    g = f.toLocaleDateString("es-MX", { day: "2-digit", month: "short" });
+
+                let dispName = nombreDe(a.uid, `Sesión #${c + 1}`);
+                let timeStr = hrs > 0 ? `${hrs}h ${d}m` : `${d}m ${e}s`;
+
+                b += `<li class="source-item">
+                        <div class="source-name" title="${esc(a.uid)}">
+                            ${esc(dispName)}
+                            <span class="sub-text">Últ. vez: ${g} | ${a.cant} visitas | ${esc(a.fuente)}</span>
+                        </div>
+                        <span class="source-stats">${timeStr}</span>
+                      </li>`;
+            });
+
+            document.getElementById("lastSessionsList").innerHTML = "" === b ? '<li style="color:#888;padding:10px 0;text-align:center;">Sin registros en este periodo</li>' : b;
+        }
+
+        // FUNCIONES DE TIEMPO Y DETALLE
+        function tiempoHace(fechaTimestamp) {
+            const segundos = Math.floor((Date.now() - fechaTimestamp) / 1000);
+            if (segundos < 60) return "Hace un momento";
+            const minutos = Math.floor(segundos / 60);
+            if (minutos < 60) return `Hace ${minutos} min`;
+            const horas = Math.floor(minutos / 60);
+            if (horas < 24) return `Hace ${horas} hora${horas > 1 ? 's' : ''}`;
+            const dias = Math.floor(horas / 24);
+            if (dias < 7) return `Hace ${dias} día${dias > 1 ? 's' : ''}`;
+            const semanas = Math.floor(dias / 7);
+            if (dias < 30) return `Hace ${semanas} sem`;
+            const meses = Math.floor(dias / 30);
+            if (dias < 365) return `Hace ${meses} mes${meses > 1 ? 'es' : ''}`;
+            const anios = Math.floor(dias / 365);
+            return `Hace ${anios} año${anios > 1 ? 's' : ''}`;
+        }
+
+        function actualizarTituloDetalle() {
+            document.getElementById('detalleJugadorTitulo').innerText = `Sesiones: ${nombreDe(detalleUidActual, 'Desconocido')}`;
+        }
+
+        function abrirDetalleJugador(uid) {
+            detalleUidActual = uid;
+            actualizarTituloDetalle();
+            let sesiones = rawData.filter(v => (v.uid || "Desconocido") === uid);
+            sesiones.sort((a, b) => b.fecha - a.fecha); // Ordenar de más reciente a más antigua
+            
+            // --- GENERAR GRÁFICA "DESDE SIEMPRE" ---
+            let counts = {};
+            sesiones.forEach(s => {
+                let d = new Date(s.fecha);
+                let m = d.toLocaleDateString("es-MX", { month: "short", year: "numeric" });
+                counts[m] = (counts[m] || 0) + 1;
+            });
+            
+            let dLabels = [];
+            let fData = [];
+            if(sesiones.length > 0) {
+                let minDate = sesiones[sesiones.length - 1].fecha; 
+                let dMin = new Date(minDate);
+                let dMax = new Date(); 
+                let cur = new Date(dMin.getFullYear(), dMin.getMonth(), 1);
+                
+                while (cur <= dMax) {
+                    let m = cur.toLocaleDateString("es-MX", { month: "short", year: "numeric" });
+                    dLabels.push(m);
+                    fData.push(counts[m] || 0);
+                    cur.setMonth(cur.getMonth() + 1);
+                }
+            }
+            
+            const ctxDetalle = document.getElementById("detalleJugadorChart").getContext("2d");
+            if(detalleChartInstance) detalleChartInstance.destroy();
+            const grad = ctxDetalle.createLinearGradient(0,0,0,250);
+            grad.addColorStop(0,"rgba(77, 166, 255, 0.9)");
+            grad.addColorStop(1,"rgba(77, 166, 255, 0.1)");
+            
+            detalleChartInstance = new Chart(ctxDetalle, {
+                type: "bar",
+                data: {
+                    labels: dLabels,
+                    datasets: [{
+                        label: "Sesiones",
+                        data: fData,
+                        backgroundColor: grad,
+                        borderColor: "#4DA6FF",
+                        borderWidth: 2,
+                        borderRadius: 0,
+                        hoverBackgroundColor: "#58a6ff",
+                        // ENSANCHAR LAS BARRAS
+                        categoryPercentage: 0.98,
+                        barPercentage: 0.95
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { backgroundColor: "#1a1a1a", titleColor: "#fff", bodyColor: "#aaa", borderColor: "#4DA6FF", borderWidth: 2 } },
+                    scales: {
+                        y: { suggestedMax: 5, beginAtZero: true, grid: { color: "#333" }, ticks: { color: "#888", stepSize: 1 } },
+                        x: { grid: { display: false }, ticks: { color: "#888" } }
+                    }
+                },
+                plugins: [pluginSeparadorAnios]
+            });
+            // ----------------------------------------
+            
+            let html = "";
+            sesiones.forEach((s) => {
+                let hrs=Math.floor(s.duracion/36e5),mins=Math.floor((s.duracion%36e5)/6e4),secs=Math.floor((s.duracion%6e4)/1e3);
+                let timeStr=hrs>0?`${hrs}h ${mins}m`:`${mins}m ${secs}s`;
+                
+                let d = new Date(s.fecha);
+                
+                let mes = d.toLocaleDateString("es-MX", { month: "long" });
+                mes = mes.charAt(0).toUpperCase() + mes.slice(1);
+                let dia = d.getDate();
+                let tituloSesion = `${mes} ${dia}`;
+                
+                let dateStr = d.toLocaleDateString("es-MX", { year:"numeric", month:"short", day:"numeric", hour:"2-digit", minute:"2-digit" });
+                let hace = tiempoHace(s.fecha);
+                
+                html += `<li class="source-item" style="cursor:default;">
+                    <div class="source-name" style="max-width:300px; white-space:normal;">
+                        <span style="color:#fff; font-size:15px;">${tituloSesion}</span>
+                        <span class="sub-text">${dateStr} (${hace}) | ${esc(s.fuente)}</span>
+                    </div>
+                    <span class="source-stats" style="background:var(--accent); color:#111; box-shadow:2px 2px 0 #111;">${timeStr}</span>
+                </li>`;
+            });
+            
+            document.getElementById('detalleJugadorList').innerHTML = html;
+            document.querySelectorAll(".view-section").forEach(b=>b.classList.remove("active"));
+            document.getElementById("view-detalle-jugador").classList.add("active");
+        }
+
+        function cerrarDetalleJugador() {
+            detalleUidActual = null;
+            document.querySelectorAll(".view-section").forEach(b=>b.classList.remove("active"));
+            document.getElementById("view-jugadores").classList.add("active");
+        }
+
+        function renderizarJugadores(){
+            let agrupado=mapa();
+            rawData.forEach(v=>{
+                let uid=v.uid||"Desconocido";
+                if(!agrupado[uid]){agrupado[uid]={uid:uid,duracionTotal:0,cant:0,ultimaVisita:0}}
+                agrupado[uid].duracionTotal+=(v.duracion||0);
+                agrupado[uid].cant++;
+                if(v.fecha>agrupado[uid].ultimaVisita)agrupado[uid].ultimaVisita=v.fecha;
+            });
+            const arr=Object.values(agrupado).sort((a,b)=>b.duracionTotal-a.duracionTotal);
+            let b="";
+            arr.forEach((a,c)=>{
+                let hrs=Math.floor(a.duracionTotal/36e5),mins=Math.floor((a.duracionTotal%36e5)/6e4),secs=Math.floor((a.duracionTotal%6e4)/1e3);
+                let f=new Date(a.ultimaVisita),g=f.toLocaleDateString("es-MX",{day:"2-digit",month:"short"});
+                let dispName=nombreDe(a.uid,"Desconocido");
+                let auto=nombreAuto(a.uid);
+                // Si le pusiste un apodo con el lápiz, abajo se ve también el nombre real que guardó en el editor
+                let editor=(auto&&auto!==dispName)?` | Editor: ${esc(auto)}`:"";
+                let timeStr=hrs>0?`${hrs}h ${mins}m`:`${mins}m ${secs}s`;
+                let hace = tiempoHace(a.ultimaVisita);
+
+                b+=`<li class="source-item" style="cursor:pointer;" data-uid="${esc(a.uid)}">
+                        <div class="source-name" title="${esc(a.uid)}" style="max-width: 280px; white-space: normal;">
+                            <span style="color:#fff;">${esc(dispName)}</span> <span style="color:#888; font-size:12px; font-weight:normal;">• ${hace}</span>
+                            <span class="sub-text">${a.cant} sesiones | Últ. visita: ${g}${editor}</span>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:10px; flex-shrink: 0;">
+                            <span class="source-stats">${timeStr}</span>
+                            ${a.uid!=='Desconocido'?`<span class="edit-pencil" data-edit-uid="${esc(a.uid)}" title="Editar y Agregar Tiempo">✏️</span>`:''}
+                        </div>
+                    </li>`;
+            });
+            document.getElementById("playersList").innerHTML=""===b?'<li style="color:#888;padding:10px 0;text-align:center;">Sin jugadores</li>':b;
+        }
+        
+        function renderizarFuentesGlobales(){
+            let i=mapa(),g=0;
+            rawData.forEach(v=>{i[v.fuente]=(i[v.fuente]||0)+1;g++;});
+            
+            let j="";
+            let chartLabels = [];
+            let chartData = [];
+            
+            Object.keys(i).sort((a,b)=>i[b]-i[a]).forEach(a=>{
+                let b=Math.round(i[a]/g*100);
+                j+=`<li class="source-item"><span class="source-name" title="${esc(a)}">${esc(a)}</span><span class="source-stats" style="background:var(--accent); color:#111; box-shadow:2px 2px 0 #111;">${b}% (${i[a]})</span></li>`;
+                chartLabels.push(a);
+                chartData.push(i[a]);
+            });
+            
+            document.getElementById("trafficSourcesGlobal").innerHTML=""===j?'<li style="color:#888;padding:10px 0;text-align:center;">Sin datos aún</li>':j;
+            
+            const ctxFuentes = document.getElementById("sourcesChart").getContext("2d");
+            if(sourcesChartInstance) sourcesChartInstance.destroy();
+            sourcesChartInstance = new Chart(ctxFuentes, {
+                type: 'doughnut',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        data: chartData,
+                        backgroundColor: ["#4DA6FF", "#ff4e45", "#3fb950", "#ffaa00", "#9933ff", "#ff00ff", "#00ffff", "#ffffff"],
+                        borderColor: "#1a1a1a",
+                        borderWidth: 4,
+                        hoverOffset: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#eee', font: { family: 'Segoe UI', weight: 'bold' }, padding: 20 } },
+                        tooltip: { backgroundColor: "#1a1a1a", titleColor: "#fff", bodyColor: "#aaa", borderColor: "#333", borderWidth: 2 }
+                    },
+                    cutout: '65%'
+                }
+            });
+        }
+
+        /* ---------------- LOGICA DEL MODAL ---------------- */
+        function abrirModalEdicion(uid) {
+            editUid = uid;
+            const manual = leerNombresManuales()[uid];
+            const auto = nombreAuto(uid);
+            const inputNombre = document.getElementById('edit-nombre');
+            // Si tiene apodo se ve el apodo; si no, el nombre que guardó en el editor. Vacío = usar siempre el nombre del editor.
+            inputNombre.value = manual || auto || "";
+            inputNombre.placeholder = auto ? ("Automático: " + auto) : ("Sin nombre aún (" + uid + ")");
+            document.getElementById('edit-horas').value = "0";
+            document.getElementById('edit-mins').value = "0";
+
+            let now = new Date();
+            document.getElementById('edit-fecha').value = now.toISOString().split('T')[0];
+            let hh = String(now.getHours()).padStart(2, '0');
+            let mm = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('edit-hora').value = `${hh}:${mm}`;
+
+            document.getElementById('modal-edicion').style.display = 'flex';
+        }
+
+        function cerrarModalEdicion() {
+            document.getElementById('modal-edicion').style.display = 'none';
+            editUid = null;
+        }
+
+        function guardarEdicion() {
+            if (!editUid) return;
+
+            // Apodo: solo se guarda si es distinto del nombre del editor. Vacío (o igual al del editor) = seguir el nombre automático.
+            const crudos = leerNombresCrudos();
+            const n = limpiarTexto(document.getElementById('edit-nombre').value, 40);
+            if (n === "" || n === nombreAuto(editUid)) delete crudos[editUid]; else crudos[editUid] = n;
+            try { localStorage.setItem('mbwe_custom_names', JSON.stringify(crudos)); } catch (e) {}
+
+            let h = Math.min(999, Math.max(0, parseInt(document.getElementById('edit-horas').value) || 0));
+            let m = Math.min(59, Math.max(0, parseInt(document.getElementById('edit-mins').value) || 0));
+
+            if (h > 0 || m > 0) {
+                let dVal = document.getElementById('edit-fecha').value;
+                let tVal = document.getElementById('edit-hora').value;
+
+                if (dVal && tVal) {
+                    let timestamp = new Date(`${dVal}T${tVal}:00`).getTime();
+                    let duracionMs = (h * 3600000) + (m * 60000);
+
+                    const p = db.ref('visitas_editor').push({
+                        fecha: timestamp,
+                        duracion: duracionMs,
+                        uid: editUid,
+                        fuente: "Registro Manual"
+                    });
+                    if (p && typeof p.catch === 'function') p.catch(err => { console.error(err); alert('No se pudo guardar el tiempo manual: ' + (err && err.message ? err.message : err)); });
+                }
+            }
+
+            cerrarModalEdicion();
+            renderizarJugadores();
+            procesarDatos();
+            calcularUsuariosActivos();
+        }
+
+        function checkPersonalizado(){const a=document.getElementById("timeFilter").value,b=document.getElementById("customDateContainer");if(a==="personalizado"){b.style.display="flex";}else{b.style.display="none";procesarDatos();}}
+
+        function procesarDatos(){
+            const isSoloMisDatos=document.getElementById("filtroMisDatos").checked;
+            const miUid = MI_UID;
+            
+            const a=document.getElementById("timeFilter").value,b=new Date,c=new Date(b.getFullYear(),b.getMonth(),b.getDate()).getTime();let d=[],e=null;if("hoy"===a){for(let f=0;f<=b.getHours();f++)d.push(f+":00");e=a=>{let b=new Date(a);return b.getTime()>=c?b.getHours():-1}}else if("24h"===a){for(let f=23;f>=0;f--)d.push(new Date(b.getTime()-36e5*f).getHours()+":00");e=a=>{let c=Math.floor((b.getTime()-a)/36e5);return c>=0&&c<24?23-c:-1}}else if("ayer"===a){for(let f=0;f<=23;f++)d.push(f+":00");let f=c-864e5;e=a=>{let b=new Date(a);return b.getTime()>=f&&b.getTime()<c?b.getHours():-1}}else if("semana"===a){for(let f=6;f>=0;f--)d.push(new Date(Date.now()-864e5*f).toLocaleDateString("es-MX",{weekday:"short",day:"numeric"}));e=a=>{let b=Math.floor((c-new Date(new Date(a).getFullYear(),new Date(a).getMonth(),new Date(a).getDate()).getTime())/864e5);return b>=0&&b<7?6-b:-1}}else if("mes"===a){for(let f=1;f<=b.getDate();f++)d.push(f.toString());e=a=>{let c=new Date(a);return c.getFullYear()===b.getFullYear()&&c.getMonth()===b.getMonth()?c.getDate()-1:-1}}else if("mespasado"===a){let f=0===b.getMonth()?11:b.getMonth()-1,g=0===b.getMonth()?b.getFullYear()-1:b.getFullYear(),h=new Date(g,f+1,0).getDate();for(let i=1;i<=h;i++)d.push(i.toString());e=a=>{let b=new Date(a);return b.getFullYear()===g&&b.getMonth()===f?b.getDate()-1:-1}}else if("anio"===a){for(let f=0;f<b.getMonth()+1;f++)d.push(new Date(b.getFullYear(),f,1).toLocaleString("es-MX",{month:"short"}));e=a=>{let c=new Date(a);return c.getFullYear()===b.getFullYear()?c.getMonth():-1}}else if("aniopasado"===a){for(let f=0;f<12;f++)d.push(new Date(b.getFullYear()-1,f,1).toLocaleString("es-MX",{month:"short"}));e=a=>{let c=new Date(a);return c.getFullYear()===b.getFullYear()-1?c.getMonth():-1}}else if("personalizado"===a){let ds=document.getElementById("dateStart").value,de=document.getElementById("dateEnd").value;if(!ds||!de)return;let tS=new Date(ds+"T00:00:00").getTime(),tE=new Date(de+"T23:59:59").getTime();let diff=Math.floor((tE-tS)/864e5);for(let f=0;f<=diff;f++)d.push(new Date(tS+f*864e5).toLocaleDateString("es-MX",{month:"short",day:"numeric"}));e=a=>{if(a>=tS&&a<=tE)return Math.floor((a-tS)/864e5);return -1}}else{let f=b.getFullYear();rawData.forEach(a=>{let b=new Date(a.fecha).getFullYear();b<f&&(f=b)});for(let g=f;g<=b.getFullYear();g++)d.push(g.toString());e=a=>{let c=new Date(a).getFullYear()-f;return c>=0&&c<=b.getFullYear()-f?c:-1}}
+            let f=new Array(d.length).fill(0),g=0,h=0,i={},validVisits=[];
+            rawData.forEach(v=>{
+                if(isSoloMisDatos && v.uid !== miUid) return;
+                let idx=e(v.fecha);if(-1!==idx){f[idx]++;g++;h+=v.duracion;i[v.fuente]=(i[v.fuente]||0)+1;validVisits.push(v)}
+            });
+            document.getElementById("totalVisits").innerText=g.toLocaleString();
+            if(g>0){let hrs=Math.floor(h/36e5),mins=Math.floor((h%36e5)/6e4),secs=Math.floor((h%6e4)/1e3);let timeStr=hrs>0?`${hrs}h ${mins}m`:`${mins}m ${secs}s`;document.getElementById("totalDuration").innerText=timeStr;}else{document.getElementById("totalDuration").innerText="-";}
+            renderizarUltimasSesiones(validVisits);dibujarGrafica(d,f)
+        }
+
+        function dibujarGrafica(a,b){
+            const c=document.getElementById("visitsChart").getContext("2d");
+            chartInstance&&chartInstance.destroy();
+            const d=c.createLinearGradient(0,0,0,400);
+            d.addColorStop(0,"rgba(77, 166, 255, 0.9)");
+            d.addColorStop(1,"rgba(77, 166, 255, 0.1)");
+            
+            chartInstance=new Chart(c,{
+                type:"bar",
+                data:{
+                    labels:a,
+                    datasets:[{
+                        label:"Visitas",
+                        data:b,
+                        backgroundColor:d,
+                        borderColor:"#4DA6FF",
+                        borderWidth:2,
+                        borderRadius:0,
+                        hoverBackgroundColor:"#58a6ff",
+                        // ENSANCHAR LAS BARRAS
+                        categoryPercentage: 0.98,
+                        barPercentage: 0.95
+                    }]
+                },
+                options:{
+                    responsive:!0,
+                    maintainAspectRatio:!1,
+                    plugins:{
+                        legend:{display:!1},
+                        tooltip:{backgroundColor:"#1a1a1a",titleColor:"#fff",bodyColor:"#aaa",borderColor:"#4DA6FF",borderWidth:2}
+                    },
+                    scales:{
+                        y:{suggestedMax:5,beginAtZero:!0,grid:{color:"#333"},ticks:{color:"#888",stepSize:1}},
+                        x:{grid:{display:!1},ticks:{color:"#888"}}
+                    }
+                },
+                plugins: [pluginSeparadorAnios]
+            })
+        }
+
+        // ===== CLICS (en vez de poner el nombre dentro del HTML con onclick, se guarda el uid en data-uid) =====
+        document.getElementById('playersList').addEventListener('click', e => {
+            const lapiz = e.target.closest('[data-edit-uid]');
+            if (lapiz) { abrirModalEdicion(lapiz.getAttribute('data-edit-uid')); return; }
+            const fila = e.target.closest('li[data-uid]');
+            if (fila) abrirDetalleJugador(fila.getAttribute('data-uid'));
+        });
+        document.getElementById('modal-edicion').addEventListener('click', e => { if (e.target === e.currentTarget) cerrarModalEdicion(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && editUid) cerrarModalEdicion(); });
+    </script>
+</body>
+</html>

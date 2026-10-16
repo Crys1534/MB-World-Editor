@@ -35,12 +35,15 @@ function openModal(modalId) {
 }
 
 function closeModal(modalId) {
+    // El perfil obligatorio (nombre "Player") no se puede cerrar hasta guardar un nombre válido (scripts/profile.js)
+    if (modalId === 'unified-profile-modal' && window.profileLocked) return;
     const modal = document.getElementById(modalId);
     if (modal) modal.style.display = 'none';
 }
 
 window.onclick = function(event) {
     if (event.target.classList.contains('modal')) {
+        if (event.target.id === 'unified-profile-modal' && window.profileLocked) return;
         event.target.style.display = "none";
     }
 }
@@ -293,6 +296,17 @@ function makeEnchantedBookTile(enchantKey) {
     return item;
 }
 
+// Ronda 9: escaleras, losas, dispenser y dropper ya se giran con Rotate (botón o tecla R), así que en el Inventory solo se deja la
+// variante _1 de cada una (menos casillas repetidas). NO se oculta nada de lo demás: antorchas (th), linternas (lant), etc. siguen
+// completas, y tampoco las cosas con "_número" que NO son una orientación (pasteles mordidos, cultivos, niveles de agua...).
+function isHiddenByRotate(blockId) {
+    const m = /^(.*)_(\d+)$/.exec(String(blockId));
+    if (!m || typeof variantFamilyFor !== 'function') return false;
+    const family = variantFamilyFor(m[1]);
+    return (family === 'stair' || family === 'slab' || family === 'facing') && Number(m[2]) !== 1;
+}
+window.isHiddenByRotate = isHiddenByRotate;
+
 function populateInventory() {
     const grid = document.getElementById('inventory-grid');
     grid.innerHTML = '';
@@ -499,6 +513,8 @@ function populateInventory() {
         const categoryItems = inventoryCategories[activeInventoryTab].items;
         blocksToShow = categoryItems.filter(item => allBlocks.includes(item));
     }
+    // Las variantes que Rotate ya produce (escaleras _2 a _4, losas _2, dispenser/dropper _2 a _4) no se muestran
+    blocksToShow = blocksToShow.filter(item => !isHiddenByRotate(item));
 
     blocksToShow.forEach(blockType => {
         const item = document.createElement('div');
@@ -2884,8 +2900,9 @@ window.openSettingsTab = function(tabId) {
 
 const DEFAULT_KEYBINDS = {
     inventory: { key: 'e', label: '🎒 Open Inventory' },
-    structures: { key: 'r', label: '🏘️ Open Structures' },
+    structures: { key: 'y', label: '🏘️ Open Structures' },
     mobs: { key: 'm', label: '🐷 Open Mobs Browser' },
+    rotate: { key: 'r', label: '🔄 Rotate Block' },
     brush_up: { key: '+', label: '🖌️ Brush Size +' },
     brush_down: { key: '-', label: '🖌️ Brush Size -' },
     delete: { key: 'delete', label: '💥 Delete Selection' },
@@ -2896,7 +2913,26 @@ const DEFAULT_KEYBINDS = {
     paste: { key: 'v', ctrl: true, label: '📋 Paste' }
 };
 
-window.userKeybinds = JSON.parse(localStorage.getItem('mbw_keybinds')) || JSON.parse(JSON.stringify(DEFAULT_KEYBINDS));
+window.userKeybinds = (function() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem('mbw_keybinds')); } catch (e) { saved = null; }
+    if (!saved || typeof saved !== 'object') return JSON.parse(JSON.stringify(DEFAULT_KEYBINDS));
+    // Ronda 9: Structures pasó de R a Y y apareció "Rotate" (R). Quien ya tenía atajos guardados no los pierde, pero:
+    //   - si Structures seguía en la R de fábrica, pasa a la Y (si la había cambiado a otra tecla, se respeta)
+    //   - se agregan los atajos nuevos que le falten
+    let changed = false;
+    if (saved.structures && saved.structures.key === 'r' && !saved.structures.ctrl && !localStorage.getItem('mbw_keybinds_v9')) {
+        saved.structures.key = 'y'; changed = true;
+    }
+    for (const action in DEFAULT_KEYBINDS) {
+        if (!saved[action]) { saved[action] = JSON.parse(JSON.stringify(DEFAULT_KEYBINDS[action])); changed = true; }
+    }
+    try {
+        localStorage.setItem('mbw_keybinds_v9', '1');
+        if (changed) localStorage.setItem('mbw_keybinds', JSON.stringify(saved));
+    } catch (e) {}
+    return saved;
+})();
 let isWaitingForKey = null; 
 
 // ✨ Esta es la función que te faltaba, la que dibuja la lista en la pantalla
@@ -2951,6 +2987,8 @@ window.addEventListener('keydown', function(e) {
         e.preventDefault();
         // Ignoramos teclas de sistema para que no se guarde "Control" solo
         if (['control', 'shift', 'alt', 'meta', 'escape'].includes(e.key.toLowerCase())) return;
+        // Esta tecla es solo para guardarla como atajo nuevo: que el resto del editor no la use también
+        e.stopImmediatePropagation();
 
         window.userKeybinds[isWaitingForKey].key = e.key.toLowerCase();
         window.userKeybinds[isWaitingForKey].ctrl = e.ctrlKey; // Guarda si presionaste Ctrl al mismo tiempo

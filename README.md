@@ -9,7 +9,9 @@ Mine Blocks World Editor tool designed to make it easier to modify `.mbw` files.
 - `L-Click`: Remove block
 - `R-Click`: Place block
 - `E`: Open Inventory
-- `R`: Open Structures Browser
+- `Y`: Open Structures Browser
+- `R`: Rotate the block in your hotbar (stairs, slabs, dispensers, droppers, torches...)
+- `M`: Open Mobs Browser
 - `TAB`: Teleport between your last two positions
 - `1-9`: Select hotbar slot
 - `Ctrl+C/V`: Copy/paste a selected area

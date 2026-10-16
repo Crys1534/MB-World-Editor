@@ -36,7 +36,9 @@ const DM_ICONS = {
     send: '<svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>',
     close: '<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
     copy: '<svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>',
-    trash: '<svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>'
+    trash: '<svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>',
+    archive: '<svg viewBox="0 0 24 24"><path d="M20.54 5.23l-1.39-1.68C18.88 3.21 18.47 3 18 3H6c-.47 0-.88.21-1.16.55L3.46 5.23C3.17 5.57 3 6.02 3 6.5V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.48-.17-.93-.46-1.27zM12 17.5L6.5 12H10v-2h4v2h3.5L12 17.5zM5.12 5l.81-1h12l.94 1H5.12z"/></svg>',
+    unarchive: '<svg viewBox="0 0 24 24"><path d="M20.55 5.22l-1.39-1.68C18.88 3.21 18.47 3 18 3H6c-.47 0-.88.21-1.15.55L3.46 5.22C3.17 5.57 3 6.01 3 6.5V19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.49-.17-.93-.45-1.28zM12 9.5l5.5 5.5H14v2h-4v-2H6.5L12 9.5zM5.12 5l.82-1h12l.93 1H5.12z"/></svg>'
 };
 
 // Estado de la conversación que está abierta ahora mismo
@@ -156,6 +158,35 @@ function dmUpdateMuteButton() {
 }
 
 // ------------------------------------------
+// Archivar chats (solo se guarda en este navegador, igual que silenciar)
+// ------------------------------------------
+// Archivar solo ESCONDE el chat de la lista principal y lo manda a la sección "Archivados". No borra nada, ni mensajes ni el chat,
+// y nada en el editor borra chats por su cuenta (no hay borrado automático): un chat archivado se queda así hasta que lo desarchives.
+window.getArchivedChats = function() {
+    try {
+        const m = JSON.parse(localStorage.getItem('mbw_archived_chats') || '{}');
+        return (m && typeof m === 'object' && !Array.isArray(m)) ? m : {};
+    } catch (e) { return {}; }
+};
+window.isChatArchived = function(uid) {
+    return !!uid && !!window.getArchivedChats()[uid];
+};
+window.toggleChatArchive = function(uid) {
+    if (!uid) return;
+    const m = window.getArchivedChats();
+    if (m[uid]) delete m[uid]; else m[uid] = true;
+    try { localStorage.setItem('mbw_archived_chats', JSON.stringify(m)); } catch (e) {}
+    if (m[uid]) dmArchivedOpen = true;   // para que se vea a dónde se fue el chat
+    const list = $dm('full-chat-list-container');
+    if (list) window.renderChatList(list);
+    const name = (currentChatPartner && currentChatPartner.uid === uid) ? currentChatPartner.name : '';
+    if (typeof window.mpToast === 'function') {
+        window.mpToast(m[uid] ? dmT('dm_archived_toast', '📦 Chat archivado') : dmT('dm_unarchived_toast', '📤 Chat desarchivado'), name);
+    }
+};
+let dmArchivedOpen = false;   // ¿está abierta la sección "Archivados" de la lista?
+
+// ------------------------------------------
 // Texto de un mensaje: enlaces, coordenadas y emotes (sin riesgo de HTML)
 // ------------------------------------------
 function dmAppendPlain(el, seg) {
@@ -234,25 +265,62 @@ function dmBuildReplyRef(rt) {
     return ref;
 }
 
-function dmBuildReactions(key, msg) {
-    if (!msg.reactions || msg.isDeleted) return null;
-    const myUID = dmMyUid();
-    const counts = {}, mine = {};
-    for (const uid in msg.reactions) {
-        const e = msg.reactions[uid];
-        if (typeof e !== 'string' || !e) continue;
-        counts[e] = (counts[e] || 0) + 1;
-        if (uid === myUID) mine[e] = true;
+// ------------------------------------------
+// Reacciones: cada persona puede dejar VARIAS por mensaje.
+// Se guardan así:   reactions/{uid}/{emoji} = hora en que se puso
+// (el formato viejo, reactions/{uid} = "👍" con una sola, se sigue leyendo bien)
+// ------------------------------------------
+const DM_REACTION_MAX_LEN = 16;
+// Firebase no deja usar . $ # [ ] / ni caracteres de control en una clave
+function dmReactionValid(e) {
+    return typeof e === 'string' && e.length > 0 && e.length <= DM_REACTION_MAX_LEN && !/[.$#\[\]\/\u0000-\u001f\u007f]/.test(e);
+}
+// { emoji: hora } de UNA persona (acepta el formato nuevo y el viejo)
+function dmUserReactions(raw) {
+    const out = {};
+    if (typeof raw === 'string') { if (raw) out[raw] = 1; }
+    else if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+        for (const e in raw) { const v = raw[e]; if (e && v) out[e] = (typeof v === 'number') ? v : 1; }
     }
-    const emojis = Object.keys(counts);
-    if (!emojis.length) return null;
+    return out;
+}
+// Lista de reacciones de un mensaje, en el orden en que fueron apareciendo: [{ emoji, uids, ts }]
+function dmReactionList(msg) {
+    const all = (msg && msg.reactions && typeof msg.reactions === 'object') ? msg.reactions : null;
+    if (!all) return [];
+    const map = new Map();
+    Object.keys(all).forEach(uid => {
+        const mine = dmUserReactions(all[uid]);
+        Object.keys(mine).forEach(e => {
+            let r = map.get(e);
+            if (!r) { r = { emoji: e, uids: [], ts: mine[e] }; map.set(e, r); }
+            r.uids.push(uid);
+            if (mine[e] < r.ts) r.ts = mine[e];
+        });
+    });
+    return [...map.values()].sort((a, b) => (a.ts - b.ts) || (a.emoji < b.emoji ? -1 : 1));
+}
+function dmReactorName(uid) {
+    if (uid === dmMyUid()) return localStorage.getItem('mbw_username') || 'Player';
+    if (currentChatPartner && uid === currentChatPartner.uid) return currentChatPartner.name;
+    return '?';
+}
+
+function dmBuildReactions(key, msg) {
+    if (msg.isDeleted) return null;
+    const list = dmReactionList(msg);
+    if (!list.length) return null;
+    const myUID = dmMyUid();
     const wrap = dmEl('div', 'dc-reactions');
-    emojis.forEach(e => {
-        const b = dmEl('button', 'dc-reaction' + (mine[e] ? ' mine' : ''));
+    list.forEach(r => {
+        const mine = r.uids.indexOf(myUID) >= 0;
+        const b = dmEl('button', 'dc-reaction' + (mine ? ' mine' : ''));
         b.type = 'button';
-        b.appendChild(dmEl('span', 'dc-reaction-emoji', e.slice(0, 16)));
-        b.appendChild(dmEl('span', 'dc-reaction-count', String(counts[e])));
-        b.addEventListener('click', (ev) => { ev.stopPropagation(); window.toggleReaction(key, e); });
+        b.title = r.uids.map(dmReactorName).join(', ');
+        b.setAttribute('aria-pressed', mine ? 'true' : 'false');
+        b.appendChild(dmEl('span', 'dc-reaction-emoji', r.emoji.slice(0, DM_REACTION_MAX_LEN)));
+        b.appendChild(dmEl('span', 'dc-reaction-count', String(r.uids.length)));
+        b.addEventListener('click', (ev) => { ev.stopPropagation(); window.toggleReaction(key, r.emoji); });
         wrap.appendChild(b);
     });
     return wrap;
@@ -272,7 +340,7 @@ function dmBuildToolbar(key, isMe) {
     if (live && !live.isDeleted) {
         add(DM_ICONS.emoji, dmT('dm_react', 'Reaccionar'), (b) => {
             const r = b.getBoundingClientRect();
-            dmOpenMenu(r.left, r.bottom + 4, (menu) => dmAddReactStrip(menu, key));
+            dmOpenMenu(r.left, r.bottom + 4, (menu) => dmAddReactStrip(menu, key, true));   // este cuadro se queda abierto: así se ponen varias
         });
         add(DM_ICONS.reply, dmT('dm_reply', 'Responder'), () => { const m = dmCur(key); if (m && !m.isDeleted) window.setReply(key, m.senderName, m.text); });
         if (isMe) add(DM_ICONS.edit, dmT('dm_edit', 'Editar'), () => { const m = dmCur(key); if (m && !m.isDeleted) window.startEditMessage(key, m); });
@@ -809,14 +877,25 @@ window.dmSyncLastMsg = function(key, text) {
     });
 };
 
+// Pone o quita UNA reacción mía (las demás mías no se tocan). Devuelve una promesa: 'added', 'removed' o null (no se pudo).
 window.toggleReaction = function(msgKey, emoji) {
     const myUID = dmMyUid();
-    if (!currentChatId || !myUID) return;
+    if (!currentChatId || !myUID || !dmReactionValid(emoji)) return Promise.resolve(null);
     const ref = database.ref('private_chats/' + currentChatId + '/' + msgKey + '/reactions/' + myUID);
-    ref.once('value').then(snap => {
-        if (snap.val() === emoji) ref.remove();   // mismo emoji otra vez: lo quita
-        else ref.set(emoji);                      // si no, lo pone o lo cambia
-    });
+    return ref.once('value').then(snap => {
+        const raw = snap.val();
+        const mine = dmUserReactions(raw);
+        const adding = !mine[emoji];
+        const stamp = (firebase.database.ServerValue && firebase.database.ServerValue.TIMESTAMP) || Date.now();
+        let done;
+        if (typeof raw === 'string') {   // formato viejo (una sola): se pasa al nuevo de una vez, sin perder la que ya tenía
+            if (adding) mine[emoji] = stamp; else delete mine[emoji];
+            done = Object.keys(mine).length ? ref.set(mine) : ref.remove();
+        } else {
+            done = adding ? ref.child(emoji).set(stamp) : ref.child(emoji).remove();
+        }
+        return Promise.resolve(done).then(() => (adding ? 'added' : 'removed'));
+    }).catch(err => { console.error('No se pudo cambiar la reacción:', err); return null; });
 };
 
 // ------------------------------------------
@@ -854,12 +933,23 @@ function dmMenuItem(menu, label, svg, fn, danger) {
     menu.appendChild(it);
     return it;
 }
-function dmAddReactStrip(menu, key) {
-    const strip = dmEl('div', 'dc-menu-react');
+// Fila de emojis rápidos. Las que YA puse están marcadas (.on). Con keepOpen el cuadro no se cierra
+// al elegir, para poder poner varias seguidas.
+function dmAddReactStrip(menu, key, keepOpen) {
+    const strip = dmEl('div', 'dc-menu-react' + (keepOpen ? ' solo' : ''));
+    const mineNow = dmUserReactions(((dmCur(key) || {}).reactions || {})[dmMyUid()]);
     DM_QUICK_REACTIONS.forEach(emoji => {
-        const b = dmEl('button', 'dc-menu-react-btn', emoji);
+        const b = dmEl('button', 'dc-menu-react-btn' + (mineNow[emoji] ? ' on' : ''), emoji);
         b.type = 'button';
-        b.addEventListener('click', () => { menu.style.display = 'none'; window.toggleReaction(key, emoji); });
+        b.setAttribute('aria-pressed', mineNow[emoji] ? 'true' : 'false');
+        b.addEventListener('click', () => {
+            if (!keepOpen) { menu.style.display = 'none'; window.toggleReaction(key, emoji); return; }
+            b.disabled = true;   // (evita dos clics seguidos sobre el mismo emoji antes de que termine de guardarse)
+            window.toggleReaction(key, emoji).then(res => {
+                b.disabled = false;
+                if (res) { b.classList.toggle('on', res === 'added'); b.setAttribute('aria-pressed', res === 'added' ? 'true' : 'false'); }
+            });
+        });
         strip.appendChild(b);
     });
     menu.appendChild(strip);
@@ -904,6 +994,8 @@ window.showChatHeaderMenu = function(anchor) {
     dmOpenMenu(r.right - 200, r.bottom + 6, (menu) => {
         const muted = window.isChatMuted(partner.uid);
         dmMenuItem(menu, muted ? dmT('dm_unmute', 'Activar notificaciones') : dmT('dm_mute', 'Silenciar chat'), muted ? DM_ICONS.bell : DM_ICONS.bellOff, () => window.toggleChatMute(partner.uid));
+        const archived = window.isChatArchived(partner.uid);
+        dmMenuItem(menu, archived ? dmT('dm_unarchive', 'Desarchivar chat') : dmT('dm_archive', 'Archivar chat'), archived ? DM_ICONS.unarchive : DM_ICONS.archive, () => window.toggleChatArchive(partner.uid));
         menu.appendChild(dmEl('div', 'dc-menu-sep'));
         if (misAmigosConfirmados.includes(partner.uid)) {
             dmMenuItem(menu, '❌ ' + dmT('dm_remove_friend', 'Eliminar amigo'), null, () => window.removeFriend(partner.uid, partner.name), true);
@@ -1089,13 +1181,52 @@ function dmUpdateUserPanel() {
     if (nm) nm.textContent = localStorage.getItem('mbw_username') || 'Player';
 }
 
+// Una fila de la lista de chats (la usan la lista principal y la sección "Archivados")
+function dmBuildChatRow(chat, activeUid, viewingNow) {
+    const isActive = activeUid === chat.uid;
+    const muted = window.isChatMuted(chat.uid);
+    const unread = (chat.unreadCount > 0) && !(isActive && viewingNow);
+    const row = dmEl('div', 'dc-chat-item' + (isActive ? ' active' : '') + (unread ? ' unread' : '') + (muted ? ' muted' : ''));
+    row.dataset.uid = chat.uid;
+    row.addEventListener('click', () => window.openPrivateChat(chat.uid, chat.name, chat.pfp));
+    // Clic derecho sobre un chat: archivar / silenciar sin tener que abrirlo
+    row.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        dmOpenMenu(e.clientX, e.clientY, (menu) => {
+            const archived = window.isChatArchived(chat.uid);
+            dmMenuItem(menu, archived ? dmT('dm_unarchive', 'Desarchivar chat') : dmT('dm_archive', 'Archivar chat'), archived ? DM_ICONS.unarchive : DM_ICONS.archive, () => window.toggleChatArchive(chat.uid));
+            dmMenuItem(menu, muted ? dmT('dm_unmute', 'Activar notificaciones') : dmT('dm_mute', 'Silenciar chat'), muted ? DM_ICONS.bell : DM_ICONS.bellOff, () => window.toggleChatMute(chat.uid));
+        });
+    });
+
+    const av = dmEl('div', 'dc-chat-avatar');
+    av.appendChild(dmAvatar(chat.pfp, 'dc-avatar-sm'));
+    av.appendChild(dmEl('span', 'dc-status-dot' + (chat.isOnline ? ' is-online' : '')));
+    row.appendChild(av);
+
+    const meta = dmEl('div', 'dc-chat-meta');
+    meta.appendChild(dmEl('div', 'dc-chat-name', chat.name));
+    meta.appendChild(dmEl('div', 'dc-chat-sub' + (chat.lastMsg ? '' : ' is-empty'), chat.lastMsg || dmT('dm_no_messages', 'Sin mensajes')));
+    row.appendChild(meta);
+
+    if (muted) { const mi = document.createElement('span'); mi.className = 'dc-mute-icon'; mi.innerHTML = DM_ICONS.bellOff; mi.firstChild.setAttribute('fill', 'currentColor'); row.appendChild(mi); }
+    if (unread) row.appendChild(dmEl('div', 'dc-badge', chat.unreadCount > 99 ? '99+' : String(chat.unreadCount)));
+    return row;
+}
+
 function dmPaintChatList(container) {
     if (!container) return;
     const search = $dm('dc-chat-search');
     const q = search ? search.value.trim().toLowerCase() : '';
     const shown = q ? dmChatCache.filter(c => String(c.name).toLowerCase().includes(q)) : dmChatCache;
 
+    const keepScroll = container.scrollTop;   // al repintar la lista (p. ej. al abrir un chat) NO debe saltar hasta arriba
     container.textContent = '';
+    // Los chats archivados no salen en la lista principal: van en una fila "Archivados" arriba de todo (como en WhatsApp)
+    const archivedMap = window.getArchivedChats();
+    const mainChats = shown.filter(c => !archivedMap[c.uid]);
+    const archivedChats = shown.filter(c => archivedMap[c.uid]);
+
     if (shown.length === 0) {
         container.appendChild(dmEl('div', 'dc-chat-empty', q ? dmT('dm_no_results', 'Sin resultados.') : dmT('dm_no_chats', 'No hay chats ni amigos disponibles.')));
         return;
@@ -1103,28 +1234,36 @@ function dmPaintChatList(container) {
     const activeUid = currentChatPartner ? currentChatPartner.uid : null;
     const viewingNow = dmViewActive();
     const frag = document.createDocumentFragment();
-    shown.forEach(chat => {
-        const isActive = activeUid === chat.uid;
-        const muted = window.isChatMuted(chat.uid);
-        const unread = (chat.unreadCount > 0) && !(isActive && viewingNow);
-        const row = dmEl('div', 'dc-chat-item' + (isActive ? ' active' : '') + (unread ? ' unread' : '') + (muted ? ' muted' : ''));
-        row.addEventListener('click', () => window.openPrivateChat(chat.uid, chat.name, chat.pfp));
 
-        const av = dmEl('div', 'dc-chat-avatar');
-        av.appendChild(dmAvatar(chat.pfp, 'dc-avatar-sm'));
-        av.appendChild(dmEl('span', 'dc-status-dot' + (chat.isOnline ? ' is-online' : '')));
-        row.appendChild(av);
+    // Fila "Archivados" ARRIBA de la lista (como en WhatsApp). Se abre y se cierra con un clic. Si estás buscando, o el chat que
+    // tienes abierto está archivado, se abre sola. A la derecha: globito rojo si hay archivados con mensajes nuevos, y cuántos hay.
+    if (archivedChats.length > 0) {
+        const open = dmArchivedOpen || !!q || archivedChats.some(c => c.uid === activeUid);
+        const unreadArchived = archivedChats.reduce((n, c) => n + ((c.unreadCount > 0 && !window.isChatMuted(c.uid)) ? 1 : 0), 0);
+        const head = dmEl('div', 'dc-archived-head' + (open ? ' is-open' : ''));
+        head.id = 'dc-archived-head';
+        head.setAttribute('role', 'button');
+        head.title = dmT('dm_archived_hint', 'Los chats archivados nunca se borran solos');
+        const ico = document.createElement('span'); ico.className = 'dc-archived-icon'; ico.innerHTML = DM_ICONS.archive; head.appendChild(ico);
+        head.appendChild(dmEl('span', 'dc-archived-label', dmT('dm_archived_section', 'Archivados')));
+        if (unreadArchived > 0) head.appendChild(dmEl('span', 'dc-badge', String(unreadArchived)));
+        head.appendChild(dmEl('span', 'dc-archived-count', String(archivedChats.length)));
+        head.appendChild(dmEl('span', 'dc-archived-arrow', open ? '▾' : '▸'));
+        head.addEventListener('click', () => { dmArchivedOpen = !open; dmPaintChatList(container); });
+        frag.appendChild(head);
+        if (open) {
+            const box = dmEl('div', 'dc-archived-list');
+            archivedChats.forEach(chat => box.appendChild(dmBuildChatRow(chat, activeUid, viewingNow)));
+            frag.appendChild(box);
+        }
+    }
 
-        const meta = dmEl('div', 'dc-chat-meta');
-        meta.appendChild(dmEl('div', 'dc-chat-name', chat.name));
-        meta.appendChild(dmEl('div', 'dc-chat-sub' + (chat.lastMsg ? '' : ' is-empty'), chat.lastMsg || dmT('dm_no_messages', 'Sin mensajes')));
-        row.appendChild(meta);
-
-        if (muted) { const mi = document.createElement('span'); mi.className = 'dc-mute-icon'; mi.innerHTML = DM_ICONS.bellOff; mi.firstChild.setAttribute('fill', 'currentColor'); row.appendChild(mi); }
-        if (unread) row.appendChild(dmEl('div', 'dc-badge', chat.unreadCount > 99 ? '99+' : String(chat.unreadCount)));
-        frag.appendChild(row);
-    });
+    mainChats.forEach(chat => frag.appendChild(dmBuildChatRow(chat, activeUid, viewingNow)));
+    if (mainChats.length === 0 && archivedChats.length > 0) {
+        frag.appendChild(dmEl('div', 'dc-chat-empty', q ? dmT('dm_no_results', 'Sin resultados.') : dmT('dm_all_archived', 'Todos tus chats están archivados.')));
+    }
     container.appendChild(frag);
+    container.scrollTop = keepScroll;
 }
 
 window.renderChatList = function(container) {

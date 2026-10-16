@@ -379,6 +379,25 @@ function snapSmoothCamera() {
     camera.y = Math.round(camera.y * tileSize) / tileSize;
 }
 
+// Teletransporta la cámara (sin animación) para que el Player quede en el CENTRO de la pantalla.
+// Se usa al cargar un mundo. Si el mundo no trae posición del Player (mundo nuevo vacío), la cámara no se mueve.
+// worldX / worldY son los pies del Player (worldY va invertida, igual que en drawPlayer); el dibujo mide 2 casillas de alto hacia arriba,
+// por eso se centra en worldY + 1 (el medio del cuerpo).
+window.centerCameraOnPlayer = function() {
+    const w = (typeof mbwom !== 'undefined') ? mbwom.world : null;
+    if (!w || w.worldX === undefined || w.worldX === null || w.worldY === undefined || w.worldY === null) return false;
+    const px = Number(w.worldX), py = -Number(w.worldY);
+    if (!isFinite(px) || !isFinite(py) || !(tileSize > 0)) return false;
+    camera.x = px - (canvas.width / tileSize) / 2;
+    camera.y = (py + 1) - (canvas.height / tileSize) / 2;
+    if (!window.smoothScroll) { camera.x = Math.round(camera.x); camera.y = Math.round(camera.y); }
+    else snapSmoothCamera();
+    camera.velX = 0; camera.velY = 0; camera.accX = 0; camera.accY = 0; camera.lastMoveTime = null;
+    camera._tx = camera.x; camera._ty = camera.y;
+    worldDirty = true;
+    return true;
+};
+
 window.toggleSmoothScroll = function(enabled) {
     window.smoothScroll = !!enabled;
     try { localStorage.setItem('mbw_smooth_scroll', enabled ? '1' : '0'); } catch (e) { /* sin almacenamiento: solo no se recuerda */ }
@@ -804,6 +823,7 @@ window.fillSelectionWithBucket = function(blockState) {
 };
 
 function drawUI() {
+    if (typeof updateRotateButtonState === 'function') updateRotateButtonState();   // (apaga el botón Rotate si el bloque de la mano no se gira)
     const coordsDiv = document.getElementById('coords-overlay');
     if (coordsDiv) {
         coordsDiv.innerText = `X: ${Math.floor(mouse.worldX)} Y: ${Math.floor(mouse.worldY)}`;
@@ -843,6 +863,29 @@ function drawUI() {
             }
             return true;
         };
+
+        // 👻 Fantasma del bloque: con el Lápiz (y la Cubeta) se ve, siguiendo al cursor, el bloque de la barra rápida que se va a poner
+        // (con su variante: escalera girada, antorcha inclinada, etc.), en las mismas casillas que marca el contorno azul.
+        if (currentTool === 'pencil' || currentTool === 'bucket') {
+            const slotObj = (typeof hotbar !== 'undefined' && hotbar.slots) ? hotbar.slots[slotIndex] : null;
+            let ghostTex = null;
+            if (slotObj && slotObj.type) { try { ghostTex = getBlockObject(slotObj); } catch (e) { ghostTex = null; } }
+            if (ghostTex && typeof ghostTex.x === 'number') {
+                ctx.save();
+                ctx.globalAlpha = 0.6;
+                for (let dx = -offsetStart; dx <= offsetEnd; dx++) {
+                    for (let dy = -offsetStart; dy <= offsetEnd; dy++) {
+                        if (!isInside(dx, dy)) continue;
+                        const gX = (mouse.worldX + dx - camera.x) * tileSize;
+                        const gY = canvas.height - (mouse.worldY + dy - camera.y) * tileSize;
+                        // Con pinceles muy grandes no se dibujan las casillas que quedan fuera de la pantalla
+                        if (gX + tileSize < 0 || gX > canvas.width || gY < 0 || gY - tileSize > canvas.height) continue;
+                        drawBlock(ghostTex, { x: gX, y: gY, width: tileSize, height: -tileSize });
+                    }
+                }
+                ctx.restore();
+            }
+        }
 
         ctx.beginPath();
         for (let dx = -offsetStart; dx <= offsetEnd; dx++) {
@@ -1344,18 +1387,13 @@ window.toggleAddonsMenu = function() {
     }
 };
 
-// ✨ skinDB (la base de datos local de skins de mobs) se movió a scripts/file-manager.js,
-// junto a la otra base de datos local (localDB), para que todo el almacenamiento local
-// viva en un solo lugar. Aquí la seguimos usando como window.skinDB.
-
 window.skinCache = window.skinCache || {};
 window.skinFetchInProgress = window.skinFetchInProgress || {};
 
 // ---------------------------------------------------------------------------------------------------------------
 // Imagen de una spawnskin por su ID. Orden de búsqueda:
 //   1) assets/spawnskins/{id}.png   (las que vienen con el editor)
-//   2) la base local "skinDB"       (las que se cargaron con el Addon Spawnskins Preview)
-//   3) https://mineblocks.com/1/skins/images/{id}.png   (la web de Mine Blocks: así cualquier skin se ve sola, sin Addon)
+//   2) https://mineblocks.com/1/skins/images/{id}.png   (la web de Mine Blocks: así cualquier skin se ve sola)
 // El servidor manda "Access-Control-Allow-Origin: *", por eso la imagen se carga con crossOrigin="anonymous" y NO
 // "ensucia" el lienzo (las capturas de pantalla y la selección con el mouse siguen funcionando).
 // Algunas skins de la web traen el fondo en un color sólido (blanco) en vez de transparente: ese fondo se vuelve
@@ -1451,99 +1489,10 @@ window.getSpawnskinImage = function(skinID, noFetch) {
         };
         const localImg = new Image();
         localImg.onload = function() { window.skinCache[skinID] = localImg; delete window.skinFetchInProgress[skinID]; if (typeof worldDirty !== 'undefined') worldDirty = true; };
-        localImg.onerror = function() {
-            window.skinDB.getSkin(skinID).then(base64Data => {
-                if (base64Data) {
-                    const img = new Image();
-                    img.onload = function() { if (typeof worldDirty !== 'undefined') worldDirty = true; };
-                    img.src = base64Data; window.skinCache[skinID] = img;
-                    delete window.skinFetchInProgress[skinID];
-                } else giveUp();
-            }).catch(giveUp);
-        };
+        localImg.onerror = giveUp;   // no está entre las que trae el editor: se baja de la web de Mine Blocks
         localImg.src = `assets/spawnskins/${skinID}.png`;
     }
     return null;
-};
-
-window.openSpawnskinsModal = function() { if (typeof openModal === 'function') openModal('spawnskins-addon-modal'); refreshLoadedSkinsList(); };
-window.closeSpawnskinsModal = function() { if (typeof closeModal === 'function') closeModal('spawnskins-addon-modal'); const listDiv = document.getElementById('loaded-skins-list'); if (listDiv) listDiv.innerHTML = ""; };
-
-window.refreshLoadedSkinsList = async function() {
-    const listDiv = document.getElementById('loaded-skins-list'); if (!listDiv) return;
-    listDiv.innerHTML = "<div style='text-align:center; color:#333; font-size:12px; margin-top: 10px;'>Buscando...</div>";
-    try {
-        const skins = await window.skinDB.getAllSorted(); listDiv.innerHTML = "";
-        if (skins.length === 0) { listDiv.innerHTML = "<div style='text-align:center; color:#333; font-size:12px; margin-top: 10px; font-weight: bold;'>Ninguna skin cargada aún</div>"; return; }
-        for (let skin of skins) {
-            const item = document.createElement('div');
-            item.style.cssText = `background: #fff; border: 1px solid #555; padding: 4px 6px; font-size: 11px; font-family: monospace; color: #000; border-radius: 3px; font-weight: bold; display: flex; justify-content: space-between; align-items: center;`;
-            item.innerHTML = `<span>📄 ${skin.id}.png</span><div style="width: 32px; height: 44px; border: 1px solid #ccc; border-radius: 2px; flex-shrink: 0; overflow: hidden; background: #8B8B8B;"><div style="width: 16px; height: 22px; background-image: url('${skin.base64}'); background-position: left top; background-repeat: no-repeat; image-rendering: pixelated; transform: scale(2); transform-origin: top left;"></div></div>`;
-            listDiv.appendChild(item);
-        }
-    } catch (e) { listDiv.innerHTML = "<div style='text-align:center; color:#c0392b; font-size:12px;'>Error al cargar lista</div>"; }
-};
-
-window.importLocalSkins = function(event) {
-    const files = event.target.files; if (!files || files.length === 0) return;
-    let loadedCount = 0;
-    for (let file of files) {
-        const skinID = file.name.replace(/\.[^/.]+$/, ""); const reader = new FileReader();
-        reader.onload = async function(e) {
-            const base64 = e.target.result; await window.skinDB.saveSkin(skinID, base64);
-            const img = new Image(); img.onload = () => { if (typeof worldDirty !== 'undefined') worldDirty = true; }; img.src = base64;
-            window.skinCache[skinID] = img; loadedCount++;
-            if (loadedCount === files.length) { document.getElementById('skin-upload-input').value = ""; refreshLoadedSkinsList(); }
-        };
-        reader.readAsDataURL(file);
-    }
-};
-
-window.processSpawnskinUpload = function(event) {
-    var file = event.target.files[0]; if (!file) return;
-    var listContainer = document.getElementById('loaded-skins-list');
-    if (listContainer) listContainer.innerHTML = "<em style='color: white;'>Procesando archivo...</em>";
-    var reader = new FileReader();
-    reader.onload = function(e) {
-        var encodedString = e.target.result; var worldData = null;
-        try { worldData = JSON.parse(encodedString); } catch (error) {
-            try {
-                var decodedString = "";
-                for (var a = 0, b = encodedString.length; a < b; ) {
-                    var c = a++; var characterCode = encodedString.charCodeAt(c) - (c * 5 % 33 + 1);
-                    if (characterCode < 0) characterCode = 0; 
-                    decodedString += String.fromCodePoint(characterCode);
-                }
-                worldData = JSON.parse(decodedString);
-            } catch (err2) { if (listContainer) listContainer.innerHTML = "<strong style='color:#ff6b6b;'>Error: Archivo corrupto.</strong>"; event.target.value = ""; return; }
-        }
-        var skinsEncontradas = []; var skinsProcesadas = new Set();
-        if (worldData) {
-            var gruposMobs = [worldData.mobs1, worldData.mobs2, worldData.mobs3];
-            gruposMobs.forEach(function(grupo) {
-                if (grupo) {
-                    for (var key in grupo) {
-                        var mob = grupo[key];
-                        if (mob.type === "spawnskin" && mob.skin && !skinsProcesadas.has(mob.skin)) {
-                            skinsProcesadas.add(mob.skin); skinsEncontradas.push({ name: mob.name || "Sin nombre", skinId: mob.skin });
-                        }
-                    }
-                }
-            });
-        }
-        if (skinsEncontradas.length > 0) {
-            window.editorImportedSkins = skinsEncontradas;
-            var html = "<div style='color: white; margin-bottom: 5px; font-size: 12px;'>Skins importadas: " + skinsEncontradas.length + "</div>";
-            skinsEncontradas.forEach(function(skin) {
-                html += `<div style='background: #E0E0E0; border: 2px solid #555; padding: 5px; border-radius: 3px; display: flex; align-items: center; gap: 8px; margin-bottom: 5px;'>  <img src='https://mineblocks.com/1/skins/${skin.skinId}.png' alt='Skin' style='width: 32px; height: 32px; object-fit: contain; image-rendering: pixelated; border: 1px solid #999; background: #fff;' onerror='this.style.display="none"'>  <div style='font-size: 11px; line-height: 1.2; word-break: break-all; color: #000;'>    <strong>${skin.name}</strong><br>    <span style='color: #444;'>ID: ${skin.skinId}</span>  </div></div>`;
-            });
-            if (listContainer) listContainer.innerHTML = html;
-        } else {
-            if (listContainer) listContainer.innerHTML = "<em style='color: white; font-size: 12px;'>No se encontraron skins.</em>";
-        }
-        event.target.value = "";
-    };
-    reader.readAsText(file);
 };
 
 window.openPixelArtModal = function() { if (typeof openModal === 'function') openModal('pixelart-addon-modal'); };

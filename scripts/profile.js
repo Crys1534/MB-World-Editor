@@ -7,19 +7,78 @@
 // foto antes de guardarla— nunca se llegaba a usar. Aquí queda una sola
 // versión, la buena, centralizada.
 
+// ¿Este nombre cuenta como "todavía no elegí nombre"? (vacío o "Player", sin importar mayúsculas)
+window.isDefaultUsername = function(name) {
+    const n = String(name == null ? '' : name).trim().toLowerCase();
+    return n === '' || n === 'player';
+};
+
+// ==========================================
+// 🔒 PERFIL OBLIGATORIO (si el nombre de usuario es "Player")
+// ==========================================
+// Quien todavía se llama "Player" (el nombre de fábrica) tiene que elegir uno propio antes de usar el editor:
+// la ventana "My Profile" se abre sola, no tiene la "×", no se cierra tocando afuera ni con Esc, y solo se puede salir con
+// el botón Save cuando el nombre es distinto de "Player". Mientras está abierta, el teclado del editor no hace nada (input.js).
+window.profileLocked = false;
+
+function updateProfileLockUI() {
+    const input = document.getElementById('global-profile-username');
+    const err = document.getElementById('profile-lock-error');
+    const btn = document.getElementById('profile-save-btn');
+    const bad = window.isDefaultUsername(input ? input.value : '');
+    if (btn) { btn.disabled = bad; btn.style.opacity = bad ? '0.5' : '1'; btn.style.cursor = bad ? 'not-allowed' : 'pointer'; }
+    // El mensaje de error solo sale si la persona ya escribió algo (o dejó "Player"), no con el cuadro vacío al principio
+    if (err) err.style.display = (window.profileLocked && bad && input && input.value.trim() !== '') ? 'block' : 'none';
+}
+window.updateProfileLockUI = updateProfileLockUI;
+
+function setProfileLock(on) {
+    window.profileLocked = !!on;
+    const closeBtn = document.getElementById('profile-close-btn');
+    const lockHint = document.getElementById('profile-lock-hint');
+    const saveBtn = document.getElementById('profile-save-btn');
+    if (closeBtn) closeBtn.style.display = on ? 'none' : '';
+    if (lockHint) lockHint.style.display = on ? 'block' : 'none';
+    if (saveBtn) saveBtn.style.display = on ? 'inline-block' : 'none';
+    updateProfileLockUI();
+}
+
 window.openUnifiedProfile = function(options) {
+    const locked = !!(options && options.locked === true);
     openModal('unified-profile-modal');
     const savedPic = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
     const savedName = localStorage.getItem('mbw_username') || "Player";
     document.getElementById('modal-global-pfp').src = savedPic;
     const nameInput = document.getElementById('global-profile-username');
-    nameInput.value = savedName;
+    // En el perfil obligatorio el cuadro empieza vacío (así no hay que borrar "Player" para escribir)
+    nameInput.value = (locked && window.isDefaultUsername(savedName)) ? '' : savedName;
+    setProfileLock(locked);
 
     // El aviso de bienvenida solo se muestra cuando el perfil se abre por el primer guardado
-    const firstSave = !!(options && options.firstSave === true);
+    const firstSave = !locked && !!(options && options.firstSave === true);
     const hint = document.getElementById('profile-first-hint');
     if (hint) hint.style.display = firstSave ? 'block' : 'none';
-    if (firstSave) { nameInput.focus(); nameInput.select(); }
+    if (firstSave || locked) { nameInput.focus(); nameInput.select(); }
+};
+
+// Botón Save (y Enter) del perfil obligatorio: guarda el nombre y deja salir solo si es válido
+window.saveLockedProfile = function() {
+    if (!window.profileLocked) return;
+    const input = document.getElementById('global-profile-username');
+    const name = input ? input.value.trim() : '';
+    if (window.isDefaultUsername(name)) { updateProfileLockUI(); if (input) input.focus(); return; }
+    window.handleGlobalUsernameChange(name, true);
+    try { localStorage.setItem('mbw_profile_prompted', '1'); } catch (e) {}
+    setProfileLock(false);
+    closeModal('unified-profile-modal');
+    if (typeof window.dmUpdateUserPanel === 'function') { try { window.dmUpdateUserPanel(); } catch (e) {} }
+};
+
+// Si el nombre guardado es "Player" (o no hay ninguno), se abre el perfil obligatorio
+window.checkForcedProfile = function() {
+    let name = null;
+    try { name = localStorage.getItem('mbw_username'); } catch (e) { name = null; }
+    if (window.isDefaultUsername(name)) window.openUnifiedProfile({ locked: true });
 };
 
 // ✨ Primer mundo guardado en "My Worlds": se abre el perfil para que la persona
@@ -101,7 +160,9 @@ window.handleGlobalProfileUpload = function(event) {
     }
 };
 
-window.handleGlobalUsernameChange = function(newName) {
+window.handleGlobalUsernameChange = function(newName, force) {
+    // En el perfil obligatorio el nombre se guarda solo al pulsar Save (aquí solo se revisa si es válido)
+    if (window.profileLocked && !force) { updateProfileLockUI(); return; }
     let cleanName = newName.trim() || 'Player';
     localStorage.setItem('mbw_username', cleanName);
 
@@ -111,6 +172,9 @@ window.handleGlobalUsernameChange = function(newName) {
 
     // Sincroniza con Firebase
     if (typeof myPresenceRef !== 'undefined' && myPresenceRef) myPresenceRef.update({ username: cleanName });
+
+    // Avisa al Analytics (la sesión actual guarda el nombre nuevo; ver el script de visitas al final de index.html)
+    if (typeof window.mbwAnalyticsSetName === 'function') { try { window.mbwAnalyticsSetName(cleanName); } catch (e) {} }
 };
 
 // Al cargar: pintar la foto guardada, unificar los clics de perfil, y
@@ -139,4 +203,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     // Asegurarnos de que el mapa se dibuje correctamente con o sin cuadrícula al inicio
     if (typeof worldDirty !== 'undefined') worldDirty = true;
+
+    // Si todavía se llama "Player", hay que elegir un nombre de usuario antes de empezar
+    window.checkForcedProfile();
 });

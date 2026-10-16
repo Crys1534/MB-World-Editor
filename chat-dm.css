@@ -264,6 +264,39 @@ body.theme-win7 {
 .dc-mute-icon { flex: none; width: 14px; height: 14px; opacity: 0.7; display: inline-flex; }
 .dc-mute-icon svg { width: 14px; height: 14px; fill: currentColor; }
 
+/* Fila "Archivados" arriba de la lista de chats (como en WhatsApp) */
+.dc-archived-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 48px;
+    margin-bottom: 2px;
+    padding: 0 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--dc-text-muted);
+    user-select: none;
+}
+.dc-archived-head:hover { background: var(--dc-bg-item-hover); color: var(--dc-text); }
+.dc-archived-icon {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--dc-bg-item-hover);
+}
+.dc-archived-head:hover .dc-archived-icon { background: var(--dc-bg-item-active); }
+.dc-archived-icon svg { width: 18px; height: 18px; fill: currentColor; }
+.dc-archived-label { flex: 1; min-width: 0; font-size: 16px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dc-archived-count { flex: none; font-size: 13px; font-weight: 600; opacity: 0.8; }
+.dc-archived-arrow { flex: none; width: 10px; text-align: center; font-size: 12px; }
+.dc-archived-list { margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--dc-divider); }
+.dc-archived-list .dc-chat-item { opacity: 0.85; }
+.dc-archived-list .dc-chat-item:hover, .dc-archived-list .dc-chat-item.active { opacity: 1; }
+
 /* Panel de usuario (abajo a la izquierda) */
 .dc-userpanel {
     flex: none;
@@ -843,6 +876,11 @@ body.theme-win7 {
     cursor: pointer;
 }
 .dc-menu-react-btn:hover { background: var(--dc-bg-item-hover); transform: scale(1.15); }
+/* Las que YA puse (en el cuadro que se queda abierto se ve cuáles tengo) */
+.dc-menu-react-btn.on { background: color-mix(in srgb, var(--dc-brand) 18%, transparent); box-shadow: inset 0 0 0 1px var(--dc-brand); }
+.dc-menu-react-btn.on:hover { background: color-mix(in srgb, var(--dc-brand) 28%, transparent); }
+.dc-menu-react-btn:disabled { opacity: 0.6; cursor: default; }
+.dc-menu-react.solo { padding-bottom: 2px; }
 .dc-menu-sep { height: 1px; margin: 4px -4px; background: var(--dc-divider); }
 .dc-menu-item {
     display: flex;
@@ -881,7 +919,11 @@ body.theme-win7 {
     .dc-chat-meta,
     .dc-userpanel-text,
     .dc-badge,
-    .dc-mute-icon { display: none; }
+    .dc-mute-icon,
+    .dc-archived-label,
+    .dc-archived-count,
+    .dc-archived-arrow { display: none; }
+    .dc-archived-head { justify-content: center; padding: 0; }
     .dc-chat-item { justify-content: center; padding: 0; }
     .dc-chat-list { padding: 8px 0; }
     .dc-chat-item .dc-chat-avatar { width: 40px; height: 40px; }

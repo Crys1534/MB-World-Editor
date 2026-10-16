@@ -12,7 +12,8 @@
 //   - cutSelection() .......... Ctrl+X
 //   - activatePasteMode() ..... Ctrl+V: activa la herramienta "paste"
 //   - performPaste() .......... pega de verdad (también lo usa la red en multijugador)
-//   - flipClipboardHorizontal() / flipClipboardVertical()  botones de espejo (también cambian la variante de antorchas, escaleras, losas, dispenser y dropper)
+//   - flipClipboardHorizontal()  botón "Mirror" (espejo izquierda <-> derecha; también cambia la variante de antorchas, escaleras, losas, dispenser y dropper)
+//   - variantFamilyFor(tipo)  dice a qué "familia" de variantes pertenece un bloque (la usan Mirror aquí y Rotate en scripts/tools.js)
 //   - copyMobToClipboard() / pasteMobFromClipboard() ... lo mismo, pero para un mob
 //
 // Quienes lo usan: scripts/input.js (atajos de teclado), scripts/tools.js
@@ -153,33 +154,41 @@ function performPaste(targetX, targetY, replaceAir = false, isFromNetwork = fals
 }
 
 // ------------------------------------------
-// Espejo (Flip) del portapapeles
+// Espejo (botón "Mirror") del portapapeles
 // ------------------------------------------
 // Algunos bloques se guardan como "tipo + número de variante" (states1) y ese número dice hacia dónde miran.
 // Un ejemplo es la antorcha (th): 1 = parada (recta), 2 = inclinada hacia un lado (en una pared), 3 = inclinada hacia el otro lado (las
 // versiones 2 y 3 son el mismo dibujo volteado). Al voltear una estructura, la POSICIÓN de cada bloque cambia, y estos bloques
 // además tienen que cambiar a su versión "espejo"; si no, una escalera que miraba a la derecha seguiría mirando a la derecha.
-//   h = espejo horizontal (izquierda <-> derecha)      v = espejo vertical (arriba <-> abajo)
 // Cada regla dice "variante actual -> variante después de voltear". Se comprobó con las imágenes de assets/blocks.png:
 // los dibujos de cada par son uno el espejo del otro (y en un mundo real aparecen todos estos números).
+// Ronda 9: se quitó el botón de espejo vertical (ahora para girar un bloque se usa Rotate, con el Lápiz), así que solo queda el horizontal.
 const FLIP_WALL   = { h: { 2: 3, 3: 2 } };                                          // antorchas, palanca, botón, linterna
-const FLIP_STAIR  = { h: { 1: 2, 2: 1, 3: 4, 4: 3 }, v: { 1: 3, 3: 1, 2: 4, 4: 2 } }; // escaleras: 1-2 normales, 3-4 de cabeza
-const FLIP_SLAB   = { v: { 1: 2, 2: 1 } };                                          // losas: 1 = abajo, 2 = arriba
-const FLIP_FACING = { h: { 1: 2, 2: 1 }, v: { 3: 4, 4: 3 } };                       // dispenser y dropper: 1 izquierda, 2 derecha, 3 arriba, 4 abajo
+const FLIP_STAIR  = { h: { 1: 2, 2: 1, 3: 4, 4: 3 } };                              // escaleras: 1-2 normales, 3-4 de cabeza
+const FLIP_SLAB   = {};                                                             // losas: 1 = abajo, 2 = arriba (no cambian con el espejo horizontal)
+const FLIP_FACING = { h: { 1: 2, 2: 1 } };                                          // dispenser y dropper: 1 izquierda, 2 derecha, 3 arriba, 4 abajo
 window.FLIP_VARIANT_RULES = { wall: FLIP_WALL, stair: FLIP_STAIR, slab: FLIP_SLAB, facing: FLIP_FACING };
 
-function flipRulesFor(type) {
+// "Familia" de variantes de un bloque: 'wall' (antorchas, palanca, botón, linterna), 'facing' (dispenser y dropper),
+// 'stair' (todas las escaleras), 'slab' (todas las losas) o null si el bloque no tiene variantes que girar.
+function variantFamilyFor(type) {
     if (typeof type !== 'string') return null;
-    if (type === 'th' || type === 'ortorch' || type === 'rstorch' || type === 'lever' || type === 'button' || type === 'lant') return FLIP_WALL;
-    if (type === 'dispense' || type === 'dropper') return FLIP_FACING;
+    if (type === 'th' || type === 'ortorch' || type === 'rstorch' || type === 'lever' || type === 'button' || type === 'lant') return 'wall';
+    if (type === 'dispense' || type === 'dropper') return 'facing';
     // Todas las escaleras (stairr, staircs...) y losas (halfr, halfcs...): solo las que de verdad existen en el editor
     const known = (window.texturesMap && window.texturesMap[type + '_1']) ? true : false;
-    if (known && /^stair[a-z]+$/.test(type)) return FLIP_STAIR;
-    if (known && /^half[a-z]+$/.test(type)) return FLIP_SLAB;
+    if (known && /^stair[a-z]+$/.test(type)) return 'stair';
+    if (known && /^half[a-z]+$/.test(type)) return 'slab';
     return null;
 }
+window.variantFamilyFor = variantFamilyFor;
 
-// Cambia states1 de un bloque a su versión espejo (axis: 'h' o 'v'). Devuelve true si cambió algo.
+function flipRulesFor(type) {
+    const family = variantFamilyFor(type);
+    return family ? window.FLIP_VARIANT_RULES[family] : null;
+}
+
+// Cambia states1 de un bloque a su versión espejo (axis: 'h'). Devuelve true si cambió algo.
 function flipBlockVariant(state, axis) {
     if (!state) return false;
     const rules = flipRulesFor(state.type);
@@ -220,10 +229,8 @@ function flipClipboard(axis) {
     if (typeof worldDirty !== 'undefined') worldDirty = true;
 }
 
-// ✨ Espejo Horizontal (botón "Flip")
+// ✨ Espejo Horizontal (botón "Mirror")
 window.flipClipboardHorizontal = function() { flipClipboard('h'); };
-// ✨ Espejo Vertical (botón ↕️): losas de abajo <-> arriba, escaleras de cabeza, dispenser / dropper hacia arriba <-> abajo
-window.flipClipboardVertical = function() { flipClipboard('v'); };
 
 // ------------------------------------------
 // Mobs (herramienta "move": Ctrl+C / Ctrl+V sobre una criatura)

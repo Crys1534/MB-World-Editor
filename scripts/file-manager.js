@@ -201,6 +201,9 @@ const fileManager = {
    }
    if (superseded()) return;
 
+   // La cámara se teletransporta para dejar al Player en el centro de la pantalla
+   if (typeof window.centerCameraOnPlayer === 'function') window.centerCameraOnPlayer();
+
    if (!window.isMainLoopRunning) {
        if (typeof mainLoop === 'function') mainLoop();
        window.isMainLoopRunning = true; 
@@ -648,53 +651,6 @@ const localDB = {
         let db = await this.init();
         let transaction = db.transaction(this.storeName, "readwrite");
         transaction.objectStore(this.storeName).delete(name);
-    }
-};
-
-// ==============================================================
-// ✨ MOTOR DE BASE DE DATOS LOCAL (IndexedDB) PARA SKINS DE MOBS
-// ==============================================================
-// Movido aquí desde main.js, para que toda la lógica de almacenamiento
-// local (mundos y skins) viva en un solo archivo.
-window.skinDB = {
-    dbName: "MBW_SkinsDB", storeName: "skins",
-    init: function() {
-        return new Promise((resolve, reject) => {
-            let request = indexedDB.open(this.dbName, 1);
-            request.onupgradeneeded = (e) => { let db = e.target.result; if (!db.objectStoreNames.contains(this.storeName)) db.createObjectStore(this.storeName); };
-            request.onsuccess = (e) => resolve(e.target.result); request.onerror = (e) => reject(e.target.error);
-        });
-    },
-    saveSkin: async function(id, base64Data) {
-        let db = await this.init();
-        return new Promise((resolve, reject) => {
-            let tx = db.transaction(this.storeName, "readwrite");
-            tx.objectStore(this.storeName).put({ data: base64Data, time: Date.now() }, String(id));
-            tx.oncomplete = () => resolve(); tx.onerror = () => reject();
-        });
-    },
-    getSkin: async function(id) {
-        let db = await this.init();
-        return new Promise((resolve, reject) => {
-            let tx = db.transaction(this.storeName, "readonly");
-            let req = tx.objectStore(this.storeName).get(String(id));
-            req.onsuccess = () => { let res = req.result; resolve(res ? (res.data || res) : null); };
-            req.onerror = () => resolve(null);
-        });
-    },
-    getAllSorted: async function() {
-        let db = await this.init();
-        return new Promise((resolve, reject) => {
-            let tx = db.transaction(this.storeName, "readonly");
-            let store = tx.objectStore(this.storeName);
-            let reqValues = store.getAll(); let reqKeys = store.getAllKeys();
-            tx.oncomplete = () => {
-                let values = reqValues.result || []; let keys = reqKeys.result || [];
-                let combined = keys.map((key, index) => { return { id: key, time: values[index].time || 0, base64: values[index].data || values[index] }; });
-                combined.sort((a, b) => b.time - a.time); resolve(combined);
-            };
-            tx.onerror = () => resolve([]);
-        });
     }
 };
 

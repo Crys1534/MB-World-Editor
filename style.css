@@ -2061,3 +2061,7 @@ body.is-spectating #player-hotbar-container {
 .pinv-bar { height: 8px; margin: 0 4px 3px; background: transparent; cursor: pointer; }
 .pinv-hcell:hover .pinv-bar { background: rgba(60, 190, 60, 0.35); }
 .pinv-hcell.sel .pinv-bar { background: #3CBE3C; box-shadow: 0 0 0 1px #1E6B1E; }
+
+/* Rotate: apagado cuando el bloque de la mano no se puede girar */
+.ribbon-btn-small.rotate-unavailable { opacity: 0.45; cursor: not-allowed; }
+.ribbon-btn-small.rotate-unavailable:hover { background-color: transparent; border-color: transparent; }

@@ -700,6 +700,89 @@ function eyedropper(x, y) {
  }
 }
 
+// === ROTAR EL BLOQUE DE LA BARRA RÁPIDA (botón "Rotate" y tecla R) ===
+// Se gira el bloque que traes en la mano (el de la casilla elegida de la barra rápida), SIN tener que copiarlo con Select.
+// Cada vez que se rota, el bloque pasa a la siguiente variante de su "familia" (siempre en el sentido del reloj).
+// La variante es el número states1 del bloque (ver scripts/clipboard.js para saber qué significa cada número).
+const ROTATE_CYCLES = {
+    stair:  [1, 2, 4, 3],   // la esquina vacía de la escalera va: arriba-izquierda -> arriba-derecha -> abajo-derecha -> abajo-izquierda
+    slab:   [1, 2],         // losa: abajo <-> arriba (en el juego no existen losas verticales)
+    facing: [3, 2, 4, 1],   // dispenser y dropper: arriba -> derecha -> abajo -> izquierda
+    wall:   [1, 2, 3]       // palanca y botón (solo tienen 2 dibujos, así que alternan 1 <-> 2)
+};
+window.ROTATE_CYCLES = ROTATE_CYCLES;
+
+// Estos bloques NO se giran con Rotate (ni con el botón ni con la tecla R): las antorchas (th, ortorch, rstorch) y la linterna (lant).
+// Ojo: Mirror sí los sigue volteando (clipboard.js); esto solo afecta a Rotate.
+const ROTATE_EXCLUDED_TYPES = ['th', 'ortorch', 'rstorch', 'lant'];
+window.ROTATE_EXCLUDED_TYPES = ROTATE_EXCLUDED_TYPES;
+
+// ¿Este bloque tiene una variante que se pueda girar?
+function canRotateBlock(state) {
+    if (!state || typeof variantFamilyFor !== 'function') return false;
+    if (ROTATE_EXCLUDED_TYPES.includes(state.type)) return false;
+    return !!variantFamilyFor(state.type);
+}
+window.canRotateBlock = canRotateBlock;
+
+// Cambia states1 de `state` a la siguiente variante. Devuelve true si cambió algo.
+function rotateBlockVariant(state) {
+    if (!canRotateBlock(state)) return false;
+    const cycle = ROTATE_CYCLES[variantFamilyFor(state.type)];
+    if (!cycle) return false;
+    const raw = state.states1;
+    // Un bloque sin variante (o con un número raro) cuenta como "la primera variante"
+    const cur = (raw === undefined || raw === null || raw === '' || isNaN(Number(raw))) ? cycle[0] : Number(raw);
+    let idx = cycle.indexOf(cur);
+    if (idx < 0) idx = cycle.length - 1; // número desconocido: la siguiente es la primera del ciclo
+    const tex = window.texturesMap || {};
+    for (let i = 1; i <= cycle.length; i++) {
+        const cand = cycle[(idx + i) % cycle.length];
+        if (cand === cur) continue;
+        // Solo variantes que de verdad tienen dibujo (la palanca, por ejemplo, solo tiene 2)
+        if (!tex[state.type + '_' + cand]) continue;
+        state.states1 = (typeof raw === 'string' && raw !== '') ? String(cand) : cand;   // si venía como texto ("2") sigue siendo texto
+        return true;
+    }
+    return false;
+}
+window.rotateBlockVariant = rotateBlockVariant;
+
+// Rota el bloque de la casilla elegida de la barra rápida. Devuelve true si cambió.
+function rotateHeldBlock() {
+    const slot = hotbar.slots[slotIndex];
+    if (!slot) return false;
+    const copy = structuredClone(slot);
+    if (!rotateBlockVariant(copy)) return false;
+    hotbar.slots[slotIndex] = copy;
+    if (typeof renderHotbarUI === 'function') renderHotbarUI();
+    if (typeof worldDirty !== 'undefined') worldDirty = true;
+    return true;
+}
+window.rotateHeldBlock = rotateHeldBlock;
+
+// Herramientas que ponen el bloque de la barra rápida. Si el botón Rotate se usa con otra herramienta (Select, Move, Paste...),
+// se cambia al Lápiz para que se vea el bloque girado.
+const TOOLS_USING_HOTBAR_BLOCK = ['pencil', 'bucket', 'line', 'rect-shape', 'circle'];
+function rotateFromButton() {
+    if (!canRotateBlock(hotbar.slots[slotIndex])) return false;   // este bloque no se gira: no pasa nada (ni cambia de herramienta)
+    if (typeof currentTool !== 'undefined' && !TOOLS_USING_HOTBAR_BLOCK.includes(currentTool) && typeof selectTool === 'function') selectTool('pencil');
+    return rotateHeldBlock();
+}
+// El botón Rotate se ve apagado cuando el bloque de la mano no se puede girar (tierra, antorchas, linterna, casilla vacía…)
+let _rotateBtnState = null;
+function updateRotateButtonState() {
+    const btn = document.getElementById('btn-rotate');
+    if (!btn || typeof hotbar === 'undefined' || !hotbar.slots) return;
+    const ok = canRotateBlock(hotbar.slots[slotIndex]);
+    if (ok === _rotateBtnState) return;
+    _rotateBtnState = ok;
+    btn.classList.toggle('rotate-unavailable', !ok);
+    btn.setAttribute('aria-disabled', ok ? 'false' : 'true');
+}
+window.updateRotateButtonState = updateRotateButtonState;
+window.rotateFromButton = rotateFromButton;
+
 // === HERRAMIENTA BORRADOR ===
 function eraser(cx, cy) {
     const offsetStart = Math.floor(toolSize / 2);

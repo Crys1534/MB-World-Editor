@@ -489,7 +489,7 @@
 
  // Imagen de una spawnskin: la tira de la skin trae varios cuadros de 16x22 y solo se muestra el primero.
  // Sin ID (o si la skin no carga) se usa la spawnskin genérica del editor. La skin se pide con getSpawnskinImage (main.js):
- // local -> base del Addon -> mineblocks.com, así que puede tardar: mientras tanto se ve la genérica y se repinta sola.
+ // local -> mineblocks.com, así que puede tardar: mientras tanto se ve la genérica y se repinta sola.
  const SKIN_W = 16, SKIN_H = 22;
  let genericFrameURL = null;
  function frameOf(src) {

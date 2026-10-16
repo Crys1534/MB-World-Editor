@@ -144,7 +144,19 @@ let firstTime = true;
 let lastPosition = [{}, {}];
 
 // --- TECLADO ---
+// ¿La tecla que se acaba de presionar es la que está asignada a esta acción en Settings > Controls?
+// (Si no hay nada guardado, se usa la tecla de fábrica `fallbackKey`.) Ctrl tiene que coincidir con lo que dice el atajo.
+function keybindMatches(event, action, fallbackKey) {
+    const kb = window.userKeybinds && window.userKeybinds[action];
+    const key = (kb && kb.key) ? String(kb.key).toLowerCase() : fallbackKey;
+    const wantCtrl = !!(kb && kb.ctrl);
+    const isCtrl = !!(event.ctrlKey || event.metaKey);
+    return typeof event.key === 'string' && event.key.toLowerCase() === key && wantCtrl === isCtrl;
+}
+
 window.addEventListener("keydown", function (event) {
+    // Mientras la ventana "My Profile" obligatoria está abierta (usuario "Player"), el editor no responde al teclado
+    if (window.profileLocked) return;
     const activeTag = document.activeElement ? document.activeElement.tagName : '';
     if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') {
         if (event.code === 'KeyE' && document.activeElement.id === 'inventory-search') {
@@ -224,9 +236,12 @@ window.addEventListener("keydown", function (event) {
     if (event.code === 'KeyZ' && !isCtrl) { if (typeof setSelectionPoint === 'function') setSelectionPoint(1, mouse.worldX, mouse.worldY); }
     if (event.code === 'KeyX' && !isCtrl) { if (typeof setSelectionPoint === 'function') setSelectionPoint(2, mouse.worldX, mouse.worldY); }
     if (event.code === 'KeyC' && !isCtrl) { if (typeof eyedropper === 'function') eyedropper(mouse.worldX, mouse.worldY); }
-    if (event.code === 'KeyE' && !isCtrl) { event.preventDefault(); try { toggleInventory(); } catch(e) { } }
-    if (event.code === 'KeyR' && !isCtrl) { event.preventDefault(); try { openStructuresModal(); } catch(e) { } }
-    if (event.code === 'KeyM' && !isCtrl) { event.preventDefault(); try { openMobModal(); } catch(e) { } }
+    // Atajos que se pueden cambiar en Settings > Controls (de fábrica: E = Inventory, Y = Structures Browser, M = Mobs Browser, R = Rotate)
+    if (keybindMatches(event, 'inventory', 'e')) { event.preventDefault(); try { toggleInventory(); } catch(e) { } }
+    if (keybindMatches(event, 'structures', 'y')) { event.preventDefault(); try { openStructuresModal(); } catch(e) { } }
+    if (keybindMatches(event, 'mobs', 'm')) { event.preventDefault(); try { openMobModal(); } catch(e) { } }
+    // R: gira el bloque de la barra rápida (el mismo trabajo que el botón Rotate); si el bloque no se puede girar, no pasa nada
+    if (keybindMatches(event, 'rotate', 'r')) { event.preventDefault(); try { rotateHeldBlock(); } catch(e) { } }
 
     if (event.code.startsWith('Digit')) {
         let num = parseInt(event.code.charAt(5));
