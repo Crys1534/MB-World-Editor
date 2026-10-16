@@ -2120,15 +2120,15 @@ details.mob-sec { border: 2px solid #373737; background: #9c9c9c; flex: 0 0 auto
    Izquierda = imagen y nombre del mob.  Derecha = todo lo que se edita, en 4 columnas
    (Basic | Equipment | Custom Drops | Mob-Specific) y los botones abajo.  Se llena desde scripts/mob-editor.js.
    ========================================== */
-.cm-wrap { display: flex; width: min(1200px, 98vw); height: min(690px, calc(100vh - 24px)); margin: 1.5% auto; box-shadow: 0 4px 15px rgba(0,0,0,0.5); animation: retroModalOpen 0.15s cubic-bezier(0.25, 1, 0.25, 1); }
+.cm-wrap { display: flex; width: min(1320px, 98vw); height: min(690px, calc(100vh - 24px)); margin: 1.5% auto; box-shadow: 0 4px 15px rgba(0,0,0,0.5); animation: retroModalOpen 0.15s cubic-bezier(0.25, 1, 0.25, 1); }
 .cm-win { background: #C6C6C6; border: 2px solid #555; box-sizing: border-box; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-.cm-left { flex: 0 0 250px; border-right-width: 1px; }
+.cm-left { flex: 0 0 360px; border-right-width: 1px; }
 .cm-right { flex: 1 1 auto; min-width: 0; border-left-width: 1px; }
 .cm-head { display: flex; justify-content: space-between; align-items: center; flex: 0 0 auto; padding: 6px 10px; background: #8B8B8B; border-bottom: 2px solid #FFF; min-height: 42px; box-sizing: border-box; }
 .cm-head h3 { color: #fff; text-shadow: 1px 1px 0 #000; font-size: 26px; font-family: 'Pixeltype', sans-serif; letter-spacing: 0.5px; }
 .cm-left-body { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 12px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
-.cm-preview-box { width: 190px; height: 190px; flex: 0 0 190px; background: #8B8B8B; border: 3px inset #fff; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
-.cm-preview-img { width: 172px; height: 172px; object-fit: contain; image-rendering: pixelated; }
+.cm-preview-box { width: 320px; height: 320px; flex: 0 0 320px; max-width: 100%; background: #8B8B8B; border: 3px inset #fff; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+.cm-preview-img { width: 300px; height: 300px; max-width: 100%; max-height: 100%; object-fit: contain; image-rendering: pixelated; }
 .cm-title { margin: 6px 0 0; font-size: 28px; color: #000; word-break: break-word; max-width: 100%; }
 .cm-sub { margin: 0; color: #444; font-size: 15px; font-weight: bold; min-height: 18px; }
 
@@ -2164,6 +2164,11 @@ details.mob-sec { border: 2px solid #373737; background: #9c9c9c; flex: 0 0 auto
 #custom-mob-modal .cm-foot .btn-apply-mob:hover { background: #3a9a3e; }
 #custom-mob-modal .cm-foot .mob-status { flex: 1 1 140px; text-align: right; min-height: 22px; }
 
+@media (max-width: 1280px) {
+    .cm-left { flex-basis: 310px; }
+    .cm-preview-box { width: 270px; height: 270px; flex-basis: 270px; }
+    .cm-preview-img { width: 250px; height: 250px; }
+}
 @media (max-width: 1100px) {
     .cm-left { flex-basis: 190px; }
     .cm-preview-box { width: 140px; height: 140px; flex-basis: 140px; }

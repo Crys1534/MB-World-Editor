@@ -27,7 +27,8 @@
 //   - Nombre de un objeto = "nameChange" (NO "name"). Un objeto se escribe [id, cantidad, st, extras].
 //   - Ronda 16, confirmado en SnowyLand / Biomes: una spawnskin SÍ lleva armadura (4 piezas, igual que el zombie)
 //     y "aggro" ("hostile" / "neutral" / "passive"; si falta, es passive). El color del cuero es extras.type (LeatherCap {"type":"cyan"}).
-//     Camel City: canDestroy / canPlaceOn son listas de nombres de bloque ("stone", "iron_bars"...) dentro de los extras del objeto,
+//     Camel City y SnowyLand 31: canDestroy / canPlaceOn son SIEMPRE listas de nombres de bloque ("stone", "iron_bars"...; con
+//     el comando {canDestroy:"all"} el juego guarda ["all"]) dentro de los extras del objeto,
 //     y lootBonus de un drop puede valer más que 0 (22 drops con 12).
 //   - Siguen SIN VERIFICAR: el VALOR de babyTimer en una cría (ningún mundo trae crías; se usa 24000),
 //     la clave "chance" de un drop (viene de la wiki; ningún drop real la usa), los objetos en la mano
@@ -137,9 +138,11 @@
  //   id  = id del objeto ('air' = casilla vacía)
  //   st  = "states1" del inventario (color, orientación...), null si no tiene
  //   nbt = extras del objeto: nameChange (nombre personalizado), type (color), encantamientos... (null si no tiene)
- // canDestroy / canPlaceOn: un texto ("all") o una lista de ids de bloque ("stone", "iron_bars"...). null = nada que guardar.
+ // canDestroy / canPlaceOn: SIEMPRE una lista de ids de bloque ("stone", "iron_bars"...; "all" también va dentro de la lista).
+ // El juego guarda `give stone 1 0 {canDestroy:"all"}` como "canDestroy":["all"]; el texto suelto "all" hacía que el juego se cerrara,
+ // así que un texto (de una versión anterior del editor) se convierte en lista de un elemento. null = nada que guardar.
  function cleanBlockList(v) {
-  if (typeof v === 'string') { v = v.trim().slice(0, 64); return v || null; }
+  if (typeof v === 'string') v = [v];
   if (!Array.isArray(v)) return null;
   const out = [];
   v.forEach(function (x) {
@@ -293,7 +296,7 @@
  //   isBaby / onFire = todos los mobs   variant = los que tienen variante   sheared = oveja   color = oveja y perro
  //   size = slime y magma cube          tamed = lobo / perro
  const COND = [
-  { key: 'isBaby', type: 'bool', all: true },
+  { key: 'isBaby', type: 'bool', all: true, not: ['spawnskin'] },     // una spawnskin nunca es cría
   { key: 'onFire', type: 'bool', all: true },
   { key: 'variant', type: 'variant', test: function (b) { return !!(SCHEMA[b] || {}).variant; } },
   { key: 'sheared', type: 'bool', bases: ['sheep'] },
@@ -301,7 +304,7 @@
   { key: 'size', type: 'size', bases: ['slime', 'magmacube'] },
   { key: 'tamed', type: 'bool', bases: ['wolf', 'dog'] }
  ];
- function condApplies(c, base) { return !!(c.all || (c.bases && c.bases.indexOf(base) >= 0) || (c.test && c.test(base))); }
+ function condApplies(c, base) { if (c.not && c.not.indexOf(base) >= 0) return false; return !!(c.all || (c.bases && c.bases.indexOf(base) >= 0) || (c.test && c.test(base))); }
  // properties de un drop: solo valores simples (texto corto, número, sí/no)
  function cleanProps(p) {
   const out = {};
@@ -346,6 +349,7 @@
     const o = Object.assign(it, { qty: clampInt(x.qty, 1, 999, 1), bonus: clampInt(x.bonus, 0, 999, 0), lootBonus: clampInt(x.lootBonus, 0, 999, 0), chance: clampNum(x.chance, 1, 100, 100), props: cleanProps(x.props) });
     const co = cleanChanceObj(x.chanceObj);
     if (co) o.chanceObj = co;
+    if (base === 'spawnskin') delete o.props.isBaby;      // una spawnskin nunca es cría: esa condición no existe para ella
     return o;
    });
   }
@@ -589,43 +593,63 @@
   img.src = imgSrc(k);
  }
 
- // Imagen de una spawnskin: la tira de la skin trae varios cuadros de 16x22 y solo se muestra el primero.
- // Sin ID (o si la skin no carga) se usa la spawnskin genérica del editor. La skin se pide con getSpawnskinImage (main.js):
- // local -> mineblocks.com, así que puede tardar: mientras tanto se ve la genérica y se repinta sola.
+ // Imagen de una spawnskin: la tira de la skin trae 17 cuadros de 16x22 y SIEMPRE se muestra solo el primero (el de "Idle"):
+ // los primeros 16 px de ancho y 22 de alto, desde la esquina de arriba de la imagen. Nunca se muestra la tira entera.
+ // La skin se pide con getSpawnskinImage (main.js): local -> mineblocks.com, así que puede tardar. Mientras llega la imagen
+ // se ve el recuadro vacío (NO la spawnskin genérica); la genérica (spawnskin.png) solo sale cuando la skin no se pudo cargar
+ // (sin internet, o un ID que no existe) o cuando no hay ID.
  const SKIN_W = 16, SKIN_H = 22;
+ const BLANK_IMG = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
  let genericFrameURL = null;
+ // undefined = la imagen aún no está lista · null = no se pudo leer (lienzo "manchado") · texto = el primer cuadro (16x22) como data URL
  function frameOf(src) {
   try {
    const w = src.naturalWidth || src.width, h = src.naturalHeight || src.height;
-   if (!w || !h || (src.complete === false)) return null;
+   if (!w || !h || (src.complete === false)) return undefined;
    const c = document.createElement('canvas'); c.width = SKIN_W; c.height = SKIN_H;
    c.getContext('2d').drawImage(src, 0, 0, Math.min(SKIN_W, w), Math.min(SKIN_H, h), 0, 0, Math.min(SKIN_W, w), Math.min(SKIN_H, h));
    return c.toDataURL('image/png');
-  } catch (e) { return null; }   // lienzo "manchado" u otro fallo: se usa la imagen genérica
+  } catch (e) { return null; }
  }
- function genericFrame() {
-  if (genericFrameURL) return genericFrameURL;
-  const g = window.images && window.images.spawnskin;
-  if (g && g.complete && g.naturalWidth) genericFrameURL = frameOf(g);
-  return genericFrameURL;
+ // La spawnskin genérica del editor (también solo su primer cuadro). Si todavía no cargó, se espera a que cargue.
+ function showGeneric(img, tok) {
+  if (genericFrameURL) { if (img.src !== genericFrameURL) img.src = genericFrameURL; return; }
+  const g = (window.images && window.images.spawnskin) || null;
+  const use = function (im) {
+   const u = frameOf(im);
+   if (u) genericFrameURL = u;
+   if (u && img._skTok === tok) img.src = u;
+  };
+  if (g && g.complete && g.naturalWidth) { use(g); if (genericFrameURL) return; }
+  img.src = BLANK_IMG;                                                      // (nunca la tira entera)
+  if (g && !g.complete) g.addEventListener('load', function () { use(g); }, { once: true });
+  else if (!g) { const t = new Image(); t.onload = function () { use(t); }; t.src = imgSrc('spawnskin'); }
  }
  function paintSkinImg(img, id) {
   const tok = (img._skTok = (img._skTok || 0) + 1);
+  const sid = cleanSkin(id);
   let tries = 0;
   (function step() {
    if (img._skTok !== tok || (tries > 0 && !document.body.contains(img))) return;   // (la imagen aún no está en la página en el primer intento)
-   let url = null, waiting = false;
-   const sid = cleanSkin(id);
+   let state = 'none', url = null;
    if (sid && typeof window.getSpawnskinImage === 'function') {
     const sk = window.getSpawnskinImage(sid);
-    if (!sk) waiting = true;
-    else if (!sk.hasFailed) { url = frameOf(sk); if (!url) waiting = true; }
+    if (!sk) state = 'loading';
+    else if (sk.hasFailed) state = 'failed';
+    else {
+     const f = frameOf(sk);
+     if (f) url = f;
+     else state = f === undefined ? 'loading' : 'failed';
+    }
    }
-   if (url) { img.src = url; return; }                          // la skin pedida
-   const gen = genericFrame();
-   if (gen && img.src !== gen) img.src = gen;                   // mientras carga (o si no existe) se ve la genérica
-   else if (!gen) img.src = imgSrc('spawnskin');
-   if (waiting && ++tries < 60) setTimeout(step, 200);
+   if (url) { img.src = url; return; }                                   // la skin pedida
+   if (state === 'loading') {                                           // llegando: el recuadro queda vacío hasta que llegue
+    if (tries === 0 || img.src !== BLANK_IMG) img.src = BLANK_IMG;
+    if (++tries < 400) setTimeout(step, 150);                           // (hasta ~1 minuto)
+    return;
+   }
+   showGeneric(img, tok);                                               // sin ID, sin internet o un ID que no existe
+   if (state === 'failed' && ++tries < 40) setTimeout(step, 4000);      // por si vuelve el internet: el juego reintenta cada minuto y aquí se repinta sola
   })();
  }
  // Imagen de un mob del panel / de una casilla Custom (la spawnskin lleva su propia skin)
@@ -1086,11 +1110,10 @@
   const arr = typeof v === 'string' ? [v] : (Array.isArray(v) ? v.filter(function (x) { return typeof x === 'string'; }) : []);
   return { all: arr.indexOf('all') >= 0, ids: arr.filter(function (x) { return x !== 'all'; }) };
  }
- // "all" solo = el texto "all"; "all" + ids = lista que empieza con "all" (la wiki: el texto especial all invierte la lista)
+ // Siempre una LISTA: "all" solo = ["all"] (igual que el comando give); "all" + ids = lista que empieza con "all" (la wiki: el valor especial all invierte la lista)
  function writeBlockList(it, key, st) {
   const nbt = it.nbt || (it.nbt = {});          // siempre el MISMO objeto (el selector de encantamientos guarda una referencia)
-  if (st.all && !st.ids.length) nbt[key] = 'all';
-  else if (st.all) nbt[key] = ['all'].concat(st.ids);
+  if (st.all) nbt[key] = ['all'].concat(st.ids);
   else if (st.ids.length) nbt[key] = st.ids.slice();
   else delete nbt[key];
  }
