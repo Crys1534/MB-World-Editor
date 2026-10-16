@@ -1210,6 +1210,8 @@
             <div id="mobs-grid" class="mobs-grid-container"></div>
         </div>
 
+        <!-- Barra lateral del Mob Browser (ronda 16): SOLO muestra el mob (imagen, nombre y datos) y tiene 2 botones.
+             Todo lo que se edita vive en la ventana "Custom Mob" (#custom-mob-modal, más abajo). -->
         <div class="mob-sidebar">
             <div class="mob-side-head">
                 <div class="mob-preview-box">
@@ -1220,8 +1222,43 @@
                     <p id="mob-info-sub" class="mob-info-sub"></p>
                 </div>
             </div>
-            <div id="mob-form" class="mob-form"></div>
-            <div id="mob-ed-buttons" class="mob-actions-container"></div>
+            <div id="mob-info-lines" class="mob-info-lines"></div>
+            <div class="mob-side-sec">
+                <div class="mob-side-label" data-i18n="mobed_side_drops">Drops</div>
+                <div id="mob-drops-preview" class="mob-drops-preview"></div>
+            </div>
+            <div class="mob-actions-container mob-side-actions">
+                <button id="mob-spawn-btn" type="button" class="btn-load-struct btn-spawn-mob mob-wide" onclick="spawnPreviewedMob()" data-i18n="btn_spawn_mob">Spawn Mob</button>
+                <button id="mob-customize-btn" type="button" class="mob-customize-btn mob-wide" onclick="openCustomMob()" data-i18n="btn_customize_mob">Customize Mob</button>
+                <div id="mob-side-status" class="mob-status"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 🛠 Ventana "Custom Mob" (ronda 16): son DOS ventanas pegadas.
+     Izquierda: la imagen del mob y su nombre.  Derecha: todo lo que se puede editar, en 4 columnas
+     (Basic | Equipment | Custom Drops | Mob-Specific) y abajo los botones (Apply to this mob, Save to Custom, Reset...).
+     Se llena desde scripts/mob-editor.js. -->
+<div id="custom-mob-modal" class="modal">
+    <div class="cm-wrap">
+        <div class="cm-win cm-left">
+            <div class="cm-head"><h3 class="m-0 no-select" data-i18n="cm_title">Custom Mob</h3></div>
+            <div class="cm-left-body">
+                <div class="cm-preview-box">
+                    <img id="cm-preview-image" class="cm-preview-img" src="assets/zombie.png" onerror="this.onerror=null; this.src='assets/mobs/zombie.png'">
+                </div>
+                <h3 id="cm-title" class="cm-title">Zombie</h3>
+                <p id="cm-sub" class="cm-sub"></p>
+            </div>
+        </div>
+        <div class="cm-win cm-right">
+            <div class="cm-head">
+                <h3 class="m-0 no-select" data-i18n="cm_config">Configuration</h3>
+                <span class="close-modal btn-close-bold text-dark" onclick="closeModal('custom-mob-modal')">&times;</span>
+            </div>
+            <div id="mob-form" class="mob-form cm-cols"></div>
+            <div id="mob-ed-buttons" class="mob-actions-container cm-foot"></div>
         </div>
     </div>
 </div>

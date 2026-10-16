@@ -39,6 +39,8 @@ function closeModal(modalId) {
     if (modalId === 'unified-profile-modal' && window.profileLocked) return;
     const modal = document.getElementById(modalId);
     if (modal) modal.style.display = 'none';
+    // La ventana "Custom Mob" va encima del Mob Browser: si se cierra el Mob Browser, se cierra ella también
+    if (modalId === 'mobs-modal') { const cm = document.getElementById('custom-mob-modal'); if (cm) cm.style.display = 'none'; }
 }
 
 window.onclick = function(event) {
@@ -2629,7 +2631,7 @@ function selectMobToSpawn(type, spec) {
     }
     
     // Cerramos el modal por si estaba abierto
-    try { closeModal('mobs-modal'); } catch(e){}
+    try { closeModal('mobs-modal'); closeModal('custom-mob-modal'); } catch(e){}
 }
 
 // 3. Abre la ventana modal y carga todos los mobs

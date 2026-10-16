@@ -95,8 +95,25 @@
     window.toggleZenMode = function (force) {
         const on = (typeof force === 'boolean') ? force : !state.zen;
         if (on === state.zen) return;
+        zenByFullscreen = false;   // si la persona lo cambia a mano, ya no es "cosa de la pantalla completa"
         state.zen = on;
         sync();
+    };
+
+    // Ronda 16: el botón ⛶ también activa el Zen. Se recuerda si FUE la pantalla completa la que lo encendió, para apagarlo
+    // al salir de ella (con ⛶, con Esc o como sea). Si el Zen ya estaba encendido de antes, o la persona lo cambia a mano
+    // mientras tanto, la pantalla completa no lo toca.
+    let zenByFullscreen = false;
+    window.zenForFullscreen = function (on) {
+        if (on) {
+            if (state.zen) return;
+            zenByFullscreen = true;
+            state.zen = true;
+            sync();
+        } else if (zenByFullscreen) {
+            zenByFullscreen = false;
+            if (state.zen) { state.zen = false; sync(); }
+        }
     };
 
     window.setFloatPanels = function (on) {
@@ -207,6 +224,7 @@
         body.classList.toggle('is-fullscreen', fs);
         const b = $('fullscreen-btn');
         if (b) b.classList.toggle('active', fs);
+        if (!fs) window.zenForFullscreen(false);   // al salir de la pantalla completa se apaga el Zen que ella encendió
         relayout();
     }
     document.addEventListener('fullscreenchange', onFullscreenChange);

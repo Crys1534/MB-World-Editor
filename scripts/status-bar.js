@@ -42,8 +42,13 @@ window.toggleFullscreenHUD = function () {
         const el = document.documentElement;
         const req = el.requestFullscreen || el.webkitRequestFullscreen;
         if (req) {
-            const p = req.call(el);
-            if (p && p.catch) p.catch(err => console.log('Error while fullscreen: ' + err.message));
+            // Ronda 16: ⛶ = pantalla completa + Modo Zen (se apaga solo al salir de la pantalla completa; ver ui-modes.js)
+            const undoZen = () => { if (typeof window.zenForFullscreen === 'function') window.zenForFullscreen(false); };
+            if (typeof window.zenForFullscreen === 'function') window.zenForFullscreen(true);
+            try {
+                const p = req.call(el);
+                if (p && p.catch) p.catch(err => { console.log('Error while fullscreen: ' + err.message); undoZen(); });
+            } catch (err) { console.log('Error while fullscreen: ' + err.message); undoZen(); }
         }
     } else if (document.exitFullscreen) {
         document.exitFullscreen();

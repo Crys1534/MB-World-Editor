@@ -1,11 +1,15 @@
 // ==============================================================
-// MOB BROWSER: panel lateral con los datos editables del mob + pestaña "Custom"
+// MOB BROWSER + ventana "Custom Mob" + pestaña "Custom"
 // ==============================================================
 // Qué hace este archivo (todo lo del Mob Browser vive aquí):
 //   - Dibuja la cuadrícula de mobs (pestañas Animals / Overworld / Nether / End / Custom).
-//   - Al elegir un mob, el panel lateral muestra SOLO los datos que ese mob admite
-//     (por ejemplo: zombie => armadura, creeper => cargado, slime => tamaño, oveja => color...).
-//     La lista de qué mob admite qué sale de la wiki de Mine Blocks (Data tags > Mob Tags)
+//   - Al elegir un mob, la barra lateral del Mob Browser SOLO lo muestra: su imagen, su nombre, sus datos
+//     (Health, Charged, Aggro...) y una casilla por cada drop. Tiene dos botones: "Spawn Mob" y "Customize Mob".
+//   - "Customize Mob" abre la ventana "Custom Mob" (#custom-mob-modal): son dos ventanas pegadas.
+//     Izquierda = imagen y nombre del mob. Derecha = todo lo que se edita, en 4 columnas:
+//     Basic | Equipment | Custom Drops | Mob-Specific, y abajo los botones (Apply to this mob, Save to Custom, Reset...).
+//     Cada mob muestra SOLO los datos que admite (por ejemplo: zombie => armadura, creeper => cargado, slime => tamaño,
+//     oveja => color...). La lista de qué mob admite qué sale de la wiki de Mine Blocks (Data tags > Mob Tags)
 //     y de los mundos reales; está en la tabla SCHEMA de abajo.
 //   - "Spawn Mob" activa la herramienta de spawn con esos datos: cada clic en el mundo
 //     crea un mob NUEVO con los valores del panel (ver applyMobSpec).
@@ -21,10 +25,16 @@
 //   - Drops de un mob = { type, quantity, randomBonus, lootBonus, properties:{}, extras:{} }.
 //     El nombre de un objeto va en extras.nameChange (igual que en los objetos de cofres, inventario y armadura).
 //   - Nombre de un objeto = "nameChange" (NO "name"). Un objeto se escribe [id, cantidad, st, extras].
+//   - Ronda 16, confirmado en SnowyLand / Biomes: una spawnskin SÍ lleva armadura (4 piezas, igual que el zombie)
+//     y "aggro" ("hostile" / "neutral" / "passive"; si falta, es passive). El color del cuero es extras.type (LeatherCap {"type":"cyan"}).
+//     Camel City: canDestroy / canPlaceOn son listas de nombres de bloque ("stone", "iron_bars"...) dentro de los extras del objeto,
+//     y lootBonus de un drop puede valer más que 0 (22 drops con 12).
 //   - Siguen SIN VERIFICAR: el VALOR de babyTimer en una cría (ningún mundo trae crías; se usa 24000),
-//     la clave "chance" de un drop (viene de la wiki; ningún drop real la usa) y los objetos en la mano
-//     (todos los mobs reales tienen handItems vacío). Cada uno se escribe en UNA sola función de abajo
-//     (applyMobSpec / toDropEntry), así que corregirlos es cambiar pocas líneas.
+//     la clave "chance" de un drop (viene de la wiki; ningún drop real la usa), los objetos en la mano
+//     (todos los mobs reales tienen handItems vacío), las condiciones de un drop (variant, sheared, isBaby, color, onFire,
+//     size, tamed: vienen de la wiki y se guardan en "properties"; ningún mundo subido las usa) y "unbreakable"
+//     (wiki: Boolean, se omite si es false). Cada uno se escribe en UNA sola función de abajo
+//     (applyMobSpec / toDropEntry / cleanNbt), así que corregirlos es cambiar pocas líneas.
 // ==============================================================
 (function () {
  'use strict';
@@ -63,7 +73,9 @@
   collarColor: { key: 'collarColor', type: 'select', colors: true, options: [''].concat(COLORS) },
   teleportDistance: { key: 'teleportDistance', type: 'int', min: 1, max: 100 },
   hanging: { key: 'hanging', type: 'bool' },
-  skin: { key: 'skin', type: 'skin' }          // ID de la skin (solo dígitos; en el mob se guarda como NÚMERO)
+  skin: { key: 'skin', type: 'skin' },         // ID de la skin (solo dígitos; en el mob se guarda como NÚMERO)
+  // aggro de una spawnskin (wiki): hostile = ataca al verla, neutral = solo si le pegan, passive = no hace daño (por defecto, la clave se omite)
+  aggro: { key: 'aggro', type: 'select', options: ['passive', 'neutral', 'hostile'], omit: 'passive', i18n: 'mobed_aggro_' }
  };
  const SCHEMA = {
   zombie: { armor: true },
@@ -82,7 +94,7 @@
   pig: { baby: true },
   rabbit: { baby: true },
   bat: { fields: [F.hanging] },
-  spawnskin: { fields: [F.skin] }     // (armadura y mano de una spawnskin: sin verificar, por eso no se ofrecen)
+  spawnskin: { armor: true, fields: [F.skin, F.aggro] }     // armadura confirmada en mundos reales; la mano: sin verificar, no se ofrece
  };
 
  // ---------------------------------------------------------------- utilidades
@@ -125,6 +137,18 @@
  //   id  = id del objeto ('air' = casilla vacía)
  //   st  = "states1" del inventario (color, orientación...), null si no tiene
  //   nbt = extras del objeto: nameChange (nombre personalizado), type (color), encantamientos... (null si no tiene)
+ // canDestroy / canPlaceOn: un texto ("all") o una lista de ids de bloque ("stone", "iron_bars"...). null = nada que guardar.
+ function cleanBlockList(v) {
+  if (typeof v === 'string') { v = v.trim().slice(0, 64); return v || null; }
+  if (!Array.isArray(v)) return null;
+  const out = [];
+  v.forEach(function (x) {
+   if (typeof x !== 'string') return;
+   x = x.trim().slice(0, 64);
+   if (x && out.indexOf(x) < 0 && out.length < 64) out.push(x);
+  });
+  return out.length ? out : null;
+ }
  function cleanNbt(n) {
   if (!n || typeof n !== 'object' || Array.isArray(n)) return null;
   let c;
@@ -134,6 +158,13 @@
   if (typeof c.name === 'string' && c.nameChange === undefined) c.nameChange = c.name;
   delete c.name;
   if (typeof c.nameChange === 'string' && c.nameChange.length) c.nameChange = c.nameChange.slice(0, 64); else delete c.nameChange;
+  // Data tags de objeto (wiki > Data tags > Item Tags): unbreakable (Boolean; se omite si es false) y canDestroy / canPlaceOn (texto o lista de ids)
+  if (!c.unbreakable) delete c.unbreakable;
+  ['canDestroy', 'canPlaceOn'].forEach(function (k) {
+   if (!(k in c)) return;
+   const v = cleanBlockList(c[k]);
+   if (v === null) delete c[k]; else c[k] = v;
+  });
   if (typeof mbwEnchNormalize === 'function') c = mbwEnchNormalize(c);     // fireprotection1 -> protectionFire1 (las claves que usa el juego)
   if (!Object.keys(c).length) return null;
   try { if (JSON.stringify(c).length > 4000) return null; } catch (e) { return null; }
@@ -156,10 +187,9 @@
  }
  function itemName(it) { return (it && it.nbt && typeof it.nbt.nameChange === 'string') ? it.nbt.nameChange : ''; }
  function setItemName(it, v) {
-  const nbt = Object.assign({}, it.nbt || {});
+  const nbt = it.nbt || (it.nbt = {});       // se cambia el MISMO objeto (el selector de encantamientos guarda una referencia a él)
   delete nbt.name;
   if (v) nbt.nameChange = v; else delete nbt.nameChange;
-  it.nbt = Object.keys(nbt).length ? nbt : null;
  }
  // Copia un objeto elegido sobre un destino (mano / pieza / drop). Si el destino ya tenía un nombre
  // escrito y el objeto nuevo no trae uno propio, el nombre se conserva.
@@ -257,6 +287,41 @@
   });
  }
 
+ // ---------------------------------------------------------------- condiciones de un drop (wiki > Data tags > Loot Tags)
+ // Un drop solo cae si el mob cumple la condición. Se guardan en "properties" del drop. SIN VERIFICAR en un mundo real
+ // (ningún mundo subido las trae): los nombres y valores salen de la wiki.
+ //   isBaby / onFire = todos los mobs   variant = los que tienen variante   sheared = oveja   color = oveja y perro
+ //   size = slime y magma cube          tamed = lobo / perro
+ const COND = [
+  { key: 'isBaby', type: 'bool', all: true },
+  { key: 'onFire', type: 'bool', all: true },
+  { key: 'variant', type: 'variant', test: function (b) { return !!(SCHEMA[b] || {}).variant; } },
+  { key: 'sheared', type: 'bool', bases: ['sheep'] },
+  { key: 'color', type: 'color', bases: ['sheep', 'wolf', 'dog'] },
+  { key: 'size', type: 'size', bases: ['slime', 'magmacube'] },
+  { key: 'tamed', type: 'bool', bases: ['wolf', 'dog'] }
+ ];
+ function condApplies(c, base) { return !!(c.all || (c.bases && c.bases.indexOf(base) >= 0) || (c.test && c.test(base))); }
+ // properties de un drop: solo valores simples (texto corto, número, sí/no)
+ function cleanProps(p) {
+  const out = {};
+  if (!p || typeof p !== 'object' || Array.isArray(p)) return out;
+  Object.keys(p).slice(0, 24).forEach(function (k) {
+   const v = p[k];
+   if (!/^[A-Za-z][A-Za-z0-9_]{0,31}$/.test(k)) return;
+   if (typeof v === 'boolean') out[k] = v;
+   else if (typeof v === 'number' && Number.isFinite(v)) out[k] = v;
+   else if (typeof v === 'string' && v.length <= 40) out[k] = v;
+  });
+  return out;
+ }
+ // chance de un drop tal como viene del mundo: { seed, min, max, lootOffset }. Se conserva entera mientras el % no se toque.
+ function cleanChanceObj(o) {
+  if (!o || typeof o !== 'object' || Array.isArray(o) || !Number.isFinite(Number(o.max))) return null;
+  const n = function (v, lo, hi, d) { v = Number(v); return Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d; };
+  return { seed: Math.round(n(o.seed, 0, 1e9, 0)), min: n(o.min, -10, 10, 0), max: n(o.max, -10, 10, 1), lootOffset: n(o.lootOffset, -10, 10, 0) };
+ }
+
  // Acepta cualquier cosa (por ejemplo algo guardado en localStorage) y devuelve un spec válido.
  function normalizeSpec(raw) {
   const base = (raw && typeof raw.base === 'string' && tpl(raw.base)) ? raw.base : 'zombie';
@@ -278,7 +343,10 @@
    // (los guardados con la versión anterior usaban "item" en vez de "id")
    d.drops = raw.drops.filter(function (x) { const id = x && (x.id || x.item); return typeof id === 'string' && id !== '' && id !== 'air'; }).slice(0, 30).map(function (x) {
     const it = cleanItem({ id: x.id || x.item, st: x.st, nbt: x.nbt });
-    return Object.assign(it, { qty: clampInt(x.qty, 1, 999, 1), bonus: clampInt(x.bonus, 0, 999, 0), chance: clampNum(x.chance, 1, 100, 100) });
+    const o = Object.assign(it, { qty: clampInt(x.qty, 1, 999, 1), bonus: clampInt(x.bonus, 0, 999, 0), lootBonus: clampInt(x.lootBonus, 0, 999, 0), chance: clampNum(x.chance, 1, 100, 100), props: cleanProps(x.props) });
+    const co = cleanChanceObj(x.chanceObj);
+    if (co) o.chanceObj = co;
+    return o;
    });
   }
   if (raw.extra && typeof raw.extra === 'object') {
@@ -308,11 +376,13 @@
    type: d.id,
    quantity: d.qty,
    randomBonus: d.bonus,
-   lootBonus: 0,
-   properties: {},
+   lootBonus: d.lootBonus || 0,
+   properties: d.props ? clone(d.props) : {},
    extras: d.nbt ? clone(d.nbt) : {}
   };
-  if (d.chance < 100) {
+  if (d.chanceObj && pct(d.chanceObj.max) === d.chance) {
+   e.chance = clone(d.chanceObj);              // venía así del mundo y el % no se tocó: se conserva tal cual (semilla, mínimo...)
+  } else if (d.chance < 100) {
    // cada drop usa su propia semilla para que las tiradas sean independientes
    e.chance = { seed: i + 1, min: 0, max: unpct(d.chance), lootOffset: 0 };
   }
@@ -357,7 +427,8 @@
     if (spec.extra[f.key] === '') delete mob[f.key]; else mob[f.key] = Number(spec.extra[f.key]);
     return;
    }
-   mob[f.key] = spec.extra[f.key];
+   if (f.omit !== undefined && spec.extra[f.key] === f.omit) delete mob[f.key];     // el valor por defecto (aggro passive) no se escribe
+   else mob[f.key] = spec.extra[f.key];
   });
   return mob;
  };
@@ -400,10 +471,14 @@
    });
   }
   if (Array.isArray(mob.drops)) {
-   sp.drops = mob.drops.filter(function (d) { return d && typeof d.type === 'string' && d.type && d.type !== 'air'; }).slice(0, 30).map(function (d) {
+   sp.drops = mob.drops.filter(function (d) { return d && typeof d.type === 'string' && d.type && d.type !== 'air'; }).slice(0, 30).map(function (d, i) {
     const it = cleanItem({ id: d.type, st: null, nbt: d.extras });
     const ch = d.chance && Number.isFinite(Number(d.chance.max)) ? pct(d.chance.max) : 100;
-    return Object.assign(it, { qty: clampInt(d.quantity, 1, 999, 1), bonus: clampInt(d.randomBonus, 0, 999, 0), chance: clampNum(ch, 1, 100, 100) });
+    const o = Object.assign(it, { qty: clampInt(d.quantity, 1, 999, 1), bonus: clampInt(d.randomBonus, 0, 999, 0), lootBonus: clampInt(d.lootBonus, 0, 999, 0), chance: clampNum(ch, 1, 100, 100), props: cleanProps(d.properties) });
+    // el "chance" del mundo se guarda entero solo si NO es el que el editor escribiría solo (semilla = lugar del drop, desde 0, sin Looting)
+    const co = cleanChanceObj(d.chance);
+    if (co && !(co.min === 0 && co.lootOffset === 0 && co.seed === i + 1)) o.chanceObj = co;
+    return o;
    });
   }
   (sch.fields || []).forEach(function (f) {
@@ -420,9 +495,10 @@
   for (let i = 0; i < keys.length; i++) if (mbwom.mobs[keys[i]] === mob) return keys[i];
   return null;
  }
- // Doble clic con Move sobre un mob: abre el Mob Browser con TODOS los datos de ese mob cargados en el panel.
+ // Doble clic con Move sobre un mob: abre el Mob Browser con ese mob elegido (la barra lateral muestra sus datos) y, encima,
+ // la ventana "Custom Mob" con TODOS sus datos cargados para editarlos.
  // Por sí solo no cambia el mob del mundo: se puede mirar, guardar en Custom o crear una copia.
- // El botón "Aplicar a este mob" (applyToWorldMob) es el que escribe el panel encima de ese mob del mundo.
+ // El botón "Apply to this mob" (applyToWorldMob) es el que escribe el panel encima de ese mob del mundo.
  window.openMobFromWorld = function (mob) {
   const spec = window.specFromMob(mob);
   if (!spec) return false;
@@ -430,19 +506,45 @@
   S.spec = spec;
   S.presetId = null;
   S.hpTouched = true;
-  if (spec.drops.length) S.secOpen.drops = true;
   const modal = el('mobs-modal');
   if (!modal) return false;
   modal.style.display = 'block';
   window.filterMobs(dimensionOf(spec.base), true);   // marca la casilla de ese mob y deja el panel como está
   currentlyPreviewedMob = spec.base;
   S.worldKey = worldKeyOf(mob);                       // así el botón "Aplicar a este mob" sabe a cuál escribir
-  renderTitle(); refreshImage(); renderForm(); renderButtons();
-  const formBox = el('mob-form'); if (formBox) formBox.scrollTop = 0;
+  renderAll(); resetFormScroll();
+  window.openCustomMob();
   const shown = spec.name.trim() || niceMob(spec.base);
   status('📥 ' + tr('mobed_loaded_from_world') + ': ' + shown);
   return true;
  };
+
+ // Botón "Customize Mob": abre la ventana "Custom Mob" (dos ventanas pegadas) para el mob que está elegido en el Mob Browser.
+ window.openCustomMob = function () {
+  const m = el('custom-mob-modal');
+  if (!m) return false;
+  if (!S.spec) window.previewMob(activeMobTab === 'Custom' ? 'zombie' : (currentlyPreviewedMob || 'zombie'));
+  closeArmorPop();
+  bindSideSync();
+  renderAll();
+  m.style.display = 'block';
+  resetFormScroll();
+  return true;
+ };
+ window.closeCustomMob = function () {
+  closeArmorPop();
+  const m = el('custom-mob-modal');
+  if (m) m.style.display = 'none';
+ };
+ // Cualquier cambio dentro de la ventana Custom Mob (escribir, marcar, elegir, pulsar) se refleja en la barra lateral del Mob Browser
+ let sideBound = false;
+ function bindSideSync() {
+  if (sideBound) return;
+  const m = el('custom-mob-modal');
+  if (!m) return;
+  sideBound = true;
+  ['input', 'change', 'click'].forEach(function (ev) { m.addEventListener(ev, function () { syncSide(); }); });
+ }
 
  // Vida máxima "normal" de un mob (para la barra de vida del editor).
  window.getMobMaxHealth = function (mob) {
@@ -468,7 +570,7 @@
  }
 
  // ---------------------------------------------------------------- estado del panel
- const S = { spec: null, presetId: null, worldKey: null, search: '', hpTouched: false, secOpen: { basic: true, equip: true, drops: false, specific: true }, statusTimer: null, delTimer: null, delArmed: false };
+ const S = { spec: null, presetId: null, worldKey: null, search: '', hpTouched: false, statusTimer: null, delTimer: null, delArmed: false };
 
  function cleanSpec() {
   return normalizeSpec(clone(S.spec));
@@ -533,11 +635,11 @@
  }
 
  function status(msg) {
-  const s = el('mob-ed-status');
-  if (!s) return;
-  s.textContent = msg || '';
+  // el mensaje sale en la ventana Custom Mob y también en la barra lateral del Mob Browser
+  const box = ['mob-ed-status', 'mob-side-status'].map(el).filter(Boolean);
+  box.forEach(function (s) { s.textContent = msg || ''; });
   clearTimeout(S.statusTimer);
-  if (msg) S.statusTimer = setTimeout(function () { s.textContent = ''; }, 3500);
+  if (msg) S.statusTimer = setTimeout(function () { box.forEach(function (s) { s.textContent = ''; }); }, 3500);
  }
 
  // ---------------------------------------------------------------- iconos / inventario del editor
@@ -791,15 +893,15 @@
   box.appendChild(mk('span', '', '%'));
   return box;
  }
- function section(key, title, fill) {
-  const d = mk('details', 'mob-sec');
-  d.open = !!S.secOpen[key];
-  d.addEventListener('toggle', function () { S.secOpen[key] = d.open; });
-  d.appendChild(mk('summary', '', title));
-  const b = mk('div', 'mob-sec-body');
-  d.appendChild(b);
+ // Columna del panel "Custom Mob" (Basic / Equipment / Custom Drops / Mob-Specific). Cada una tiene su propio desplazamiento.
+ function column(key, title, fill) {
+  const c = mk('section', 'mob-col');
+  c.dataset.col = key;
+  c.appendChild(mk('h4', 'mob-col-head', title));
+  const b = mk('div', 'mob-col-body');
+  c.appendChild(b);
   fill(b);
-  return d;
+  return c;
  }
 
  // Casilla de objeto (solo la imagen). Clic = elegir; clic derecho o la ✕ = quitar.
@@ -841,15 +943,25 @@
   i.addEventListener('input', function () { setItemName(it, i.value); });
   return i;
  }
- // Una fila: [casilla] [nombre del objeto] [% de drop]
- function itemRow(target, ghostId, label, kind, withPct) {
+ // Una tarjeta de objeto: [casilla] [nombre del objeto] [% de drop] y debajo los botones ✨ / 🏷 (y 🎯 en los drops).
+ //   o.ghost = silueta de la casilla vacía   o.label = nombre de la pieza   o.kind = null (inventario completo) | 'Cap'|'Shirt'|'Pants'|'Shoes'
+ //   o.withPct = muestra el % de drop   o.remove = botón ✕ extra   o.clear === false = sin la ✕ de la casilla
+ //   o.mid = elemento que va entre la fila y los botones   o.tools = qué botones ofrece (ver cardTools)   o.caption = rótulo chiquito arriba
+ function itemCard(target, o) {
+  const card = mk('div', 'mob-icard');
+  if (o.caption) card.appendChild(mk('div', 'mob-icard-cap', o.caption));
   const line = mk('div', 'mob-line mob-itemrow');
-  line.appendChild(slotButton(target, ghostId, label, kind,
+  const slotEl = slotButton(target, o.ghost, o.label, o.kind,
    function (it) { assignItem(target, it); renderForm(); },
-   function () { clearItem(target); renderForm(); }));
+   o.clear === false ? null : function () { clearItem(target); renderForm(); });
+  line.appendChild(slotEl);
   line.appendChild(itemNameInput(target));
-  if (withPct) line.appendChild(dropPctBox(target.drop, function (v) { target.drop = v; }));
-  return line;
+  if (o.withPct) line.appendChild(dropPctBox(target.drop, function (v) { target.drop = v; }));
+  if (o.remove) line.appendChild(o.remove);
+  card.appendChild(line);
+  if (o.mid) card.appendChild(o.mid);
+  if (!isEmpty(target)) { const tools = cardTools(target, slotEl, o.tools || {}); if (tools) card.appendChild(tools); }
+  return card;
  }
 
  // Campo de tags del panel: chips con ✕ + caja para escribir (Enter o coma añade) + sugerencias de los tags que ya existen.
@@ -916,23 +1028,25 @@
 
  function renderHand(body, sp) {
   const row = fieldBox(tr('mobed_hand'));
-  row.appendChild(itemRow(sp.hand, 'IronSword', tr('mobed_hand'), null, true));
+  row.appendChild(itemCard(sp.hand, { ghost: 'IronSword', label: tr('mobed_hand'), kind: null, withPct: true }));
   body.appendChild(row);
  }
 
- // Armadura: sin nombres de pieza, solo la casilla (con una silueta tenue de la pieza), el nombre y el %.
+ // Armadura: la casilla (con una silueta tenue de la pieza), el nombre y el %; un rótulo chiquito dice qué pieza es.
  function renderArmor(body, sp) {
   const GHOST = ['IronCap', 'IronShirt', 'IronPants', 'IronShoes'];
   ARMOR_SLOTS.forEach(function (slot, i) {
-   body.appendChild(itemRow(sp.armor[i], GHOST[i], tr(slot.label), slot.suffix, true));
+   body.appendChild(itemCard(sp.armor[i], { ghost: GHOST[i], label: tr(slot.label), kind: slot.suffix, withPct: true, caption: tr(slot.label) }));
   });
  }
 
- // ---------------------------------------------------------------- encantamientos de un drop
- // Cada drop tiene un botón "✨ Encantamientos" que despliega el mismo selector con acordeones del Creador de objetos
- // (solo salen los encantamientos que sirven para ese objeto). Si el drop tiene alguno, aparece al lado un librito
- // encantado (ebook): al pasar el mouse por encima, el tooltip dice qué encantamientos trae. Se pueden poner varios.
- const enchPanelOpen = new WeakMap();      // drop -> ¿el panel está abierto?
+ // ---------------------------------------------------------------- botones de una tarjeta de objeto
+ // Debajo de cada objeto salen hasta tres botones; al pulsar uno se abre su panel (solo uno a la vez):
+ //   ✨ Encantamientos  el mismo selector con acordeones del Creador de objetos (solo los que sirven para ese objeto).
+ //                      Si el objeto tiene alguno, aparece al lado un librito encantado (ebook) con un tooltip que los dice.
+ //   🏷 Data tags       color del cuero, unbreakable, canDestroy, canPlaceOn (ver dtApplicable)
+ //   🎯 Condiciones     solo en los drops: el drop cae únicamente si el mob cumple la condición (isBaby, sheared, color...)
+ const cardPanel = new WeakMap();          // objeto -> panel abierto ('ench' | 'tags' | 'cond') o null
  const enchFamOpen = {};                   // acordeones abiertos (por encantamiento), se recuerdan al redibujar
  function escHtml(x) { return String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
  function enchList(it) { return (typeof mbwEnchListOf === 'function' && it && it.nbt) ? mbwEnchListOf(it.nbt) : []; }
@@ -943,13 +1057,161 @@
   });
   return h;
  }
- function enchantRow(d, slotWrap) {
-  const fams = (typeof mbwEnchFamiliesFor === 'function') ? mbwEnchFamiliesFor(d.id) : [];
-  const has = enchList(d).length > 0;
-  if (!fams.length && !has) return null;
+
+ // ---- data tags de un objeto
+ function catItems(name) { try { const c = window.inventoryCategories; return (c && c[name] && Array.isArray(c[name].items)) ? c[name].items : []; } catch (e) { return []; } }
+ function isToolId(id) { return catItems('Tools').indexOf(id) >= 0 || /(Pickaxe|Sword|Axe|Shovel|Hoe|Shear)$/.test(id); }
+ function isArmorId(id) { return catItems('Armor').indexOf(id) >= 0 || /(Cap|Shirt|Pants|Shoes)$/.test(id); }
+ function isBlockId(id) { return ['Blocks', 'Decoration', 'Transportation'].some(function (c) { return catItems(c).indexOf(id) >= 0; }); }
+ // Qué data tags tienen sentido para este objeto (los que YA trae siempre se muestran, para poder quitarlos):
+ //   color (type)  armadura de cuero      unbreakable  herramientas ("all tools")
+ //   canDestroy    todo menos la armadura  canPlaceOn   bloques ("only applies to blocks")
+ function dtApplicable(it) {
+  const n = it.nbt || {};
+  const r = {
+   color: /^Leather(Cap|Shirt|Pants|Shoes)$/.test(it.id),
+   unbreakable: isToolId(it.id) || !!n.unbreakable,
+   canDestroy: !isArmorId(it.id) || n.canDestroy !== undefined,
+   canPlaceOn: isBlockId(it.id) || n.canPlaceOn !== undefined
+  };
+  r.any = r.color || r.unbreakable || r.canDestroy || r.canPlaceOn;
+  return r;
+ }
+ function dtCount(it) {
+  const n = it.nbt || {}, ap = dtApplicable(it);
+  return (ap.color && n.type ? 1 : 0) + (n.unbreakable ? 1 : 0) + (n.canDestroy !== undefined ? 1 : 0) + (n.canPlaceOn !== undefined ? 1 : 0);
+ }
+ function readBlockList(it, key) {
+  const v = it.nbt ? it.nbt[key] : undefined;
+  const arr = typeof v === 'string' ? [v] : (Array.isArray(v) ? v.filter(function (x) { return typeof x === 'string'; }) : []);
+  return { all: arr.indexOf('all') >= 0, ids: arr.filter(function (x) { return x !== 'all'; }) };
+ }
+ // "all" solo = el texto "all"; "all" + ids = lista que empieza con "all" (la wiki: el texto especial all invierte la lista)
+ function writeBlockList(it, key, st) {
+  const nbt = it.nbt || (it.nbt = {});          // siempre el MISMO objeto (el selector de encantamientos guarda una referencia)
+  if (st.all && !st.ids.length) nbt[key] = 'all';
+  else if (st.all) nbt[key] = ['all'].concat(st.ids);
+  else if (st.ids.length) nbt[key] = st.ids.slice();
+  else delete nbt[key];
+ }
+ function cleanBlockId(x) { return String(x == null ? '' : x).trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_:.\-]/g, '').slice(0, 64); }
+ // Nombres de bloque vistos en mundos reales (Camel City). El juego los escribe así ("stone", "iron_bars"), no con los códigos cortos del editor.
+ const BLOCK_ID_HINTS = ['stone', 'slab_stone_brick', 'iron_bars', 'backdrop_wool'];
+ function ensureBlockDatalist() {
+  if (document.getElementById('mob-blockid-list')) return;
+  const dl = document.createElement('datalist');
+  dl.id = 'mob-blockid-list';
+  BLOCK_ID_HINTS.forEach(function (id) { const o = document.createElement('option'); o.value = id; dl.appendChild(o); });
+  document.body.appendChild(dl);
+ }
+ function blockListField(it, key, label, hint, onChange) {
+  ensureBlockDatalist();
+  const row = fieldBox(label, hint);
+  row.classList.add('mob-blocklist');
+  row.dataset.key = key;
+  const line = mk('div', 'mob-tagline');
+  const chips = mk('div', 'mob-chips');
+  const inp = mk('input', 'mob-taginput');
+  inp.type = 'text'; inp.maxLength = 64; inp.autocomplete = 'off'; inp.spellcheck = false;
+  inp.placeholder = tr('mobed_dt_block_ph');
+  inp.title = hint;
+  inp.setAttribute('list', 'mob-blockid-list');
+  line.appendChild(chips); line.appendChild(inp);
+  row.appendChild(line);
+  const allRow = fCheck(tr('mobed_dt_all'), readBlockList(it, key).all, function (v) {
+   const st = readBlockList(it, key); st.all = v; writeBlockList(it, key, st); onChange();
+  }, null);
+  allRow.classList.add('mob-blocklist-all');
+  allRow.title = tr('mobed_dt_all_hint');
+  row.appendChild(allRow);
+  function paint() {
+   const st = readBlockList(it, key);
+   chips.textContent = '';
+   st.ids.forEach(function (id) {
+    const c = mk('span', 'mob-chip');
+    c.appendChild(mk('span', 'mob-chip-t', id));
+    const x = mk('button', 'mob-chip-x', '✕'); x.type = 'button'; x.title = tr('mobed_btn_remove');
+    x.onclick = function () { const s2 = readBlockList(it, key); s2.ids = s2.ids.filter(function (e) { return e !== id; }); writeBlockList(it, key, s2); paint(); onChange(); };
+    c.appendChild(x);
+    chips.appendChild(c);
+   });
+  }
+  function commit() {
+   const id = cleanBlockId(inp.value);
+   inp.value = '';
+   if (!id) return;
+   const st = readBlockList(it, key);
+   if (id === 'all') { st.all = true; const cb = allRow.querySelector('input'); if (cb) cb.checked = true; }
+   else if (st.ids.indexOf(id) < 0 && st.ids.length < 63) st.ids.push(id);
+   writeBlockList(it, key, st); paint(); onChange();
+  }
+  inp.addEventListener('keydown', function (e) {
+   if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); commit(); }
+   else if (e.key === 'Backspace' && inp.value === '') {
+    const st = readBlockList(it, key);
+    if (st.ids.length) { st.ids.pop(); writeBlockList(it, key, st); paint(); onChange(); }
+   }
+  });
+  inp.addEventListener('change', commit);       // al elegir una sugerencia de la lista
+  inp.addEventListener('blur', commit);
+  paint();
+  return row;
+ }
+ function dataTagsPanel(host, it, onChange) {
+  const ap = dtApplicable(it);
+  const nbt = function () { return it.nbt || (it.nbt = {}); };
+  if (ap.color) {
+   const opts = [{ value: '', label: tr('mobed_none') }].concat(COLORS.map(function (c) { return { value: c, label: colorName(c) }; }));
+   host.appendChild(fSelect(tr('mobed_dt_color'), opts, (it.nbt && it.nbt.type) || '', function (v) { if (v) nbt().type = v; else if (it.nbt) delete it.nbt.type; onChange(); }));
+  }
+  if (ap.unbreakable) {
+   host.appendChild(fCheck(tr('mobed_dt_unbreakable'), !!(it.nbt && it.nbt.unbreakable), function (v) { if (v) nbt().unbreakable = true; else if (it.nbt) delete it.nbt.unbreakable; onChange(); }, tr('mobed_dt_unbreakable_hint')));
+  }
+  if (ap.canDestroy) host.appendChild(blockListField(it, 'canDestroy', tr('mobed_dt_candestroy'), tr('mobed_dt_candestroy_hint'), onChange));
+  if (ap.canPlaceOn) host.appendChild(blockListField(it, 'canPlaceOn', tr('mobed_dt_canplaceon'), tr('mobed_dt_canplaceon_hint'), onChange));
+  if (!ap.any) host.appendChild(mk('p', 'mob-note', tr('mobed_dt_none')));
+ }
+
+ // ---- condiciones de un drop
+ function condPanel(host, d, onChange) {
+  const base = S.spec ? S.spec.base : 'zombie';
+  const any = { value: '', label: tr('mobed_cond_any') };
+  COND.filter(function (c) { return condApplies(c, base); }).forEach(function (c) {
+   let opts;
+   if (c.type === 'bool') opts = [any, { value: 'true', label: tr('mobed_true') }, { value: 'false', label: tr('mobed_false') }];
+   else if (c.type === 'variant') opts = [any, { value: 'normal', label: tr('mobed_var_normal') }, { value: 'mooshroom', label: tr('mobed_var_mooshroom') }, { value: 'cowctus', label: tr('mobed_var_cowctus') }];
+   else if (c.type === 'color') opts = [any].concat(COLORS.map(function (k) { return { value: k, label: colorName(k) }; }));
+   else opts = [any, { value: '1', label: '1' }, { value: '2', label: '2' }, { value: '3', label: '3' }];
+   const cur = d.props ? d.props[c.key] : undefined;
+   host.appendChild(fSelect(tr('mobed_cond_' + c.key), opts, cur === undefined ? '' : String(cur), function (v) {
+    const props = d.props || (d.props = {});
+    if (v === '') delete props[c.key];
+    else props[c.key] = c.type === 'bool' ? v === 'true' : (c.type === 'size' ? Number(v) : v);
+    onChange();
+   }));
+  });
+  host.appendChild(mk('small', 'mob-hint', tr('mobed_cond_hint')));
+ }
+
+ function cardTools(d, slotWrap, o) {
+  const fams = (o.ench !== false && typeof mbwEnchFamiliesFor === 'function') ? mbwEnchFamiliesFor(d.id) : [];
+  const parts = [];
+  if (o.ench !== false && (fams.length || enchList(d).length)) parts.push('ench');
+  if (o.tags !== false && dtApplicable(d).any) parts.push('tags');
+  if (o.cond) parts.push('cond');
+  if (!parts.length) return null;
   const box = mk('div', 'mob-ench');
   const line = mk('div', 'mob-line mob-enchline');
   const badge = mk('span', 'mob-enchbadge');
+  badge.appendChild(icon('ebook', 22));
+  line.appendChild(badge);
+  const LABEL = { ench: ['✨', 'mobed_ench_btn'], tags: ['🏷', 'mobed_dt_btn'], cond: ['🎯', 'mobed_cond_btn'] };
+  const COUNT = {
+   ench: function () { return enchList(d).length; },
+   tags: function () { return dtCount(d); },
+   cond: function () { return d.props ? Object.keys(d.props).length : 0; }
+  };
+  const btns = {}, panels = {};
   function paintBadge() {
    const n = enchList(d).length;
    badge.style.display = n ? 'inline-flex' : 'none';
@@ -957,48 +1219,62 @@
    if (n) badge.dataset.enchantTooltip = enchTip(d); else delete badge.dataset.enchantTooltip;
    badge.setAttribute('aria-label', n ? enchList(d).join(', ') : '');
   }
-  badge.appendChild(icon('ebook', 22));
-  line.appendChild(badge);
-  const btn = mk('button', 'mob-enchbtn');
-  btn.type = 'button';
-  function paintBtn() {
-   const n = enchList(d).length;
-   btn.textContent = '✨ ' + tr('mobed_ench_btn') + (n ? ' (' + n + ')' : '') + (enchPanelOpen.get(d) ? ' ▴' : ' ▾');
-  }
-  line.appendChild(btn);
-  box.appendChild(line);
-  const panel = mk('div', 'mob-enchpanel');
-  panel.style.display = enchPanelOpen.get(d) ? 'block' : 'none';
-  box.appendChild(panel);
-  let built = false;
-  function build() {
-   if (built) return;
-   built = true;
-   if (!d.nbt) d.nbt = {};
-   mbwEnchPicker(panel, {
-    families: fams.length ? fams : undefined,
-    item: d.id,
-    data: d.nbt,
-    open: enchFamOpen,
-    onChange: function () {
-     if (d.id === 'book' && enchList(d).length) {            // un libro con encantamientos pasa a ser 'ebook'
-      d.id = 'ebook';
-      const cv = slotWrap && slotWrap.querySelector('canvas');
-      if (cv) paintItem(cv, d);
-     }
-     paintBadge(); paintBtn();
-    }
+  function paintBtns() {
+   parts.forEach(function (k) {
+    const n = COUNT[k]();
+    btns[k].textContent = LABEL[k][0] + ' ' + tr(LABEL[k][1]) + (n ? ' (' + n + ')' : '') + (cardPanel.get(d) === k ? ' ▴' : ' ▾');
+    btns[k].classList.toggle('on', n > 0);
    });
   }
-  btn.onclick = function () {
-   const open = !enchPanelOpen.get(d);
-   enchPanelOpen.set(d, open);
-   if (open) build();
-   panel.style.display = open ? 'block' : 'none';
-   paintBtn();
-  };
-  if (enchPanelOpen.get(d)) build();
-  paintBadge(); paintBtn();
+  function changed() { paintBadge(); paintBtns(); }
+  function build(k) {
+   const pn = panels[k];
+   if (pn.built) return;
+   pn.built = true;
+   if (k === 'ench') {
+    if (!d.nbt) d.nbt = {};
+    mbwEnchPicker(pn.el, {
+     families: fams.length ? fams : undefined,
+     item: d.id,
+     data: d.nbt,
+     open: enchFamOpen,
+     onChange: function () {
+      if (d.id === 'book' && enchList(d).length) {            // un libro con encantamientos pasa a ser 'ebook'
+       d.id = 'ebook';
+       const cv = slotWrap && slotWrap.querySelector('canvas');
+       if (cv) paintItem(cv, d);
+      }
+      changed();
+     }
+    });
+   } else if (k === 'tags') dataTagsPanel(pn.el, d, changed);
+   else condPanel(pn.el, d, changed);
+  }
+  function show() {
+   const open = cardPanel.get(d);
+   parts.forEach(function (k) {
+    panels[k].el.style.display = open === k ? 'block' : 'none';
+    if (open === k) build(k);
+   });
+   paintBtns();
+  }
+  parts.forEach(function (k) {
+   const b = mk('button', k === 'ench' ? 'mob-enchbtn' : 'mob-toolbtn');
+   b.type = 'button';
+   b.dataset.tool = k;
+   b.onclick = function () { cardPanel.set(d, cardPanel.get(d) === k ? null : k); show(); };
+   line.appendChild(b);
+   btns[k] = b;
+  });
+  box.appendChild(line);
+  parts.forEach(function (k) {
+   const pn = mk('div', k === 'ench' ? 'mob-enchpanel' : 'mob-enchpanel mob-subpanel');
+   pn.dataset.tool = k;
+   pn.style.display = 'none';
+   box.appendChild(pn);
+   panels[k] = { el: pn, built: false };
+  });
+  show(); paintBadge();
   return box;
  }
 
@@ -1010,35 +1286,29 @@
   body.appendChild(list);
   if (!sp.drops.length) list.appendChild(mk('p', 'mob-note', tr('mobed_drops_empty')));
   sp.drops.forEach(function (d, i) {
-   const card = mk('div', 'mob-drop');
-   const top = mk('div', 'mob-line mob-itemrow');
-   const slotEl = slotButton(d, 'air', tr('mobed_pick'), null, function (it) { assignItem(d, it); renderForm(); }, null);
-   top.appendChild(slotEl);
-   top.appendChild(itemNameInput(d));
    const del = mk('button', 'mob-x', '✕'); del.type = 'button'; del.title = tr('mobed_btn_remove');
    del.onclick = function () { sp.drops.splice(i, 1); renderForm(); };
-   top.appendChild(del);
-   card.appendChild(top);
    const nums = mk('div', 'mob-line mob-dropnums');
-   [['mobed_drop_qty', 'qty', 1, 999, 1], ['mobed_drop_bonus', 'bonus', 0, 999, 1], ['mobed_drop_chance', 'chance', 1, 100, 1]].forEach(function (c) {
+   // (el orden importa: cantidad, extra al azar y probabilidad primero; "Looting" al final)
+   [['mobed_drop_qty', 'qty', 1, 999, 'mobed_drop_qty_hint'], ['mobed_drop_bonus', 'bonus', 0, 999, 'mobed_drop_bonus_hint'], ['mobed_drop_chance', 'chance', 1, 100, 'mobed_drop_chance_hint'], ['mobed_drop_loot', 'lootBonus', 0, 999, 'mobed_drop_loot_hint']].forEach(function (c) {
     const w = mk('label', 'mob-mini');
+    w.title = tr(c[4]);
     w.appendChild(mk('span', '', tr(c[0])));
-    const inp = mk('input'); inp.type = 'number'; inp.min = c[2]; inp.max = c[3]; inp.value = d[c[1]];
+    const inp = mk('input'); inp.type = 'number'; inp.min = c[2]; inp.max = c[3]; inp.value = d[c[1]] === undefined ? c[2] : d[c[1]];
     inp.addEventListener('input', function () { d[c[1]] = clampNum(inp.value, c[2], c[3], c[2]); });
     inp.addEventListener('blur', function () { d[c[1]] = clampInt(inp.value, c[2], c[3], c[2]); inp.value = d[c[1]]; });
     w.appendChild(inp);
     if (c[1] === 'chance') w.appendChild(mk('em', '', '%'));
     nums.appendChild(w);
    });
-   card.appendChild(nums);
-   if (!isEmpty(d)) { const er = enchantRow(d, slotEl); if (er) card.appendChild(er); }
+   const card = itemCard(d, { ghost: 'air', label: tr('mobed_pick'), kind: null, clear: false, remove: del, mid: nums, tools: { cond: true } });
+   card.classList.add('mob-drop');
    list.appendChild(card);
   });
   const add = mk('button', 'mob-addbtn', tr('mobed_drops_add')); add.type = 'button';
   add.onclick = function () {
    pickItem(function (it) {
-    sp.drops.push(Object.assign(it, { qty: 1, bonus: 0, chance: 100 }));
-    S.secOpen.drops = true;
+    sp.drops.push(Object.assign(it, { qty: 1, bonus: 0, lootBonus: 0, chance: 100, props: {} }));
     renderForm();
    }, null);
   };
@@ -1065,7 +1335,7 @@
     body.appendChild(row);
     body.appendChild(mk('small', 'mob-hint', tr('mobed_skin_hint')));
    } else {
-    const opts = f.options.map(function (o) { return { value: o, label: f.colors ? colorName(o) : String(o) }; });
+    const opts = f.options.map(function (o) { return { value: o, label: f.colors ? colorName(o) : (f.i18n ? tr(f.i18n + o) : String(o)) }; });
     body.appendChild(fSelect(label, opts, cur, function (v) {
      sp.extra[f.key] = f.num ? Number(v) : v;
      if (f.key === 'size' && !S.hpTouched) {
@@ -1081,19 +1351,15 @@
   const root = el('mob-form');
   if (!root || !S.spec) return;
   closeArmorPop();
-  const keep = root.scrollTop;
+  const keep = Array.prototype.map.call(root.querySelectorAll('.mob-col-body'), function (b) { return b.scrollTop; });
   root.textContent = '';
   const sp = S.spec, sch = SCHEMA[sp.base] || {};
 
-  root.appendChild(section('basic', tr('mobed_sec_basic'), function (b) {
-   // Nombre (ancho) + Vida (angosta) en la misma fila
-   const row = mk('div', 'mob-row2');
+  const basicCol = column('basic', tr('mobed_sec_basic'), function (b) {
+   // Nombre y Vida (cada uno en su fila: la columna es angosta)
    const fn = fText(tr('mobed_name'), sp.name, function (v) { sp.name = v; renderTitle(); }, { placeholder: tr('mobed_name_ph'), maxLength: 64 });
-   fn.classList.add('mob-grow');
    const fh = fNumber(tr('mobed_health'), sp.health, function (v) { if (Number.isFinite(v)) { sp.health = v; S.hpTouched = true; } }, { min: 1, max: 99999, id: 'mobed-health', title: tr('mobed_health_hint') });
-   fh.classList.add('mob-hp');
-   row.appendChild(fn); row.appendChild(fh);
-   b.appendChild(row);
+   b.appendChild(fn); b.appendChild(fh);
    b.appendChild(renderTags(sp));
    if (sch.variant) {
     b.appendChild(fSelect(tr('mobed_variant'), [
@@ -1105,60 +1371,137 @@
     sp.defaultDrops = v;
     const h = el('mob-drops-hint'); if (h) h.textContent = v ? tr('mobed_drops_hint_on') : tr('mobed_drops_hint_off');
    }, tr('mobed_defaultdrops_hint')));
-  }));
+  });
+  // Mob-Specific va DEBAJO de Basic, en la misma columna. Si el mob no tiene opciones propias, esa sección no existe (se esconde por completo).
+  if ((sch.fields || []).length) {
+   const stack = mk('div', 'mob-colstack');
+   stack.appendChild(basicCol);
+   stack.appendChild(column('specific', tr('mobed_sec_specific'), function (b) { renderSpecific(b, sp, sch); }));
+   root.appendChild(stack);
+  } else root.appendChild(basicCol);
 
-  // Las secciones que el mob no usa NO se muestran (para ahorrar espacio).
-  if (sch.hand || sch.armor) {
-   root.appendChild(section('equip', tr('mobed_sec_equip'), function (b) {
+  // Equipment solo existe si el mob puede llevar algo (armadura: zombie y spawnskin; un objeto en la mano: zombie pigman y enderman).
+  // Si no puede, la columna se esconde por completo.
+  const hasEquip = !!(sch.hand || sch.armor);
+  if (hasEquip) {
+   root.appendChild(column('equip', tr('mobed_sec_equip'), function (b) {
     if (sch.hand) renderHand(b, sp);
     if (sch.armor) renderArmor(b, sp);
    }));
   }
-
-  root.appendChild(section('drops', tr('mobed_sec_drops') + (sp.drops.length ? ' (' + sp.drops.length + ')' : ''), function (b) { renderDrops(b, sp); }));
-  if ((sch.fields || []).length) {
-   root.appendChild(section('specific', tr('mobed_sec_specific'), function (b) { renderSpecific(b, sp, sch); }));
-  }
-  root.scrollTop = keep;
+  root.dataset.cols = hasEquip ? '3' : '2';   // el CSS reparte el ancho según cuántas columnas hay
+  root.appendChild(column('drops', tr('mobed_sec_drops') + (sp.drops.length ? ' (' + sp.drops.length + ')' : ''), function (b) { renderDrops(b, sp); }));
+  root.querySelectorAll('.mob-col-body').forEach(function (b, i) { b.scrollTop = keep[i] || 0; });
+  syncSide();
+ }
+ function resetFormScroll() {
+  const root = el('mob-form');
+  if (root) root.querySelectorAll('.mob-col-body').forEach(function (b) { b.scrollTop = 0; });
  }
 
+ // ---------------------------------------------------------------- barra lateral del Mob Browser (solo muestra)
  function renderTitle() {
-  const t = el('mob-info-title'), sub = el('mob-info-sub');
   if (!S.spec) return;
   const typed = (S.spec.name || '').trim();
-  if (t) t.textContent = typed || niceMob(S.spec.base);
-  if (sub) {
-   const preset = S.presetId ? loadPresets().filter(function (p) { return p.id === S.presetId; })[0] : null;
-   sub.textContent = preset ? ('Custom · ' + niceMob(S.spec.base)) : (typed ? niceMob(S.spec.base) : '');
-  }
+  const preset = S.presetId ? loadPresets().filter(function (p) { return p.id === S.presetId; })[0] : null;
+  const sub = preset ? ('Custom · ' + niceMob(S.spec.base)) : (typed ? niceMob(S.spec.base) : '');
+  ['mob-info-title', 'cm-title'].forEach(function (id) { const t = el(id); if (t) t.textContent = typed || niceMob(S.spec.base); });
+  ['mob-info-sub', 'cm-sub'].forEach(function (id) { const t = el(id); if (t) t.textContent = sub; });
  }
  function refreshImage() {
-  const img = el('mob-preview-image');
-  if (img && S.spec) setSpecImg(img, S.spec);
+  if (!S.spec) return;
+  ['mob-preview-image', 'cm-preview-image'].forEach(function (id) { const img = el(id); if (img) setSpecImg(img, S.spec); });
+ }
+ const yesNo = function (v) { return v ? tr('mobed_true') : tr('mobed_false'); };
+ // Los datos que muestra la barra lateral: [nombre, valor]. Salen del panel (ya limpios), así que siempre son valores válidos.
+ function infoLines(spec) {
+  const sch = SCHEMA[spec.base] || {}, L = [];
+  L.push([tr('mobed_health'), String(spec.health)]);
+  if (sch.variant) L.push([tr('mobed_variant'), tr('mobed_var_' + (spec.variant || 'normal'))]);
+  if (sch.baby) L.push([tr('mobed_baby'), yesNo(spec.baby)]);
+  (sch.fields || []).forEach(function (f) {
+   const v = spec.extra[f.key];
+   let shown;
+   if (f.type === 'bool') shown = yesNo(v);
+   else if (f.type === 'skin') shown = v === '' ? '—' : String(v);
+   else if (f.colors) shown = colorName(v);
+   else if (f.i18n) shown = tr(f.i18n + v);
+   else shown = String(v);
+   L.push([tr('mobed_f_' + f.key), shown]);
+  });
+  L.push(['defaultDrops', yesNo(spec.defaultDrops)]);
+  if (sch.hand && !isEmpty(spec.hand)) L.push([tr('mobed_hand'), itemName(spec.hand) || prettyItem(spec.hand.id)]);
+  if (sch.armor) {
+   const n = spec.armor.filter(function (a) { return !isEmpty(a); }).length;
+   if (n) L.push([tr('mobed_info_armor'), n + '/4']);
+  }
+  if (spec.tags.length) L.push([tr('mobed_tags'), spec.tags.map(function (t) { return '#' + t; }).join(' ')]);
+  return L;
+ }
+ function renderInfo() {
+  const box = el('mob-info-lines');
+  if (!box || !S.spec) return;
+  box.textContent = '';
+  infoLines(cleanSpec()).forEach(function (l) {
+   const row = mk('div', 'mob-info-line');
+   row.appendChild(mk('span', 'mob-info-k', l[0] + ':'));
+   row.appendChild(mk('span', 'mob-info-v', l[1]));
+   box.appendChild(row);
+  });
+ }
+ // Una casilla por cada drop (con la cantidad abajo a la derecha y un tooltip con todos sus datos)
+ function dropTip(d) {
+  let h = enchTip(d);
+  const line = function (t) { return '<span class="tooltip-enchant" style="color: #BBBB; display: block; line-height: 0.8; margin-top: 3px;">' + escHtml(t) + '</span>'; };
+  h += line('x' + d.qty + (d.bonus ? ' (+0-' + d.bonus + ')' : ''));
+  if (d.lootBonus) h += line(tr('mobed_drop_loot') + ': ' + d.lootBonus);
+  if (d.chance < 100) h += line(tr('mobed_drop_chance') + ': ' + d.chance + '%');
+  Object.keys(d.props || {}).forEach(function (k) { h += line(k + ': ' + String(d.props[k])); });
+  const n = dtCount(d);
+  if (n) h += line('🏷 ' + n);
+  return h;
+ }
+ function renderDropsPreview() {
+  const box = el('mob-drops-preview');
+  if (!box || !S.spec) return;
+  box.textContent = '';
+  const sp = cleanSpec();
+  if (!sp.drops.length) { box.appendChild(mk('p', 'mob-note', tr('mobed_drops_empty'))); return; }
+  sp.drops.forEach(function (d) {
+   const s = mk('div', 'mob-dslot ' + (enchList(d).length || d.id === 'ebook' ? 'enchanted-slot' : 'pinv-tip'));
+   s.dataset.enchantTooltip = dropTip(d);
+   s.appendChild(icon(d, 32));
+   if (d.qty > 1 || d.bonus > 0) s.appendChild(mk('span', 'mob-dslot-n', String(d.qty) + (d.bonus > 0 ? '+' : '')));
+   box.appendChild(s);
+  });
+ }
+ // Se llama cada vez que algo cambia en la ventana Custom Mob: la barra lateral siempre muestra lo último.
+ function syncSide() {
+  if (!S.spec) return;
+  renderInfo(); renderDropsPreview();
+ }
+ function renderAll() {
+  renderTitle(); refreshImage(); renderForm(); renderButtons();
  }
 
+ // Botones de abajo de la ventana Custom Mob (el de "Spawn Mob" ya no está aquí: vive en la barra lateral del Mob Browser)
  function renderButtons() {
   const box = el('mob-ed-buttons');
   if (!box) return;
   box.textContent = '';
   clearTimeout(S.delTimer); S.delArmed = false;
+  const row = mk('div', 'mob-btnrow cm-btnrow');
   // El mob se abrió desde el mundo (doble clic) y sigue allí: se puede escribir el panel encima de ese mob
   if (S.worldKey && typeof mbwom !== 'undefined' && mbwom.mobs && mbwom.mobs[S.worldKey]) {
-   const ap = mk('button', 'btn-load-struct btn-apply-mob mob-wide', tr('mobed_btn_apply_world'));
+   const ap = mk('button', 'mob-sbtn btn-apply-mob', tr('mobed_btn_apply_world'));
    ap.type = 'button'; ap.id = 'mob-apply-world'; ap.title = tr('mobed_apply_hint');
    ap.onclick = applyToWorldMob;
-   box.appendChild(ap);
+   row.appendChild(ap);
   }
-  const spawn = mk('button', 'btn-load-struct btn-spawn-mob mob-wide', tr('btn_spawn_mob'));
-  spawn.type = 'button'; spawn.onclick = function () { window.spawnPreviewedMob(); };
-  box.appendChild(spawn);
-  const row = mk('div', 'mob-btnrow');
   const save = mk('button', 'mob-sbtn', tr('mobed_btn_save')); save.type = 'button'; save.onclick = saveAsNew;
   const reset = mk('button', 'mob-sbtn', tr('mobed_btn_reset')); reset.type = 'button'; reset.onclick = resetPanel;
   row.appendChild(save); row.appendChild(reset);
-  box.appendChild(row);
   if (S.presetId) {
-   const row2 = mk('div', 'mob-btnrow');
    const upd = mk('button', 'mob-sbtn', tr('mobed_btn_update')); upd.type = 'button'; upd.onclick = updatePreset;
    const del = mk('button', 'mob-sbtn mob-danger', tr('mobed_btn_delete')); del.type = 'button';
    del.onclick = function () {
@@ -1169,9 +1512,9 @@
     }
     deletePreset();
    };
-   row2.appendChild(upd); row2.appendChild(del);
-   box.appendChild(row2);
+   row.appendChild(upd); row.appendChild(del);
   }
+  box.appendChild(row);
   const st = mk('div', 'mob-status'); st.id = 'mob-ed-status';
   box.appendChild(st);
  }
@@ -1275,6 +1618,7 @@
  // ---------------------------------------------------------------- Mob Browser
  window.openMobModal = function () {
   closeArmorPop();
+  bindSideSync();
   el('mobs-modal').style.display = 'block';
   window.filterMobs(activeMobTab, true);
  };
@@ -1295,8 +1639,7 @@
    const on = presetId ? n.dataset.preset === presetId : (!n.dataset.preset && n.dataset.mob === spec.base);
    n.classList.toggle('selected', on);
   });
-  renderTitle(); refreshImage(); renderForm(); renderButtons();
-  const formBox = el('mob-form'); if (formBox) formBox.scrollTop = 0;   // un mob distinto: el panel vuelve arriba
+  renderAll(); resetFormScroll();   // un mob distinto: el panel vuelve arriba
   try { if (typeof audioManager !== 'undefined' && spec.base !== 'spawnskin') audioManager.playMobSound(spec.base); } catch (e) { /* sin sonido */ }   // (la spawnskin no tiene sonido propio)
  };
 
@@ -1442,14 +1785,14 @@
    grid.querySelectorAll('.mob-item').forEach(function (n) {
     n.classList.toggle('selected', sel.preset ? n.dataset.preset === sel.preset : (!n.dataset.preset && n.dataset.mob === sel.base));
    });
-   if (sel.preset) { renderTitle(); renderButtons(); }
+   if (sel.preset) renderAll();
   } else if (firstTarget) {
    window.previewMob(firstTarget[0], firstTarget[1]);
   } else if (!S.spec) {
    window.previewMob('zombie');
   } else {
    // pestaña Custom vacía: el panel sigue con el mob que estaba (se puede guardar desde ahí)
-   S.presetId = null; renderTitle(); renderButtons();
+   S.presetId = null; renderAll();
   }
  };
 
@@ -1461,7 +1804,7 @@
 
  // Cuando se cambia el idioma, se vuelven a pintar los textos que se arman por código.
  window.mobEditorOnLanguageChanged = function () {
-  if (S.spec) { renderForm(); renderButtons(); }
+  if (S.spec) renderAll();
   const m = el('mobs-modal');
   if (m && m.style.display === 'block') window.filterMobs(activeMobTab, true);
  };
