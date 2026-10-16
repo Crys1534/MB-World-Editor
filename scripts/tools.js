@@ -18,7 +18,7 @@ window.selection = {
     points: [], 
     pointSet: new Set() 
 };
-window.clipboard = null;
+// (window.clipboard — el portapapeles — se declara en scripts/clipboard.js)
 
 // Detectores globales de Shift
 window.addEventListener('keydown', (e) => { if(e.key === 'Shift') isShiftPressed = true; });
@@ -75,8 +75,13 @@ function selectTool(toolName) {
         window.selection.subRects = [];
     }
     
-    window.shapeState.isDrawing = false;
-    window.shapeState.startX = null;
+    // `shapeState` ya no se define en ningún archivo (era de una versión vieja de las formas).
+    // Sin este "if", selectTool() fallaba con un error en cada cambio de herramienta y nunca
+    // llegaba a la línea de abajo (que actualiza el botón de "guardar estructura").
+    if (window.shapeState) {
+        window.shapeState.isDrawing = false;
+        window.shapeState.startX = null;
+    }
     
     setTimeout(checkSelectionState, 10);
 }
@@ -579,47 +584,9 @@ function setSelectionPoint(point, x, y) {
     updateSelectionInfo(); checkSelectionState(); 
 }
 
-function copySelection(keepSelection = false) {
-    const bounds = getSelectionBounds();
-    if (!bounds) { alert("Select an area."); return; }
-    
-    if (window.selection.type === 'poly' && window.selection.path.length < 3) { alert("Invalid area."); return; }
+// 📋 copySelection() y cutSelection() ahora viven en scripts/clipboard.js
 
-    const data = [];
-    for (let x = bounds.minX; x <= bounds.maxX; x++) {
-        for (let y = bounds.minY; y <= bounds.maxY; y++) {
-            
-            if (!isPointSelected(x, y)) continue;
-
-            const state = mbwom.getBlockState(x, y);
-            let stateToSave = null;
-            if (state && state.type != null) stateToSave = structuredClone(state);
-            data.push({ dx: x - bounds.minX, dy: y - bounds.minY, state: stateToSave });
-        }
-    }
-    
-    window.clipboard = { width: bounds.maxX - bounds.minX + 1, height: bounds.maxY - bounds.minY + 1, data: data };
-    
-    if (!keepSelection) {
-        window.selection.p1 = null; 
-        window.selection.p2 = null; 
-        window.selection.path = []; 
-        window.selection.subRects = [];
-        
-        const overlay = document.getElementById('selection-overlay');
-        if (overlay) overlay.style.display = 'none';
-        checkSelectionState(); 
-    }
-    
-    console.log("Copied.");
-}
-
-function cutSelection() {
-    copySelection(true);
-    deleteSelection();
-}
-
-function deleteSelection(isFromNetwork = false, networkDeletedBlocks = [], networkDeletedMobs = []) {
+function deleteSelection(isFromNetwork = false, networkDeletedBlocks = [], networkDeletedMobs = [], alsoBlocksInLasso = false) {
     // Si la orden viene de internet, solo borramos lo que nos indica el amigo
     if (isFromNetwork) {
         if (typeof mbwom !== 'undefined' && mbwom.scene) {
@@ -642,9 +609,10 @@ function deleteSelection(isFromNetwork = false, networkDeletedBlocks = [], netwo
     let changed = false;
     let deletedBlocksToSync = [];
     let deletedMobsToSync = [];
+    const isLasso = window.selection.type === 'poly';
 
-    if (window.selection.type === 'poly') {
-        // MODO LASSO: SOLO ELIMINA MOBS
+    // LAZO: borra los MOBS de dentro (con historial: Ctrl+Z los devuelve). Los bloques solo se cortan con Ctrl+X (alsoBlocksInLasso).
+    if (isLasso) {
         if (typeof mbwom !== 'undefined' && mbwom.mobs) {
             for (let key in mbwom.mobs) {
                 let m = mbwom.mobs[key];
@@ -652,6 +620,7 @@ function deleteSelection(isFromNetwork = false, networkDeletedBlocks = [], netwo
                 let mobWorldX = Math.round(Number(m.x));
                 let mobWorldY = Math.round(-Number(m.y)); 
                 if (isPointSelected(mobWorldX, mobWorldY)) {
+                    historyManager.recordMobChange(key, m, null);
                     delete mbwom.mobs[key]; 
                     changed = true;
                     deletedMobsToSync.push(key);
@@ -659,24 +628,28 @@ function deleteSelection(isFromNetwork = false, networkDeletedBlocks = [], netwo
             }
         }
         if (changed && typeof worldDirty !== 'undefined') worldDirty = true;
+    }
 
-    } else {
-        // MODO SELECT / MAGIC: SOLO ELIMINA BLOQUES
+    // SELECT / VARITA: borran los BLOQUES. LAZO: solo cuando se corta (Ctrl+X).
+    if ((!isLasso || alsoBlocksInLasso) && bounds) {
+        let blocksChanged = false;
         for (let x = bounds.minX; x <= bounds.maxX; x++) {
             for (let y = bounds.minY; y <= bounds.maxY; y++) {
                 if (!isPointSelected(x, y)) continue;
-                changed = true; 
+                blocksChanged = true; 
                 if (mbwom.scene[x] && mbwom.scene[x][y]) {
-                    historyManager.recordChange(x, y, mbwom.scene[x][y], null);
+                    // Se guarda el estado COMPLETO del bloque (cofres con objetos, variantes...), no solo su nombre: así Ctrl+Z lo devuelve igual
+                    historyManager.recordChange(x, y, mbwom.getBlockState(x, y), null);
                     delete mbwom.scene[x][y];
                     renderBlock(x, y);
                     deletedBlocksToSync.push({x: x, y: y}); // Recolectamos para la red
                 }
             }
         }
+        if (blocksChanged) changed = true;
 
         // Recortamos las columnas
-        if (changed && typeof mbwom !== 'undefined' && mbwom.scene) {
+        if (blocksChanged && typeof mbwom !== 'undefined' && mbwom.scene) {
             for (let x = bounds.minX; x <= bounds.maxX; x++) {
                 let col = mbwom.scene[x];
                 if (!col || !Array.isArray(col)) continue;
@@ -715,56 +688,7 @@ function deleteSelection(isFromNetwork = false, networkDeletedBlocks = [], netwo
     checkSelectionState(); 
 }
 
-function activatePasteMode() {
-    if (!window.clipboard) { alert("Clipboard empty."); return; }
-    selectTool('paste');
-}
-
-function performPaste(targetX, targetY, replaceAir = false, isFromNetwork = false, networkClipboard = null) {
-    // Si viene de la red, usamos la estructura que mandó el amigo, sino, usamos nuestro portapapeles
-    const currentClipboard = isFromNetwork ? networkClipboard : window.clipboard;
-    if (!currentClipboard) return;
-    historyManager.startAction();
-
-    // ✨ PEGAMOS LA ESTRUCTURA: Solo iteramos sobre los puntos exactos que fueron copiados (la forma azul)
-    currentClipboard.data.forEach(blockData => {
-        // Si NO está presionado Shift (!replaceAir), ignoramos el aire (Pegado Transparente)
-        // Si SÍ está presionado Shift (replaceAir), sobrescribimos el destino, pero SOLO en los puntos de la selección azul
-        if (!replaceAir && (!blockData.state || blockData.state.type === "air" || blockData.state.type === "0" || blockData.state.type === 0)) return;
-
-        const absX = targetX + blockData.dx; 
-        const absY = targetY + blockData.dy;
-        const oldState = mbwom.getBlockState(absX, absY);
-        
-        // Si en el destino ya hay aire y lo que pegamos también es aire, no hacemos nada para ahorrar memoria
-        if (!oldState && !blockData.state) return;
-        
-        historyManager.recordChange(absX, absY, oldState, blockData.state);
-        
-        // Colocamos el bloque, o lo borramos si el punto azul copiado era aire
-        if (blockData.state) {
-            mbwom.setBlockState(absX, absY, blockData.state);
-        } else {
-            if (mbwom.scene[absX]) delete mbwom.scene[absX][absY]; 
-        }
-        
-        if (typeof renderBlock === 'function') renderBlock(absX, absY);
-    });
-    
-    // ✨ MULTIPLAYER: Mandamos la estructura entera al amigo
-    if (!isFromNetwork && typeof enviarMensajeEnRed === 'function') {
-        enviarMensajeEnRed({ 
-            tipo: "accion_pegar", 
-            x: targetX, 
-            y: targetY, 
-            replaceAir: replaceAir, 
-            clipboard: currentClipboard 
-        });
-    }
-    
-    if (typeof worldDirty !== 'undefined') worldDirty = true;
-    historyManager.commitAction();
-}
+// 📋 activatePasteMode() y performPaste() ahora viven en scripts/clipboard.js
 
 const hotbar = { offset: { x: 0, y: 0 }, slots: [{ type: "dt" }, { type: "dt_1" }, { type: "ib" }, { type: "clb" }, { type: "tob" }, { type: "lapb" }, { type: "wp" }, { type: "fire" }, { type: "b" }] }
 
@@ -789,7 +713,8 @@ function eraser(cx, cy) {
             if (toolRounded && ((x - centerX)**2 + (y - centerY)**2 > radiusSq)) continue;
             
             if (mbwom.scene[x]?.[y]) {
-                historyManager.recordChange(x, y, mbwom.scene[x][y], null);
+                // Estado COMPLETO del bloque (no solo su nombre): así Ctrl+Z devuelve también cofres con objetos, variantes, etc.
+                historyManager.recordChange(x, y, mbwom.getBlockState(x, y), null);
                 delete mbwom.scene[x][y]; 
                 renderBlock(x, y);
                 if (typeof enviarMensajeEnRed === 'function') enviarMensajeEnRed({ tipo: "actualizar_bloque", x, y, estado: null });
@@ -798,13 +723,24 @@ function eraser(cx, cy) {
     }
 }
 
+// Variante de un bloque (states1): 0, '', null y undefined significan "sin variante".
+function blockVariantKey(state) {
+    const v = state ? state.states1 : undefined;
+    if (v === undefined || v === null || v === '' || v === 0 || v === '0') return '';
+    return String(v);
+}
+// ¿Es EXACTAMENTE el mismo bloque (mismo tipo y misma variante)? Si no, el Lápiz y la Cubeta sí lo cambian.
+function sameBlockKind(a, b) {
+    return !!a && !!b && a.type === b.type && blockVariantKey(a) === blockVariantKey(b);
+}
+
 // === HERRAMIENTA PINCEL ===
 function brush(cx, cy) {
     const target = hotbar.slots[slotIndex];
     
     if (toolSize === 1) {
          const current = mbwom.getBlockState(cx, cy);
-         if (current && current.type === target.type) return;
+         if (sameBlockKind(current, target)) return;
          
          historyManager.recordChange(cx, cy, current, target);
          mbwom.setBlockState(cx, cy, target); 
@@ -826,7 +762,7 @@ function brush(cx, cy) {
             if (toolSpray && Math.random() > 0.1) continue;
             
             const current = mbwom.getBlockState(x, y);
-            if (current && current.type === target.type) continue;
+            if (sameBlockKind(current, target)) continue;
             
             historyManager.recordChange(x, y, current, target);
             mbwom.setBlockState(x, y, target); 
@@ -837,13 +773,44 @@ function brush(cx, cy) {
     }
 }
 
+// Casillas entre dos puntos (línea de Bresenham). No incluye el primero y sí el último.
+function cellsBetween(x0, y0, x1, y1) {
+    const pts = [];
+    const dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+    let err = dx - dy, x = x0, y = y0;
+    while (x !== x1 || y !== y1) {
+        const e2 = 2 * err;
+        if (e2 > -dy) { err -= dy; x += sx; }
+        if (e2 < dx) { err += dx; y += sy; }
+        pts.push([x, y]);
+    }
+    return pts;
+}
+
+// Dónde estaba el mouse en el cuadro anterior mientras se pintaba/borraba (para unir los dos puntos si se movió rápido)
+let strokePrev = null;
+
 function mineAndPlace() {
-    if (currentTool === 'pencil') { 
-        if (mouse.left) eraser(mouse.worldX, mouse.worldY); 
-        if (mouse.right) brush(mouse.worldX, mouse.worldY); 
-    } 
-    else if (currentTool === 'eraser') { 
-        if (mouse.left || mouse.right) eraser(mouse.worldX, mouse.worldY); 
+    const paints = (currentTool === 'pencil' || currentTool === 'eraser') && (mouse.left || mouse.right);
+    if (!paints || mouse.worldX == null || mouse.worldY == null) { strokePrev = null; return; }
+
+    const x = mouse.worldX, y = mouse.worldY;
+    let pts = [[x, y]];
+    const p = strokePrev;
+    // Con el mouse rápido, entre un cuadro y otro se saltaban casillas: se rellena la línea desde la posición anterior
+    if (p && p.tool === currentTool && p.left === mouse.left && p.right === mouse.right && (p.x !== x || p.y !== y)) {
+        if (Math.max(Math.abs(x - p.x), Math.abs(y - p.y)) <= 400) pts = cellsBetween(p.x, p.y, x, y);
+    }
+    strokePrev = { x: x, y: y, tool: currentTool, left: mouse.left, right: mouse.right };
+
+    for (let i = 0; i < pts.length; i++) {
+        if (currentTool === 'pencil') {
+            if (mouse.left) eraser(pts[i][0], pts[i][1]);
+            if (mouse.right) brush(pts[i][0], pts[i][1]);
+        } else {
+            eraser(pts[i][0], pts[i][1]);
+        }
     }
 }
 
@@ -948,7 +915,8 @@ function bucketFill(startX, startY, isFromNetwork = false, networkState = null) 
     const isTargetAir = isAir(targetType);
 
     // Evitar bucles infinitos si pintamos con lo mismo que ya hay o si ambos son "aire"
-    if ((isStartAir && isTargetAir) || (!isStartAir && startType === targetType)) return;
+    const startVariant = blockVariantKey(startBlock);
+    if ((isStartAir && isTargetAir) || (!isStartAir && startType === targetType && startVariant === blockVariantKey(targetState))) return;
     
     historyManager.startAction();
     const maxPixels = 2000; 
@@ -973,7 +941,7 @@ function bucketFill(startX, startY, isFromNetwork = false, networkState = null) 
         const isCurrentAir = isAir(currentType);
 
         // Verificamos si es el mismo bloque original o si ambos son tipos de "aire"
-        if ((isStartAir && isCurrentAir) || (!isStartAir && currentType === startType)) {
+        if ((isStartAir && isCurrentAir) || (!isStartAir && currentType === startType && blockVariantKey(currentBlock) === startVariant)) {
             historyManager.recordChange(x, y, currentBlock, targetState);
             
             // Si el bloque que pintamos es "aire" (borrador), eliminamos la referencia limpia
@@ -1046,27 +1014,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// ✨ FIX: Espejo Horizontal para el Portapapeles Moderno (v2.0+)
-window.flipClipboardHorizontal = function() {
-    if (!window.clipboard || !window.clipboard.data) {
-        console.log("No hay nada en el portapapeles para voltear.");
-        return;
-    }
-
-    const width = window.clipboard.width;
-    
-    // Invertimos la coordenada X de todos los bloques copiados
-    window.clipboard.data.forEach(block => {
-        // La nueva posición es (Ancho Total - 1) menos su posición actual
-        block.dx = (width - 1) - block.dx;
-    });
-
-    console.log("Estructura espejeada horizontalmente.");
-
-    // Forzamos al cursor a redibujar el fantasma al instante
-    if (typeof mouse !== 'undefined') mouse.calculateCoordinates();
-    if (typeof worldDirty !== 'undefined') worldDirty = true;
-};
+// 📋 flipClipboardHorizontal() ahora vive en scripts/clipboard.js
 
 // Variable para recordar qué forma estamos usando actualmente
 window.currentShapeTool = 'line';

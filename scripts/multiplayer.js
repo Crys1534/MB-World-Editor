@@ -97,86 +97,79 @@ window.mpSelectedMapThumb = null;
 // ✨ Sistema de Respuestas
 let replyingTo = null; 
 
+
 // ==========================================
-// ✨ NOTIFICACIONES ESTILO ESCRITORIO
+// ✨ AYUDAS: NOMBRES/FOTOS, BLOQUEADOS, FOTO SINCRONIZADA, REINICIO DEL CHAT
 // ==========================================
-window.showDesktopNotification = function(title, body, icon, onClickCallback) {
-    const toast = document.createElement('div');
-    toast.style.cssText = `
-        position: fixed; bottom: 20px; right: -400px; width: 320px;
-        background: #2c3e50; color: white; border-left: 5px solid #9b59b6;
-        border-radius: 6px; padding: 15px; display: flex; gap: 15px; align-items: center;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.6); z-index: 9999999;
-        font-family: 'Pixeltype', Arial, sans-serif; cursor: pointer;
-        transition: right 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    `;
-    toast.innerHTML = `
-        <div style="width: 45px; height: 45px; border-radius: 50%; background-image: url('${icon}'); background-size: cover; background-position: center; flex-shrink: 0; border: 2px solid white;"></div>
-        <div style="flex: 1; overflow: hidden;">
-            <div style="font-size: 26px; font-weight: bold; color: #9b59b6; margin-bottom: 2px; text-shadow: 1px 1px 0 #000;">${title}</div>
-            <div style="font-size: 18px; color: #ecf0f1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${body}</div>
-        </div>
-    `;
-    toast.onclick = () => {
-        if(onClickCallback) onClickCallback();
-        toast.style.right = '-400px';
-        setTimeout(() => toast.remove(), 400);
+const MP_DEFAULT_PFP = "assets/default pfp.png";
+const MP_FRIEND_RETRY_MS = 7 * 24 * 60 * 60 * 1000; // tras un rechazo, se puede volver a intentar en 7 días
+window.friendProfiles = {}; // nombre/foto guardados de mis amigos (se llena desde Firebase)
+
+// ¿Es un nombre "de verdad"? (no vacío ni valores de relleno como "Unknown User" o "undefined")
+window.isRealName = function(n) {
+    return typeof n === 'string' && n.trim() !== '' && n !== 'Unknown User' && n !== 'User' && n !== 'undefined' && n !== 'null';
+};
+// ¿Es una foto "de verdad"? (no vacía, ni "undefined", ni la foto por defecto)
+window.isRealPfp = function(p) {
+    return typeof p === 'string' && p.trim() !== '' && p !== 'undefined' && p !== 'null' && p !== MP_DEFAULT_PFP;
+};
+// Busca el mejor nombre/foto de una persona: primero si está en línea, luego el registro del chat,
+// luego el registro de amigo. Nunca devuelve "undefined": como mínimo "Unknown User" + foto por defecto.
+window.resolveChatInfo = function(uid, rec, friendRec) {
+    const online = window.lastKnownUsers && window.lastKnownUsers[uid];
+    rec = rec || {};
+    const f = (friendRec !== undefined) ? friendRec : window.friendProfiles[uid];
+    const fr = (f && typeof f === 'object') ? f : {};
+    const names = [online && online.username, rec.name, fr.name];
+    const pfps = [online && online.pfp, rec.pfp, fr.pfp];
+    const anyName = (n) => typeof n === 'string' && n.trim() !== '' && n !== 'undefined' && n !== 'null';
+    return {
+        name: names.find(window.isRealName) || names.find(anyName) || 'Unknown User',
+        pfp: pfps.find(window.isRealPfp) || MP_DEFAULT_PFP,
+        online: !!online
     };
-    document.body.appendChild(toast);
-    setTimeout(() => toast.style.right = '20px', 100);
-    setTimeout(() => { if (toast) { toast.style.right = '-400px'; setTimeout(() => toast.remove(), 400); } }, 6000);
 };
 
-// ==========================================
-// ✨ RENDER DE AVATARES ESTILO GOOGLE DOCS
-// ==========================================
-window.renderLivePlayers = function() {
-    const container = document.getElementById('mp-live-players');
-    if (!container) return;
-    
-    if (!isMultiplayer && !isHost) {
-        container.innerHTML = '';
-        return; 
-    }
+// --- Bloqueados: se guardan solo en este navegador (uid -> nombre) ---
+window.getBlockedMap = function() {
+    try {
+        const m = JSON.parse(localStorage.getItem('mbw_blocked') || '{}');
+        return (m && typeof m === 'object') ? m : {};
+    } catch (e) { return {}; }
+};
+window.isBlocked = function(uid) {
+    return !!uid && Object.prototype.hasOwnProperty.call(window.getBlockedMap(), uid);
+};
+function saveBlockedMap(map) {
+    try { localStorage.setItem('mbw_blocked', JSON.stringify(map)); } catch (e) {}
+}
 
-    const myUID = localStorage.getItem('mbw_uid');
-    let drawnCount = 0; 
-    let htmlBuilder = ''; // ✨ FIX: Creamos el buffer en memoria
-
-    window.roomPlayers.forEach((p) => {
-        if (p.uid === myUID) return; 
-        
-        let marginLeft = drawnCount > 0 ? '-10px' : '0';
-        let zIndex = 100 - drawnCount; 
-
-        let isSpectating = (window.spectatingTargetId === p.peerId);
-        let borderColor = isSpectating ? '#e74c3c' : 'var(--bg-header, #2b2d31)';
-        let borderWidth = isSpectating ? '3px' : '2px';
-        let scale = isSpectating ? 'scale(1.15)' : 'scale(1)';
-
-        // Añadimos al buffer, NO al DOM
-        htmlBuilder += `
-            <div title="Click to spectate ${p.name}" 
-                 onclick="toggleSpectatorMode('${p.peerId}', '${p.name.replace(/'/g, "\\'")}')"
-                 style="
-                width: 28px; height: 28px; border-radius: 50%; border: ${borderWidth} solid ${borderColor};
-                background-color: #34495e; background-image: url('${p.pfp}'); background-size: cover; background-position: center; 
-                margin-left: ${marginLeft}; z-index: ${zIndex}; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3); 
-                transform: ${scale}; transition: 0.2s;" 
-                 onmouseover="this.style.transform='translateY(-2px) ${scale}'" 
-                 onmouseout="this.style.transform='translateY(0) ${scale}'">
-            </div>
-        `;
-        drawnCount++;
-    });
-    
-    // ✨ FIX: Inyectamos todo de un solo golpe
-    container.innerHTML = htmlBuilder; 
+// --- Foto de perfil: solo se vuelve a subir si cambió desde la última vez ---
+function _pfpTag(str) {
+    let h = 5381;
+    for (let i = 0; i < str.length; i++) { h = ((h << 5) + h + str.charCodeAt(i)) | 0; }
+    return str.length + ':' + h;
+}
+function _getPfpSyncMap() {
+    try {
+        const m = JSON.parse(localStorage.getItem('mbw_pfp_sync') || '{}');
+        return (m && typeof m === 'object') ? m : {};
+    } catch (e) { return {}; }
+}
+window.pfpNeedsSync = function(key, pfp) {
+    return _getPfpSyncMap()[key] !== _pfpTag(String(pfp || ''));
+};
+window.markPfpSynced = function(key, pfp) {
+    try {
+        const m = _getPfpSyncMap();
+        m[key] = _pfpTag(String(pfp || ''));
+        localStorage.setItem('mbw_pfp_sync', JSON.stringify(m));
+    } catch (e) {}
 };
 
-// ==========================================
-// LÓGICA DEL WIZARD (Asistente Visual)
-// ==========================================
+// (resetChatComposer, setReply, cancelReply y todo lo que dibuja el chat privado
+//  ahora viven en scripts/chat-dm.js)
+
 window.setMpLimit = function(limit) {
     window.multiplayerPlayerLimit = limit;
 	// ✨ FIX: Si por alguna razón intentan poner 1, lo forzamos a ser 2 mínimo
@@ -459,7 +452,7 @@ window.hostMultiplayerSession = function() {
 // ✨ Variable global para el candado anti-spam
 window.isConnecting = false; 
 
-window.joinMultiplayerSession = function(directId = null) {
+window.joinMultiplayerSession = function(directId = null, skipHostConfirm = false) {
     // 🔒 1. Candado Anti-Spam: Si ya está conectando, ignoramos el clic
     if (window.isConnecting) {
         console.log("Ya hay una conexión en proceso, ignorando clic...");
@@ -470,15 +463,21 @@ window.joinMultiplayerSession = function(directId = null) {
     const hostId = directId || (inputEl ? inputEl.value.trim() : null);
     if (!hostId) { alert("Please enter a Room ID!"); return; }
 
+    // ⚠️ Si somos anfitriones de una sala activa, avisamos: unirse a otra la cierra
+    if (isHost && isMultiplayer && !skipHostConfirm) {
+        if (!confirm("Eres el anfitrión de una sala. Si te unes a otra, tu sala se cerrará y tus jugadores serán desconectados.\n\n¿Continuar?")) return;
+    }
+
     // 🔒 2. Activamos el candado
     window.isConnecting = true; 
 
     // Limpieza de seguridad: Si ya estábamos en un server, nos desconectamos limpiamente
+    // (Como jugador O como anfitrión.) La desconexión limpia también borra nuestra sala de
+    // Firebase si éramos host, para que no quede una sala "fantasma" en la lista pública.
     if (isMultiplayer) {
-        if (miConexionAlHost) miConexionAlHost.close();
-        if (peer) peer.destroy();
-        isMultiplayer = false;
+        window.disconnectFromMultiplayer(true);
     }
+    if (window.myRoomRef) { window.myRoomRef.remove(); window.myRoomRef = null; }
 
     const statusText = document.getElementById('multiplayer-status');
     if (statusText) {
@@ -508,7 +507,7 @@ window.joinMultiplayerSession = function(directId = null) {
 };
 
 // ✨ FIX FASE 5: DESCONEXIÓN TOTAL Y LIMPIEZA DE MEMORIA
-window.disconnectFromMultiplayer = function() {
+window.disconnectFromMultiplayer = function(silent) {
     console.log("Iniciando protocolo de desconexión limpia...");
 
     // 1. Apagar conexiones P2P (PeerJS)
@@ -555,7 +554,7 @@ window.disconnectFromMultiplayer = function() {
     // 5. Regresar al jugador a su mundo local (opcional)
     // if (typeof loadLocalWorld === 'function') loadLocalWorld();
 
-    if (typeof showDesktopNotification === 'function') {
+    if (!silent && typeof showDesktopNotification === 'function') {
         showDesktopNotification("Desconectado", "Has salido del servidor de forma segura.", "assets/default pfp.png");
     }
 };
@@ -571,7 +570,7 @@ function setupHostConnection(conn) {
         if (typeof mbwom !== 'undefined' && mbwom.world) {
             conn.send({ tipo: "sync_mundo", mundo: mbwom.world });
         }
-        enviarMensajeEnRed({ tipo: "chat", autor: "System", texto: "Un jugador se ha unido y está descargando el mapa." });
+        avisarEnChatDeSala("Un jugador se ha unido y está descargando el mapa.");
     });
 
     conn.on('data', function(data) {
@@ -598,8 +597,18 @@ function setupHostConnection(conn) {
         const statusText = document.getElementById('multiplayer-status');
         if (statusText) statusText.innerText = `Status: ${misClientes.length + 1}/${window.multiplayerPlayerLimit} Players 🟢`;
         if (window.myRoomRef) window.myRoomRef.update({ currentPlayers: misClientes.length + 1 });
-        enviarMensajeEnRed({ tipo: "chat", autor: "System", texto: "Un jugador se desconectó." });
+        avisarEnChatDeSala("Un jugador se desconectó.");
     });
+}
+
+// Aviso del sistema en el chat de la sala ("se unió", "se desconectó"): lo reciben todos los jugadores Y TAMBIÉN el anfitrión.
+// enviarMensajeEnRed() solo manda a los clientes (el anfitrión no se manda mensajes a sí mismo), y por eso antes el
+// anfitrión era el único que no veía estos avisos. El anfitrión lo recibe por la misma vía que los demás (aviso + sonido).
+// Si la sala ya se cerró (por ejemplo, el propio anfitrión la cerró y se cierran las conexiones), no se avisa nada.
+function avisarEnChatDeSala(texto) {
+    if (!isMultiplayer) return;
+    enviarMensajeEnRed({ tipo: "chat", autor: "System", texto: texto });
+    if (isHost) recibirMensajeDeRed({ tipo: "chat", autor: "System", texto: texto });
 }
 
 function setupClientConnection(conn) {
@@ -642,72 +651,7 @@ function setupClientConnection(conn) {
     });
 }
 
-window.loadPublicServers = function() {
-    const listDiv = document.getElementById('public-servers-list');
-    if (!listDiv) return;
-    listDiv.innerHTML = '<p style="text-align: center; color: #bdc3c7; font-size: 24px;">Searching for worlds...</p>';
 
-    database.ref('servers').off('value');
-    database.ref('servers').on('value', (snapshot) => {
-        const servers = snapshot.val();
-
-        if (!servers) {
-            listDiv.innerHTML = '<p style="text-align: center; color: #95a5a6; font-size: 24px; margin-top: 15px;">No public servers available right now.</p>';
-            return;
-        }
-
-        const myUID = localStorage.getItem('mbw_uid'); 
-        let htmlBuilder = ''; // ✨ FIX: Buffer de memoria
-
-        for (let id in servers) {
-            let s = servers[id];
-            if (!s || !s.hostName || s.hostName === 'undefined' || s.hostName === 'null') {
-                database.ref('servers/' + id).remove(); 
-                continue; 
-            }
-
-            if (s.access === 'friends_only' && s.hostUid !== myUID) {
-                if (!misAmigosConfirmados.includes(s.hostUid)) continue; 
-            }
-
-            let isFull = s.currentPlayers >= s.maxPlayers;
-            let isAlreadyJoined = false;
-            if (isMultiplayer) {
-                if (isHost && peer && peer.id === id) isAlreadyJoined = true;
-                else if (!isHost && miConexionAlHost && miConexionAlHost.peer === id) isAlreadyJoined = true;
-            }
-
-            let buttonConfig = "";
-            if (isAlreadyJoined) {
-                buttonConfig = `<button style="background: #3498db; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: not-allowed; font-family: 'Pixeltype', sans-serif; font-size: 24px; transition: 0.2s;" disabled>JOINED</button>`;
-            } else if (isFull) {
-                buttonConfig = `<button style="background: #7f8c8d; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: not-allowed; font-family: 'Pixeltype', sans-serif; font-size: 24px; transition: 0.2s;" disabled>FULL</button>`;
-            } else {
-                buttonConfig = `<button onclick="document.getElementById('join-peer-id').value = '${id}'; joinMultiplayerSession('${id}');" style="background: #2ecc71; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-family: 'Pixeltype', sans-serif; font-size: 24px; transition: 0.2s;">JOIN</button>`;
-            }
-
-            let thumbUrl = s.mapThumb || 'assets/Superflat World.png';
-            htmlBuilder += `
-                <div style="background: rgba(52, 73, 94, 0.8); padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #7f8c8d; gap: 12px; margin-bottom: 5px;">
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <div style="width: 80px; height: 50px; background-image: url('${thumbUrl}'); background-size: cover; background-position: center; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); image-rendering: pixelated; flex-shrink: 0;"></div>
-                        <div>
-                            <strong style="color: #4DA6FF; font-size: 24px; display: block; line-height: 1;">${s.hostName}'s Room</strong>
-                            <span style="color: #bdc3c7; font-size: 18px;">Map: ${s.mapName}</span>
-                        </div>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="color: ${(isFull && !isAlreadyJoined) ? '#e74c3c' : '#2ecc71'}; font-size: 24px; font-weight: bold;">${s.currentPlayers}/${s.maxPlayers}</span>
-                        ${buttonConfig}
-                    </div>
-                </div>
-            `;
-        }
-        
-        // ✨ FIX: Inyección única
-        listDiv.innerHTML = htmlBuilder; 
-    });
-}
 
 // FUNCIONES DE RED INTERNAS
 window.enviarMensajeEnRed = function(datos) {
@@ -742,6 +686,7 @@ function recibirMensajeDeRed(datos) {
 }
     if (datos.tipo === "sync_mundo") {
         mbwom.world = datos.mundo; 
+        if (typeof window.playerInvRefresh === 'function') window.playerInvRefresh();
         if (typeof mbwom.loadScene === 'function') mbwom.loadScene(1); 
         mbwom.mobs = {};
         for (let sceneId = 1; sceneId <= 3; sceneId++) {
@@ -879,71 +824,7 @@ function initPresenceSystem(isReload = false) {
     });
 }
 
-// ✨ FIX: FUNCIÓN RESTAURADA PARA MOSTRAR JUGADORES ONLINE Y ABRIR CHATS
-window.renderPresenceList = function() {
-    const users = window.lastKnownUsers;
-    const listContainer = document.getElementById('mp-online-users-list');
-    if (listContainer) listContainer.innerHTML = '';
-    if (!users) return;
 
-    const myUID = localStorage.getItem('mbw_uid');
-    let htmlBuilder = '';
-    const now = Date.now();
-
-    for (let key in users) {
-        const u = users[key];
-        const isMe = (myUID && key === myUID);
-        const isFriend = typeof misAmigosConfirmados !== 'undefined' && misAmigosConfirmados.includes(u.uid);
-        
-        let isInMyRoom = window.roomPlayers && window.roomPlayers.some(p => p.uid === u.uid);
-
-        let actionBtn = '';
-        if (isHost && window.currentRoomId && !isMe) {
-            if (isInMyRoom) {
-                actionBtn = `<button onclick="kickPlayer('${u.uid}', '${window.escapeHTML ? window.escapeHTML(u.username) : u.username}')" style="background: #e74c3c; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#c0392b'" onmouseout="this.style.background='#e74c3c'" title="Expulsar del servidor">🥾 Kick</button>`;
-            } else {
-                if (window.inviteCooldowns[u.uid] && now < window.inviteCooldowns[u.uid]) {
-                    actionBtn = `<button style="background: #7f8c8d; border: none; padding: 6px 10px; border-radius: 4px; cursor: not-allowed; color: white; font-size: 16px;" disabled>⏳ Wait...</button>`;
-                } else {
-                    actionBtn = `<button onclick="sendServerInvite('${u.uid}', '${window.escapeHTML ? window.escapeHTML(u.username) : u.username}', event)" style="background: #9b59b6; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#8e44ad'" onmouseout="this.style.background='#9b59b6'" title="Invitar al servidor">🎮 Invite</button>`;
-                }
-            }
-        }
-
-        const borderColor = (isMe || isFriend) ? '#1e293b' : '#34495e';
-        const safeName = window.escapeHTML ? window.escapeHTML(u.username) : u.username;
-        // ✨ Obtenemos el nombre del mundo, si no tiene, dice Unknown
-        const safeWorld = window.escapeHTML ? window.escapeHTML(u.worldName || "Unknown") : (u.worldName || "Unknown");
-
-        htmlBuilder += `
-            <div style="background: rgba(0,0,0,0.4); border: 2px solid ${borderColor}; padding: 10px; display: flex; align-items: center; gap: 12px; border-radius: 6px;">
-                <div style="width: 40px; height: 40px; border-radius: 50%; background-image: url('${u.pfp}'); background-size: cover; background-position: center; border: 2px solid #bdc3c7; image-rendering: auto;"></div>
-                
-                <div style="display: flex; flex-direction: column; justify-content: center;">
-                    <span style="color: white; font-family: 'Pixeltype', sans-serif; font-size: 26px; line-height: 1;">${safeName}</span>
-                    <span style="color: #a0a0a0; font-family: 'Pixeltype', sans-serif; font-size: 16px; line-height: 1;">Editing: ${safeWorld}</span>
-                </div>
-
-                ${isMe ? 
-                    '<span style="color: #2ecc71; font-size: 16px; margin-left: auto; font-weight: bold;">(You)</span>' 
-                    : 
-                    `<div style="margin-left: auto; display: flex; gap: 8px;">
-                        ${actionBtn}
-                        <button onclick="sendFriendRequest('${u.uid}', '${safeName}')" style="background: #2ecc71; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#27ae60'" onmouseout="this.style.background='#2ecc71'" title="Añadir amigo">➕ Add</button>
-                        
-                        <button onclick="openDirectMessage('${u.uid}', '${safeName}')" style="background: transparent; border: 1px solid #7f8c8d; padding: 4px 8px; border-radius: 4px; cursor: pointer; color: white; font-size: 14px;" title="Enviar mensaje">💬</button>
-                    </div>`
-                }
-            </div>
-        `;
-    }
-
-    if (htmlBuilder === '') {
-        htmlBuilder = '<p style="color: #95a5a6; font-family: \'Pixeltype\', sans-serif; font-size: 20px; text-align: center;">No hay otros jugadores en línea.</p>';
-    }
-
-    if (listContainer) listContainer.innerHTML = htmlBuilder;
-};
 
 // ==========================================
 // ✨ INVITACIONES (MANDAR Y RECIBIR)
@@ -965,13 +846,17 @@ window.sendServerInvite = function(targetUid, targetName, event) {
 };
 
 window.acceptServerInvite = function(roomId, senderUid) {
+    // Si somos anfitriones, preguntamos ANTES de gastar la invitación
+    if (isHost && isMultiplayer) {
+        if (!confirm("Eres el anfitrión de una sala. Si te unes a otra, tu sala se cerrará y tus jugadores serán desconectados.\n\n¿Continuar?")) return;
+    }
     const myUID = localStorage.getItem('mbw_uid');
     database.ref('server_invites/' + myUID + '/' + senderUid).remove(); 
     const joinInput = document.getElementById('join-peer-id');
     if (joinInput) joinInput.value = roomId; 
     closeMpSidebar();
     setMpView('join');
-    joinMultiplayerSession(roomId); 
+    joinMultiplayerSession(roomId, true); 
 };
 
 window.declineServerInvite = function(senderUid) {
@@ -1010,27 +895,178 @@ window.kickPlayer = function(targetUid, targetName) {
 // ✨ AMIGOS Y PETICIONES
 // ==========================================
 let currentChatId = null;
-let currentChatListener = null;
 let misAmigosConfirmados = [];
 let currentChatPartner = null; 
 
 window.sendFriendRequest = function(targetUid, targetName) {
     const myUID = localStorage.getItem('mbw_uid');
     const myName = localStorage.getItem('mbw_username') || "Player";
-    const myPfp = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
-    database.ref('friend_requests/' + targetUid + '/' + myUID).set({ uid: myUID, username: myName, pfp: myPfp, timestamp: firebase.database.ServerValue.TIMESTAMP });
-    alert("Friend request sent to " + targetName + "!");
+    const myPfp = localStorage.getItem('mbw_profile_pic') || MP_DEFAULT_PFP;
+    if (!targetUid || targetUid === myUID) return;
+    const shown = window.isRealName(targetName) ? targetName : 'este usuario';
+
+    if (window.isBlocked(targetUid)) {
+        window.mpToast("🚫 Bloqueado", "Desbloquea a " + shown + " para enviarle una solicitud.");
+        return;
+    }
+    if (misAmigosConfirmados.includes(targetUid)) {
+        window.mpToast("✔ Ya son amigos", "Tú y " + shown + " ya son amigos.");
+        return;
+    }
+
+    // 1) ¿Esa persona ya me había mandado una solicitud? Entonces la aceptamos y listo.
+    database.ref('friend_requests/' + myUID + '/' + targetUid).once('value').then(incomingSnap => {
+        const incoming = incomingSnap.val();
+        if (incoming && !incoming.status) { window.acceptFriendRequest(targetUid); return; }
+
+        // 2) ¿Ya le mandé una antes?
+        const prevRef = database.ref('friend_requests/' + targetUid + '/' + myUID);
+        return prevRef.once('value').then(prevSnap => {
+            const prev = prevSnap.val();
+            if (prev && !prev.status) {
+                window.mpToast("⏳ Solicitud ya enviada", "Espera a que " + shown + " responda.");
+                return;
+            }
+            if (prev && prev.status === 'rejected') {
+                const when = Number(prev.rejectedAt || prev.timestamp) || 0;
+                if (Date.now() - when < MP_FRIEND_RETRY_MS) {
+                    window.mpToast("Solicitud rechazada", shown + " rechazó tu solicitud. Podrás intentarlo de nuevo en unos días.");
+                    return;
+                }
+            }
+            return prevRef.set({ uid: myUID, username: myName, pfp: myPfp, timestamp: firebase.database.ServerValue.TIMESTAMP })
+                .then(() => window.mpToast("✔ Solicitud enviada", "Le avisamos a " + shown + "."));
+        });
+    }).catch(err => {
+        console.error("Error al enviar solicitud de amistad:", err);
+        window.mpToast("Error", "No se pudo enviar la solicitud.");
+    });
 }
+
 window.acceptFriendRequest = function(senderUid) {
     const myUID = localStorage.getItem('mbw_uid');
-    database.ref('friends/' + myUID + '/' + senderUid).set(true);
-    database.ref('friends/' + senderUid + '/' + myUID).set(true);
-    database.ref('friend_requests/' + myUID + '/' + senderUid).update({ status: 'accepted' });
+    const myName = localStorage.getItem('mbw_username') || "Player";
+    const myPfp = localStorage.getItem('mbw_profile_pic') || MP_DEFAULT_PFP;
+
+    database.ref('friend_requests/' + myUID + '/' + senderUid).once('value').then(snap => {
+        const req = snap.val() || {};
+        // Guardamos nombre y foto de cada uno dentro del registro de amistad, así los amigos
+        // desconectados ya no aparecen como "User". (Si no hay datos, queda el `true` de siempre.)
+        const profile = (name, pfp) => {
+            const o = {};
+            if (window.isRealName(name)) o.name = name;
+            if (window.isRealPfp(pfp)) o.pfp = pfp;
+            return Object.keys(o).length ? o : true;
+        };
+        const mine = profile(req.username, req.pfp);
+        const theirs = profile(myName, myPfp);
+
+        // Todo en una sola operación: o se guarda todo o no se guarda nada
+        const updates = {};
+        updates['friends/' + myUID + '/' + senderUid] = mine;
+        updates['friends/' + senderUid + '/' + myUID] = theirs;
+        updates['friend_requests/' + myUID + '/' + senderUid + '/status'] = 'accepted';
+        updates['friend_requests/' + senderUid + '/' + myUID] = null; // por si yo también le había mandado una
+
+        return database.ref().update(updates).catch(err => {
+            console.warn("Update múltiple rechazado, se intenta por partes:", err);
+            return Promise.all([
+                database.ref('friends/' + myUID + '/' + senderUid).set(mine),
+                database.ref('friends/' + senderUid + '/' + myUID).set(theirs),
+                database.ref('friend_requests/' + myUID + '/' + senderUid).update({ status: 'accepted' })
+            ]);
+        }).then(() => {
+            window.mpToast("✔ Ahora son amigos", window.isRealName(req.username) ? "Tú y " + req.username + " ya son amigos." : "Solicitud aceptada.");
+        });
+    }).catch(err => {
+        console.error("Error al aceptar solicitud:", err);
+        window.mpToast("Error", "No se pudo aceptar la solicitud.");
+    });
 }
+
 window.declineFriendRequest = function(senderUid) {
     const myUID = localStorage.getItem('mbw_uid');
-    database.ref('friend_requests/' + myUID + '/' + senderUid).update({ status: 'rejected' });
+    // Guardamos CUÁNDO se rechazó para que quien la mandó no pueda repetirla de inmediato
+    database.ref('friend_requests/' + myUID + '/' + senderUid).update({ status: 'rejected', rejectedAt: firebase.database.ServerValue.TIMESTAMP });
 }
+
+// Elimina la amistad por los dos lados (y limpia las solicitudes viejas entre los dos)
+window.removeFriend = function(uid, name, skipConfirm) {
+    const myUID = localStorage.getItem('mbw_uid');
+    const shown = window.isRealName(name) ? name : 'este amigo';
+    if (!skipConfirm && !confirm("¿Eliminar a " + shown + " de tus amigos?")) return Promise.resolve(false);
+
+    const updates = {};
+    updates['friends/' + myUID + '/' + uid] = null;
+    updates['friends/' + uid + '/' + myUID] = null;
+    updates['friend_requests/' + myUID + '/' + uid] = null;
+    updates['friend_requests/' + uid + '/' + myUID] = null;
+
+    return database.ref().update(updates)
+        .catch(() => Promise.all(Object.keys(updates).map(p => database.ref(p).remove())))
+        .then(() => {
+            if (!skipConfirm) window.mpToast("Amigo eliminado", shown + " ya no está en tu lista de amigos.");
+            refreshAllSocialUI();
+            return true;
+        });
+}
+
+// Bloquear: se guarda en este navegador. No verás sus mensajes, solicitudes ni invitaciones.
+window.blockUser = function(uid, name) {
+    const shown = window.isRealName(name) ? name : 'este usuario';
+    if (!confirm("¿Bloquear a " + shown + "?\n\nNo verás sus mensajes, solicitudes ni invitaciones, y dejará de ser tu amigo.")) return;
+
+    const map = window.getBlockedMap();
+    map[uid] = window.isRealName(name) ? name : 'Usuario';
+    saveBlockedMap(map);
+
+    if (currentChatPartner && currentChatPartner.uid === uid) leaveCurrentChatView();
+
+    // Lo sacamos de amigos y limpiamos solicitudes entre los dos
+    window.removeFriend(uid, name, true).catch(() => {}).then(() => {
+        refreshAllSocialUI();
+        window.mpToast("🚫 Bloqueado", shown + " ya no puede molestarte.");
+    });
+}
+
+window.unblockUser = function(uid) {
+    const map = window.getBlockedMap();
+    const nm = map[uid];
+    delete map[uid];
+    saveBlockedMap(map);
+    refreshAllSocialUI();
+    window.mpToast("Desbloqueado", (nm ? nm : "Usuario") + " ya no está bloqueado.");
+}
+
+// Salir de la vista del chat actual (apaga sus listeners y vuelve al "Selecciona un chat")
+function leaveCurrentChatView() {
+    window.closeDmListeners();   // apaga mensajes, "escribiendo" y estado del chat abierto (chat-dm.js)
+    resetChatComposer();
+    currentChatId = null;
+    currentChatPartner = null;
+    const placeholder = document.getElementById('full-chat-placeholder');
+    const activeChat = document.getElementById('full-chat-active');
+    if (placeholder) placeholder.style.display = 'flex';
+    if (activeChat) activeChat.style.display = 'none';
+}
+
+// Vuelve a dibujar todo lo social (después de bloquear, desbloquear o eliminar un amigo)
+function refreshAllSocialUI() {
+    if (typeof window.renderPresenceList === 'function') window.renderPresenceList();
+    if (currentSidebarMode === 'chats') {
+        const list = document.getElementById('full-chat-list-container');
+        if (list) renderChatList(list);
+    } else if (currentSidebarMode === 'friends') {
+        const content = document.getElementById('sidebar-content');
+        if (content) renderFriendRequests(content);
+    } else if (currentSidebarMode === 'invites') {
+        const content = document.getElementById('sidebar-content');
+        if (content) renderServerInvites(content);
+    }
+    if (typeof window.refreshSocialBadges === 'function') window.refreshSocialBadges();
+}
+
+// (El menú "⋮" de la cabecera del chat vive ahora en scripts/chat-dm.js)
 
 // ==========================================
 // ✨ CONTROL DE BARRA LATERAL (WhatsApp Web)
@@ -1052,17 +1088,10 @@ window.openMpSidebar = function(mode) {
     currentSidebarMode = mode;
 
     if (mode !== 'chats') {
+        window.closeDmListeners();
+        resetChatComposer();
         currentChatPartner = null;
-        if (currentChatListener && currentChatId) {
-            database.ref('private_chats/' + currentChatId).off('child_added', currentChatListener);
-            database.ref('private_chats/' + currentChatId).off('child_changed');
-            currentChatListener = null;
-            currentChatId = null;
-        }
-        if (window.statusListener && window.lastChatStatusRef) {
-            window.lastChatStatusRef.off('value', window.statusListener);
-            window.statusListener = null;
-        }
+        currentChatId = null;
     }
 
     // 2. Acomodamos las vistas con un retraso para que cargue el HTML
@@ -1085,6 +1114,10 @@ window.openMpSidebar = function(mode) {
             // ✨ FIX: Mostrar el placeholder al inicio, ocultar caja de chat activa hasta elegir alguien
             if (placeholder) placeholder.style.display = 'flex';
             if (activeChat) activeChat.style.display = 'none';
+            window.closeDmListeners();   // ya no hay chat abierto: apagamos sus antenas
+            resetChatComposer();
+            currentChatPartner = null;
+            currentChatId = null;
             
             const listContainer = document.getElementById('full-chat-list-container');
             if (listContainer && typeof renderChatList === 'function') renderChatList(listContainer);
@@ -1111,22 +1144,11 @@ window.openMpSidebar = function(mode) {
 
 window.closeMpSidebar = function() {
     // 1. LIMPIEZA DE MEMORIA (Memory Leaks)
+    window.closeDmListeners();   // apaga mensajes, "escribiendo" y estado del chat abierto
+    resetChatComposer();
     currentChatPartner = null;
+    currentChatId = null;
     currentSidebarMode = '';
-
-    // Apagamos la antena de mensajes de este chat
-    if (currentChatListener && currentChatId) {
-        database.ref('private_chats/' + currentChatId).off('child_added', currentChatListener);
-        database.ref('private_chats/' + currentChatId).off('child_changed');
-        currentChatListener = null;
-        currentChatId = null;
-    }
-    
-    // Apagamos la antena de "En línea / Escribiendo..."
-    if (window.statusListener && window.lastChatStatusRef) {
-        window.lastChatStatusRef.off('value', window.statusListener);
-        window.statusListener = null;
-    }
 
     // 2. RESTAURAR LA INTERFAZ VISUAL
     const serversView = document.getElementById('mp-servers-view');
@@ -1140,159 +1162,13 @@ window.closeMpSidebar = function() {
     if (serversView) serversView.style.display = 'flex'; 
 };
 
-window.renderServerInvites = function(container) {
-    const myUID = localStorage.getItem('mbw_uid');
-    database.ref('server_invites/' + myUID).once('value', (snapshot) => {
-        const invites = snapshot.val();
-        container.innerHTML = '';
-        if (!invites) { container.innerHTML = '<p style="color: #bdc3c7; text-align: center; font-size: 24px;">No notifications yet.</p>'; return; }
 
-        Object.keys(invites).reverse().forEach(senderUid => {
-            let inv = invites[senderUid];
-            container.innerHTML += `
-                <div style="background: rgba(0,0,0,0.2); padding: 10px; display: flex; align-items: center; gap: 10px; border-radius: 4px; border-left: 3px solid #9b59b6;">
-                    <div style="width: 40px; height: 40px; border-radius: 50%; background-image: url('${inv.hostPfp}'); background-size: cover; background-position: center; border: 2px solid white;"></div>
-                    <div style="flex: 1; overflow: hidden;">
-                        <div style="color: white; font-size: 24px; font-weight: bold; margin-bottom: 2px;">${inv.hostName}</div>
-                        <div style="color: #bdc3c7; font-size: 16px; font-family: Arial; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 6px;">Map: ${inv.mapName}</div>
-                        <div style="display: flex; gap: 5px;">
-                            <button onclick="acceptServerInvite('${inv.roomId}', '${senderUid}')" style="background: #9b59b6; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 20px;">Join</button>
-                            <button onclick="declineServerInvite('${senderUid}'); openMpSidebar('invites');" style="background: #7f8c8d; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 20px;">X</button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        });
-    });
-};
-
-window.renderFriendRequests = function(container) {
-    const myUID = localStorage.getItem('mbw_uid');
-    database.ref('friend_requests/' + myUID).once('value', (snapshot) => {
-        const requests = snapshot.val();
-        container.innerHTML = '';
-        if (!requests) { container.innerHTML = '<p style="color: #bdc3c7; text-align: center; font-size: 24px;">No friend requests.</p>'; return; }
-
-        let pendingCount = 0;
-        Object.keys(requests).reverse().forEach(senderUid => {
-            let req = requests[senderUid];
-            let statusHtml = '';
-            if (req.status === 'accepted') statusHtml = '<span style="color: #2ecc71; font-size: 20px;">✔️ Accepted</span>';
-            else if (req.status === 'rejected') statusHtml = '<span style="color: #e74c3c; font-size: 20px;">❌ Denied</span>';
-            else {
-                pendingCount++;
-                statusHtml = `<button onclick="acceptFriendRequest('${senderUid}'); openMpSidebar('friends');" style="background: #2ecc71; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 20px;">Accept</button>
-                              <button onclick="declineFriendRequest('${senderUid}'); openMpSidebar('friends');" style="background: #e74c3c; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 20px;">Decline</button>`;
-            }
-            container.innerHTML += `
-                <div style="background: rgba(0,0,0,0.2); padding: 10px; display: flex; align-items: center; gap: 10px; border-radius: 4px; border-left: 3px solid ${req.status ? '#7f8c8d' : '#f1c40f'};">
-                    <div style="width: 40px; height: 40px; border-radius: 50%; background-image: url('${req.pfp}'); background-size: cover; background-position: center; border: 2px solid white;"></div>
-                    <div style="flex: 1;"><div style="color: white; font-size: 26px;">${req.username}</div><div style="display: flex; gap: 5px; margin-top: 5px;">${statusHtml}</div></div>
-                </div>
-            `;
-        });
-        const badge = document.getElementById('badge-friends');
-        if (badge) { badge.innerText = pendingCount; badge.style.display = pendingCount > 0 ? 'block' : 'none'; }
-    });
-}
 
 // ==========================================
 // ✨ LÓGICA DEL CHAT Y RESPUESTAS (REPLY)
 // ==========================================
 
-window.setReply = function(msgId, senderName, text) {
-    replyingTo = { msgId, senderName, text };
-    
-    let replyPreview = document.getElementById('full-chat-reply-preview');
-    const dmInput = document.getElementById('full-dm-input');
-
-    if (!replyPreview) {
-        replyPreview = document.createElement('div');
-        replyPreview.id = 'full-chat-reply-preview';
-        
-        // Estética pegada al input
-        replyPreview.style.cssText = `
-            background: var(--bg-dark, rgba(0,0,0,0.4)); 
-            border-left: 4px solid var(--accent, #3498db);
-            border-top: 1px solid var(--border, #3e3e42);
-            border-right: 1px solid var(--border, #3e3e42);
-            border-radius: 8px 8px 0 0; /* Solo redondeado arriba */
-            padding: 8px 12px; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center;
-            font-family: Arial, sans-serif; 
-            color: var(--text, #ecf0f1);
-            width: 100%;
-            box-sizing: border-box;
-            border-bottom: 1px solid var(--bg-panel);
-        `;
-    }
-
-    if (dmInput) {
-        // ✨ LA MAGIA DEL WRAPPER: Agrupamos el input para apilar la respuesta encima
-        let wrapper = document.getElementById('dm-input-wrapper');
-        
-        if (!wrapper) {
-            wrapper = document.createElement('div');
-            wrapper.id = 'dm-input-wrapper';
-            // Flex 1 hace que este grupo ocupe el espacio del input, dejando los botones a la derecha intactos
-            wrapper.style.cssText = 'display: flex; flex-direction: column; flex: 1;';
-            
-            // Metemos el wrapper en el lugar exacto del input
-            dmInput.parentNode.insertBefore(wrapper, dmInput);
-            // Metemos el input dentro del wrapper
-            wrapper.appendChild(dmInput);
-        }
-        
-        // Colocamos la vista previa ADENTRO del wrapper, JUSTO ARRIBA del input
-        wrapper.insertBefore(replyPreview, dmInput);
-        
-        // Le borramos las esquinas redondeadas superiores al input para que parezcan una sola burbuja unida
-        dmInput.style.borderTopLeftRadius = '0';
-        dmInput.style.borderTopRightRadius = '0';
-        dmInput.style.borderTop = 'none';
-    }
-    
-    replyPreview.style.display = 'flex';
-    
-    // Procesamiento de seguridad y emotes
-    let safeName = typeof window.escapeHTML === 'function' ? window.escapeHTML(senderName) : senderName;
-    let safeText = typeof window.escapeHTML === 'function' ? window.escapeHTML(text) : text;
-    let emotedText = typeof window.parseEmotes === 'function' ? window.parseEmotes(safeText) : safeText;
-
-    replyPreview.innerHTML = `
-        <div style="overflow: hidden; flex: 1;">
-            <div style="color: var(--accent, #3498db); font-weight: bold; font-size: 13px; margin-bottom: 4px;">Respondiendo a ${safeName}</div>
-            <div style="opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 15px; font-family: 'Pixeltype', sans-serif;">
-                ${emotedText}
-            </div>
-        </div>
-        <span onclick="cancelReply()" style="cursor: pointer; font-size: 24px; margin-left: 10px; color: var(--text-muted, #888); font-weight: bold; padding: 0 5px;" title="Cancelar">&times;</span>
-    `;
-    
-    if (dmInput) {
-        if (typeof window.moveCursorToEnd === 'function') {
-            window.moveCursorToEnd(dmInput);
-        } else {
-            dmInput.focus();
-        }
-    }
-};
-
-window.cancelReply = function() {
-    replyingTo = null;
-    const preview = document.getElementById('full-chat-reply-preview');
-    if (preview) preview.style.display = 'none';
-    
-    const dmInput = document.getElementById('full-dm-input');
-    if (dmInput) {
-        // Le devolvemos su forma original a la caja de texto al cancelar
-        dmInput.style.borderTopLeftRadius = '';
-        dmInput.style.borderTopRightRadius = '';
-        dmInput.style.borderTop = ''; 
-    }
-};
+// (setReply y cancelReply viven ahora en scripts/chat-dm.js)
 
 window.sendPrivateMessage = function() {
     const input = document.getElementById('full-dm-input');
@@ -1304,6 +1180,18 @@ window.sendPrivateMessage = function() {
     const myPfp = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
     const timestamp = firebase.database.ServerValue.TIMESTAMP;
 
+    // 🚫 No se puede escribir a alguien bloqueado
+    if (window.isBlocked(currentChatPartner.uid)) {
+        window.mpToast("🚫 Bloqueado", "Desbloquea a " + currentChatPartner.name + " para escribirle.");
+        return;
+    }
+
+    // ✨ Si la edición era de OTRO chat, la descartamos (evita crear mensajes fantasma)
+    if (window.editingMsgKey && window.editingMsgChatId !== currentChatId) {
+        window.editingMsgKey = null;
+        window.editingMsgChatId = null;
+    }
+
     // ✨ SI ESTAMOS EDITANDO UN MENSAJE
     if (window.editingMsgKey) {
         database.ref('private_chats/' + currentChatId + '/' + window.editingMsgKey).update({
@@ -1311,15 +1199,16 @@ window.sendPrivateMessage = function() {
             isEdited: true
         });
         
+        // si lo editado era el último mensaje, la lista de chats también debe mostrar el texto nuevo
+        if (typeof window.dmSyncLastMsg === 'function') window.dmSyncLastMsg(window.editingMsgKey, text);
+
         input.value = '';
 		input.style.height = 'auto'; // Añade esta línea
         window.editingMsgKey = null;
+        window.editingMsgChatId = null;
         database.ref('typing_status/' + currentChatId + '/' + myUID).set(false);
-        let typingIndicator = document.getElementById('dm-typing-indicator');
-        if (typingIndicator) {
-            typingIndicator.style.display = 'none';
-            typingIndicator.style.color = "#2ecc71"; // Regresa al color original
-        }
+        if (typeof window.dmEditFinished === 'function') window.dmEditFinished();   // oculta la barra "Editando mensaje"
+        if (typeof window.dmOnMessageSent === 'function') window.dmOnMessageSent();
         input.focus();
         return; 
     }
@@ -1339,8 +1228,26 @@ window.sendPrivateMessage = function() {
     }
 
     database.ref('private_chats/' + currentChatId).push(messageData);
-    database.ref('user_chats/' + myUID + '/' + currentChatPartner.uid).set({ name: currentChatPartner.name, pfp: currentChatPartner.pfp, lastMsg: text, timestamp: timestamp, unreadCount: 0 });
-    database.ref('user_chats/' + currentChatPartner.uid + '/' + myUID).set({ name: myName, pfp: myPfp, lastMsg: text, timestamp: timestamp, unreadCount: firebase.database.ServerValue.increment(1) });
+    // ✨ Actualizamos la lista de chats de los dos. Usamos update (no set) para no borrar campos
+    // y mandamos la foto SOLO si cambió desde la última vez (antes se subían 2 fotos en cada mensaje).
+    const partner = currentChatPartner;
+    const myRec = { lastMsg: text, timestamp: timestamp, unreadCount: 0 };
+    if (window.isRealName(partner.name)) myRec.name = partner.name; // nunca guardamos "Unknown User" como nombre real
+    const partnerPfpKey = 'theirs>' + partner.uid;
+    const sendPartnerPfp = window.isRealPfp(partner.pfp) && window.pfpNeedsSync(partnerPfpKey, partner.pfp);
+    if (sendPartnerPfp) myRec.pfp = partner.pfp;
+
+    const theirRec = { name: myName, lastMsg: text, timestamp: timestamp, unreadCount: firebase.database.ServerValue.increment(1) };
+    const myPfpKey = 'mine>' + partner.uid;
+    const sendMyPfp = window.pfpNeedsSync(myPfpKey, myPfp);
+    if (sendMyPfp) theirRec.pfp = myPfp;
+
+    database.ref('user_chats/' + myUID + '/' + partner.uid).update(myRec)
+        .then(() => { if (sendPartnerPfp) window.markPfpSynced(partnerPfpKey, partner.pfp); })
+        .catch(err => console.error("No se pudo actualizar mi lista de chats:", err));
+    database.ref('user_chats/' + partner.uid + '/' + myUID).update(theirRec)
+        .then(() => { if (sendMyPfp) window.markPfpSynced(myPfpKey, myPfp); })
+        .catch(err => console.error("No se pudo actualizar la lista de chats del otro usuario:", err));
 
 	// ✨ ADMIN LOG SECRETO: Rastrear links enviados en privados
     const linksExtraidosPriv = text.match(/(https?:\/\/[^\s<]+)/g);
@@ -1361,491 +1268,15 @@ window.sendPrivateMessage = function() {
     input.value = ''; 
     input.style.height = 'auto'; // Añade esta línea
     database.ref('typing_status/' + currentChatId + '/' + myUID).set(false);
+    if (typeof window.dmOnMessageSent === 'function') window.dmOnMessageSent();
     input.focus();
 };
 
-window.renderSocialFriendRequests = function(container) {
-    const myUID = localStorage.getItem('mbw_uid');
-    database.ref('friend_requests/' + myUID).once('value', (snapshot) => {
-        const requests = snapshot.val();
-        
-        if (!requests) { 
-            container.innerHTML = '<div class="social-empty">No hay solicitudes pendientes</div>'; 
-            return; 
-        }
 
-        let count = 0;
-        let htmlBuilder = ''; // ✨ FIX: Buffer
 
-        Object.keys(requests).reverse().forEach(senderUid => {
-            let req = requests[senderUid];
-            if (req.status) return; 
-            count++;
-            
-            htmlBuilder += `
-                <div class="social-list-card" onclick="showSocialDetail('friend', '${senderUid}', '${req.username}', '${req.pfp}')">
-                    <div class="social-card-pfp" style="background-image: url('${req.pfp}');"></div>
-                    <div class="social-card-text">
-                        <strong>${req.username}</strong>
-                        <span>Quiere ser tu amigo</span>
-                    </div>
-                </div>
-            `;
-        });
-        
-        // ✨ FIX: Inyección única
-        container.innerHTML = count === 0 ? '<div class="social-empty">No hay solicitudes pendientes</div>' : htmlBuilder;
-    });
-};
 
-window.renderChatList = function(container) {
-    if (!container) return;
-    const myUID = localStorage.getItem('mbw_uid');
-    if (!myUID) return;
 
-    database.ref('friends/' + myUID).once('value', (friendsSnap) => {
-        const friends = friendsSnap.val() || {};
-        database.ref('user_chats/' + myUID).once('value', (snapshot) => {
-            const myChats = snapshot.val() || {};
-            let chatEntries = {};
-            
-            // Unificamos chats existentes y amigos
-            for (let uid in myChats) { chatEntries[uid] = myChats[uid]; }
-            for (let uid in friends) {
-                if (!chatEntries[uid]) {
-                    let friendName = "User"; 
-                    let friendPfp = "assets/default pfp.png";
-                    if (window.lastKnownUsers && window.lastKnownUsers[uid]) {
-                        friendName = window.lastKnownUsers[uid].username; 
-                        friendPfp = window.lastKnownUsers[uid].pfp;
-                    }
-                    chatEntries[uid] = { name: friendName, pfp: friendPfp, lastMsg: "", timestamp: 0, unreadCount: 0 };
-                }
-            }
-
-            // ✨ FIX: Ordenamiento forzado. Si un chat no tiene timestamp (null/undefined), se trata como 0
-            const sorted = Object.keys(chatEntries)
-                .map(uid => ({uid, ...chatEntries[uid]}))
-                .sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0));
-            
-            if (sorted.length === 0) { 
-                container.innerHTML = '<div style="padding: 20px; text-align: center; color: #bdc3c7; font-family: Arial; font-size: 18px; opacity: 0.6;">No hay chats ni amigos disponibles.</div>'; 
-                return; 
-            }
-
-            let htmlBuilder = ''; // ✨ Buffer de optimización
-
-            sorted.forEach(chat => {
-                let unreadBadge = (chat.unreadCount && chat.unreadCount > 0) ? `<div style="background: #e74c3c; color: white; font-size: 14px; font-weight: bold; padding: 2px 8px; border-radius: 12px; margin-left: auto; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">${chat.unreadCount}</div>` : '';
-                let msgStyle = chat.lastMsg === "" ? "font-style: italic; opacity: 0.5;" : "";
-                
-                let isActive = typeof currentChatPartner !== 'undefined' && currentChatPartner && currentChatPartner.uid === chat.uid;
-                let bgStyle = isActive ? 'rgba(255,255,255,0.1)' : 'transparent';
-                let borderStyle = isActive ? '4px solid #4DA6FF' : '4px solid transparent';
-
-                // ✨ FIX SEGURIDAD: Protección contra nombres nulos
-                let displayName = chat.name || "Unknown User";
-                let safeName = displayName.replace(/'/g, "\\'");
-                
-                let isOnline = window.lastKnownUsers && window.lastKnownUsers[chat.uid];
-                let statusColor = isOnline ? '#2ecc71' : '#7f8c8d';
-
-                htmlBuilder += `
-                    <div style="background: ${bgStyle}; padding: 12px; display: flex; align-items: center; gap: 12px; border-left: ${borderStyle}; border-bottom: 1px solid #1a252f; cursor: pointer; transition: 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='${bgStyle}'" onclick="openPrivateChat('${chat.uid}', '${safeName}', '${chat.pfp}')">
-                        <div style="position: relative; width: 45px; height: 45px; flex-shrink: 0;">
-                            <div style="width: 100%; height: 100%; border-radius: 50%; background-image: url('${chat.pfp}'); background-size: cover; background-position: center; border: 2px solid #555;"></div>
-                            <div style="position: absolute; bottom: -2px; right: -2px; width: 14px; height: 14px; background-color: ${statusColor}; border: 3px solid #34495e; border-radius: 50%; box-sizing: border-box;"></div>
-                        </div>
-                        <div style="flex: 1; overflow: hidden; display: flex; align-items: center;">
-                            <div style="flex: 1; overflow: hidden;">
-                                <div style="color: white; font-size: 24px; font-weight: bold; font-family: 'Pixeltype', sans-serif;">${displayName}</div>
-                                <div style="color: #bdc3c7; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: Arial; ${msgStyle}">${chat.lastMsg || "Sin mensajes"}</div>
-                            </div>
-                            ${unreadBadge}
-                        </div>
-                    </div>
-                `;
-            });
-
-            container.innerHTML = htmlBuilder;
-        });
-    });
-};
-
-// ==========================================
-// ✨ CEREBRO DE EMOTES Y SEGURIDAD
-// ==========================================
-
-// 1. TUS EMOTES INTERNOS (Cambia las URLs por tus imágenes reales)
-window.customEmotes = {
-    "minifrank": "assets/emote_minifrank.png",
-};
-
-// 2. CATEGORÍAS DE EMOJIS ESTÁNDAR (ARSENAL COMPLETO)
-window.emojiCategories = [
-    { 
-        id: "peo", icon: "😃", name: "People", 
-        items: [
-            // Caritas y Emociones
-            "😀","😃","😄","😁","😆","😅","😂","🤣","🥲","☺️","😊","😇","🙂","🙃","😉","😌","😍","🥰","😘","😗","😙","😚","😋","😛","😝","😜","🤪","🤨","🧐","🤓","😎","🥸","🤩","🥳","😏","😒","😞","😔","😟","😕","🙁","☹️","😣","😖","😫","😩","🥺","😢","😭","😤","😠","😡","🤬","🤯","😳","🥵","🥶","😱","😨","😰","😥","😓","🤗","🤔","🫣","🤭","🤫","🤥","😶","😶‍🌫️","😐","😑","😬","🫨","🫠","🙄","😯","😦","😧","😮","😲","🥱","😴","🤤","😪","😵","😵‍💫","🤐","🥴","🤢","🤮","🤧","😷","🤒","🤕","🤑","🤠","😈","👿","👹","👺","🤡","💩","👻","💀","☠️","👽","👾","🤖","🎃",
-            // Manos y Gestos
-            "👐","🤲","🙌","👏","🤝","👍","👎","👊","✊","🤛","🤜","🤞","✌️","🫰","🤟","🤘","👌","🤌","🤏","🫳","🫴","👈","👉","👆","👇","☝️","✋","🤚","🖐️","🖖","👋","🤙","🫲","🫱","🫷","🫸","💪","🦾","🖕","✍️","🙏","🦶","🦵","🦿","💄","💋","👄","🦷","👅","👂","🦻","👃","👣","👁️","👀","🧠","🫀","🫁",
-            // Personas y Profesiones
-            "👶","👧","🧒","👦","👩","🧑","👨","👱‍♀️","👱","👱‍♂️","🧔‍♀️","🧔","🧔‍♂️","👵","🧓","👴","👲","👳‍♀️","👳","👳‍♂️","🧕","👮‍♀️","👮","👮‍♂️","👷‍♀️","👷","👷‍♂️","💂‍♀️","💂","💂‍♂️","🕵️‍♀️","🕵️","🕵️‍♂️","👩‍⚕️","🧑‍⚕️","👨‍⚕️","👩‍🌾","🧑‍🌾","👨‍🌾","👩‍🍳","🧑‍🍳","👨‍🍳","👩‍🎓","🧑‍🎓","👨‍🎓","👩‍🎤","🧑‍🎤","👨‍🎤","👩‍🏫","🧑‍🏫","👨‍🏫","👩‍🏭","🧑‍🏭","👨‍🏭","👩‍💻","🧑‍💻","👨‍💻","👩‍💼","🧑‍💼","👨‍💼","👩‍🔧","🧑‍🔧","👨‍🔧","👩‍🔬","🧑‍🔬","👨‍🔬","👩‍🎨","🧑‍🎨","👨‍🎨","👩‍🚒","🧑‍🚒","👨‍🚒","👩‍✈️","🧑‍✈️","👨‍✈️","👩‍🚀","🧑‍🚀","👨‍🚀","👩‍⚖️","🧑‍⚖️","👨‍⚖️","👰‍♀️","👰","👰‍♂️","🤵‍♀️","🤵","🤵‍♂️","👸","🫅","🤴","🥷","🦸‍♀️","🦸","🦸‍♂️","🦹‍♀️","🦹","🦹‍♂️","🤶","🧑‍🎄","🎅","🧙‍♀️","🧙","🧙‍♂️","🧝‍♀️","🧝","🧝‍♂️","🧛‍♀️","🧛","🧛‍♂️","🧟‍♀️","🧟","🧟‍♂️","🧞‍♀️","🧞","🧞‍♂️","🧜‍♀️","🧜","🧜‍♂️","🧚‍♀️","🧚","🧚‍♂️","👼","🤰","🫄","🫃","🤱","👩‍🍼","🧑‍🍼","👨‍🍼","🙇‍♀️","🙇","🙇‍♂️","💁‍♀️","💁","💁‍♂️","🙅‍♀️","🙅","🙅‍♂️","🙆‍♀️","🙆","🙆‍♂️","🙋‍♀️","🙋","🙋‍♂️","🧏‍♀️","🧏","🧏‍♂️","🤦‍♀️","🤦","🤦‍♂️","🤷‍♀️","🤷","🤷‍♂️","🙎‍♀️","🙎","🙎‍♂️","🙍‍♀️","🙍","🙍‍♂️","💇‍♀️","💇","💇‍♂️","💆‍♀️","💆","💆‍♂️","🧖‍♀️","🧖","🧖‍♂️","💅","🤳","💃","🕺","👯‍♀️","👯","👯‍♂️","🕴️","🚶‍♀️","🚶","🚶‍♂️","🧎‍♀️","🧎","🧎‍♂️","🏃‍♀️","🏃","🏃‍♂️","🧍‍♀️","🧍","🧍‍♂️","👭","🧑‍🤝‍🧑","👬","👫"
-        ] 
-    },
-    { id: "nat", icon: "🌿", name: "Nature", items: ["🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐸","🐵","🐔","🐧","🐦","🐤","🦆","🦅","🦉","🦇","🐺","🐗","🐴","🦄","🐝","🐛","🦋","🐌","🐞","🐜","🦟","🐢","🐍","🦎","🦖","🦕","🐙","🦑","🦐","🦞","🦀","🐡","🐠","🐟","🐬","🐳","🐋","🦈","🐊","🐅","🐆","🦓","🦍","🦧","🐘","🦛","🦏","🐪","🐫","🦒","🦘","🐃","🐂","🐄","🐎","🐖","🐏","🐑","🦙","🐐","🦌","🐕","🐩","🦮","🐕‍🦺","🐈","🐈‍⬛","🪶","🐓","🦃","🦚","🦜","🦢","🦩","🕊️","🐇","🦝","🦨","🦡","🦦","🦥","🐁","🐀","🐿️","🦔","🐾","🐉","🐲","🌵","🎄","🌲","🌳","🌴","🪵","🌱","🌿","☘️","🍀","🎍","🪴","🎋","🍃","🍂","🍁","🍄","🌾","💐","🌷","🌹","🥀","🌺","🌸","🌼","🌻","🌞","🌝","🌛","🌜","🌚","🌕","🌖","🌗","🌘","🌑","🌒","🌓","🌔","🌙","🌎","🌍","🌏","🪐","💫","⭐️","🌟","✨","⚡️","☄️","💥","🔥","🌪️","🌈","☀️","🌤️","⛅️","🌥️","☁️","🌦️","🌧️","⛈️","🌩️","🌨️","❄️","☃️","⛄️","🌬️","💨","💧","💦","☔️","☂️","🌊","🌫️"] },
-    { id: "foo", icon: "🍔", name: "Food", items: ["🍏","🍎","🍐","🍊","🍋","🍌","🍉","🍇","🍓","🫐","🍈","🍒","🍑","🥭","🍍","🥥","🥝","🍅","🍆","🥑","🥦","🥬","🥒","🌶️","🫑","🌽","🥕","🫒","🧄","🧅","🥔","🍠","🥐","🥯","🍞","🥖","🥨","🧀","🥚","🍳","🧈","🥞","🧇","🥓","🥩","🍗","🍖","🦴","🌭","🍔","🍟","🍕","🫓","🥪","🥙","🧆","🌮","🌯","🫔","🥗","🥘","🫕","🥫","🍝","🍜","🍲","🍛","🍣","🍱","🥟","🦪","🍤","🍙","🍚","🍘","🍥","🥠","🥮","🍢","🍡","🍧","🍨","🍦","🥧","🧁","🍰","🎂","🍮","🍭","🍬","🍫","🍿","🍩","🍪","🌰","🥜","🍯","🥛","🍼","🫖","☕️","🍵","🧃","🥤","🧋","🍶","🍺","🍻","🥂","🍷","🥃","🍸","🍹","🧉","🍾","🧊","🥄","🍴","🍽️","🥣","🥡","🥢","🧂"] },
-    { id: "act", icon: "⚽", name: "Activities", items: ["⚽️","🏀","🏈","⚾️","🥎","🎾","🏐","🏉","🥏","🎱","🪀","🏓","🏸","🏒","🏑","🥍","🏏","🪃","🥅","⛳️","🪁","🏹","🎣","🤿","🥊","🥋","🎽","🛹","🛼","🛷","⛸️","🥌","🎿","⛷️","🏂","🪂","🏋️‍♀️","🏋️","🏋️‍♂️","🤼‍♀️","🤼","🤼‍♂️","🤸‍♀️","🤸","🤸‍♂️","⛹️‍♀️","⛹️","⛹️‍♂️","🤺","🤾‍♀️","🤾","🤾‍♂️","🏌️‍♀️","🏌️","🏌️‍♂️","🏇","🧘‍♀️","🧘","🧘‍♂️","🏄‍♀️","🏄","🏄‍♂️","🏊‍♀️","🏊","🏊‍♂️","🤽‍♀️","🤽","🤽‍♂️","🚣‍♀️","🚣","🚣‍♂️","🧗‍♀️","🧗","🧗‍♂️","🚵‍♀️","🚵","🚵‍♂️","🚴‍♀️","🚴","🚴‍♂️","🏆","🥇","🥈","🥉","🏅","🎖️","🏵️","🎗️","🎫","🎟️","🎪","🤹‍♀️","🤹","🤹‍♂️","🎭","🩰","🎨","🎬","🎤","🎧","🎼","🎹","🥁","🪘","🎷","🎺","🪗","🎸","🪕","🎻","🎲","♟️","🎯","🎳","🎮","🎰","🧩"] },
-    { id: "tri", icon: "🚗", name: "Trips", items: ["🚗","🚕","🚙","🚌","🚎","🏎️","🚓","🚑","🚒","🚐","🛻","🚚","🚛","🚜","🦯","🦽","🦼","🛴","🚲","🛵","🏍️","🛺","🚨","🚔","🚍","🚘","🚖","🚡","🚠","🚟","🚃","🚋","🚞","🚝","🚄","🚅","🚈","🚂","🚆","🚇","🚊","🚉","✈️","🛫","🛬","🛩️","💺","🛰️","🚀","🛸","🚁","🛶","⛵️","🚤","🛥️","🛳️","⛴️","🚢","⚓️","🪝","⛽️","🚧","🚦","🚥","🚏","🗺️","🗿","🗽","🗼","🏰","🏯","🏟️","🎡","🎢","🎠","⛲️","⛱️","🏖️","🏝️","🏜️","🌋","⛰️","🏔️","🗻","🏕️","⛺️","🛖","🏠","🏡","🏘️","🏚️","🏗️","🏭","🏢","🏬","🏣","🏤","🏥","🏦","🏨","🏪","🏫","🏩","💒","🏛️","⛪️","🕌","🕍","🛕","🕋","⛩️","🛤️","🛣️","🗾","🎑","🏞️","🌅","🌄","🌠","🎇","🎆","🌇","🌆","🏙️","🌃","🌌","🌉","🌁"] },
-    { id: "obj", icon: "💡", name: "Objects", items: ["⌚️","📱","📲","💻","⌨️","🖥️","🖨️","🖱️","🖲️","🕹️","🗜️","💽","💾","💿","📀","📼","📷","📸","📹","🎥","📽️","🎞️","📞","☎️","📟","📠","📺","📻","🎙️","🎚️","🎛️","🧭","⏱️","⏲️","⏰","🕰️","⌛️","⏳","📡","🔋","🔌","💡","🔦","🕯️","🪔","🧯","🛢️","💸","💵","💴","💶","💷","🪙","💰","💳","💎","⚖️","🪜","🧰","🪛","🔧","🔨","⚒️","🛠️","⛏️","🪚","🔩","⚙️","🪤","🧱","⛓️","🧲","🔫","💣","🧨","🪓","🔪","🗡️","⚔️","盾","🚬","⚰️","🪦","⚱️","🏺","🔮","📿","🧿","💈","⚗️","🔭","🔬","🕳️","🩹","🩺","💊","💉","🩸","🧬","🦠","🧫","🧪","🌡️","🧹","🪠","🧺","🧻","🚽","🚰","🚿","🛁","🛀","🧼","🪥","🪒","🧽","🪣","🧴","🛎️","🔑","🗝️","🚪","🪑","🛋️","🛏️","🛌","🧸","🪆","🖼️","🪞","🪟","🛍️","🛒","🎁","🎈","🎏","🎀","🪄","🪅","🎊","🎉","🎎","🏮","🎐","🧧","✉️","📩","📨","📧","💌","📥","📤","📦","🏷️","🪧","📪","📫","📬","📭","📮","📯","📜","📃","📄","📑","🧾","📊","📈","📉","🗒️","🗓️","📆","📅","🗑️","📇","🗃️","🗳️","🗄️","📋","📁","📂","🗂️","🗞️","📰","📓","📔","📒","📕","📗","📘","📙","📚","📖","🔖","🧷","🔗","📎","🖇️","📐","📏","🧮","📌","📍","✂️","🖊️","🖋️","✒️","🖌️","🖍️","📝","✏️","🔍","🔎","🔏","🔐","🔒","🔓"] },
-    { id: "sym", icon: "❤️", name: "Symbols", items: ["❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","❣️","💕","💞","💓","💗","💖","💘","💝","💟","☮️","✝️","☪️","🕉️","☸️","✡️","🔯","🕎","☯️","☦️","🛐","⛎","♈️","♉️","♊️","♋️","♌️","♍️","♎️","♏️","♐️","♑️","♒️","♓️","🆔","⚛️","🉑","☢️","☣️","📴","📳","🈶","🈚️","🈸","🈺","🈷️","✴️","🆚","💮","🉐","㊙️","㊗️","🈴","🈵","🈹","🈲","🅰️","🅱️","🆎","🆑","🅾️","🆘","❌","⭕️","🛑","⛔️","📛","🚫","💯","💢","♨️","🚷","🚯","🚳","🚱","🔞","📵","🚭","❗️","❕","❓","❔","‼️","⁉️","🔅","🔆","〽️","⚠️","🚸","🔱","⚜️","🔰","♻️","✅","🈯️","💹","❇️","✳️","❎","🌐","💠","Ⓜ️","🌀","💤","🏧","🚾","♿️","🅿️","🛗","🈳","🈂️","🛂","🛃","🛄","🛅","🚹","🚺","🚼","⚧️","🚻","🚮","🎦","📶","🈁","🔣","ℹ️","🔤","🔡","🔠","🆖","🆗","🆙","🆒","🆕","🆓","0️⃣","1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟","🔢","#️⃣","*️⃣","⏏️","▶️","⏸️","⏯️","⏹️","⏺️","⏭️","⏮️","⏩","⏪","⏫","⏬","◀️","🔼","🔽","➡️","⬅️","⬆️","⬇️","↗️","↘️","↙️","↖️","↕️","↔️","↪️","↩️","⤴️","⤵️","🔀","🔁","🔂","🔄","🔃","🎵","🎶","➕","➖","➗","✖️","♾️","💲","💱","™️","©️","®️","〰️","➰","➿","🔚","🔙","🔛","🔝","🔜","✔️","☑️","🔘","🔴","🟠","🟡","🟢","🔵","🟣","⚫️","⚪️","🟤","🔺","🔻","🔸","🔹","🔶","🔷","🔳","🔲","▪️","▫️","◾️","◽️","◼️","◻️","🟥","🟧","🟨","🟩","🟦","🟪","⬛️","⬜️","🟫","🔈","🔇","🔉","🔊","🔔","🔕","📣","📢","👁‍🗨","💬","💭","🗯️","♠️","♣️","♥️","♦️","🃏","🎴","🀄️","🕐","🕑","🕒","🕓","🕔","🕕","🕖","🕗","🕘","🕙","🕚","🕛","🕜","🕝","🕞","🕟","🕠","🕡","🕢","🕣","🕤","🕥","🕦","🕧"] },
-    { id: "fla", icon: "🏁", name: "Flags", items: ["🏁","🚩","🎌","🏴","🏳️","🏳️‍🌈","🏳️‍⚧️","🏴‍☠️","🇲🇽","🇪🇸","🇺🇸","🇨🇦","🇦🇷","🇨🇴","🇨🇱","🇵🇪","🇬🇧","🇫🇷","🇩🇪","🇮🇹","🇯🇵","🇰🇷","🇨🇳","🇧🇷","🇮🇳","🇷🇺","🇿🇦","🇦🇺","🇳🇿"] }
-];
-
-// 3. SEGURIDAD CONTRA HACKEOS (XSS)
-window.escapeHTML = function(str) {
-    return String(str || "").replace(/[&<>'"]/g, tag => ({
-        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
-    }[tag] || tag));
-};
-
-// 4. EL CONVERTIDOR MÁGICO (Detecta si va solo para hacerlo 56x56 o 24x24)
-window.parseEmotes = function(safeText) {
-    let cleanText = safeText.trim();
-    // Revisa si el mensaje son PURAS etiquetas de emotes separados por espacios
-    let onlyEmotesRegex = /^(\s*:[a-zA-Z0-9_]+:\s*)+$/;
-    let isOnlyEmotes = onlyEmotesRegex.test(cleanText);
-    
-    let size = isOnlyEmotes ? '56px' : '24px';
-    
-    // ✨ FIX: Truco CSS estilo Discord para centrar la imagen en medio del texto
-    // Si va acompañado de texto, lo bajamos 6 pixeles para clavarlo en el centro de la letra
-    let alignStyle = isOnlyEmotes ? 'vertical-align: middle;' : 'vertical-align: -6px; margin: 0 2px;';
-
-    return cleanText.replace(/:([a-zA-Z0-9_]+):/g, (match, name) => {
-        if (window.customEmotes[name]) {
-            return `<img src="${window.customEmotes[name]}" style="width:${size}; height:${size}; ${alignStyle} display:inline-block;" alt="${name}" title=":${name}:" onerror="this.src='assets/default pfp.png';">`;
-        }
-        return match; 
-    });
-};
-
-// 5. GUARDAR EMOTES RECIENTES
-window.saveRecentEmote = function(emoteName) {
-    let recents = JSON.parse(localStorage.getItem('mbw_recent_emotes') || "[]");
-    recents = recents.filter(e => e !== emoteName); // Quita duplicados
-    recents.unshift(emoteName); // Lo pone al inicio
-    if(recents.length > 10) recents.pop(); // Máximo 10 recientes
-    localStorage.setItem('mbw_recent_emotes', JSON.stringify(recents));
-};
-
-// ==========================================
-// ✨ EL CHAT Y EL PANEL DISCORD (CONSOLIDADO)
-// ==========================================
-
-// ✨ NUEVO: Convertidor de tiempo extendido (Minutos, Horas, Días, Meses, Años)
-window.formatTimeAgo = function(timestamp) {
-    // Si el usuario nunca en su vida ha entrado desde que pusiste esta actualización
-    if (!timestamp) return "Desconectado"; 
-
-    const diff = Date.now() - timestamp;
-    const mins = Math.floor(diff / 60000);
-
-    if (mins < 1) return "Activo hace un momento";
-    if (mins < 60) return `Activo hace ${mins} min`;
-
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `Activo hace ${hours} hora${hours !== 1 ? 's' : ''}`;
-
-    const days = Math.floor(hours / 24);
-    if (days === 1) return "Activo ayer";
-    if (days < 30) return `Activo hace ${days} días`;
-
-    const months = Math.floor(days / 30);
-    if (months < 12) return `Activo hace ${months} mes${months !== 1 ? 'es' : ''}`;
-
-    const years = Math.floor(days / 365);
-    return `Activo hace ${years} año${years !== 1 ? 's' : ''}`;
-};
-
-window.openPrivateChat = function(otherUid, otherName, otherPfp = "assets/default pfp.png") {
-    
-    // 1. ✨ FIX: FORZAR LA UI (Mostrar el chat activo y ocultar el placeholder de "Selecciona un chat")
-    const placeholder = document.getElementById('full-chat-placeholder');
-    const activeChat = document.getElementById('full-chat-active');
-    if (placeholder) placeholder.style.display = 'none';
-    if (activeChat) activeChat.style.display = 'flex';
-
-    // 2. Limpieza de listeners anteriores
-    if (currentChatListener && currentChatId) {
-        database.ref('private_chats/' + currentChatId).off('child_added', currentChatListener);
-        database.ref('private_chats/' + currentChatId).off('child_changed');
-    }
-    if (window.typingListener && currentChatId && currentChatPartner) {
-        database.ref('typing_status/' + currentChatId + '/' + currentChatPartner.uid).off('value', window.typingListener);
-    }
-    if (window.statusListener && window.lastChatStatusRef) {
-        window.lastChatStatusRef.off('value', window.statusListener);
-        window.statusListener = null;
-    }
-
-    // 3. Configuración de IDs y compañero
-    const myUID = localStorage.getItem('mbw_uid');
-    currentChatId = myUID < otherUid ? myUID + "_" + otherUid : otherUid + "_" + myUID;
-    currentChatPartner = { uid: otherUid, name: otherName, pfp: otherPfp };
-
-    // Poner contadores de no leídos a 0
-    database.ref('user_chats/' + myUID + '/' + otherUid).update({ unreadCount: 0 });
-
-    // 4. Actualizar Cabecera Visual
-    const headerName = document.getElementById('full-chat-header-name');
-    const headerPfp = document.getElementById('full-chat-header-pfp');
-    const messagesContainer = document.getElementById('full-dm-messages');
-    const dmInput = document.getElementById('full-dm-input');
-
-    if (headerName) {
-        headerName.innerHTML = `
-            <div style="line-height: 1.1;">${otherName}</div>
-            <div style="font-size: 14px; font-family: Arial, sans-serif; font-weight: normal; margin-top: 3px; display: flex; align-items: center; gap: 5px;">
-                <span id="chat-status-dot" style="width: 10px; height: 10px; border-radius: 50%; background: #95a5a6; display: inline-block; border: 2px solid var(--bg-panel, #2b2d31); box-sizing: border-box;"></span>
-                <span id="chat-header-status-text" style="color: #bdc3c7;">Cargando...</span>
-            </div>
-        `;
-    }
-
-    if (headerPfp) headerPfp.style.backgroundImage = `url('${otherPfp}')`;
-    if (messagesContainer) messagesContainer.innerHTML = ''; 
-
-    // 5. Listener de Estado (Activo hace X tiempo)
-    window.lastChatStatusRef = database.ref('users_status/' + otherUid);
-    window.statusListener = window.lastChatStatusRef.on('value', (snap) => {
-        const status = snap.val();
-        const textEl = document.getElementById('chat-header-status-text');
-        const dotEl = document.getElementById('chat-status-dot');
-        if (!textEl || !dotEl) return;
-
-        if (status && status.isOnline) {
-            textEl.innerText = "Activo ahora";
-            textEl.style.color = "#2ecc71";
-            dotEl.style.background = "#2ecc71";
-        } else {
-            textEl.innerText = status ? (typeof window.formatTimeAgo === 'function' ? window.formatTimeAgo(status.lastSeen) : "Desconectado") : "Desconectado";
-            textEl.style.color = "#95a5a6";
-            dotEl.style.background = "#95a5a6";
-        }
-    });
-
-    // 6. Actualizar lista de la izquierda
-    const listContainer = document.getElementById('full-chat-list-container');
-    if (listContainer && typeof renderChatList === 'function') renderChatList(listContainer);
-
-    // 7. Botón de Scroll
-    const activePanel = document.getElementById('mp-full-chat-view');
-    let scrollBtn = document.getElementById('chat-scroll-bottom-btn');
-    if (!scrollBtn) {
-        scrollBtn = document.createElement('button');
-        scrollBtn.id = 'chat-scroll-bottom-btn';
-        scrollBtn.innerHTML = '⬇️ Nuevos';
-        scrollBtn.style.cssText = 'display: none; position: absolute; bottom: 80px; right: 20px; background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.4); font-weight: bold; font-family: Arial; z-index: 100; transition: transform 0.2s;';
-        scrollBtn.onmouseover = () => scrollBtn.style.transform = 'scale(1.05)';
-        scrollBtn.onmouseout = () => scrollBtn.style.transform = 'scale(1)';
-        scrollBtn.onclick = () => {
-            if (messagesContainer) messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            scrollBtn.style.display = 'none';
-        };
-        if (activePanel) activePanel.appendChild(scrollBtn);
-    }
-
-    if (messagesContainer) {
-        messagesContainer.onscroll = () => {
-            let isAtBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < 20;
-            if (isAtBottom && scrollBtn) scrollBtn.style.display = 'none';
-        };
-    }
-
-    // 8. Cargar historial
-    let isHistoryLoaded = false;
-    const chatRef = database.ref('private_chats/' + currentChatId);
-    chatRef.once('value').then(() => { isHistoryLoaded = true; });
-
-    let lastRenderedDate = ""; 
-    
-    // 9. Función Render Bubble
-    const renderBubble = (msg, msgKey) => {
-        const isMe = msg.sender === myUID;
-        const date = new Date(msg.timestamp || Date.now());
-        const timeString = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-
-        let textToRender = "";
-        let extraStyle = "";
-
-        if (msg.isDeleted) {
-            textToRender = "🚫 Este mensaje fue eliminado";
-            extraStyle = "font-style: italic; opacity: 0.6;";
-        } else {
-			let safeText = typeof window.escapeHTML === 'function' ? window.escapeHTML(msg.text) : msg.text;
-            let emotedText = typeof window.parseEmotes === 'function' ? window.parseEmotes(safeText) : safeText; 
-            
-            // ✨ NUEVO: Convertir saltos de línea a <br>
-            emotedText = emotedText.replace(/\n/g, '<br>');
-            
-            // Convertimos enlaces a etiquetas clickeables
-            let linkedText = emotedText.replace(
-                /(https?:\/\/[^\s<]+)/g,
-                '<a href="$1" target="_blank" style="color: #3498db; text-decoration: underline; cursor: pointer;" onclick="event.stopPropagation();">$1</a>'
-            );
-
-            // ✨ NUEVO: Reemplazamos coordenadas por enlaces de teletransporte (Color Verde)
-            textToRender = linkedText.replace(/(?:x:\s*)?(-?\d+)\s*(?:,|y:)\s*(-?\d+)/gi, 
-                '<span style="color: #2ecc71; text-decoration: underline; font-weight: bold; cursor: pointer;" onclick="if(window.camera !== undefined){camera.x=$1; camera.y=$2; window.worldDirty=true;} event.stopPropagation();" title="Teletransportar">[$1, $2]</span>'
-            );
-            
-            if (msg.isEdited) textToRender += ' <span style="font-size: 11px; opacity: 0.6; margin-left: 6px;">(editado)</span>';
-        }
-
-        let replyHtml = '';
-        if (msg.replyTo) {
-            let safeReplyName = typeof window.escapeHTML === 'function' ? window.escapeHTML(msg.replyTo.senderName) : msg.replyTo.senderName;
-            let safeReplyText = typeof window.escapeHTML === 'function' ? window.escapeHTML(msg.replyTo.text) : msg.replyTo.text;
-            let parsedReplyText = typeof window.parseEmotes === 'function' ? window.parseEmotes(safeReplyText) : safeReplyText;
-            
-            replyHtml = `
-                <div style="background: rgba(0,0,0,0.15); border-left: 3px solid #f1c40f; padding: 5px 8px; margin-bottom: 8px; border-radius: 4px; font-family: Arial;">
-                    <b style="display: block; font-size: 11px; color: #f1c40f;">${safeReplyName}</b>
-                    <span style="display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; font-size: 13px; opacity: 0.8;">${parsedReplyText}</span>
-                </div>
-            `;
-        }
-
-        let reactionsHtml = '';
-        if (msg.reactions && !msg.isDeleted) {
-            let counts = {};
-            let myReacts = {}; 
-            for (let uid in msg.reactions) {
-                let e = msg.reactions[uid];
-                counts[e] = (counts[e] || 0) + 1;
-                if (uid === myUID) myReacts[e] = true;
-            }
-            let badges = '';
-            for (let e in counts) {
-                let highlight = myReacts[e] ? 'border-color: #3498db; background: #1e1e1e;' : 'border-color: #3e3e42; background: #252526;';
-                badges += `<span onclick="window.toggleReaction('${msgKey}', '${e}'); event.stopPropagation();" style="${highlight} border-width: 1px; border-style: solid; border-radius: 12px; padding: 2px 6px; font-size: 11px; display: inline-flex; align-items: center; gap: 3px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: transform 0.1s;" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">${e} <span style="font-size: 10px; opacity: 0.8;">${counts[e]}</span></span>`;
-            }
-            reactionsHtml = `<div style="position: absolute; bottom: -12px; right: -5px; display: flex; flex-wrap: wrap; gap: 4px; z-index: 5;">${badges}</div>`;
-        }
-
-        let ticksHtml = isMe ? `<span id="ticks-${msgKey}" style="color: ${msg.status === 'read' ? '#3498db' : '#bdc3c7'}; font-size: 13px; margin-left: 4px; font-weight: bold;">✓✓</span>` : '';
-
-        return `
-            ${replyHtml}
-            <div id="msg-text-${msgKey}" style="margin-bottom: 2px; ${extraStyle}">${textToRender}</div>
-            <div style="font-size: 10px; text-align: right; opacity: 0.7; margin-top: 4px; font-weight: bold;">
-                ${timeString} ${ticksHtml}
-            </div>
-            ${reactionsHtml}
-        `;
-    };
-
-    // 10. Listener de nuevos mensajes
-    currentChatListener = chatRef.on('child_added', (snap) => {
-        const msg = snap.val();
-        const msgKey = snap.key;
-        const isMe = msg.sender === myUID;
-
-        if (!isMe && activePanel && activePanel.offsetWidth > 0 && currentChatPartner.uid === otherUid) {
-            if (msg.status !== 'read') database.ref('private_chats/' + currentChatId + '/' + msgKey).update({ status: 'read' });
-            if (isHistoryLoaded && typeof audioManager !== 'undefined') audioManager.playTone(600, 'sine', 0.05, 0.1);
-        }
-
-        const date = new Date(msg.timestamp || Date.now());
-        const today = new Date();
-        const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
-
-        let dateString = "";
-        if (date.toDateString() === today.toDateString()) dateString = "Hoy";
-        else if (date.toDateString() === yesterday.toDateString()) dateString = "Ayer";
-        else dateString = date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
-
-        if (dateString !== lastRenderedDate) {
-            const sepDiv = document.createElement('div');
-            sepDiv.style.textAlign = 'center'; sepDiv.style.margin = '15px 0'; sepDiv.style.width = '100%';
-            sepDiv.innerHTML = `<span style="background: rgba(0,0,0,0.5); color: #ecf0f1; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-family: Arial, sans-serif; font-weight: bold; box-shadow: 0 1px 3px rgba(0,0,0,0.4); text-transform: capitalize;">${dateString}</span>`;
-            if (messagesContainer) messagesContainer.appendChild(sepDiv);
-            lastRenderedDate = dateString; 
-        }
-
-        const hasReactions = msg.reactions && !msg.isDeleted;
-        const msgRow = document.createElement('div');
-        msgRow.style.cssText = `display: flex; align-items: flex-end; gap: 8px; margin-bottom: ${hasReactions ? '22px' : '10px'}; width: 100%; flex-direction: ${isMe ? 'row-reverse' : 'row'}; transition: margin 0.2s;`;
-        
-        const avatarDiv = document.createElement('div');
-        avatarDiv.style.cssText = `width: 32px; height: 32px; border-radius: 50%; background-image: url('${isMe ? localStorage.getItem('mbw_profile_pic') : currentChatPartner.pfp}'); background-size: cover; flex-shrink: 0; border: 1px solid #333;`;
-
-        const bubbleDiv = document.createElement('div');
-        bubbleDiv.style.cssText = `position: relative; overflow: visible; background: ${isMe ? '#1a252f' : '#34495e'}; color: white; padding: 8px 12px 4px 12px; border-radius: ${isMe ? '15px 15px 0 15px' : '15px 15px 15px 0'}; max-width: 210px; font-family: Arial; font-size: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); word-wrap: break-word; cursor: pointer;`;
-        
-        bubbleDiv.innerHTML = renderBubble(msg, msgKey);
-
-        bubbleDiv.addEventListener('contextmenu', (e) => {
-            e.preventDefault(); e.stopPropagation();
-            if (typeof window.showChatContextMenu === 'function') window.showChatContextMenu(e.clientX, e.clientY, msgKey, msg, isMe);
-        });
-
-        msgRow.appendChild(avatarDiv); msgRow.appendChild(bubbleDiv);
-        
-        if (messagesContainer) {
-            messagesContainer.appendChild(msgRow);
-            
-            let isAtBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < 60;
-            if (isMe || isAtBottom || !isHistoryLoaded) {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                if (scrollBtn) scrollBtn.style.display = 'none';
-            } else if (isHistoryLoaded) {
-                if (scrollBtn) scrollBtn.style.display = 'block';
-            }
-        }
-    });
-
-    // 11. Listener de edición/borrado de mensajes
-    chatRef.on('child_changed', (snap) => {
-        const msg = snap.val();
-        if (msg.sender === myUID) {
-            const tick = document.getElementById(`ticks-${snap.key}`);
-            if (tick) tick.style.color = msg.status === 'read' ? '#3498db' : '#bdc3c7';
-        }
-        const bubble = document.getElementById(`msg-text-${snap.key}`);
-        if (bubble && bubble.parentElement) {
-            bubble.parentElement.innerHTML = renderBubble(msg, snap.key);
-            const hasReactions = msg.reactions && !msg.isDeleted;
-            bubble.parentElement.parentElement.style.marginBottom = hasReactions ? '22px' : '10px';
-        }
-    });
-
-    // 12. Escribiendo... (Typing indicator)
-    let typingIndicator = document.getElementById('dm-typing-indicator');
-    if (!typingIndicator) {
-        typingIndicator = document.createElement('div');
-        typingIndicator.id = 'dm-typing-indicator';
-        typingIndicator.style.cssText = `position: absolute; bottom: 65px; left: 0; width: 100%; padding: 40px 15px 10px 15px; color: #2ecc71; font-size: 26px; font-style: italic; font-family: 'Pixeltype', sans-serif; background: linear-gradient(to top, rgba(44,62,80,0.9) 0%, transparent 100%); pointer-events: none; box-sizing: border-box; text-shadow: 2px 2px 2px #000; z-index: 99; display: none; transition: opacity 0.3s;`;
-        
-        const chatActiveContainer = document.getElementById('full-chat-active');
-        if (chatActiveContainer) {
-            chatActiveContainer.style.position = 'relative'; 
-            chatActiveContainer.appendChild(typingIndicator);
-        }
-    }
-
-    window.typingListener = database.ref('typing_status/' + currentChatId + '/' + otherUid).on('value', (snap) => {
-        if (snap.val() === true) {
-            typingIndicator.innerText = `${otherName} está escribiendo...`;
-            typingIndicator.style.display = 'block';
-            if (messagesContainer) messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        } else {
-            typingIndicator.style.display = 'none';
-        }
-    });
-};
+// (openPrivateChat, la lista de chats y todo el dibujo de la conversación viven ahora en scripts/chat-dm.js)
 
 // ==========================================
 // ✨ LISTENERS GLOBALES
@@ -1873,12 +1304,34 @@ window.startFriendListeners = function() {
         }
     };
 
+    const setBadge = (id, n) => {
+        const el = document.getElementById(id);
+        if (el) { el.innerText = n; el.style.display = n > 0 ? 'block' : 'none'; }
+    };
+    // La gente bloqueada no cuenta en ningún contador
+    const countRequests = (requests) => {
+        let n = 0;
+        if (requests) { for (let id in requests) { if (!requests[id].status && !window.isBlocked(id)) n++; } }
+        return n;
+    };
+    const countUnreadChats = (chats) => {
+        let n = 0;
+        if (chats) { for (let id in chats) { if (chats[id].unreadCount && chats[id].unreadCount > 0 && !window.isBlocked(id) && !(window.isChatMuted && window.isChatMuted(id))) n++; } }
+        return n;
+    };
+    const countInvites = (invites) => invites ? Object.keys(invites).filter(id => !window.isBlocked(id)).length : 0;
+
+    // Se llama al bloquear/desbloquear para que los contadores se recalculen al instante
+    window.refreshSocialBadges = function() {
+        Promise.all([
+            database.ref('friend_requests/' + myUID).once('value').then(s => setBadge('badge-friends', countRequests(s.val()))),
+            database.ref('user_chats/' + myUID).once('value').then(s => setBadge('badge-messages', countUnreadChats(s.val()))),
+            database.ref('server_invites/' + myUID).once('value').then(s => setBadge('badge-invites', countInvites(s.val())))
+        ]).then(() => window.updateGlobalMpBadge()).catch(() => {});
+    };
+
     database.ref('friend_requests/' + myUID).on('value', (snapshot) => {
-        const requests = snapshot.val();
-        let pending = 0;
-        if (requests) { for (let id in requests) { if (!requests[id].status) pending++; } }
-        const badge = document.getElementById('badge-friends');
-        if (badge) { badge.innerText = pending; badge.style.display = pending > 0 ? 'block' : 'none'; }
+        setBadge('badge-friends', countRequests(snapshot.val()));
         if (typeof currentSidebarMode !== 'undefined' && currentSidebarMode === 'friends') {
             const content = document.getElementById('sidebar-content');
             if (content) renderFriendRequests(content);
@@ -1889,15 +1342,18 @@ window.startFriendListeners = function() {
     database.ref('friends/' + myUID).on('value', (snapshot) => {
         const friendsObj = snapshot.val();
         if (typeof misAmigosConfirmados !== 'undefined') misAmigosConfirmados = friendsObj ? Object.keys(friendsObj) : [];
+        // Guardamos el nombre/foto de cada amigo (si el registro los trae) para usarlos aunque esté desconectado
+        window.friendProfiles = {};
+        if (friendsObj) {
+            for (let uid in friendsObj) {
+                if (friendsObj[uid] && typeof friendsObj[uid] === 'object') window.friendProfiles[uid] = friendsObj[uid];
+            }
+        }
         if(typeof window.renderPresenceList === 'function') window.renderPresenceList(); 
     });
 
     database.ref('user_chats/' + myUID).on('value', (snapshot) => {
-        const chats = snapshot.val();
-        let unreadUsers = 0; 
-        if (chats) { for (let id in chats) { if (chats[id].unreadCount && chats[id].unreadCount > 0) unreadUsers++; } }
-        const badgeMsgs = document.getElementById('badge-messages');
-        if (badgeMsgs) { badgeMsgs.innerText = unreadUsers; badgeMsgs.style.display = unreadUsers > 0 ? 'block' : 'none'; }
+        setBadge('badge-messages', countUnreadChats(snapshot.val()));
         
         if (typeof currentSidebarMode !== 'undefined' && currentSidebarMode === 'chats') {
             const content = document.getElementById('full-chat-list-container');
@@ -1907,10 +1363,7 @@ window.startFriendListeners = function() {
     });
 
     database.ref('server_invites/' + myUID).on('value', (snapshot) => {
-        const invites = snapshot.val();
-        let count = invites ? Object.keys(invites).length : 0;
-        const badgeInv = document.getElementById('badge-invites');
-        if (badgeInv) { badgeInv.innerText = count; badgeInv.style.display = count > 0 ? 'block' : 'none'; }
+        setBadge('badge-invites', countInvites(snapshot.val()));
         if (typeof currentSidebarMode !== 'undefined' && currentSidebarMode === 'invites') {
             const content = document.getElementById('sidebar-content');
             if (content) renderServerInvites(content);
@@ -1920,6 +1373,7 @@ window.startFriendListeners = function() {
 
     const handleNewInvite = (snapshot) => {
         if (isInitialLoad) return; 
+        if (window.isBlocked(snapshot.key)) return;
         const inv = snapshot.val();
         if (typeof audioManager !== 'undefined') audioManager.playTone(800, 'sine', 0.1, 0.3); 
         showDesktopNotification("🎮 " + inv.hostName + " invited you", "Map: " + inv.mapName, inv.hostPfp, () => {
@@ -1932,17 +1386,36 @@ window.startFriendListeners = function() {
 
     const handleNewMessage = (snapshot) => {
         if (isInitialLoad) return; 
+        if (window.isBlocked(snapshot.key)) return;
         const chat = snapshot.val();
+        if (!chat) return;
+        // Nombre/foto con respaldo (si el registro no los trae, no mostramos "undefined")
+        const info = window.resolveChatInfo(snapshot.key, chat);
         
-        // ✨ FIX: Inteligencia para NO lanzar notificación si ya lo estás viendo
+        // ¿Lo estás viendo ahora mismo? (chat abierto, panel visible y la pestaña a la vista)
         const activePanel = document.getElementById('full-chat-active');
-        const isLookingAtThisChat = currentChatPartner && currentChatPartner.uid === snapshot.key && activePanel && activePanel.offsetWidth > 0;
+        const isLookingAtThisChat = currentChatPartner && currentChatPartner.uid === snapshot.key && activePanel && activePanel.offsetWidth > 0 && document.visibilityState === 'visible';
+
+        // Si lo estás viendo, el contador de no leídos de la lista se queda en 0 (antes se quedaba pegado)
+        if (isLookingAtThisChat && chat.unreadCount > 0) {
+            database.ref('user_chats/' + myUID + '/' + snapshot.key).update({ unreadCount: 0 });
+            if (typeof window.dmMarkRead === 'function') window.dmMarkRead();
+            return;
+        }
+
+        // Chat silenciado: sin sonido ni aviso emergente (el contador sí se ve en la lista)
+        if (window.isChatMuted && window.isChatMuted(snapshot.key)) return;
 
         if (chat.unreadCount && chat.unreadCount > 0 && !isLookingAtThisChat) {
             if (typeof audioManager !== 'undefined') audioManager.playTone(600, 'sine', 0.1, 0.2);
-            showDesktopNotification("💬 " + chat.name, chat.lastMsg, chat.pfp, () => {
+            showDesktopNotification("💬 " + info.name, chat.lastMsg || '', info.pfp, () => {
                 if (typeof openFileMenu === 'function') openFileMenu();
-                setTimeout(() => { openMpSidebar('chats'); openPrivateChat(snapshot.key, chat.name, chat.pfp); }, 100);
+                // openMpSidebar acomoda las vistas con un pequeño retraso: abrimos el chat DESPUÉS
+                // (antes se abría en seguida y la vista lo volvía a ocultar)
+                setTimeout(() => {
+                    openMpSidebar('chats');
+                    setTimeout(() => { openPrivateChat(snapshot.key, info.name, info.pfp); }, 60);
+                }, 100);
             });
         }
     };
@@ -1951,6 +1424,7 @@ window.startFriendListeners = function() {
 
     const handleNewFriendReq = (snapshot) => {
         if (isInitialLoad) return;
+        if (window.isBlocked(snapshot.key)) return;
         const req = snapshot.val();
         if (req.status) return; 
         if (typeof audioManager !== 'undefined') audioManager.playTone(800, 'sine', 0.1, 0.3);
@@ -1964,51 +1438,9 @@ window.startFriendListeners = function() {
     setTimeout(() => { isInitialLoad = false; }, 2000);
 };
 
-let typingTimeout; // Temporizador global
-
 function initMultiplayerModule() {
     setTimeout(initPresenceSystem, 1000);
-    const dmInput = document.getElementById('full-dm-input');
-    
-    if (dmInput) {
-        dmInput.addEventListener('keydown', function(e) { 
-            if (e.key === 'Enter') {
-                if (e.shiftKey) {
-                    // Permitir el salto de línea normal (Shift + Enter)
-                    return;
-                } else {
-                    // Evitar el salto de línea normal y enviar el mensaje
-                    e.preventDefault(); 
-                    sendPrivateMessage(); 
-                }
-            }
-        });
-
-        // Auto-expandir la caja de texto al escribir saltos de línea
-        dmInput.addEventListener('input', function() {
-            this.style.height = 'auto'; // Resetea para recalcular
-            this.style.height = (this.scrollHeight) + 'px'; // Crece según el texto
-            
-            // Poner un límite máximo de altura (120px)
-            if(parseInt(this.style.height) > 120) {
-                this.style.height = '120px';
-                this.style.overflowY = 'auto';
-            } else {
-                this.style.overflowY = 'hidden';
-            }
-
-            // ---- Lógica de Escribiendo (Typing Status) ----
-            if (!currentChatId) return;
-            const myUID = localStorage.getItem('mbw_uid');
-            
-            database.ref('typing_status/' + currentChatId + '/' + myUID).set(true);
-
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => {
-                database.ref('typing_status/' + currentChatId + '/' + myUID).set(false);
-            }, 2000);
-        });
-    }
+    // (los eventos de la caja de escribir del chat privado -Enter, tamaño, "escribiendo"- los pone scripts/chat-dm.js)
 }
 
 if (document.readyState === "loading") {
@@ -2018,59 +1450,7 @@ if (document.readyState === "loading") {
 }
 
 
-// ==========================================
-// ✨ CHAT PÚBLICO UNIVERSAL (ONLINE & OFFLINE)
-// ==========================================
-let chatFadeTimeout;
 
-window.agregarMensajeChatPublico = function(autor, texto) {
-    const container = document.getElementById('chat-container');
-    const messagesDiv = document.getElementById('chat-messages');
-    const input = document.getElementById('chat-input');
-    if (!messagesDiv || !container) return;
-
-    const msgDiv = document.createElement('div');
-    // Le forzamos el estilo base para que no dependa de otras clases
-    msgDiv.style.cssText = "margin-bottom: 4px; font-family: 'Pixeltype', sans-serif; font-size: 20px; text-shadow: 1px 1px 0 #000;";
-
-    // Limpiamos la palabra por si se coló un espacio en blanco ("Sistema " en vez de "Sistema")
-    const cleanAutor = autor.trim();
-
-    if (cleanAutor === "Sistema") {
-        // ✨ FUERZA BRUTA: Usamos !important para obligar al navegador a pintarlo gris
-        msgDiv.innerHTML = `<span style="color: gray !important; font-style: italic;">[Sistema] ${texto}</span>`;
-    } 
-    else if (cleanAutor === "Error") {
-        msgDiv.innerHTML = `<span style="color: #ff5555 !important; font-style: italic;">[Error] ${texto}</span>`;
-    } 
-    else {
-        // Mensajes de jugadores normales
-        const isCommand = texto.startsWith('/');
-        const textColor = isCommand ? '#f1c40f' : 'white'; 
-        
-        // ✨ Convertir links en el chat público
-        let textoConLinks = texto.replace(
-            /(https?:\/\/[^\s<]+)/g,
-            '<a href="$1" target="_blank" style="color: #3498db; text-decoration: underline; cursor: pointer;" onclick="event.stopPropagation();">$1</a>'
-        );
-
-        msgDiv.innerHTML = `<span style="color: #4DA6FF !important; font-weight:bold;">&lt;${cleanAutor}&gt;</span> <span style="color: ${textColor} !important;">${textoConLinks}</span>`;
-    }
-
-    messagesDiv.appendChild(msgDiv);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-    // Mostrar el contenedor
-    container.style.display = 'block';
-    if (document.activeElement !== input) {
-        input.style.display = 'none';
-        
-        clearTimeout(chatFadeTimeout);
-        chatFadeTimeout = setTimeout(() => {
-            container.style.display = 'none';
-        }, 6000);
-    }
-};
 
 window.enviarChatPublico = function() {
     const input = document.getElementById('chat-input');
@@ -2154,126 +1534,6 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-// ==========================================
-// ✨ MENÚ CONTEXTUAL DE CHAT (VERSIÓN CORREGIDA)
-// ==========================================
-window.editingMsgKey = null; 
-
-window.showChatContextMenu = function(x, y, msgKey, msg, isMe) {
-    let menu = document.getElementById('chat-context-menu');
-    if (!menu) {
-        menu = document.createElement('div');
-        menu.id = 'chat-context-menu';
-        // ✨ FIX: Z-index extremo para que nada lo tape
-        menu.style.cssText = "position: fixed; background: #1e293b; border: 2px solid #34495e; border-radius: 6px; box-shadow: 0 4px 15px rgba(0,0,0,0.8); z-index: 9999999; display: flex; flex-direction: column; overflow: hidden; font-family: Arial, sans-serif; font-size: 14px; min-width: 140px;";
-        document.body.appendChild(menu);
-        
-        // ✨ FIX: Cerrar con mousedown si hacemos clic fuera del menú
-        document.addEventListener('mousedown', (e) => { 
-            if (menu && !menu.contains(e.target)) menu.style.display = 'none'; 
-        });
-    }
-
-    menu.innerHTML = ''; 
-    
-    // ✨ NUEVO: Función inteligente para poner/quitar la reacción
-    window.toggleReaction = function(msgKeyToReact, emoji) {
-        const myUID = localStorage.getItem('mbw_uid');
-        if (currentChatId) {
-            const ref = database.ref('private_chats/' + currentChatId + '/' + msgKeyToReact + '/reactions/' + myUID);
-            ref.once('value').then(snap => {
-                if (snap.val() === emoji) {
-                    ref.remove(); // Si ya tenías EXACTAMENTE ese emoji, lo quita
-                } else {
-                    ref.set(emoji); // Si no tenías, o elegiste otro, lo pone/cambia
-                }
-            });
-        }
-    };
-
-    // Barra de Reacciones Rápidas
-    if (!msg.isDeleted) {
-        let reactBar = document.createElement('div');
-        reactBar.style.cssText = "display: flex; gap: 8px; padding: 10px; border-bottom: 1px solid var(--border); justify-content: center; background: var(--bg-dark);";
-        
-        const fastEmojis = ['❤️', '👍', '😂', '😮', '😢'];
-        fastEmojis.forEach(emoji => {
-            let eBtn = document.createElement('span');
-            eBtn.innerText = emoji;
-            eBtn.style.cssText = "cursor: pointer; font-size: 20px; transition: transform 0.1s;";
-            eBtn.onmouseover = () => eBtn.style.transform = 'scale(1.3)';
-            eBtn.onmouseout = () => eBtn.style.transform = 'scale(1)';
-            eBtn.onclick = () => { 
-                window.toggleReaction(msgKey, emoji); // Usar la nueva función
-                menu.style.display = 'none'; 
-            };
-            reactBar.appendChild(eBtn);
-        });
-        menu.appendChild(reactBar);
-    }
-    
-    // Opcion 1: Responder
-    let replyBtn = document.createElement('div');
-    replyBtn.innerHTML = "↩️ Reply";
-    replyBtn.style.cssText = "padding: 10px 15px; cursor: pointer; color: white; border-bottom: 1px solid #34495e; transition: 0.2s;";
-    replyBtn.onmouseover = () => replyBtn.style.background = '#2c3e50';
-    replyBtn.onmouseout = () => replyBtn.style.background = 'transparent';
-    replyBtn.onclick = () => {
-        menu.style.display = 'none'; // Cerrar menú al hacer clic
-        if (typeof window.setReply === 'function' && !msg.isDeleted) window.setReply(msgKey, msg.senderName, msg.text);
-    };
-    menu.appendChild(replyBtn);
-
-    // Opciones 2 y 3: Editar y Borrar (Solo si es nuestro y no está borrado)
-    if (isMe && !msg.isDeleted) {
-        let editBtn = document.createElement('div');
-        editBtn.innerHTML = "✏️ Edit";
-        editBtn.style.cssText = "padding: 10px 15px; cursor: pointer; color: white; border-bottom: 1px solid #34495e; transition: 0.2s;";
-        editBtn.onmouseover = () => editBtn.style.background = '#2c3e50';
-        editBtn.onmouseout = () => editBtn.style.background = 'transparent';
-        editBtn.onclick = () => {
-            menu.style.display = 'none'; // Cerrar menú
-            const input = document.getElementById('full-dm-input');
-            if (input) {
-                input.value = msg.text; 
-                input.focus();
-                window.editingMsgKey = msgKey; 
-                let typingIndicator = document.getElementById('dm-typing-indicator');
-                if (typingIndicator) {
-                    typingIndicator.innerText = "Editando mensaje... (Enter para guardar)";
-                    typingIndicator.style.display = 'block';
-                    typingIndicator.style.color = "#f1c40f";
-                }
-            }
-        };
-        menu.appendChild(editBtn);
-
-    let deleteBtn = document.createElement('div');
-        deleteBtn.innerHTML = "🗑️ Delete";
-        deleteBtn.style.cssText = "padding: 10px 15px; cursor: pointer; color: var(--danger, #e74c3c); font-weight: bold; transition: 0.2s;";
-        deleteBtn.onmouseover = () => { deleteBtn.style.background = 'var(--danger, #e74c3c)'; deleteBtn.style.color = 'white'; };
-        deleteBtn.onmouseout = () => { deleteBtn.style.background = 'transparent'; deleteBtn.style.color = 'var(--danger, #e74c3c)'; };
-        deleteBtn.onclick = () => {
-            menu.style.display = 'none'; // Cerrar menú
-            
-            // ✨ FIX: Quitamos el "window." para que encuentre el chat correctamente
-            if (currentChatId) {
-                database.ref('private_chats/' + currentChatId + '/' + msgKey).update({
-                    isDeleted: true,
-                    text: "🚫 Este mensaje fue eliminado"
-                }).then(() => {
-                    console.log("Mensaje borrado de la base de datos.");
-                }).catch(err => console.error("Error al borrar:", err));
-            }
-        };
-        menu.appendChild(deleteBtn);
-	}
-
-    // Posicionar el menú usando las coordenadas del ratón en la pantalla
-    menu.style.left = `${x}px`;
-    menu.style.top = `${y}px`;
-    menu.style.display = 'flex';
-};
 
 
 // ✨ FIX FASE 5: OPTIMIZACIÓN DE RED (THROTTLING)
@@ -2284,7 +1544,7 @@ window.sendNetworkCursorOptimized = function(exactWorldX, exactWorldY) {
 
     const now = Date.now();
     // Solo enviamos datos si han pasado al menos 50 milisegundos (aprox 20 FPS para el cursor)
-    if (now - window.lastCursorSendTime > 16) { 
+    if (now - window.lastCursorSendTime > 50) { 
         const myName = localStorage.getItem('mbw_username') || "Player";
         enviarMensajeEnRed({
             tipo: "cursor",
@@ -2313,28 +1573,25 @@ const COMMAND_SUGGESTIONS = [
 
 function initCommandAutocomplete() {
     const chatInput = document.getElementById('chat-input');
-    const messagesDiv = document.getElementById('chat-messages'); // ✨ 1. Obtenemos el contenedor de mensajes
-    if (!chatInput || !messagesDiv) return;
+    const messagesDiv = document.getElementById('chat-messages');
+    const container = document.getElementById('chat-container');
+    if (!chatInput || !messagesDiv || !container) return;
 
-    // ✨ 2. PREPARAR EL CONTENEDOR: Le damos position relative para que 
-    // atrape a nuestra caja flotante y no se salga de la pantalla.
-    messagesDiv.style.position = 'relative';
-
+    // La lista de sugerencias vive DENTRO de #chat-container (que ya es "position: absolute"), pero FUERA de
+    // #chat-messages. Antes estaba dentro de #chat-messages: esa caja tiene 150 px de alto y scroll, y la lista medía
+    // 197 px, así que se salía de la caja y se veía cortada. Ahora se pega justo encima del cuadro de texto y nunca
+    // es más alta que la zona de mensajes (si hay más comandos, la lista tiene su propio scroll).
     let suggestionsBox = document.getElementById('chat-suggestions');
+    if (suggestionsBox && suggestionsBox.parentNode !== container) { suggestionsBox.parentNode.removeChild(suggestionsBox); suggestionsBox = null; }
     if (!suggestionsBox) {
         suggestionsBox = document.createElement('div');
         suggestionsBox.id = 'chat-suggestions';
-        
-        // ✨ 3. MAGIA CSS: position: absolute hace que FLOTE. 
-        // bottom: 0 lo pega a la parte más baja de los mensajes.
-        // z-index: 1000 asegura que esté por encima de las letras.
         suggestionsBox.style.cssText = `
             position: absolute;
-            bottom: 0; 
             left: 0;
             width: 100%;
-            height: 197px;
             overflow-y: auto;
+            overflow-x: hidden;
             background: rgba(0, 0, 0, 0.85);
             border: 2px solid #333;
             color: #f1c40f;
@@ -2344,10 +1601,16 @@ function initCommandAutocomplete() {
             font-size: 20px;
             text-shadow: 1px 1px 0 #000;
             box-sizing: border-box;
+            border-radius: 5px 5px 0 0;
         `;
-        
-        // ✨ 4. Lo metemos DENTRO de chat-messages
-        messagesDiv.appendChild(suggestionsBox);
+        container.appendChild(suggestionsBox);
+    }
+
+    function hideSuggestions() { suggestionsBox.style.display = 'none'; }
+    function placeSuggestions() {
+        // justo encima del cuadro de texto, y como máximo tan alta como la zona de mensajes
+        suggestionsBox.style.bottom = chatInput.offsetHeight + 'px';
+        suggestionsBox.style.maxHeight = Math.max(60, messagesDiv.offsetHeight) + 'px';
     }
 
     // Vigilar cada letra que el jugador escribe
@@ -2356,7 +1619,7 @@ function initCommandAutocomplete() {
 
         // Si no empieza con "/", ocultamos la lista
         if (!text.startsWith('/')) {
-            suggestionsBox.style.display = 'none';
+            hideSuggestions();
             return;
         }
 
@@ -2364,214 +1627,46 @@ function initCommandAutocomplete() {
         const matches = COMMAND_SUGGESTIONS.filter(cmd => cmd.toLowerCase().startsWith(text.toLowerCase()));
 
         if (matches.length > 0) {
-            suggestionsBox.innerHTML = ''; 
-            
+            suggestionsBox.innerHTML = '';
+
             matches.forEach(cmd => {
                 const item = document.createElement('div');
                 item.textContent = cmd;
-                item.style.cssText = "padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #333; transition: background 0.1s;";
-                
+                item.style.cssText = "padding: 6px 10px; cursor: pointer; border-bottom: 1px solid #333; transition: background 0.1s; white-space: nowrap;";
+
                 item.onmouseover = () => item.style.background = "rgba(255, 255, 255, 0.2)";
                 item.onmouseout = () => item.style.background = "transparent";
-                
+                // el clic no le quita el foco al cuadro de texto (así no se cierra antes de tiempo)
+                item.onmousedown = (e) => e.preventDefault();
+
                 item.onclick = () => {
                     chatInput.value = cmd.endsWith(' ') ? cmd : cmd + ' ';
-                    chatInput.focus(); 
-                    suggestionsBox.style.display = 'none'; 
+                    chatInput.focus();
+                    hideSuggestions();
                 };
-                
+
                 suggestionsBox.appendChild(item);
             });
-            
-            suggestionsBox.style.display = 'block'; 
-            
-            // ✨ FIX DE SCROLL: Forzamos la caja de mensajes hacia abajo 
-            // para asegurar que la lista flotante siempre se vea al escribir
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            placeSuggestions();
+            suggestionsBox.style.display = 'block';
+            suggestionsBox.scrollTop = 0;
         } else {
-            suggestionsBox.style.display = 'none';
+            hideSuggestions();
         }
     });
 
-    // Ocultar la lista si presionan Enter o Escape
+    // Ocultar la lista si presionan Enter o Escape, o si el cuadro de texto pierde el foco
     chatInput.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' || e.key === 'Escape') {
-            suggestionsBox.style.display = 'none';
-        }
+        if (e.key === 'Enter' || e.key === 'Escape') hideSuggestions();
     });
+    chatInput.addEventListener('blur', hideSuggestions);
 }
 // Arrancamos el sistema (con un pequeño retraso para asegurar que la página ya cargó el chat)
 setTimeout(initCommandAutocomplete, 500);
 
 
-// ==========================================
-// 🤩 BOTÓN Y MENÚ DE EMOJIS (TIPO WHATSAPP)
-// ==========================================
 
-window.restoreDMEmojiButton = function() {
-    const dmInput = document.getElementById('full-dm-input');
-    
-    // Si la ventana no está abierta o el botón ya existe, salimos
-    if (!dmInput || document.getElementById('btn-dm-emoji')) return; 
-
-    const parent = dmInput.parentNode;
-
-    // 1. Envolver en burbuja
-    const flexBox = document.createElement('div');
-    flexBox.style.cssText = 'display: flex; align-items: center; width: 100%; background: rgba(0,0,0,0.5); border-radius: 20px; padding: 2px 10px; border: 1px solid #555; box-sizing: border-box; margin-top: 5px; position: relative;';
-    
-    // 2. Limpiar input
-    dmInput.style.border = 'none';
-    dmInput.style.background = 'transparent';
-    dmInput.style.outline = 'none';
-    dmInput.style.flex = '1';
-    dmInput.style.padding = '8px 5px';
-    dmInput.style.color = 'white';
-    dmInput.style.fontSize = '14px';
-
-    // 3. Crear el botón de Emoji
-    const emojiBtn = document.createElement('div');
-    emojiBtn.id = 'btn-dm-emoji';
-    emojiBtn.innerHTML = '😀';
-    emojiBtn.title = "Insertar Emoji";
-    emojiBtn.style.cssText = 'font-size: 22px; cursor: pointer; padding-right: 8px; filter: grayscale(100%) opacity(0.6); transition: 0.2s; user-select: none;';
-    
-    emojiBtn.onmouseenter = () => emojiBtn.style.filter = 'grayscale(0%) opacity(1)';
-    emojiBtn.onmouseleave = () => emojiBtn.style.filter = 'grayscale(100%) opacity(0.6)';
-
-    // 4. Qué pasa al darle clic al botón (Abrir/Cerrar el panel)
-    emojiBtn.onclick = (e) => {
-        e.stopPropagation();
-        const panel = document.getElementById('dm-emoji-panel');
-        if (panel) {
-            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-        } else {
-            createEmojiPanel(flexBox, dmInput);
-        }
-    };
-
-    // 5. Ensamblar
-    parent.insertBefore(flexBox, dmInput);
-    flexBox.appendChild(emojiBtn);
-    flexBox.appendChild(dmInput);
-};
-
-// --- EL CEREBRO DEL MENÚ FLOTANTE (VERSIÓN FULL) ---
-function createEmojiPanel(parentBox, targetInput) {
-    const panel = document.createElement('div');
-    panel.id = 'dm-emoji-panel';
-    // Hacemos el panel un poco más grande para que quepan bien todas las categorías
-    panel.style.cssText = 'position: absolute; bottom: 45px; left: 0; width: 320px; height: 250px; background: #2A2A2A; border: 2px solid #555; border-radius: 8px; display: flex; flex-direction: column; z-index: 10000; box-shadow: 0 4px 10px rgba(0,0,0,0.5); overflow: hidden;';
-
-    // Cerrar si se da click fuera del panel
-    document.addEventListener('click', (e) => {
-        if (panel.style.display === 'block' && e.target.id !== 'btn-dm-emoji' && !panel.contains(e.target)) {
-            panel.style.display = 'none';
-        }
-    });
-
-    // 1. ÁREA DE CONTENIDO (Donde van los emojis, con scroll)
-    const contentArea = document.createElement('div');
-    contentArea.style.cssText = 'flex: 1; overflow-y: auto; padding: 10px; padding-bottom: 5px; height: 197px;';
-    
-    // Función para dibujar una categoría específica
-    const renderCategory = (catId) => {
-        contentArea.innerHTML = ''; // Limpiamos
-        
-        // A) Primero cargamos Custom Emotes si eligieron la primera pestaña ("peo" o creamos una especial)
-        if (catId === 'custom') {
-            let html = `<p style="margin: 0 0 5px 0; color: gray; font-size: 12px; font-family: sans-serif;">Custom Emotes</p>`;
-            html += `<div style="display: flex; flex-wrap: wrap; gap: 5px;">`;
-            if (window.customEmotes) {
-                Object.keys(window.customEmotes).forEach(emoteKey => {
-                    html += `<img src="${window.customEmotes[emoteKey]}" title=":${emoteKey}:" class="emj-clickable-custom" data-tag=":${emoteKey}:" style="width: 32px; height: 32px; cursor: pointer; object-fit: contain; image-rendering: pixelated; padding: 2px; border-radius: 4px; transition: 0.1s;">`;
-                });
-            }
-            html += `</div>`;
-            contentArea.innerHTML = html;
-        } 
-        // B) Si es una categoría normal de tu base de datos
-        else {
-            const category = window.emojiCategories.find(c => c.id === catId);
-            if (category) {
-                let html = `<p style="margin: 0 0 5px 0; color: gray; font-size: 12px; font-family: sans-serif;">${category.name}</p>`;
-                html += `<div style="display: flex; flex-wrap: wrap; gap: 4px;">`;
-                category.items.forEach(emj => {
-                    html += `<span class="emj-clickable" style="font-size: 24px; cursor: pointer; padding: 2px; border-radius: 4px; transition: 0.1s; user-select: none;">${emj}</span>`;
-                });
-                html += `</div>`;
-                contentArea.innerHTML = html;
-            }
-        }
-
-        // Re-asignar eventos de clic cada vez que dibujamos la grilla
-        const insertText = (text) => {
-            targetInput.value += text; // Insertamos sin espacio extra, como WhatsApp
-            targetInput.focus();
-        };
-
-        contentArea.querySelectorAll('.emj-clickable').forEach(el => {
-            el.onmouseenter = () => el.style.background = '#444';
-            el.onmouseleave = () => el.style.background = 'transparent';
-            el.onclick = () => insertText(el.innerText);
-        });
-
-        contentArea.querySelectorAll('.emj-clickable-custom').forEach(el => {
-            el.onmouseenter = () => el.style.background = '#444';
-            el.onmouseleave = () => el.style.background = 'transparent';
-            el.onclick = () => {
-                insertText(el.getAttribute('data-tag') + " ");
-                panel.style.display = 'none'; // Auto-cerrar al enviar Custom Emote
-            };
-        });
-    };
-
-    // 2. BARRA DE NAVEGACIÓN INFERIOR (Pestañas)
-    const navBar = document.createElement('div');
-    navBar.style.cssText = 'display: flex; justify-content: space-around; background: #222; padding: 5px; border-top: 1px solid #444;';
-    
-    // Botón especial para Custom Emotes
-    const customTab = document.createElement('div');
-    customTab.innerHTML = '⭐';
-    customTab.title = 'Custom Emotes';
-    customTab.style.cssText = 'font-size: 20px; cursor: pointer; filter: grayscale(100%); transition: 0.2s;';
-    customTab.onclick = () => {
-        navBar.querySelectorAll('div').forEach(d => d.style.filter = 'grayscale(100%)');
-        customTab.style.filter = 'none';
-        renderCategory('custom');
-    };
-    navBar.appendChild(customTab);
-
-    // Creamos las pestañas basándonos en tu lista (People, Nature, Food, etc.)
-    window.emojiCategories.forEach((cat, index) => {
-        const tab = document.createElement('div');
-        tab.innerHTML = cat.icon;
-        tab.title = cat.name;
-        tab.style.cssText = 'font-size: 20px; cursor: pointer; filter: grayscale(100%); transition: 0.2s;';
-        
-        tab.onclick = () => {
-            navBar.querySelectorAll('div').forEach(d => d.style.filter = 'grayscale(100%)');
-            tab.style.filter = 'none'; // Iluminamos la pestaña activa
-            renderCategory(cat.id);
-        };
-        navBar.appendChild(tab);
-        
-        // Si es el primero (People), lo dejamos encendido por defecto
-        if (index === 0) {
-            tab.style.filter = 'none';
-        }
-    });
-
-    // Ensamblamos el panel
-    panel.appendChild(contentArea);
-    panel.appendChild(navBar);
-    parentBox.appendChild(panel);
-
-    // Carga inicial (Abrimos la pestaña 'peo' de Personas por defecto)
-    renderCategory('peo');
-}
-// Inicializar el radar
-setInterval(window.restoreDMEmojiButton, 500);
 
 window.openDirectMessage = function(uid, name) {
     // 1. Nos aseguramos de que el menú Backstage principal (donde viven los chats) esté abierto

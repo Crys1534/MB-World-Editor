@@ -31,7 +31,8 @@ window.processLocalCommand = function(text) {
             else if (argGm === '3' || argGm === 'spectator' || argGm === 'sp') newMode = 'spectator';
 
             if (newMode) {
-                gmSelect.value = newMode;
+                // El selector usa números (0-3); antes se le ponía el NOMBRE y el selector quedaba vacío
+                gmSelect.value = { survival: '0', creative: '1', adventure: '2', spectator: '3' }[newMode];
                 // ✨ FIX: Le avisamos a la página que el valor cambió para que actualice el mundo
                 gmSelect.dispatchEvent(new Event('change')); 
                 window.agregarMensajeChatPublico("System", `Modo de juego actualizado a ${newMode}.`);

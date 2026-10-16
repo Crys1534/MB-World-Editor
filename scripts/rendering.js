@@ -102,7 +102,8 @@ if (typeof window.texturesMap !== 'undefined') {
         if (key.includes('_n') && key.length > 3) return; 
         if (key.endsWith('_true') || key.endsWith('_false')) return;
         if (key.startsWith('bed2')) return; 
-        if (key.startsWith('dr') && key.length > 3 && key.includes('_')) return; 
+        // (solo las puertas: dr1_2, dr3_2... Antes este filtro también escondía el dropper: dropper_1..4 empiezan con "dr")
+        if (/^dr[0-9]/.test(key) && key.length > 3 && key.includes('_')) return; 
 
         // 3. Agregar bloque exacto
         window.blockData[key] = window.renderers.default;

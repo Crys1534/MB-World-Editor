@@ -39,6 +39,47 @@ const MOB_TEMPLATES = {
         "persists": false
     },
 	
+    // Spawnskin: mob de "skin" (la imagen sale de https://mineblocks.com/1/skins/images/{skin}.png).
+    // Mismos datos que una spawnskin real de un mundo (sin riding / riddenBy / leash, que esas no los traen).
+    // skin = ID de la skin (NÚMERO). 1 es solo un valor de ejemplo: se cambia en el panel "Específico del mob".
+    "spawnskin": {
+        "type": "spawnskin",
+        "health": 20,
+        "name": "",
+        "variant": "",
+        "direction": 0,
+        "speedX": 0,
+        "speedY": 0,
+        "falling": false,
+        "wasFalling": false,
+        "wasFallingSpeed": 0,
+        "air": 11,
+        "airTimer": 60,
+        "startUnderwaterTimer": 0,
+        "babyTimer": 0,
+        "breedTimer": 0,
+        "aggressiveness": 0,
+        "attackCooldown": 0,
+        "hitCooldown": 0,
+        "lastDamageID": "",
+        "lastDamageType": "",
+        "ticksSinceLastDamageID": 0,
+        "target": null,
+        "focus": null,
+        "keys": { "right": false, "up": false, "left": false },
+        "animationType": "idle",
+        "animationFrame": 0,
+        "effects": {},
+        "inventory": [],
+        "handItems": [],
+        "armor": [],
+        "handDropChances": [0.085, 0.085],
+        "armorDropChances": [0.085, 0.085, 0.085, 0.085],
+        "defaultDrops": true,
+        "persists": false,
+        "skin": 1
+    },
+
     "skeleton": {
         "type": "skeleton",
         "health": 20,
@@ -1177,4 +1218,15 @@ const MOB_TEMPLATES = {
   "armor": [],
   "persists": false
 },
+};
+
+// ==============================================================
+// El Mob Browser tiene una casilla "mushroom", pero en el juego esa vaca es un
+// "cow" con variant "mooshroom" (así aparece en los mundos reales). Esta función
+// busca la plantilla correcta para cualquier id de casilla.
+// ==============================================================
+window.MOB_TEMPLATE_ALIAS = { mushroom: 'mooshroom' };
+window.getMobTemplate = function (type) {
+    const key = window.MOB_TEMPLATE_ALIAS[type] || type;
+    return Object.prototype.hasOwnProperty.call(MOB_TEMPLATES, key) ? MOB_TEMPLATES[key] : null;
 };

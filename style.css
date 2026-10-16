@@ -655,6 +655,12 @@ canvas {
 }
 
 /* --- MODALES --- */
+/* My Profile: el campo del nombre (width:100% + relleno + borde) se salía de la ventana y salía una barra horizontal.
+   Con border-box todo cabe en los 300 px; y nunca hay scroll horizontal. */
+#unified-profile-modal .modal-content { box-sizing: border-box; max-height: 94vh; overflow: hidden; }
+#unified-profile-modal .mbw-modal-body { box-sizing: border-box; overflow-x: hidden; overflow-y: auto; }
+#unified-profile-modal .mbw-modal-body input[type="text"] { box-sizing: border-box; max-width: 100%; }
+#unified-profile-modal .mbw-modal-body > * { max-width: 100%; box-sizing: border-box; }
 .modal {
  display: none;
  position: fixed;
@@ -1666,53 +1672,7 @@ body.is-spectating #hotbar-container {
     display: block;
 }
 
-/* --- CHAT MULTIJUGADOR --- */
-#mp-full-chat-view {
-    background-color: var(--bg-panel) !important;
-    color: var(--text) !important;
-}
-
-#mp-full-chat-view > div:first-child {
-    background-color: var(--bg-header) !important;
-    border-bottom: 2px solid var(--border) !important;
-    color: var(--text) !important;
-}
-
-#full-chat-header-name {
-    color: var(--text) !important;
-}
-
-#full-dm-messages {
-    background-color: var(--bg-dark) !important;
-}
-
-#full-chat-active {
-    background-color: var(--bg-panel) !important;
-    border-top: 2px solid var(--border) !important;
-}
-
-#full-chat-active > div {
-    background-color: transparent !important; 
-}
-
-#full-dm-input {
-    background-color: var(--input-bg) !important;
-    color: var(--text) !important;
-    border: 1px solid var(--border) !important;
-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1) !important;
-}
-
-#full-dm-input:empty:before {
-    color: var(--text) !important;
-    opacity: 0.5 !important;
-}
-
-#dm-emoji-btn {
-    filter: grayscale(100%) opacity(0.7) !important;
-}
-#dm-emoji-btn:hover {
-    filter: grayscale(0%) opacity(1) !important;
-}
+/* --- CHAT MULTIJUGADOR: el aspecto del chat privado ahora está en chat-dm.css --- */
 
 /* --- CLASES DE UTILIDAD CREADAS EN FASE 1, 1.5 y 3 --- */
 .top-bar { display: flex; justify-content: space-between; align-items: center; }
@@ -1834,6 +1794,9 @@ body.is-spectating #hotbar-container {
 .modal-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
 
 .mbw-modal-overlay { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
+/* La ventana del inventario (inventario normal, Player Inventory, editor de cofres, creador de objetos) va SIEMPRE en el centro
+   de la pantalla; si es más alta que la pantalla, se desplaza por dentro. */
+#inventory-modal-content.inv-modal-window { position: absolute; top: 0; right: 0; bottom: 0; left: 0; margin: auto !important; height: fit-content !important; max-height: 96vh; max-width: 96vw; }
 .inv-modal-window { margin: 5% auto; width: max-content; background: #373737; border: 4px solid #555; color: #FFF; display: flex; flex-direction: column; }
 .inv-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #c6c6c6; }
 .inv-search-container { display: flex; gap: 10px; align-items: center; }
@@ -1871,13 +1834,112 @@ body.is-spectating #hotbar-container {
 .btn-gen-chest { padding: 5px 10px; cursor: pointer; border-radius: 4px; background: #FFF; color: #000; border: 1px solid #555; display: flex; align-items: center; gap: 6px; font-family: inherit; }
 .struct-chest-preview { display: none; justify-content: center; width: 100%; margin-bottom: 15px; transform: scale(0.9); }
 
-.mobs-modal-window { width: 750px; height: 576px; background: #C6C6C6; border: 2px solid #555; padding: 0; display: flex; flex-direction: row; overflow: hidden; }
+/* ==========================================
+   🐷 MOB BROWSER + PANEL DE DATOS DEL MOB (scripts/mob-editor.js)
+   ========================================== */
+.mobs-modal-window { width: 940px; height: min(660px, calc(100vh - 24px)); max-width: 96vw; background: #C6C6C6; border: 2px solid #555; padding: 0; display: flex; flex-direction: row; overflow: hidden; }
 .mobs-grid-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0px; overflow-y: auto; background: #252525; padding: 0px; border: 2px solid #373737; border-top: none; border-right-color: #FFF; border-bottom-color: #FFF; flex: 1; align-content: start; }
-.mob-preview-box { width: 220px; height: 220px; background: #8B8B8B; border: 2px solid #373737; margin-bottom: 4px; display: flex; justify-content: center; align-items: center; }
-.mob-preview-img { width: 220px; max-height: 220px; object-fit: contain; image-rendering: pixelated; }
-.mob-info-title { margin: 0 0 5px 0; font-size: 20px; color: #000; }
-.mob-info-hp { margin: 0; color: #333; font-size: 14px; font-weight: bold; }
 .btn-spawn-mob { font-size: 18px; padding: 12px 0; }
+
+#mobs-modal .mob-main { min-width: 0; }
+#mobs-modal .mob-tab { padding: 8px 12px; }
+#mobs-modal .mob-tab.flash { animation: mobTabFlash 0.8s ease 2; }
+@keyframes mobTabFlash { 0%, 100% { background: #8B8B8B; } 50% { background: #f1c40f; } }
+#mobs-modal .mob-item { margin: 0; height: 156px; border-bottom: 2px solid #272727; border-right: 2px solid #272727; }
+#mobs-modal .mob-item img { width: 90%; height: 80%; object-fit: contain; image-rendering: pixelated; }
+#mobs-modal .mob-item .mob-name { font-size: 14px; margin-top: 0; }
+#mobs-modal .mob-item.selected { background: #6a6a6a; border-color: #FFF; box-shadow: inset 0 0 0 2px #f1c40f; }
+.mob-empty { grid-column: 1 / -1; color: #999; text-align: center; margin: 40px 0 0; padding: 0 14px; font-family: 'Pixeltype', sans-serif; font-size: 24px; line-height: 1.2; }
+
+#mobs-modal .mob-sidebar { width: 340px; flex: 0 0 340px; box-sizing: border-box; padding: 10px; align-items: stretch; overflow: hidden; gap: 8px; }
+.mob-side-head { display: flex; gap: 10px; align-items: center; }
+#mobs-modal .mob-preview-box { width: 84px; height: 84px; flex: 0 0 84px; margin: 0; }
+#mobs-modal .mob-preview-img { width: 84px; max-height: 84px; }
+.mob-side-head .mob-info { text-align: left; min-width: 0; }
+.mob-info-title { margin: 0 0 2px 0; font-size: 22px; color: #000; word-break: break-word; }
+.mob-info-sub { margin: 0; color: #444; font-size: 14px; font-weight: bold; min-height: 16px; }
+
+.mob-form { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 2px; font-family: 'Pixeltype', sans-serif; }
+details.mob-sec { border: 2px solid #373737; background: #9c9c9c; flex: 0 0 auto; }
+.mob-sec > summary { cursor: pointer; background: #7d7d7d; color: #fff; text-shadow: 1px 1px 0 #000; padding: 4px 8px; font-size: 23px; font-weight: bold; user-select: none; }
+.mob-sec > summary:hover { background: #8d8d8d; }
+.mob-sec-body { padding: 6px; display: flex; flex-direction: column; gap: 6px; }
+.mob-field { display: flex; flex-direction: column; gap: 2px; }
+.mob-flabel { font-size: 20px; color: #000; }
+.mob-form input[type=text], .mob-form input[type=number], .mob-form select { width: 100%; box-sizing: border-box; min-width: 0; padding: 3px 6px; font-family: 'Pixeltype', sans-serif; font-size: 23px; color: #000; background: #e6e6e6; border: 2px solid; border-color: #373737 #fff #fff #373737; border-radius: 0; }
+.mob-form input:focus, .mob-form select:focus { outline: 2px solid #f1c40f; outline-offset: 0; }
+.mob-check label { display: flex; align-items: center; gap: 6px; font-size: 21px; color: #000; cursor: pointer; }
+.mob-check input[type=checkbox] { width: 16px; height: 16px; margin: 0; cursor: pointer; }
+.mob-check small, .mob-hint { color: #2c2c2c; font-size: 17px; line-height: 1.05; }
+.mob-check small { margin-left: 22px; }
+.mob-note { color: #2c2c2c; font-size: 19px; margin: 2px 0; font-style: italic; }
+.mob-line { display: flex; align-items: center; gap: 6px; }
+.mob-ico { image-rendering: pixelated; flex: 0 0 auto; }
+.mob-row2 { display: flex; gap: 6px; align-items: flex-end; }
+.mob-row2 .mob-grow { flex: 1 1 auto; min-width: 0; }
+.mob-row2 .mob-hp { flex: 0 0 84px; width: 84px; }
+.mob-itemrow { gap: 5px; }
+.mob-slotwrap { position: relative; flex: 0 0 44px; width: 44px; height: 44px; }
+.mob-slot { width: 44px; height: 44px; padding: 0; box-sizing: border-box; background: #8B8B8B; border: 3px inset #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 0; }
+.mob-slot:hover { background: #A0A0A0; }
+.mob-slot .ghost { opacity: 0.28; filter: grayscale(1); }
+/* Menú pequeño de piezas de armadura (sale al pulsar una casilla de Equipment) */
+.mob-armorpop { position: fixed; z-index: 10050; background: #9c9c9c; border: 3px solid #373737; box-shadow: 0 8px 22px rgba(0,0,0,0.6); padding: 6px; box-sizing: border-box; max-width: calc(100vw - 16px); max-height: calc(100vh - 16px); overflow-y: auto; }
+.mob-armorpop-title { color: #fff; text-shadow: 1px 1px 0 #000; font-size: 22px; font-weight: bold; margin: 0 0 6px; }
+.mob-armorpop-sub { color: #fff; text-shadow: 1px 1px 0 #000; font-size: 17px; margin: 8px 0 4px; }
+.mob-armorpop-grid { display: grid; grid-template-columns: repeat(5, 44px); gap: 4px; }
+.mob-armorpop .mob-slot.current { background: #A0A0A0; box-shadow: inset 0 0 0 2px #f1c40f; }
+.mob-slot-x { position: absolute; top: -5px; right: -5px; width: 17px; height: 17px; padding: 0; font-size: 11px; line-height: 13px; background: #a33; color: #fff; border: 1px solid #600; cursor: pointer; border-radius: 0; display: none; }
+.mob-slotwrap:hover .mob-slot-x { display: block; }
+.mob-form input.mob-itemname { flex: 1 1 auto; width: auto; min-width: 0; }
+.mob-form input.mob-itemname:disabled { opacity: 0.55; }
+.mob-pctbox { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; color: #000; font-size: 21px; }
+.mob-pctbox input[type=number] { width: 56px; text-align: center; padding: 4px 2px; }
+.mob-drop { background: #8f8f8f; border: 2px solid #555; padding: 4px; display: flex; flex-direction: column; gap: 4px; }
+.mob-dropnums .mob-mini { flex: 1; min-width: 0; display: flex; align-items: center; gap: 3px; font-size: 18px; color: #000; }
+.mob-dropnums .mob-mini input { padding: 2px 3px; font-size: 21px; }
+.mob-dropnums .mob-mini em { font-style: normal; }
+.mob-x { width: 28px; height: 28px; flex: 0 0 28px; background: #a33; color: #fff; border: 2px solid #600; font-weight: bold; cursor: pointer; border-radius: 0; }
+.mob-x:hover { background: #c44; }
+.mob-addbtn { width: 100%; padding: 6px; background: #3a3a3a; color: #eee; border: 2px dashed #999; cursor: pointer; font-family: 'Pixeltype', sans-serif; font-size: 22px; border-radius: 0; }
+.mob-addbtn:hover { background: #4a4a4a; }
+/* Encantamientos de un drop: botón + librito encantado con tooltip + selector con acordeones */
+.mob-enchline { gap: 6px; }
+.mob-enchbadge { display: none; width: 30px; height: 30px; box-sizing: border-box; background: #8B8B8B; align-items: center; justify-content: center; flex: 0 0 30px; cursor: help; }
+.mob-enchbadge .mob-ico { position: relative; z-index: 2; }
+.mob-enchbtn { flex: 1 1 auto; text-align: left; padding: 3px 8px; background: #3a3a3a; color: #eee; border: 2px solid #999; cursor: pointer; font-family: 'Pixeltype', sans-serif; font-size: 21px; border-radius: 0; }
+.mob-enchbtn:hover { background: #4a4a4a; }
+.mob-enchpanel { background: #8B8B8B; border: 3px inset #fff; padding: 6px; margin-top: 4px; max-height: 260px; overflow-y: auto; box-sizing: border-box; }
+/* Tags de un mob (solo para organizar) + buscador de la pestaña Custom */
+.mob-tagsfield { position: relative; }
+.mob-tagline { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; background: #e6e6e6; border: 2px solid; border-color: #373737 #fff #fff #373737; padding: 2px 4px; min-height: 30px; box-sizing: border-box; }
+.mob-chips { display: contents; }
+.mob-chip { display: inline-flex; align-items: center; gap: 3px; background: #3a6ea5; color: #fff; font-family: 'Pixeltype', sans-serif; font-size: 19px; padding: 0 3px 0 6px; line-height: 22px; }
+.mob-chip-x { background: transparent; border: none; color: #fff; cursor: pointer; font-size: 11px; padding: 0 2px; line-height: 1; }
+.mob-chip-x:hover { color: #ffb3b3; }
+.mob-form input.mob-taginput { flex: 1 1 70px; width: auto; min-width: 60px; border: none; background: transparent; padding: 1px 2px; font-size: 21px; }
+.mob-form input.mob-taginput:focus { outline: none; }
+.mob-tagsug, .mob-search-sug { position: absolute; left: 0; right: 0; top: 100%; z-index: 60; background: #2b2b2b; border: 2px solid #888; max-height: 170px; overflow-y: auto; box-shadow: 0 6px 14px rgba(0,0,0,0.5); }
+.mob-sug-item { display: flex; justify-content: space-between; gap: 8px; padding: 2px 8px; color: #eee; font-family: 'Pixeltype', sans-serif; font-size: 21px; cursor: pointer; }
+.mob-sug-item:hover { background: #3a6ea5; }
+.mob-sug-item em { font-style: normal; color: #aaa; }
+.mob-sug-head, .mob-sug-none { padding: 2px 8px; color: #aaa; font-family: 'Pixeltype', sans-serif; font-size: 18px; }
+.mob-search-wrap { position: relative; padding: 6px; background: #3a3a3a; border-left: 2px solid #373737; border-right: 2px solid #FFF; }
+.mob-search { width: 100%; box-sizing: border-box; padding: 4px 8px; font-family: 'Pixeltype', sans-serif; font-size: 22px; color: #000; background: #e6e6e6; border: 2px solid; border-color: #373737 #fff #fff #373737; border-radius: 0; }
+.mob-search:focus { outline: 2px solid #f1c40f; outline-offset: 0; }
+.mob-search-sug { left: 6px; right: 6px; top: calc(100% - 4px); }
+#mobs-modal .mob-item .mob-tile-tags { display: block; max-width: 94%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: #8fc1ff; margin-top: 1px; }
+
+.mob-actions-container { display: flex; flex-direction: column; gap: 6px; width: 100%; margin-top: 0; }
+.mob-wide { width: 100%; }
+#mobs-modal .btn-spawn-mob { font-size: 20px; padding: 10px 0 6px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; text-align: center; text-indent: 0; }   /* 10px arriba / 6px abajo: compensa el hueco de las letras para que el texto se vea justo en medio */
+#mobs-modal .btn-apply-mob { font-size: 20px; padding: 8px 0 4px; margin-bottom: 4px; box-sizing: border-box; display: flex; align-items: center; justify-content: center; text-align: center; text-indent: 0; background: #2f7d32; color: #fff; border: 2px solid; border-color: #7bd77f #14391a #14391a #7bd77f; cursor: pointer; }   /* "Aplicar a este mob": verde, para distinguirlo de Spawn */
+#mobs-modal .btn-apply-mob:hover { background: #3a9a3e; }
+.mob-btnrow { display: flex; gap: 6px; }
+.mob-sbtn { flex: 1; padding: 6px 4px; background: #8B8B8B; color: #000; border: 2px solid; border-color: #fff #373737 #373737 #fff; font-family: 'Pixeltype', sans-serif; font-size: 22px; cursor: pointer; border-radius: 0; }
+.mob-sbtn:hover { background: #A0A0A0; }
+.mob-sbtn.mob-danger { color: #7a0000; }
+.mob-status { min-height: 20px; font-family: 'Pixeltype', sans-serif; font-size: 20px; color: #14501e; font-weight: bold; text-align: center; }
 
 /* ==========================================
    📦 ADDONS MENU CSS
@@ -1969,3 +2031,33 @@ input[type="number"] { -moz-appearance: textfield; /* Para que también funcione
 #tool-size-slider:active::-webkit-slider-thumb { transform: scale(1.1); /* Se encoge un poquito al apretar */ }
 #zoom-slider:active::-moz-range-thumb, 
 #tool-size-slider:active::-moz-range-thumb { transform: scale(1.1); }
+
+/* ==========================================================
+   🎒 INVENTARIO DEL JUGADOR (pestaña View → "Player Inventory")
+   La ventana reutiliza #inventory-modal: aquí solo está el panel del jugador (scripts/player-inventory.js).
+   ========================================================== */
+body.is-spectating #player-hotbar-container {
+    opacity: 0.4;
+    pointer-events: none !important;
+    filter: grayscale(100%);
+}
+.pinv-panel { box-sizing: border-box; width: 600px; flex: 0 0 600px; padding: 12px 12px 16px; background: #C6C6C6; color: #333; user-select: none; -webkit-user-select: none; }
+.pinv-top { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px; }
+.pinv-label { font-size: 18px; font-weight: bold; color: #333; margin: 0 0 4px 2px; }
+.pinv-label-right { text-align: right; margin: 0 2px 4px 0; }
+.pinv-armor { display: flex; }
+.pinv-chest-box { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 3px solid #8B8B8B; }
+.pinv-grid { display: grid; grid-template-columns: repeat(9, 64px); gap: 0; justify-content: center; }
+.pinv-hotbar { margin-top: 10px; }
+.pinv-slot { width: 64px; height: 64px; box-sizing: border-box; background: #8B8B8B; border: 4px inset #FFF; display: flex; justify-content: center; align-items: center; position: relative; cursor: pointer; }
+.pinv-slot:hover { background: #A0A0A0; }
+.pinv-slot canvas { width: 48px; height: 48px; image-rendering: pixelated; pointer-events: none; }
+.pinv-slot .pinv-ghost { filter: brightness(0); opacity: 0.22; }
+.pinv-slot .pinv-trash-icon { font-size: 30px; line-height: 1; pointer-events: none; filter: grayscale(0.4); }
+.pinv-count { position: absolute; right: 4px; bottom: -2px; color: #FFF; font-size: 14px; font-weight: bold; pointer-events: none; text-shadow: 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000; }
+.pinv-slot.pinv-flash { animation: pinvFlash 0.35s; }
+@keyframes pinvFlash { 0%, 100% { background: #8B8B8B; } 40% { background: #B34747; } }
+.pinv-hcell { display: flex; flex-direction: column; }
+.pinv-bar { height: 8px; margin: 0 4px 3px; background: transparent; cursor: pointer; }
+.pinv-hcell:hover .pinv-bar { background: rgba(60, 190, 60, 0.35); }
+.pinv-hcell.sel .pinv-bar { background: #3CBE3C; box-shadow: 0 0 0 1px #1E6B1E; }

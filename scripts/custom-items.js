@@ -41,15 +41,9 @@ magicStyles.innerHTML = `
 `;
 document.head.appendChild(magicStyles);
 
-const enchantFilters = {
-    melee: ["sharpness", "smite", "baneofarthropods", "knockback", "fireaspect", "looting", "unbreaking", "mending"],
-    tools: ["efficiency", "silktouch", "fortune", "unbreaking", "mending"],
-    bows: ["power", "punch", "flame", "infinity", "unbreaking", "mending"],
-    fishingrods: ["lure", "luckofthesea"],
-    armor_all: ["protection", "fireprotection", "blastprotection", "projectileprotection", "thorns", "unbreaking", "mending"],
-    armor_head: ["respiration", "aquaaffinity"],
-    armor_feet: ["featherfalling"]
-};
+// La lista de encantamientos (niveles máximos, en qué objetos va cada uno) está en scripts/enchants.js.
+let ciEnchantOpen = {};          // qué acordeones están abiertos (se recuerda mientras no cambies de objeto)
+let ciOpenFor = null;            // objeto al que pertenece ciEnchantOpen
 
 let currentCiBaseItem = null;
 let currentCiEnchants = {};
@@ -80,6 +74,7 @@ function openCustomItemsModal() {
     const title = document.getElementById('inventory-modal-title');
     const hotbarContainer = document.getElementById('modal-hotbar-container');
     
+    if (typeof playerInvReset === 'function') playerInvReset();
     modal.style.display = 'block';
     
     // ✨ NUEVO: Estiramos la ventana a 2 columnas (1190px) para que quepa el panel de items
@@ -117,10 +112,12 @@ function openCustomItemsModal() {
 
 // ✨ 3. AL SELECCIONAR UN ÍTEM
 function selectCustomItem(itemID, existingNbt = null, editIndex = null) {
+    if (ciOpenFor !== itemID) { ciEnchantOpen = {}; ciOpenFor = itemID; }   // otro objeto: los acordeones vuelven a empezar cerrados
     currentCiBaseItem = itemID;
     currentCiEditIndex = editIndex; 
     
-    currentCiEnchants = existingNbt ? JSON.parse(JSON.stringify(existingNbt)) : {};
+    // Las claves viejas que escribía el editor (fireprotection1, luckofthesea...) se convierten a las que usa el juego
+    currentCiEnchants = existingNbt ? mbwEnchNormalize(JSON.parse(JSON.stringify(existingNbt))) : {};
     
     let customName = String(itemID).replace(/([A-Z])/g, ' $1').trim();
     if (currentCiEnchants.name) {
@@ -136,87 +133,30 @@ function selectCustomItem(itemID, existingNbt = null, editIndex = null) {
     
     document.getElementById('save-custom-item').style.display = 'block';
 
-    if (Object.keys(currentCiEnchants).length > 0) {
-        document.getElementById('ci-preview-slot').classList.add('enchanted-slot');
-    } else {
-        document.getElementById('ci-preview-slot').classList.remove('enchanted-slot');
-    }
-
+    updateCiGlow();
     updateCiPreviewCanvas();
-
-    let validEnchants = [];
-    // ✨ SOPORTE PARA EBOOK: Si editas un ebook ya creado, mostrará todas las magias
-    if (itemID === 'book' || itemID === 'ebook') {
-        validEnchants = Object.keys(enchantTranslations);
-    } else if (itemID.includes('Cap') || itemID.includes('Shirt') || itemID.includes('Pants') || itemID.includes('Shoes')) {
-        let armorMagics = [...enchantFilters.armor_all];
-        if (itemID.includes('Cap')) armorMagics = armorMagics.concat(enchantFilters.armor_head);
-        if (itemID.includes('Shoes')) armorMagics = armorMagics.concat(enchantFilters.armor_feet);
-        validEnchants = getFilteredEnchants(armorMagics);
-    } else if (itemID === 'bow') {
-        validEnchants = getFilteredEnchants(enchantFilters.bows);
-    } else if (itemID === 'fr') {
-        validEnchants = getFilteredEnchants(enchantFilters.fishingrods);
-    } else if (itemID.includes('Sword') || itemID.includes('Axe')) {
-        validEnchants = getFilteredEnchants([...enchantFilters.melee, ...enchantFilters.tools]);
-    } else if (itemID.includes('Pickaxe') || itemID.includes('Shovel') || itemID.includes('Hoe') || itemID === 'Shear') {
-        validEnchants = getFilteredEnchants(enchantFilters.tools);
-    } else {
-        validEnchants = getFilteredEnchants(["unbreaking", "mending"]);
-    }
-
-    renderEnchantmentList(validEnchants);
+    renderEnchantmentList();
 }
 
-function getFilteredEnchants(allowedPrefixes) {
-    let result = [];
-    for (let key in enchantTranslations) {
-        let baseName = key.replace(/[0-9]/g, '');
-        if (allowedPrefixes.includes(baseName)) result.push(key);
-    }
-    return result;
+function hasCiEnchants() {
+    return Object.keys(currentCiEnchants).some(k => currentCiEnchants[k] === 'enchant');
+}
+function updateCiGlow() {
+    const slot = document.getElementById('ci-preview-slot');
+    if (!slot) return;
+    if (hasCiEnchants()) slot.classList.add('enchanted-slot'); else slot.classList.remove('enchanted-slot');
 }
 
-// ✨ 4. DIBUJAR LA LISTA Y TRANSFORMAR ID
-function renderEnchantmentList(enchantsArray) {
+// ✨ 4. DIBUJAR LA LISTA (acordeones: un encantamiento = un acordeón con todos sus niveles) Y TRANSFORMAR ID
+function renderEnchantmentList() {
     const list = document.getElementById('ci-enchantments-list');
     list.innerHTML = '';
-
-    enchantsArray.sort((a, b) => {
-        let nameA = enchantTranslations[a];
-        let nameB = enchantTranslations[b];
-        return nameA.localeCompare(nameB);
-    });
-
-    enchantsArray.forEach(enchKey => {
-        let btn = document.createElement('div');
-        btn.className = 'enchant-option';
-        
-        btn.style.boxSizing = 'border-box';
-        btn.style.padding = '8px 10px'; 
-        btn.style.fontWeight = 'bold';
-        btn.style.userSelect = 'none';
-
-        btn.innerHTML = `<span style="position: relative; z-index: 10; pointer-events: none; width: 100%;">${enchantTranslations[enchKey]}</span>`;
-        btn.dataset.enchKey = enchKey; 
-        
-        if (currentCiEnchants[enchKey]) {
-            btn.classList.add('active-enchant');
-        }
-
-        btn.onclick = () => {
-            if (btn.classList.contains('disabled-enchant')) return;
-
-            if (currentCiEnchants[enchKey]) {
-                delete currentCiEnchants[enchKey];
-                btn.classList.remove('active-enchant');
-            } else {
-                currentCiEnchants[enchKey] = "enchant";
-                btn.classList.add('active-enchant');
-            }
-            
-            let hasEnchants = Object.keys(currentCiEnchants).length > 0;
-
+    mbwEnchPicker(list, {
+        item: currentCiBaseItem,
+        data: currentCiEnchants,
+        open: ciEnchantOpen,
+        onChange: () => {
+            const hasEnchants = hasCiEnchants();
             // ✨ TRANSFORMACIÓN DE ID REAL ✨
             // Sube de nivel a ebook si tiene magias, o lo regresa a book si se las quitas todas
             if (hasEnchants && currentCiBaseItem === 'book') {
@@ -224,46 +164,9 @@ function renderEnchantmentList(enchantsArray) {
             } else if (!hasEnchants && currentCiBaseItem === 'ebook') {
                 currentCiBaseItem = 'book';
             }
-            
-            if (hasEnchants) {
-                document.getElementById('ci-preview-slot').classList.add('enchanted-slot');
-            } else {
-                document.getElementById('ci-preview-slot').classList.remove('enchanted-slot');
-            }
-            updateEnchantmentUIState();
-            
+            updateCiGlow();
             // Redibuja usando la ID actual
             updateCiPreviewCanvas();
-        };
-        list.appendChild(btn);
-    });
-    updateEnchantmentUIState();
-}
-
-function updateEnchantmentUIState() {
-    const buttons = document.querySelectorAll('#ci-enchantments-list .enchant-option');
-    let activeBaseNames = {};
-    for (let activeKey in currentCiEnchants) {
-        let base = activeKey.replace(/[0-9]/g, ''); 
-        activeBaseNames[base] = activeKey; 
-    }
-
-    buttons.forEach(btn => {
-        let enchKey = btn.dataset.enchKey;
-        let baseName = enchKey.replace(/[0-9]/g, ''); 
-        
-        if (activeBaseNames[baseName] && activeBaseNames[baseName] !== enchKey) {
-            btn.classList.add('disabled-enchant');
-            btn.style.opacity = '0.4';
-            btn.style.filter = 'grayscale(100%)';
-            btn.style.cursor = 'not-allowed';
-        } else {
-            btn.classList.remove('disabled-enchant');
-            btn.style.opacity = '1';
-            btn.style.filter = 'none';
-            if (!btn.classList.contains('active-enchant')) {
-                btn.style.cursor = 'pointer';
-            }
         }
     });
 }

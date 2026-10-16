@@ -33,153 +33,190 @@ function updateLoadingBar(percent, text) {
     if (textEl) textEl.innerText = text;
 }
 
+// Espera a que el navegador alcance a DIBUJAR lo último que se cambió (por ejemplo, la barra de carga)
+// antes de seguir con un trabajo pesado. Es un instante (~1 cuadro, 16 ms), no una espera fija.
+// El plazo de 80 ms es por si la pestaña está oculta y el navegador pausa los cuadros.
+window.nextPaint = function () {
+    return new Promise(resolve => {
+        let done = false;
+        const go = () => { if (!done) { done = true; resolve(); } };
+        requestAnimationFrame(() => setTimeout(go, 0));
+        setTimeout(go, 80);
+    });
+};
+
+// Lee un archivo .mbw mostrando el avance REAL de la lectura (0 a 20 %) y luego lo carga
+function readWorldFile(file) {
+    updateLoadingBar(0, "Reading file...");
+    const reader = new FileReader();
+    reader.onprogress = (e) => { if (e.lengthComputable && e.total) updateLoadingBar(Math.round(e.loaded / e.total * 20), "Reading file..."); };
+    reader.onload = fileManager.load;
+    reader.readAsText(file);
+}
+
 // ==============================================================
 // ✨ TU FILE MANAGER COMPLETO Y ACTUALIZADO
 // ==============================================================
 const fileManager = {
  input: document.getElementById("file-input"),
  
- load: function (event) {
+ load: async function (event) {
+  // Cada carga lleva un número; si el usuario abre otro archivo mientras esta sigue, la vieja se abandona sola.
+  const myLoad = fileManager._loadId = (fileManager._loadId || 0) + 1;
+  const superseded = () => myLoad !== fileManager._loadId;
   try {
-   updateLoadingBar(30, "Decoding world...");
+   // Etapas con progreso real: leer archivo (0-20%, lo avisa el lector) → descifrar → interpretar → preparar datos → armar el mapa (60-98%, por tandas)
+   updateLoadingBar(25, "Decoding world...");
+   await nextPaint();
+   if (superseded()) return;
+   const jsonString = mbwAlgorithm.decode(event.target.result);
+   updateLoadingBar(40, "Analyzing terrain...");
+   await nextPaint();
+   if (superseded()) return;
+   const parsedWorld = JSON.parse(jsonString);
+   updateLoadingBar(55, "Loading entities and settings...");
+   await nextPaint();
+   if (superseded()) return;
 
-   setTimeout(() => {
-       const jsonString = mbwAlgorithm.decode(event.target.result);
-       updateLoadingBar(60, "Analyzing terrain...");
+   if (typeof WorldTabsManager !== 'undefined' && fileManager.file) {
+       const isDefault = WorldTabsManager.openWorlds.length === 1 && WorldTabsManager.openWorlds[0].filename === "world.mbw";
+       
+       if (isDefault) {
+           WorldTabsManager.openWorlds[0].filename = fileManager.file.name;
+           WorldTabsManager.renderTabs();
+       } else {
+           WorldTabsManager.addWorld(fileManager.file.name, true, false);
+       }
+   }
 
-       setTimeout(() => {
-           const parsedWorld = JSON.parse(jsonString);
-           updateLoadingBar(85, "Loading entities and settings...");
+   mbwom.world = parsedWorld;
+   if (typeof window.playerInvRefresh === 'function') window.playerInvRefresh();   // mini hotbar del jugador (pestaña Player)
 
-           setTimeout(() => {
+   mbwom.mobs = {};
+   for (let sceneId = 1; sceneId <= 3; sceneId++) {
+       let sceneMobs = mbwom.world["mobs" + sceneId];
+       if (sceneMobs) {
+           for (let mobKey in sceneMobs) {
+               let m = sceneMobs[mobKey];
+               let mId = mobKey + "_scene" + sceneId;
+               mbwom.mobs[mId] = m;
                
-               if (typeof WorldTabsManager !== 'undefined' && fileManager.file) {
-                   const isDefault = WorldTabsManager.openWorlds.length === 1 && WorldTabsManager.openWorlds[0].filename === "world.mbw";
-                   
-                   if (isDefault) {
-                       WorldTabsManager.openWorlds[0].filename = fileManager.file.name;
-                       WorldTabsManager.renderTabs();
-                   } else {
-                       WorldTabsManager.addWorld(fileManager.file.name, true, false);
-                   }
-               }
+               mbwom.mobs[mId].x = Number(m.x) || 0;
+               mbwom.mobs[mId].y = Number(m.y) || 0;
+               mbwom.mobs[mId].scene = sceneId;
+           }
+       }
+   }
 
-               mbwom.world = parsedWorld;
+   window.fileInfo = mbwom.world.fileInfo || { version: "", seed: "", author: "" };
+   window.cheats = mbwom.world.cheats || false;
+   
+   const authorEl = document.getElementById("sidebar-world-author");
+   if (authorEl) authorEl.value = window.fileInfo.author || "";
+   window.defeatedEnder = mbwom.world.defeatedEnder || false;
+   
+   if (typeof populateWorldInfo === 'function') populateWorldInfo();
+   
+   const gamemodeEl = document.getElementById("gamemode");
+   const cheatsEl = document.getElementById("cheats");
+   
+   if (gamemodeEl) {
+       if (mbwom.world.gamemode !== undefined) gamemodeEl.value = mbwom.world.gamemode;
+       else if (mbwom.world.creative) gamemodeEl.value = "1";
+       else gamemodeEl.value = "0";
+   }
+   if (cheatsEl) cheatsEl.checked = mbwom.world.cheats;
 
-               mbwom.mobs = {};
-               for (let sceneId = 1; sceneId <= 3; sceneId++) {
-                   let sceneMobs = mbwom.world["mobs" + sceneId];
-                   if (sceneMobs) {
-                       for (let mobKey in sceneMobs) {
-                           let m = sceneMobs[mobKey];
-                           let mId = mobKey + "_scene" + sceneId;
-                           mbwom.mobs[mId] = m;
-                           
-                           mbwom.mobs[mId].x = Number(m.x) || 0;
-                           mbwom.mobs[mId].y = Number(m.y) || 0;
-                           mbwom.mobs[mId].scene = sceneId;
-                       }
-                   }
-               }
+   const diffEl = document.getElementById("gr-difficulty");
+   if (diffEl && mbwom.world.difficulty) {
+       const diffMap = { "peaceful": "0", "easy": "1", "normal": "2", "hard": "3" };
+       diffEl.value = diffMap[mbwom.world.difficulty] || "2";
+   }
+   
+   if (mbwom.world.gameRules) {
+       const keepInvEl = document.getElementById("gr-keepinventory");
+       const daylightEl = document.getElementById("gr-dodaylightcycle");
+       const fireTickEl = document.getElementById("gr-dofiretick");
+       const mobLootEl = document.getElementById("gr-domobloot");
+       const mobGriefingEl = document.getElementById("gr-mobgriefing");
 
-               window.fileInfo = mbwom.world.fileInfo || { version: "", seed: "", author: "" };
-               window.cheats = mbwom.world.cheats || false;
-               
-               const authorEl = document.getElementById("sidebar-world-author");
-               if (authorEl) authorEl.value = window.fileInfo.author || "";
-               window.defeatedEnder = mbwom.world.defeatedEnder || false;
-               
-               if (typeof populateWorldInfo === 'function') populateWorldInfo();
-               
-               const gamemodeEl = document.getElementById("gamemode");
-               const cheatsEl = document.getElementById("cheats");
-               
-               if (gamemodeEl) {
-                   if (mbwom.world.gamemode !== undefined) gamemodeEl.value = mbwom.world.gamemode;
-                   else if (mbwom.world.creative) gamemodeEl.value = "1";
-                   else gamemodeEl.value = "0";
-               }
-               if (cheatsEl) cheatsEl.checked = mbwom.world.cheats;
+       if (keepInvEl) keepInvEl.checked = mbwom.world.gameRules.keepinventory || false;
+       if (daylightEl) daylightEl.checked = mbwom.world.gameRules.dodaylightcycle !== false;
+       if (fireTickEl) fireTickEl.checked = mbwom.world.gameRules.dofiretick !== false;
+       if (mobLootEl) mobLootEl.checked = mbwom.world.gameRules.domobloot !== false;
+       if (mobGriefingEl) mobGriefingEl.checked = mbwom.world.gameRules.mobgriefing !== false;
+   }
+   
+   const healthEl = document.getElementById("player-health");
+   const hungerEl = document.getElementById("player-hunger"); 
+   const xpEl = document.getElementById("player-xp");
+   const timeEl = document.getElementById("gr-time");
+   const weatherEl = document.getElementById("gr-weather");
+   const dayEl = document.getElementById("gr-day"); 
 
-               const diffEl = document.getElementById("gr-difficulty");
-               if (diffEl && mbwom.world.difficulty) {
-                   const diffMap = { "peaceful": "0", "easy": "1", "normal": "2", "hard": "3" };
-                   diffEl.value = diffMap[mbwom.world.difficulty] || "2";
-               }
-               
-               if (mbwom.world.gameRules) {
-                   const keepInvEl = document.getElementById("gr-keepinventory");
-                   const daylightEl = document.getElementById("gr-dodaylightcycle");
-                   const fireTickEl = document.getElementById("gr-dofiretick");
-                   const mobLootEl = document.getElementById("gr-domobloot");
-                   const mobGriefingEl = document.getElementById("gr-mobgriefing");
+   if (healthEl && mbwom.world.health !== undefined) healthEl.value = mbwom.world.health;
+   if (hungerEl && mbwom.world.food !== undefined) hungerEl.value = mbwom.world.food; 
+   if (xpEl && mbwom.world.experience !== undefined) xpEl.value = Math.floor(mbwom.world.experience / 100);
+   if (timeEl && mbwom.world.tim !== undefined) timeEl.value = mbwom.world.tim;
+   if (weatherEl && mbwom.world.raining !== undefined) weatherEl.value = mbwom.world.raining > 0 ? "rain" : "clear";
+   if (dayEl && mbwom.world.day !== undefined) dayEl.value = mbwom.world.day;
+   
+   mbwom.loadScene(1);
+   // FIX: al abrir un mundo se carga la dimensión 1 (Overworld), así que el editor tiene que "saber" que está en la 1.
+   // Antes, si abrías un mundo estando en el Nether, se quedaba pensando que seguía en el Nether y al guardar
+   // pisaba el Nether con el mapa del Overworld.
+   mbwom.currentScene = 1;
+   if (typeof window.syncDimensionIcon === 'function') window.syncDimensionIcon();
 
-                   if (keepInvEl) keepInvEl.checked = mbwom.world.gameRules.keepinventory || false;
-                   if (daylightEl) daylightEl.checked = mbwom.world.gameRules.dodaylightcycle !== false;
-                   if (fireTickEl) fireTickEl.checked = mbwom.world.gameRules.dofiretick !== false;
-                   if (mobLootEl) mobLootEl.checked = mbwom.world.gameRules.domobloot !== false;
-                   if (mobGriefingEl) mobGriefingEl.checked = mbwom.world.gameRules.mobgriefing !== false;
-               }
-               
-               const healthEl = document.getElementById("player-health");
-               const hungerEl = document.getElementById("player-hunger"); 
-               const xpEl = document.getElementById("player-xp");
-               const timeEl = document.getElementById("gr-time");
-               const weatherEl = document.getElementById("gr-weather");
-               const dayEl = document.getElementById("gr-day"); 
+   if (typeof checkboxes !== 'undefined') {
+       checkboxes.forEach(cb => {
+           const index = parseInt(cb.getAttribute('data-index'));
+           if (!isNaN(index)) cb.checked = mbwom.getAchievement(index);
+       });
+   }
 
-               if (healthEl && mbwom.world.health !== undefined) healthEl.value = mbwom.world.health;
-               if (hungerEl && mbwom.world.food !== undefined) hungerEl.value = mbwom.world.food; 
-               if (xpEl && mbwom.world.experience !== undefined) xpEl.value = Math.floor(mbwom.world.experience / 100);
-               if (timeEl && mbwom.world.tim !== undefined) timeEl.value = mbwom.world.tim;
-               if (weatherEl && mbwom.world.raining !== undefined) weatherEl.value = mbwom.world.raining > 0 ? "rain" : "clear";
-               if (dayEl && mbwom.world.day !== undefined) dayEl.value = mbwom.world.day;
-               
-               mbwom.loadScene(1);
+   // ✨ FIX: Sincronizar el nombre al cargar un mundo
+   const filenameInput = document.getElementById("filename-display");
+   if (fileManager.file) {
+       let cleanName = fileManager.file.name.replace(/\.mbw$/i, "");
+       
+       // 1. Lo mostramos visualmente
+       if (filenameInput) filenameInput.value = cleanName;
+       if (typeof updateFilename === 'function') updateFilename(cleanName);
+       
+       // 2. Le avisamos explícitamente a Firebase que cambiamos de mundo
+       if (typeof window.myPresenceRef !== 'undefined' && window.myPresenceRef) {
+           window.myPresenceRef.update({ worldName: cleanName });
+       }
+   }
 
-               if (typeof checkboxes !== 'undefined') {
-                   checkboxes.forEach(cb => {
-                       const index = parseInt(cb.getAttribute('data-index'));
-                       if (!isNaN(index)) cb.checked = mbwom.getAchievement(index);
-                   });
-               }
+   // Armar el mapa (lo más pesado) por tandas, avisando el avance real a la barra
+   updateLoadingBar(60, "Building the map...");
+   await nextPaint();
+   if (superseded()) return;
+   if (typeof initializeWorldCacheAsync === 'function') {
+       await initializeWorldCacheAsync(function (done) { if (!superseded()) updateLoadingBar(60 + Math.round(done * 38), "Building the map..."); });
+   } else if (typeof initializeWorldCache === 'function') {
+       initializeWorldCache();
+   }
+   if (superseded()) return;
 
-               // ✨ FIX: Sincronizar el nombre al cargar un mundo
-               const filenameInput = document.getElementById("filename-display");
-               if (fileManager.file) {
-                   let cleanName = fileManager.file.name.replace(/\.mbw$/i, "");
-                   
-                   // 1. Lo mostramos visualmente
-                   if (filenameInput) filenameInput.value = cleanName;
-                   if (typeof updateFilename === 'function') updateFilename(cleanName);
-                   
-                   // 2. Le avisamos explícitamente a Firebase que cambiamos de mundo
-                   if (typeof window.myPresenceRef !== 'undefined' && window.myPresenceRef) {
-                       window.myPresenceRef.update({ worldName: cleanName });
-                   }
-               }
+   if (!window.isMainLoopRunning) {
+       if (typeof mainLoop === 'function') mainLoop();
+       window.isMainLoopRunning = true; 
+   }
 
-               if (typeof initializeWorldCache === 'function') initializeWorldCache();
-               
-               if (!window.isMainLoopRunning) {
-                   if (typeof mainLoop === 'function') mainLoop();
-                   window.isMainLoopRunning = true; 
-               }
+   const forceWeatherEl = document.getElementById("gr-weather");
+   if (forceWeatherEl) forceWeatherEl.dispatchEvent(new Event('change'));
 
-               const forceWeatherEl = document.getElementById("gr-weather");
-               if (forceWeatherEl) forceWeatherEl.dispatchEvent(new Event('change'));
+   console.log("World loaded succesfully.");
 
-               console.log("World loaded succesfully.");
-
-               updateLoadingBar(100, "World Ready!");
-               setTimeout(() => {
-                   const overlay = document.getElementById('loading-overlay');
-                   if (overlay) overlay.style.display = 'none';
-               }, 600); 
-
-           }, 50); 
-       }, 50); 
-   }, 50); 
+   updateLoadingBar(100, "World Ready!");
+   await new Promise(resolve => setTimeout(resolve, 250));   // un instante para que se vea la barra completa
+   if (!superseded()) {
+       const overlay = document.getElementById('loading-overlay');
+       if (overlay) overlay.style.display = 'none';
+   }
 
   } catch (error) {
    console.error("Error cargando mundo:", error);
@@ -240,7 +277,12 @@ prepareData: function() {
     const weatherEl = document.getElementById("gr-weather");
 
     if (healthEl) mbwom.world.health = parseInt(healthEl.value) || 20;
-    if (hungerEl) mbwom.world.food = parseInt(hungerEl.value) || 20; 
+    if (hungerEl) {
+        // El hambre va de 0 a 1000 (1000 = llena): así la guardan TODOS los mundos reales. Antes el cuadro solo llegaba a 20
+        // y guardaba 20 (¡un 2 %: casi muerto de hambre!), y escribir 0 se convertía en 20 por el "|| 20".
+        let f = parseInt(hungerEl.value);
+        mbwom.world.food = isNaN(f) ? 1000 : Math.max(0, Math.min(1000, f));
+    }
     if (xpEl) {
         let x = parseInt(xpEl.value);
         mbwom.world.experience = isNaN(x) ? 0 : (x * 100);
@@ -289,6 +331,7 @@ prepareData: function() {
     const knownMobs = [
         "zombie", "skeleton", "creeper", "spider", "slime", "pig", "cow", "chicken", "sheep",
         "zombiepigman", "ghast", "blaze", "magmacube", "nethereye", "enderman", "enderdragon", "snowgolem", "bat", "rabbit",
+        "spawnskin", "squid",   // (los contadores spawnskinNum / squidNum se ponen a 0 cuando ya no queda ninguno)
     ];
 
     // ✨ FIX CRÍTICO: Recolectar todos los mobs de TODAS las dimensiones antes de limpiar
@@ -422,10 +465,7 @@ if (fileManager.input) {
     fileManager.input.addEventListener("change", function (event) {
      fileManager.file = event.target.files[0];
      if (fileManager.file) {
-      updateLoadingBar(10, "Reading file...");
-      const reader = new FileReader();
-      reader.onload = fileManager.load;
-      reader.readAsText(fileManager.file);
+      readWorldFile(fileManager.file);
       event.target.value = ''; 
      }
     });
@@ -509,10 +549,7 @@ dropZone.addEventListener('drop', (e) => {
         fileManager.file = e.dataTransfer.files[0];
         
         if (fileManager.file.name.toLowerCase().endsWith('.mbw')) {
-            updateLoadingBar(10, "Reading file...");
-            const reader = new FileReader();
-            reader.onload = fileManager.load;
-            reader.readAsText(fileManager.file);
+            readWorldFile(fileManager.file);
         } else {
             alert("⚠️ Please, drop a valid Mine Blocks file (.mbw)");
         }
@@ -546,6 +583,11 @@ const localDB = {
             let transaction = db.transaction(this.storeName, "readwrite");
             let store = transaction.objectStore(this.storeName);
             
+            // 0. ¿Es el PRIMER mundo que se guarda en "My Worlds"? (para invitar a elegir nombre y foto)
+            let countReq = store.count();
+            let isFirstWorld = false;
+            countReq.onsuccess = () => { isFirstWorld = (countReq.result === 0); };
+            
             // 1. Buscamos si el mundo ya existe para ver su estado actual
             let request = store.get(name);
             request.onsuccess = (e) => {
@@ -573,7 +615,11 @@ const localDB = {
                     backups: backups 
                 });
                 
-                putReq.onsuccess = () => resolve();
+                putReq.onsuccess = () => {
+                    resolve();
+                    // Primer mundo guardado: se abre el perfil (profile.js) para que elija nombre y foto
+                    if (isFirstWorld && typeof window.promptProfileAfterFirstSave === 'function') window.promptProfileAfterFirstSave();
+                };
                 putReq.onerror = (err) => reject(err.target.error);
             };
             request.onerror = (err) => reject(err.target.error);
@@ -602,6 +648,53 @@ const localDB = {
         let db = await this.init();
         let transaction = db.transaction(this.storeName, "readwrite");
         transaction.objectStore(this.storeName).delete(name);
+    }
+};
+
+// ==============================================================
+// ✨ MOTOR DE BASE DE DATOS LOCAL (IndexedDB) PARA SKINS DE MOBS
+// ==============================================================
+// Movido aquí desde main.js, para que toda la lógica de almacenamiento
+// local (mundos y skins) viva en un solo archivo.
+window.skinDB = {
+    dbName: "MBW_SkinsDB", storeName: "skins",
+    init: function() {
+        return new Promise((resolve, reject) => {
+            let request = indexedDB.open(this.dbName, 1);
+            request.onupgradeneeded = (e) => { let db = e.target.result; if (!db.objectStoreNames.contains(this.storeName)) db.createObjectStore(this.storeName); };
+            request.onsuccess = (e) => resolve(e.target.result); request.onerror = (e) => reject(e.target.error);
+        });
+    },
+    saveSkin: async function(id, base64Data) {
+        let db = await this.init();
+        return new Promise((resolve, reject) => {
+            let tx = db.transaction(this.storeName, "readwrite");
+            tx.objectStore(this.storeName).put({ data: base64Data, time: Date.now() }, String(id));
+            tx.oncomplete = () => resolve(); tx.onerror = () => reject();
+        });
+    },
+    getSkin: async function(id) {
+        let db = await this.init();
+        return new Promise((resolve, reject) => {
+            let tx = db.transaction(this.storeName, "readonly");
+            let req = tx.objectStore(this.storeName).get(String(id));
+            req.onsuccess = () => { let res = req.result; resolve(res ? (res.data || res) : null); };
+            req.onerror = () => resolve(null);
+        });
+    },
+    getAllSorted: async function() {
+        let db = await this.init();
+        return new Promise((resolve, reject) => {
+            let tx = db.transaction(this.storeName, "readonly");
+            let store = tx.objectStore(this.storeName);
+            let reqValues = store.getAll(); let reqKeys = store.getAllKeys();
+            tx.oncomplete = () => {
+                let values = reqValues.result || []; let keys = reqKeys.result || [];
+                let combined = keys.map((key, index) => { return { id: key, time: values[index].time || 0, base64: values[index].data || values[index] }; });
+                combined.sort((a, b) => b.time - a.time); resolve(combined);
+            };
+            tx.onerror = () => resolve([]);
+        });
     }
 };
 
@@ -704,10 +797,8 @@ async function loadSavedLocalWorld(name) {
 
     fileManager.file = { name: name + ".mbw", size: new Blob([textData]).size };
     updateLoadingBar(10, "Loading from the browser...");
-    
-    setTimeout(() => {
-        fileManager.load({ target: { result: textData } });
-    }, 100);
+    await nextPaint();   // un cuadro para que se dibuje la barra (antes eran 100 ms fijos)
+    fileManager.load({ target: { result: textData } });
 }
 
 async function deleteSavedLocalWorld(name) {

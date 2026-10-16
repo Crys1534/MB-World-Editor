@@ -254,35 +254,66 @@ function initBackstageMenu() {
                         </div>
                     </div>
 
-                    <div id="mp-full-chat-view" style="display: none; flex: 1; flex-direction: row; width: 100%; height: 100%; background: #2c3e50;">
-                        <div style="width: 350px; background: #34495e; border-right: 2px solid #1a252f; display: flex; flex-direction: column;">
-                            <div style="padding: 15px; border-bottom: 2px solid #1a252f; display: flex; justify-content: space-between; align-items: center;">
-                                <h3 style="margin: 0; color: white; font-size: 32px;">💬 <span data-i18n="mp_chats">Chats</span></h3>
+                    <div id="mp-full-chat-view" class="dc-app" style="display: none;">
+                        <aside class="dc-sidebar">
+                            <div class="dc-sidebar-top">
+                                <input id="dc-chat-search" class="dc-search" type="text" autocomplete="off" data-i18n-placeholder="dm_search" placeholder="Buscar o iniciar una conversación">
                             </div>
-                            <div id="full-chat-list-container" style="flex: 1; overflow-y: auto; padding: 0px; display: flex; flex-direction: column; gap: 0px; image-rendering: auto;"></div>
-                        </div>
-
-                        <div style="flex: 1; display: flex; flex-direction: column; background: #2c3e50; position: relative; width: 68%;">
-                            
-                            <div id="full-chat-placeholder" style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                                <span style="font-size: 80px; opacity: 0.2; margin-bottom: 20px;">💬</span>
-                                <h2 style="color: #bdc3c7; font-family: 'Pixeltype', sans-serif; font-size: 42px; opacity: 0.5; margin: 0;" data-i18n="mp_select_chat">Selecciona un chat para iniciar</h2>
-                            </div>
-
-                            <div id="full-chat-active" style="display: none; flex: 1; flex-direction: column; height: 100%;">
-                                <div style="background: #1a252f; padding: 15px 25px; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.3); z-index: 2;">
-                                    <div id="full-chat-header-pfp" style="width: 45px; height: 45px; border-radius: 50%; background-size: cover; background-position: center; border: 2px solid white;"></div>
-                                    <h4 id="full-chat-header-name" style="margin: 0; color: white; font-size: 36px; font-family: 'Pixeltype', sans-serif;" data-i18n="mp_name_placeholder">Nombre</h4>
-                                </div>
-                                
-                                <div id="full-dm-messages" style="flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: #2c3e50;"></div>
-                                
-                                <div style="display: flex; padding: 6px 25px; background: #34495e; gap: 0px; border-top: 2px solid #1a252f;">
-                                    <textarea id="full-dm-input" data-i18n-placeholder="mp_send_message" placeholder="Send a message..." rows="1" style="flex: 1; padding: 12px; font-family: 'Consolas', sans-serif; font-size: 26px; border-radius: 8px; border: none; outline: none; background: #ecf0f1; color: #333; resize: none; overflow-y: hidden; line-height: 1.2;"></textarea>
-                                    <button onclick="sendPrivateMessage()" style="background: #2ecc71; border: none; border-radius: 8px; padding: 0 25px; font-size: 28px; cursor: pointer; color: white; transition: 0.2s; font-family: 'Pixeltype', sans-serif;" onmouseover="this.style.background='#27ae60'" onmouseout="this.style.background='#2ecc71'">➔</button>
+                            <div class="dc-sidebar-label" data-i18n="dm_section">Mensajes directos</div>
+                            <div id="full-chat-list-container" class="dc-chat-list"></div>
+                            <div class="dc-userpanel">
+                                <img id="dc-me-pfp" class="dc-avatar dc-avatar-sm" alt="" src="assets/default pfp.png">
+                                <div class="dc-userpanel-text">
+                                    <div id="dc-me-name" class="dc-userpanel-name">Player</div>
+                                    <div class="dc-userpanel-status" data-i18n="dm_online">En línea</div>
                                 </div>
                             </div>
-                        </div>
+                        </aside>
+
+                        <main class="dc-main">
+                            <div id="full-chat-placeholder" class="dc-empty">
+                                <div class="dc-empty-icon">💬</div>
+                                <h2 class="dc-empty-title" data-i18n="mp_select_chat">Selecciona un chat para iniciar</h2>
+                            </div>
+
+                            <div id="full-chat-active" class="dc-chat" style="display: none;">
+                                <header class="dc-chat-header">
+                                    <div class="dc-header-avatar">
+                                        <img id="full-chat-header-pfp" class="dc-avatar dc-avatar-xs" alt="" src="assets/default pfp.png">
+                                        <span id="chat-status-dot" class="dc-status-dot"></span>
+                                    </div>
+                                    <h4 id="full-chat-header-name" class="dc-header-name"></h4>
+                                    <span class="dc-header-sep"></span>
+                                    <span id="chat-header-status-text" class="dc-header-status"></span>
+                                    <div class="dc-header-actions">
+                                        <button type="button" id="dm-mute-btn" class="dc-icon-btn"></button>
+                                        <button type="button" id="chat-header-menu-btn" class="dc-icon-btn" data-i18n-title="dm_options" title="Opciones"></button>
+                                    </div>
+                                </header>
+
+                                <div class="dc-scroll-wrap">
+                                    <div id="full-dm-messages" class="dc-messages"></div>
+                                    <button type="button" id="chat-scroll-bottom-btn" class="dc-pill" style="display: none;"></button>
+                                </div>
+
+                                <div id="dm-typing-indicator" class="dc-typing">
+                                    <span class="dc-typing-dots"><i></i><i></i><i></i></span>
+                                    <span><strong class="dc-typing-name"></strong> <span data-i18n="dm_typing">está escribiendo…</span></span>
+                                </div>
+
+                                <div id="dc-composer" class="dc-composer">
+                                    <div id="full-chat-reply-preview" class="dc-composer-bar" hidden></div>
+                                    <div id="dm-edit-bar" class="dc-composer-bar" hidden></div>
+                                    <div class="dc-input-wrap">
+                                        <textarea id="full-dm-input" data-i18n-placeholder="mp_send_message" placeholder="Send a message..." rows="1"></textarea>
+                                        <div class="dc-input-actions">
+                                            <button type="button" id="btn-dm-emoji" class="dc-icon-btn" data-i18n-title="dm_emoji" title="Emojis"></button>
+                                            <button type="button" id="btn-dm-send" class="dc-icon-btn dc-send" data-i18n-title="dm_send" title="Enviar"></button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </main>
                     </div>
 
                     <div id="mp-right-sidebar" style="position: absolute; top: 0; right: 0; bottom: 0; width: 350px; background: #34495e; border-left: 2px solid #1a252f; display: none; flex-direction: column; box-shadow: -10px 0 25px rgba(0,0,0,0.6); font-family: 'Pixeltype', sans-serif; z-index: 20; animation: slideIn 0.3s ease-out;">

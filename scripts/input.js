@@ -1,7 +1,7 @@
 // ✨ VARIABLES GLOBALES PARA MOBS ✨
 let selectedMob = null;
 let selectedMobKey = null;
-let mobClipboard = null;
+// (mobClipboard — el mob copiado — se declara en scripts/clipboard.js)
 let draggedMob = null;
 let isDraggingMob = false;
 let dragOffset = { x: 0, y: 0 };
@@ -20,12 +20,27 @@ const mouse = {
         // ✨ FIX: Si las variables maestras aún no cargan, no hacemos matemáticas
         if (typeof tileSize === 'undefined' || typeof camera === 'undefined') return;
         
+        // Desplazamiento fluido: la cámara puede estar entre dos cuadros y se mueve aunque el mouse esté quieto,
+        // así que el cuadro bajo el mouse se calcula con la posición exacta del mouse (no con gridX / gridY).
+        if (window.smoothScroll && this.canvasX !== null && this.canvasY !== null) {
+            this.worldX = Math.floor(camera.x + this.canvasX / tileSize);
+            this.worldY = Math.floor(camera.y + this.canvasY / tileSize);
+            this.gridX = this.worldX - Math.floor(camera.x);
+            this.gridY = this.worldY - Math.floor(camera.y);
+            this.alignedX = (this.worldX - camera.x) * tileSize;
+            this.alignedY = canvas.height - (this.worldY - camera.y) * tileSize;
+            return;
+        }
         this.alignedX = this.gridX * tileSize;
         this.alignedY = canvas.height - this.gridY * tileSize;
         this.worldX = Math.floor(camera.x) + this.gridX;
         this.worldY = Math.floor(camera.y) + this.gridY;
     }
 }
+
+// Cámara fluida: cuánto tarda en acelerar al apretar una tecla y en frenar al soltarla (milisegundos)
+const CAMERA_START_MS = 25;
+const CAMERA_STOP_MS = 60;
 
 function cameraMovement() {
     // ✨ LÓGICA DE MODO ESPECTADOR
@@ -53,6 +68,42 @@ function cameraMovement() {
     if (keys.KeyS) moveY -= camera.speed;
     if (keys.KeyD) moveX += camera.speed;
     if (keys.KeyA) moveX -= camera.speed;
+
+    // Desplazamiento fluido: la cámara avanza en decimales (no en cuadros enteros) y según el TIEMPO que pasó,
+    // así va igual de rápido a 60 que a 144 fotogramas por segundo. La velocidad es la misma de siempre
+    // (camera.speed cuadros por fotograma a 60 fps).
+    if (window.smoothScroll) {
+        const now = performance.now();
+        const dt = camera.lastMoveTime ? Math.min(now - camera.lastMoveTime, 50) : (1000 / 60);
+        camera.lastMoveTime = now;
+        const f = dt / (1000 / 60);
+
+        // La cámara NO frena de golpe: tiene una velocidad (camera.velX / velY) que sube rápido hacia la velocidad
+        // de las teclas (CAMERA_START_MS) y, al soltar las teclas, baja poco a poco hasta cero (CAMERA_STOP_MS).
+        // Es la misma curva a 60 que a 144 fps, porque depende del TIEMPO (dt) y no del número de fotogramas.
+        // La posición "de verdad" (_tx / _ty) lleva todos los decimales: main.js la ajusta al píxel para dibujar
+        // (snapSmoothCamera), y sin esta copia los últimos movimientos, más chicos que un píxel, se perderían.
+        if (camera.velX === undefined) { camera.velX = 0; camera.velY = 0; }
+        if (camera._tx === undefined || Math.abs(camera.x - camera._tx) * tileSize > 0.51 || Math.abs(camera.y - camera._ty) * tileSize > 0.51) {
+            camera._tx = camera.x; camera._ty = camera.y;   // alguien movió la cámara (teletransporte, zoom, otra pestaña...): se parte de ahí
+            camera.velX = 0; camera.velY = 0;               // y no sigue deslizando con la velocidad de antes (sería un salto raro tras teletransportarse)
+        }
+        const ease = function (vel, target) {
+            const tau = target === 0 ? CAMERA_STOP_MS : CAMERA_START_MS;
+            let v = vel + (target - vel) * (1 - Math.exp(-dt / tau));
+            if (target === 0 && Math.abs(v) < camera.speed * 0.02) v = 0;   // ya casi parada: se detiene del todo
+            return v;
+        };
+        const vx = ease(camera.velX, moveX), vy = ease(camera.velY, moveY);
+        if (vx !== 0 || vy !== 0 || camera.velX !== 0 || camera.velY !== 0) {
+            camera._tx += (camera.velX + vx) / 2 * f;
+            camera._ty += (camera.velY + vy) / 2 * f;
+            camera.x = camera._tx;
+            camera.y = camera._ty;
+        }
+        camera.velX = vx; camera.velY = vy;
+        return;
+    }
 
     camera.accX += moveX;
     camera.accY += moveY;
@@ -143,8 +194,7 @@ window.addEventListener("keydown", function (event) {
     if (isCtrl && event.code === 'KeyC') { 
         if (typeof currentTool !== 'undefined' && currentTool === 'move' && selectedMob) {
             event.preventDefault(); // Bloqueamos el navegador solo si vamos a copiar un Mob
-            mobClipboard = JSON.parse(JSON.stringify(selectedMob));
-            console.log("Mob copiado nativamente:", mobClipboard.type);
+            copyMobToClipboard(selectedMob);   // scripts/clipboard.js
         } else if (typeof currentTool !== 'undefined' && (currentTool === 'select' || currentTool === 'lasso' || currentTool === 'magic')) {
             event.preventDefault(); // Bloqueamos el navegador solo si estamos usando herramientas de selección
             if (typeof copySelection === 'function') copySelection(); 
@@ -162,30 +212,9 @@ window.addEventListener("keydown", function (event) {
     
     // ✨ PEGAR CLON O ESTRUCTURA (Ctrl + V)
     if (isCtrl && event.code === 'KeyV') { 
-        if (typeof currentTool !== 'undefined' && currentTool === 'move' && mobClipboard) {
+        if (typeof currentTool !== 'undefined' && currentTool === 'move' && hasMobInClipboard()) {
             event.preventDefault(); 
-            if (typeof mbwom !== 'undefined') {
-                if (!mbwom.mobs) {
-                    mbwom.mobs = {};
-                    if (mbwom.world && mbwom.currentScene) {
-                        mbwom.world["mobs" + mbwom.currentScene] = mbwom.mobs;
-                    }
-                }
-                let newId = "mob_copy_" + Date.now() + Math.floor(Math.random() * 1000);
-                
-                let newMob = JSON.parse(JSON.stringify(mobClipboard));
-                newMob.x = mouse.worldX;
-                newMob.y = -mouse.worldY; 
-                newMob.id = newId;
-                
-                // ✨ ADD HISTORY: Pegar Mob
-                historyManager.startAction();
-                historyManager.recordMobChange(newId, null, newMob);
-                historyManager.commitAction();
-                
-                mbwom.mobs[newId] = newMob;
-                if (typeof worldDirty !== 'undefined') worldDirty = true;
-            }
+            pasteMobFromClipboard();   // scripts/clipboard.js
         } else if (typeof currentTool !== 'undefined' && (currentTool === 'select' || currentTool === 'lasso' || currentTool === 'magic')) {
             event.preventDefault(); 
             if (typeof activatePasteMode === 'function') activatePasteMode(); 
@@ -450,6 +479,8 @@ function renderChestOrOvenUI(blockState, gridContainer) {
     return false;
 }
 
+let chestTipAt = null;   // el cofre que muestra ahora el cuadro de vista previa ({x, y}); null = ninguno
+
 function updateChestTooltip(screenX, screenY) {
     const tooltip = document.getElementById('chest-tooltip-overlay');
     if (!tooltip) return;
@@ -459,18 +490,116 @@ function updateChestTooltip(screenX, screenY) {
     const gridContainer = document.getElementById('chest-tooltip-grid');
 
     if (renderChestOrOvenUI(blockState, gridContainer)) {
+        // Con la herramienta Move, el cofre se puede editar con clic derecho: se avisa en el tooltip
+        const hint = document.getElementById('chest-tooltip-hint');
+        if (hint) {
+            const canEdit = (typeof currentTool !== 'undefined' && currentTool === 'move' && blockState.type === 'chest');
+            hint.style.display = canEdit ? 'block' : 'none';
+            if (canEdit) hint.textContent = (typeof t === 'function' ? t('chest_edit_hint') : 'Right-click to edit');
+        }
         tooltip.style.display = 'block';
         tooltip.style.left = screenX + 'px';
         tooltip.style.top = screenY + 'px';
+        chestTipAt = { x: mouse.worldX, y: mouse.worldY, type: blockState.type };
     } else {
         tooltip.style.display = 'none';
+        chestTipAt = null;
     }
+}
+
+// El cuadro de vista previa recibe el mouse (así se pueden leer los objetos con el cursor encima) y por eso, en cuanto el
+// cursor se mueve un poquito, el clic ya cae sobre el cuadro y no sobre el mundo. Con la herramienta Move, el clic derecho
+// sobre el cuadro abre el inventario del cofre que se está viendo, igual que sobre el cofre mismo.
+(function () {
+    const ov = document.getElementById('chest-tooltip-overlay');
+    if (!ov) return;
+    ov.addEventListener('mousedown', function (e) {
+        if (e.button !== 2 || typeof currentTool === 'undefined' || currentTool !== 'move') return;
+        if (!chestTipAt || chestTipAt.type !== 'chest' || typeof openChestEditor !== 'function') return;
+        if (openChestEditor(chestTipAt.x, chestTipAt.y)) { e.preventDefault(); ov.style.display = 'none'; chestTipAt = null; }
+    });
+    ov.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+})();
+
+// --- ¿QUÉ MOB HAY BAJO EL MOUSE? ---
+// Antes el área de clic de cada mob se calculaba con el tamaño de su ARCHIVO de imagen (ancho / 16), que no tiene
+// nada que ver con el tamaño con que se dibuja: una skin (el archivo es una tira de 272 px) tenía un área de
+// 17 cuadros de ancho, y el zombi, el cerdo o la vaca un área más chica que su dibujo. Con dos mobs cerca ganaba
+// siempre el primero de la lista. Ahora:
+//  1) el área es EXACTAMENTE la que se dibuja (getMobDrawInfo, en main.js);
+//  2) si dos áreas se cruzan, gana el mob cuyo dibujo está de verdad bajo el cursor (píxel no transparente) y, si
+//     hay varios, el que se ve ENCIMA (el último que se dibuja); si el cursor está en una parte transparente de
+//     todos, gana el que tiene su centro más cerca del cursor.
+const mobAlphaCache = new WeakMap();   // imagen -> { w, h, data } con la transparencia de cada píxel (se lee una sola vez)
+function mobPixelOpaque(img, srcW, srcH, fx, fy) {
+    // fx, fy: de 0 a 1 dentro del dibujo (fy = 0 arriba). Devuelve true / false, o null si no se puede leer la imagen.
+    try {
+        let c = mobAlphaCache.get(img);
+        if (!c || c.sw !== srcW || c.sh !== srcH) {
+            const cv = document.createElement('canvas');
+            cv.width = srcW; cv.height = srcH;
+            const cx = cv.getContext('2d', { willReadFrequently: true });
+            cx.drawImage(img, 0, 0, srcW, srcH, 0, 0, srcW, srcH);
+            c = { sw: srcW, sh: srcH, data: cx.getImageData(0, 0, srcW, srcH).data };
+            mobAlphaCache.set(img, c);
+        }
+        const px = Math.min(srcW - 1, Math.max(0, Math.floor(fx * srcW)));
+        const py = Math.min(srcH - 1, Math.max(0, Math.floor(fy * srcH)));
+        return c.data[(py * srcW + px) * 4 + 3] > 24;
+    } catch (e) {
+        return null;   // imagen "contaminada" (por ejemplo, abierta desde un archivo local): se usa solo el área
+    }
+}
+
+function findMobAt(wx, wy) {
+    if (typeof mbwom === 'undefined' || !mbwom.mobs) return null;
+    let topOpaque = null, nearest = null, nearestDist = Infinity;
+    for (let key in mbwom.mobs) {
+        const m = mbwom.mobs[key];
+        if (!m || !m.type) continue;
+        const info = getMobDrawInfo(m, true);   // true = no empezar descargas de skins solo por hacer clic
+        const mx = Number(m.x), bottom = -Number(m.y);
+        const left = mx - info.w / 2, right = mx + info.w / 2, top = bottom + info.h;
+        if (wx < left || wx > right || wy < bottom || wy > top) continue;
+
+        let opaque = false;
+        const img = info.img;
+        if (img && img.complete && img.naturalWidth > 0) {
+            let fx = (wx - left) / info.w;
+            if (m.direction === 1) fx = 1 - fx;                    // el dibujo va volteado
+            const fy = (top - wy) / info.h;
+            const srcW = info.isCustomSkin ? 16 : img.naturalWidth;
+            const srcH = info.isCustomSkin ? 22 : img.naturalHeight;
+            const r = mobPixelOpaque(img, Math.min(srcW, img.naturalWidth), Math.min(srcH, img.naturalHeight), fx, fy);
+            opaque = (r === null) ? true : r;
+        } else {
+            opaque = true;   // todavía sin imagen: se ve un rectángulo de color, todo el área es "sólida"
+        }
+        if (opaque) { topOpaque = { key, mob: m }; continue; }   // el último en la lista es el que se dibuja encima
+        const d = Math.hypot(wx - mx, wy - (bottom + info.h / 2));
+        if (d < nearestDist) { nearestDist = d; nearest = { key, mob: m }; }
+    }
+    return topOpaque || nearest;
 }
 
 // --- CLICS PRINCIPALES (MOUSEDOWN) ---
 canvas.addEventListener("mousedown", function (event) {
+    if (typeof mbwom === 'undefined' || !mbwom.scene) return;   // sin mundo abierto no hay nada que tocar
     if (event.button == 0) mouse.left = true;
     if (event.button == 2) mouse.right = true;
+
+    // ✨ CLIC DERECHO CON MOVE SOBRE UN COFRE: abre su inventario para editar los objetos (scripts/player-inventory.js)
+    if (currentTool === 'move' && event.button == 2 && typeof openChestEditor === 'function') {
+        const bs = mbwom.getBlockState(mouse.worldX, mouse.worldY);
+        if (bs && bs.type === 'chest' && openChestEditor(mouse.worldX, mouse.worldY)) {
+            mouse.right = false;
+            event.preventDefault();
+            const ov = document.getElementById('chest-tooltip-overlay');
+            if (ov) ov.style.display = 'none';
+            chestTipAt = null;
+            return;
+        }
+    }
 
     // ✨ SELECCIONAR Y MOVER MOB (MOVE)
     if (currentTool === 'move' && mouse.left) {
@@ -478,40 +607,23 @@ canvas.addEventListener("mousedown", function (event) {
         let exactWorldX = camera.x + (mouse.canvasX / tileSize);
         let exactWorldY = camera.y + (mouse.canvasY / tileSize);
 
-        if (typeof mbwom !== 'undefined' && mbwom.mobs) {
-            for (let key in mbwom.mobs) {
-                let m = mbwom.mobs[key];
-                let img = window.images[m.type];
-                if (!img || !img.complete) continue;
+        const hit = findMobAt(exactWorldX, exactWorldY);
+        if (hit) {
+            const m = hit.mob, key = hit.key;
+            selectedMob = m;
+            selectedMobKey = key;
+            draggedMob = m;
+            isDraggingMob = true;
+            clickedOnMob = true;
 
-                let mobWidth = img.naturalWidth / 16;
-                let mobHeight = img.naturalHeight / 16;
+            // ✨ ADD HISTORY: Tomar foto inicial antes de arrastrar
+            window.mobInitialStateForHistory = JSON.parse(JSON.stringify(m));
 
-                let minX = Number(m.x) - (mobWidth / 2);
-                let maxX = Number(m.x) + (mobWidth / 2);
-                let minY = -Number(m.y);
-                let maxY = -Number(m.y) + mobHeight;
+            dragOffset.x = Number(m.x) - exactWorldX;
+            dragOffset.y = -Number(m.y) - exactWorldY;
 
-                if (exactWorldX >= minX && exactWorldX <= maxX && 
-                    exactWorldY >= minY && exactWorldY <= maxY) {
-                    
-                    selectedMob = m;
-                    selectedMobKey = key;
-                    draggedMob = m;
-                    isDraggingMob = true;
-                    clickedOnMob = true;
-                    
-                    // ✨ ADD HISTORY: Tomar foto inicial antes de arrastrar
-                    window.mobInitialStateForHistory = JSON.parse(JSON.stringify(m));
-                    
-                    dragOffset.x = Number(m.x) - exactWorldX;
-                    dragOffset.y = -Number(m.y) - exactWorldY;
-                    
-                    if (typeof toggleMobInfo === 'function') toggleMobInfo(true);
-                    if (typeof worldDirty !== 'undefined') worldDirty = true;
-                    break; 
-                }
-            }
+            if (typeof toggleMobInfo === 'function') toggleMobInfo(true);
+            if (typeof worldDirty !== 'undefined') worldDirty = true;
         }
 
         if (!clickedOnMob) {
@@ -654,7 +766,8 @@ canvas.addEventListener("mousedown", function (event) {
             };
 
             // 1. Buscamos la plantilla en nuestra nueva base de datos
-            const template = typeof MOB_TEMPLATES !== 'undefined' && MOB_TEMPLATES[currentMobToSpawn] ? MOB_TEMPLATES[currentMobToSpawn] : BASE_MOB_TEMPLATE;
+            // getMobTemplate entiende los nombres de casilla del Mob Browser (ej. "mushroom" = vaca mooshroom)
+            const template = (typeof getMobTemplate === 'function' && getMobTemplate(currentMobToSpawn)) || BASE_MOB_TEMPLATE;
 
             if (template) {
                 // 2. Clonamos la plantilla para que cada mob sea único
@@ -667,6 +780,11 @@ canvas.addEventListener("mousedown", function (event) {
                 
                 // ✨ FIX CRÍTICO: Asignar al mob la escena actual para que no se escape al Overworld
                 mbwom.mobs[newId].scene = typeof mbwom.currentScene !== 'undefined' ? mbwom.currentScene : 1;
+
+                // ✨ Datos personalizados del panel del Mob Browser (nombre, vida, armadura, drops...)
+                if (window.currentMobSpec && typeof applyMobSpec === 'function') {
+                    applyMobSpec(mbwom.mobs[newId], window.currentMobSpec);
+                }
 
                 // ✨ ADD HISTORY: Crear Mob Nuevo
                 historyManager.startAction();
@@ -708,6 +826,16 @@ canvas.addEventListener("mousedown", function (event) {
             historyManager.startAction();
         }
     }
+});
+
+// --- DOBLE CLIC CON MOVE SOBRE UN MOB: abre el Mob Browser con los datos de ese mob (scripts/mob-editor.js) ---
+canvas.addEventListener("dblclick", function (event) {
+    if (typeof mbwom === 'undefined' || !mbwom.scene) return;
+    if (currentTool !== 'move' || event.button !== 0 || typeof openMobFromWorld !== 'function') return;
+    const wx = camera.x + (event.offsetX / tileSize);
+    const wy = camera.y + ((canvas.height - event.offsetY) / tileSize);
+    const hit = findMobAt(wx, wy);
+    if (hit) openMobFromWorld(hit.mob);
 });
 
 // --- SOLTAR CLICS (MOUSEUP) ---
@@ -762,3 +890,13 @@ canvas.addEventListener("mouseleave", function() {
 });
 
 canvas.addEventListener("contextmenu", e => e.preventDefault());
+
+// El menú del navegador (clic derecho) no se usa en el editor: el clic derecho tiene funciones propias (editar cofres,
+// recoger la mitad de una pila, menús del chat...). Se desactiva en TODA la página; la única excepción son las cajas de
+// texto, para poder copiar / pegar con el mouse.
+document.addEventListener("contextmenu", function (e) {
+    const t = e.target;
+    const tag = t && t.tagName;
+    if (tag === 'TEXTAREA' || (tag === 'INPUT' && /^(text|search|url|email|password|number|tel)?$/i.test(t.type || '')) || (t && t.isContentEditable)) return;
+    e.preventDefault();
+}, true);

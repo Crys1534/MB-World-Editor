@@ -95,11 +95,16 @@ const historyManager = {
         if (state) {
             // Si no existía, es Spawn. Si existía, es Mover.
             let isNew = !(mbwom.mobs && mbwom.mobs[id]);
+            // ¿Cambiaron los DATOS del mob (nombre, vida, armadura, drops...) y no solo su posición? (ej. deshacer un "Aplicar a este mob")
+            const prev = isNew ? null : mbwom.mobs[id];
+            const dataChanged = !!prev && Object.keys(Object.assign({}, prev, state)).some(function(k) {
+                return k !== 'x' && k !== 'y' && JSON.stringify(prev[k]) !== JSON.stringify(state[k]);
+            });
             if (!mbwom.mobs) mbwom.mobs = {};
             mbwom.mobs[id] = structuredClone(state);
             
             if (typeof enviarMensajeEnRed === 'function') {
-                if (isNew) enviarMensajeEnRed({ tipo: "accion_spawn_mob", id: id, mob: state });
+                if (isNew || dataChanged) enviarMensajeEnRed({ tipo: "accion_spawn_mob", id: id, mob: state });   // mismo id = los demás reemplazan ese mob
                 else enviarMensajeEnRed({ tipo: "accion_mover_mob", id: id, x: state.x, y: state.y });
             }
         } else {

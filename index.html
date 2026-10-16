@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="chat-dm.css">
     <title>MB World Editor</title>
 	
 	<!-- Google tag (gtag.js) -->
@@ -60,12 +61,12 @@
         display: flex; justify-content: center; align-items: center; cursor: pointer;
     }
     .inv-item:hover { background: rgba(255, 255, 255, 0.2); border: 1px solid #FFF; }
-    #hotbar-container { display: flex; gap: 2px; background: #C6C6C6; padding: 4px; border: 2px solid #555; margin: 0 auto; }
-    .hotbar-slot {
+    #hotbar-container, #player-hotbar-container { display: flex; gap: 2px; background: #C6C6C6; padding: 4px; border: 2px solid #555; margin: 0 auto; }
+    .hotbar-slot, .phb-slot {
         width: 32px; height: 32px; border: 2px solid #8B8B8B; background: #8B8B8B;
         display: flex; justify-content: center; align-items: center; cursor: pointer;
     }
-    .hotbar-slot.active { border-color: #FFF; background: #A0A0A0; box-shadow: inset 0 0 4px rgba(0,0,0,0.5); }
+    .hotbar-slot.active, .phb-slot.active { border-color: #FFF; background: #A0A0A0; box-shadow: inset 0 0 4px rgba(0,0,0,0.5); }
     #tab-insert.active { justify-content: left; }
 
 /* --- OVERLAYS --- */
@@ -406,6 +407,7 @@
     <button class="tab-btn" onclick="openTab('settings')" data-i18n="tab_world_settings">World Settings</button>
     <button class="tab-btn" onclick="openTab('create')" data-i18n="tab_create">Create</button>
     <button class="tab-btn" onclick="openTab('view')" data-i18n="tab_view">View</button>
+    <button class="tab-btn" onclick="openTab('player')" data-i18n="tab_player">Player</button>
 
 <div class="dropdown-container" id="addons-dropdown-container" style="position: relative; display: flex; align-items: flex-end;">
     <button class="tab-btn" onclick="toggleAddonsMenu()" style="color: #f1c40f; display: flex; flex-direction: row; align-items: center; gap: 4px; padding-bottom: 8px; white-space: nowrap;">
@@ -443,8 +445,8 @@
 </div>
 
     <div class="dropdown-container" id="export-dropdown-container" style="margin-left: auto; margin-bottom: 4px; align-self: flex-end; display: flex;">
-        <button class="btn-ribbon-export" onclick="if(typeof fileManager !== 'undefined') fileManager.export();" style="margin: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: 1px solid #777;" title="Quick Export">
-            <span data-i18n="btn_export">Export</span>
+        <button class="btn-ribbon-export" onclick="if(typeof fileManager !== 'undefined') fileManager.export();" style="margin: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: 1px solid #777;" title="Quick Download">
+            <span data-i18n="btn_export">Download</span>
         </button>
         <button class="btn-ribbon-export" onclick="toggleExportMenu()" style="margin: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; padding: 4px 8px;" title="More options">
             ▼
@@ -494,9 +496,14 @@
                         <label class="lbl-check-small">
                             <input type="checkbox" id="tool-rounded-checkbox" onchange="updateToolRounded(this.checked)"> <span data-i18n="lbl_rounded">Rounded</span>
                         </label>
-                        <button class="ribbon-btn-small" onclick="if(typeof flipClipboardHorizontal !== 'undefined') { flipClipboardHorizontal(); selectTool('paste'); }" style="padding: 2px 5px; font-size: 11px;" title="Flip Horizontal (F)" data-i18n-title="tooltip_flip_h">
+                        <span style="display:flex; gap:3px;">
+                        <button class="ribbon-btn-small" onclick="if(typeof flipClipboardHorizontal !== 'undefined') { flipClipboardHorizontal(); selectTool('paste'); }" style="padding: 2px 5px; font-size: 11px;" title="Flip Horizontal" data-i18n-title="tooltip_flip_h" id="btn-flip-h">
 							<span>↔️ <span data-i18n="btn_flip">Flip</span></span>
 						</button>
+                        <button class="ribbon-btn-small" onclick="if(typeof flipClipboardVertical !== 'undefined') { flipClipboardVertical(); selectTool('paste'); }" style="padding: 2px 5px; font-size: 11px;" title="Flip Vertical" data-i18n-title="tooltip_flip_v" id="btn-flip-v">
+							<span>↕️</span>
+						</button>
+                        </span>
                     </div>
                 </div>
                 <button class="ribbon-btn-large" id="btn-tool-spray" onclick="toggleSpray(this)" data-i18n-title="tooltip_spray" title="Toggle Spray Mode">
@@ -548,7 +555,7 @@
                 <div class="rg-col-center gap-5">
                     <div class="rg-row-between">
                         <label class="lbl-small" data-i18n="lbl_gamemode">Gamemode:</label>
-                        <select id="gamemode" class="input-tiny w-auto">
+                        <select id="gamemode" class="input-tiny w-auto" onchange="onGamemodeChange(this.value)">
                             <option value="0" data-i18n="gm_survival">Survival</option><option value="1" data-i18n="gm_creative">Creative</option>
                             <option value="2" data-i18n="gm_adventure">Adventure</option><option value="3" data-i18n="gm_spectator">Spectator</option>
                         </select>
@@ -563,7 +570,7 @@
                 </div>
                 
                 <div class="rg-col-center gap-5">
-                    <label class="lbl-check-small"><input type="checkbox" id="cheats"> <span data-i18n="lbl_cheats">Cheats</span></label>
+                    <label class="lbl-check-small"><input type="checkbox" id="cheats"> <span data-i18n="lbl_cheats">Commands</span></label>
                     <label class="lbl-check-small text-danger"><input type="checkbox" id="hardcore" onchange="toggleHardcore(this.checked)"> <span data-i18n="lbl_hardcore">Hardcore</span></label>
                 </div>
 
@@ -656,30 +663,6 @@
 </div>
             <div class="ribbon-group-label" data-i18n="lbl_gamerules">Game Rules</div>
         </div>
-        
-        <div class="separator"></div>
-
-        <div class="ribbon-group">
-            <div class="ribbon-group-content rg-flex-gap15">
-                <div class="gamerule-item">
-                    <img src="assets/HEALTH.png" alt="Health" class="pixel-icon icon-28">
-                    <label class="lbl-small mt-2" data-i18n="lbl_health">Health</label>
-                    <input type="number" id="player-health" min="0" max="20" value="20" class="input-stat w-40">
-                </div>
-                <div class="gamerule-item">
-                    <img src="assets/HUNGER.png" alt="Hunger" class="pixel-icon icon-28">
-                    <label class="lbl-small mt-2" data-i18n="lbl_hunger">Hunger</label>
-                    <input type="number" id="player-hunger" min="0" max="20" value="20" class="input-stat w-40">
-                </div>
-                <div class="gamerule-item">
-                    <img src="assets/XP.png" alt="XP" class="pixel-icon icon-28">
-                    <label class="lbl-small mt-2" data-i18n="lbl_xp">XP</label>
-                    <input type="number" id="player-xp" min="0" max="10000" value="20" class="input-stat w-52">
-                </div>
-            </div>
-            <div class="ribbon-group-label" data-i18n="lbl_player">Player</div>
-        </div>
-        
         
         <div class="separator"></div>
 
@@ -795,6 +778,41 @@
         <div class="separator"></div>
     </div>
 
+    <!-- 🧍 Pestaña Player: primero el grupo Player (vida/hambre/XP), luego el inventario del jugador -->
+    <div id="tab-player" class="tab-pane">
+        <div class="ribbon-group">
+            <div class="ribbon-group-content rg-flex-gap15">
+                <div class="gamerule-item">
+                    <img src="assets/HEALTH.png" alt="Health" class="pixel-icon icon-28">
+                    <label class="lbl-small mt-2" data-i18n="lbl_health">Health</label>
+                    <input type="number" id="player-health" min="0" max="20" value="20" class="input-stat w-40">
+                </div>
+                <div class="gamerule-item">
+                    <img src="assets/HUNGER.png" alt="Hunger" class="pixel-icon icon-28">
+                    <label class="lbl-small mt-2" data-i18n="lbl_hunger">Hunger</label>
+                    <input type="number" id="player-hunger" min="0" max="1000" value="1000" class="input-stat w-52" data-i18n-title="tooltip_hunger" title="Hunger: 0 to 1000 (1000 = full, the value the game saves)">
+                </div>
+                <div class="gamerule-item">
+                    <img src="assets/XP.png" alt="XP" class="pixel-icon icon-28">
+                    <label class="lbl-small mt-2" data-i18n="lbl_xp">XP</label>
+                    <input type="number" id="player-xp" min="0" max="10000" value="20" class="input-stat w-52">
+                </div>
+            </div>
+            <div class="ribbon-group-label" data-i18n="lbl_player">Player</div>
+        </div>
+        <div class="separator"></div>
+
+        <!-- 🎒 Inventario del jugador (se guarda en el mundo: inventoryList / armors / selectedInventoryItem) -->
+        <div class="ribbon-group">
+            <div class="ribbon-group-content">
+                <div id="player-hotbar-container"></div>
+                <button class="mini-arrow-btn arrow-top" onclick="togglePlayerInventory()" data-i18n-title="tooltip_player_inventory" title="Open the Player Inventory"><span>»</span></button>
+            </div>
+            <div class="ribbon-group-label" data-i18n="lbl_player_inventory">Player Inventory</div>
+        </div>
+        <div class="separator"></div>
+    </div>
+
   </div> 
 </div>
 
@@ -818,6 +836,7 @@
   
  <div id="chest-tooltip-overlay" style="display: none;">
       <div id="chest-tooltip-grid"></div>
+      <div id="chest-tooltip-hint" style="display: none; font-size: 11px; color: #e8e8e8; margin-top: 3px; text-align: center; white-space: nowrap;"></div>
   </div>
   
 
@@ -865,7 +884,7 @@
          <label style="font-weight: bold; margin-bottom: -5px;" data-i18n="side_info_seed">Seed:</label>
          <input type="text" id="sidebar-world-seed" oninput="updateSeed(this.value)" style="padding: 4px; background-color: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 3px; outline: none;">
          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px; padding: 5px; background-color: var(--bg-dark); border: 1px solid var(--border); border-radius: 3px;">
-             <label style="font-weight: bold; margin: 0;" data-i18n="side_info_cheats">Cheats Enabled:</label>
+             <label style="font-weight: bold; margin: 0;" data-i18n="side_info_cheats">Commands Enabled:</label>
              <span id="sidebar-world-cheats" style="font-weight: bold;">-</span>
          </div>
          <div style="display: flex; justify-content: space-between; align-items: center; padding: 5px; background-color: var(--bg-dark); border: 1px solid var(--border); border-radius: 3px;">
@@ -918,6 +937,12 @@
         <span id="grid-opacity-display" style="color: #000;">20%</span>
     </label>
     <input type="range" id="grid-opacity-slider" min="0" max="100" value="20" oninput="changeGridOpacity(this.value)" style="width: 100%; cursor: pointer;">
+
+    <label style="display: flex; align-items: center; gap: 8px; font-weight: bold; margin-top: 18px; cursor: pointer;">
+        <input type="checkbox" id="smooth-scroll-toggle" onchange="toggleSmoothScroll(this.checked)" style="margin: 0; cursor: pointer;">
+        <span data-i18n="config_smooth_scroll">Smooth scrolling</span>
+    </label>
+    <small data-i18n="config_smooth_scroll_hint" style="display: block; margin-top: 4px; margin-left: 24px; color: #444;">The camera glides pixel by pixel instead of jumping one block at a time.</small>
 </div>
 
                 <div id="set-tab-autosave" class="settings-pane">
@@ -1005,11 +1030,34 @@
             <h3 id="inventory-modal-title" class="m-0 text-dark" data-i18n="modal_inventory">Inventory</h3>
             <div class="inv-search-container">
                 <input type="text" id="inventory-search" class="inv-search-input" data-i18n-placeholder="pl_search" placeholder="Search..." onkeyup="filterInventory(this.value)">
+                <button id="pinv-creative-btn" class="btn-save-chest" style="display: none; white-space: nowrap;" onclick="playerInvToggleCreative()" data-i18n="pinv_show_creative">Show creative inventory</button>
                 <span onclick="toggleInventory()" class="btn-close-large">&times;</span>
             </div>
         </div>
         
         <div class="inv-main-columns">
+            <!-- 🎒 Inventario del jugador (se llena desde scripts/player-inventory.js) -->
+            <div id="player-inv-panel" class="pinv-panel" style="display: none;">
+                <!-- 📦 Solo se ve al editar un cofre del mundo (clic derecho con la herramienta Move) -->
+                <div id="pinv-chest-box" class="pinv-chest-box" style="display: none;">
+                    <div id="pinv-chest-label" class="pinv-label" data-i18n="pinv_chest_label">Chest contents</div>
+                    <div id="pinv-chest" class="pinv-grid"></div>
+                </div>
+                <div class="pinv-top">
+                    <div>
+                        <div class="pinv-label" data-i18n="pinv_armor">Armor</div>
+                        <div id="pinv-armor" class="pinv-armor"></div>
+                    </div>
+                    <div>
+                        <div class="pinv-label pinv-label-right" data-i18n="pinv_trash">Trash</div>
+                        <div id="pinv-trash"></div>
+                    </div>
+                </div>
+                <div class="pinv-label" data-i18n="pinv_inventory">Inventory</div>
+                <div id="pinv-main" class="pinv-grid"></div>
+                <div id="pinv-hotbar" class="pinv-grid pinv-hotbar"></div>
+            </div>
+
             <div class="inv-left-col">
                 <div class="inv-grid-wrapper">
                     <div id="inventory-tabs-sidebar" class="inv-tabs-sidebar"></div>
@@ -1125,6 +1173,7 @@
             
             <div class="mob-tabs-container">
                 <div class="mob-tabs">
+                    <div id="tab-mob-custom" class="mob-tab" onclick="filterMobs('Custom')" data-i18n="mobed_tab_custom">Custom</div>
                     <div id="tab-mob-animals" class="mob-tab" onclick="filterMobs('Animals')" data-i18n="tab_animals">Animals</div>
                     <div id="tab-mob-overworld" class="mob-tab active" onclick="filterMobs('Overworld')" data-i18n="tab_overworld">Overworld</div>
                     <div id="tab-mob-nether" class="mob-tab" onclick="filterMobs('Nether')" data-i18n="tab_nether">Nether</div>
@@ -1132,22 +1181,27 @@
                 </div>
             </div>
 
+            <!-- 🔎 Solo en la pestaña Custom: busca por nombre o por #tag (al hacer clic salen los tags que existen) -->
+            <div id="mob-search-wrap" class="mob-search-wrap" style="display: none;">
+                <input id="mob-search" type="text" class="mob-search" autocomplete="off" spellcheck="false" data-i18n-placeholder="mobed_search_ph" placeholder="Search by name or #tag...">
+                <div id="mob-search-sug" class="mob-search-sug" style="display: none;"></div>
+            </div>
+
             <div id="mobs-grid" class="mobs-grid-container"></div>
         </div>
 
         <div class="mob-sidebar">
-            <div class="mob-preview-box">
-                <img id="mob-preview-image" class="mob-preview-img" src="assets/zombie.png" onerror="this.onerror=null; this.src='assets/mobs/zombie.png'">
+            <div class="mob-side-head">
+                <div class="mob-preview-box">
+                    <img id="mob-preview-image" class="mob-preview-img" src="assets/zombie.png" onerror="this.onerror=null; this.src='assets/mobs/zombie.png'">
+                </div>
+                <div class="mob-info">
+                    <h3 id="mob-info-title" class="mob-info-title">Zombie</h3>
+                    <p id="mob-info-sub" class="mob-info-sub"></p>
+                </div>
             </div>
-            
-            <div class="mob-info">
-                <h3 id="mob-info-title" class="mob-info-title">Zombie</h3>
-                <p id="mob-info-hp" class="mob-info-hp" data-i18n="lbl_health_hp">Health: 20 HP</p>
-            </div>
-
-            <div class="mob-actions-container">
-                <button class="btn-load-struct btn-spawn-mob" onclick="spawnPreviewedMob()" data-i18n="btn_spawn_mob">Spawn Mob</button>
-            </div>
+            <div id="mob-form" class="mob-form"></div>
+            <div id="mob-ed-buttons" class="mob-actions-container"></div>
         </div>
     </div>
 </div>
@@ -1399,7 +1453,7 @@
 
 <div id="status-bar">
     <div class="status-left">
-        <span id="fps-display" data-i18n-title="tooltip_fps" title="Frames Per Second">60 FPS</span>
+        <span id="fps-display" data-i18n-title="tooltip_fps" title="Frames Per Second">-- FPS</span>
 		<span id="memory-display" title="Estimated Memory Usage">🔋: -- MB</span>
         <div class="status-divider"></div>
         <span data-i18n="status_ready">Ready</span>
@@ -1408,7 +1462,7 @@
     <div class="status-right">
         <button class="status-btn" onclick="zoomHUD(-1)" data-i18n-title="tooltip_zoom_out" title="Zoom Out">-</button>
         
-        <input type="range" id="zoom-slider" min="0" max="14" step="1" value="7" oninput="updateZoomSlider(this.value)">
+        <input type="range" id="zoom-slider" min="0" max="15" step="1" value="8" oninput="updateZoomSlider(this.value)">
         
         <button class="status-btn" onclick="zoomHUD(1)" data-i18n-title="tooltip_zoom_in" title="Zoom In">+</button>
         <span id="zoom-value" data-i18n-title="tooltip_zoom_reset" title="Click to Reset" onclick="resetZoomHUD()">100%</span>
@@ -1451,6 +1505,8 @@
         </div>
         <div class="mbw-modal-body" style="display: flex; flex-direction: column; align-items: center; padding: 20px;">
             
+            <p id="profile-first-hint" data-i18n="profile_first_hint" style="display: none; margin: 0 0 16px 0; font-size: 13px; line-height: 1.4; color: #333; text-align: center;">Your first world is saved! 🎉 Pick a username and a photo: that is how other players will see you in multiplayer.</p>
+            
             <div class="profile-pic-container" onclick="document.getElementById('global-profile-upload').click()" style="position: relative; width: 100px; height: 100px; border-radius: 50%; overflow: hidden; cursor: pointer; border: 4px solid #FFF; box-shadow: 0 4px 8px rgba(0,0,0,0.3); margin-bottom: 20px;">
                 <img id="modal-global-pfp" src="assets/default pfp.png" style="width: 100%; height: 100%; object-fit: cover;">
                 <div class="profile-pic-overlay">✏️</div>
@@ -1462,123 +1518,8 @@
         </div>
     </div>
 </div>
- 
- <script>
-// ==========================================
-// ✨ PERFIL UNIFICADO EN TIEMPO REAL
-// ==========================================
-window.openUnifiedProfile = function() {
-    openModal('unified-profile-modal');
-    const savedPic = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
-    const savedName = localStorage.getItem('mbw_username') || "Player";
-    document.getElementById('modal-global-pfp').src = savedPic;
-    document.getElementById('global-profile-username').value = savedName;
-};
 
-window.handleGlobalProfileUpload = function(event) {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const img = new Image();
-            img.onload = function() {
-                // --- PROCESAMIENTO DE IMAGEN ---
-                const MAX_SIZE = 156; // El tamaño que pediste
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-
-                // Recorte cuadrado (Center Crop) para que no se estire
-                let width = img.width;
-                let height = img.height;
-                let offsetX = 0;
-                let offsetY = 0;
-
-                if (width > height) {
-                    offsetX = (width - height) / 2;
-                    width = height;
-                } else {
-                    offsetY = (height - width) / 2;
-                    height = width;
-                }
-
-                canvas.width = MAX_SIZE;
-                canvas.height = MAX_SIZE;
-
-                // Dibujamos la imagen optimizada
-                ctx.imageSmoothingQuality = 'high';
-                ctx.drawImage(img, offsetX, offsetY, width, height, 0, 0, MAX_SIZE, MAX_SIZE);
-
-                // Convertimos a JPEG al 70% de calidad (0.7)
-                const optimizedBase64 = canvas.toDataURL('image/jpeg', 0.7);
-
-                // --- GUARDADO Y ACTUALIZACIÓN ---
-                localStorage.setItem('mbw_profile_pic', optimizedBase64);
-                
-                // Actualiza el modal
-                document.getElementById('modal-global-pfp').src = optimizedBase64;
-                
-                // Actualiza el botón de la barra superior (si existe)
-                const topImg = document.getElementById('top-profile-img');
-                if (topImg) topImg.src = optimizedBase64;
-                
-                // Actualiza la miniatura en el menú multijugador
-                const mpPreview = document.getElementById('mp-pfp-preview');
-                if (mpPreview) mpPreview.style.backgroundImage = `url('${optimizedBase64}')`;
-
-                // Sincroniza con Firebase (enviando solo los pocos KB optimizados)
-                if (typeof myPresenceRef !== 'undefined' && myPresenceRef) {
-                    myPresenceRef.update({ pfp: optimizedBase64 });
-                }
-                
-                console.log("✅ Optimized and syncornized image!");
-            };
-            img.src = e.target.result;
-        };
-        reader.readAsDataURL(file);
-    }
-};
-
-window.handleGlobalUsernameChange = function(newName) {
-    let cleanName = newName.trim() || 'Player';
-    localStorage.setItem('mbw_username', cleanName);
-    
-    // Actualiza input multijugador
-    const mpUsernameInput = document.getElementById('mp-username-input');
-    if (mpUsernameInput) mpUsernameInput.value = cleanName;
-
-    // Sincroniza con Firebase
-    if (typeof myPresenceRef !== 'undefined' && myPresenceRef) myPresenceRef.update({ username: cleanName });
-};
-
-// Al cargar y Unificar clics de Perfil
-window.addEventListener('DOMContentLoaded', () => {
-    // 1. Lo que ya tenías de los perfiles...
-    const tImg = document.getElementById('top-profile-img'); 
-    if (tImg) tImg.src = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
-    
-    document.body.addEventListener('click', e => { 
-        if (e.target && (['mp-pfp-preview', 'mp-username-input'].includes(e.target.id) || e.target.closest('#mp-pfp-preview'))) { 
-            e.preventDefault(); openUnifiedProfile(); 
-        } 
-    });
-
-    // ✨ NUEVO: 2. Restaurar la cuadrícula con memoria
-    const savedGridState = localStorage.getItem('mbw_show_grid');
-    if (savedGridState !== null) {
-        showGrid = (savedGridState === 'true'); // Convertimos el texto a booleano
-    }
-    
-    // 3. Forzar a que la casilla visual coincida con la memoria de JavaScript
-    // Esto busca automáticamente el botón de la cuadrícula en tu HTML sin importar qué ID le pusiste
-    const gridCheckboxes = document.querySelectorAll('input[onchange*="toggleGrid"], input[onclick*="toggleGrid"]');
-    gridCheckboxes.forEach(cb => {
-        cb.checked = showGrid;
-    });
-
-    // Asegurarnos de que el mapa se dibuje correctamente con o sin cuadrícula al inicio
-    if (typeof worldDirty !== 'undefined') worldDirty = true;
-});
-</script>
+<!-- La lógica del perfil (foto + nombre) ahora vive en scripts/profile.js -->
 
 <div id="about-modal" class="modal" style="z-index: 9999999;">
     <div class="modal-content mbw-standard-modal" style="width: 450px; height: auto; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); margin: 0;">
@@ -1611,139 +1552,6 @@ window.addEventListener('DOMContentLoaded', () => {
             </div>
         </div>
         
-    </div>
-</div>
-
-<div id="create-mob-modal" class="modal" style="display: none;">
-    <div class="modal-content mobs-modal-window">
-        
-        <div class="mob-main">
-            <div class="modal-header-row">
-                <h3 class="m-0 text-gray no-select">Custom Mob Creator</h3>
-                <span class="close-modal btn-close-bold text-dark" onclick="closeModal('create-mob-modal')">×</span>
-            </div>
-            
-            <div class="mob-tabs-container">
-                <div class="mob-tabs">
-                    <div id="tab-cmob-custom" class="mob-tab" onclick="filterCustomMobs('Custom')" data-i18n="cat_custom">Custom</div>
-                    <div id="tab-cmob-animals" class="mob-tab" onclick="filterCustomMobs('Animals')" data-i18n="tab_animals">Animals</div>
-                    <div id="tab-cmob-overworld" class="mob-tab active" onclick="filterCustomMobs('Overworld')" data-i18n="tab_overworld">Overworld</div>
-                    <div id="tab-cmob-nether" class="mob-tab" onclick="filterCustomMobs('Nether')" data-i18n="tab_nether">Nether</div>
-                    <div id="tab-cmob-end" class="mob-tab" onclick="filterCustomMobs('End')" data-i18n="tab_end">End</div>
-                </div>
-            </div>
-
-            <div id="cmobs-grid" class="mobs-grid-container">
-                </div>
-        </div>
-
-        <div class="custommob-sidebar mob-sidebar">
-            <div class="mob-preview-box">
-                <img id="cmob-preview-image" class="mob-preview-img" src="assets/zombie.png" onerror="this.onerror=null; this.src='assets/zombie.png'">
-            </div>
-            
-            <div class="mob-info">
-    <h3 id="cmob-info-title" class="mob-info-title" style="color: black;">Zombie</h3>
-    
-    <div style="display: flex; flex-direction: column; margin-top: 4px; text-align: left;">
-        <div>
-            <label style="font-size: 13px; color: black;">Custom Name:</label>
-            <input type="text" id="cmob-name" placeholder="Leave empty" style="width: 100%; box-sizing: border-box; border: 1px solid #333; color: gray; padding: 4px; font-family: 'Pixeltype', sans-serif; font-size: 16px;">
-        </div>
-        <div>
-            <label style="font-size: 13px; color: black;">Max Health (HP):</label>
-            <input type="number" id="cmob-hp" value="20" style="width: 100%; box-sizing: border-box; border: 1px solid #333; color: gray; padding: 4px; font-family: 'Pixeltype', sans-serif; font-size: 16px;">
-        </div>
-
-        <div id="cmob-armor-section" style="display: none; ">
-    <p style="font-size: 18px; color: black; margin-bottom: 4px; font-family: 'Arial', sans-serif; margin-top: 4px;">Armor:</p>
-    
-    <div style="display: flex; flex-direction: column; gap: 0px;">
-        
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-            <div style="flex: 1;">
-                
-                <select id="cmob-helmet" class="armor-select" style="width: 100%; color: white; border: 1px solid #333; font-family: 'Pixeltype', sans-serif; font-size: 18px;" onchange="window.updateArmorPreview('cmob-helmet', 'prev-helmet')"></select>
-            </div>
-            <div style="width: 32px; height: 32px; background: white; border: 1px solid #444; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
-                <div id="prev-helmet" style="width: 32px; height: 32px; image-rendering: pixelated;"></div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 3px; flex-shrink: 0;">
-                <input type="number" id="cmob-drop-helmet" value="100" min="0" max="100" style="width: 45px; border: 1px solid #333; color: black; padding: 4px; font-family: 'Pixeltype', sans-serif; font-size: 18px; text-align: center;">
-                <span style="color: black; font-size: 20px; font-family: 'Pixeltype', sans-serif;">%</span>
-            </div>
-        </div>
-
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-            <div style="flex: 1;">
-                
-                <select id="cmob-shirt" class="armor-select" style="width: 100%; color: white; border: 1px solid #333; font-family: 'Pixeltype', sans-serif; font-size: 18px;" onchange="window.updateArmorPreview('cmob-shirt', 'prev-shirt')"></select>
-            </div>
-            <div style="width: 32px; height: 32px; background: white; border: 1px solid #444; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
-                <div id="prev-shirt" style="width: 32px; height: 32px; image-rendering: pixelated;"></div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 3px; flex-shrink: 0;">
-                <input type="number" id="cmob-drop-shirt" value="100" min="0" max="100" style="width: 45px; border: 1px solid #333; color: black; padding: 4px; font-family: 'Pixeltype', sans-serif; font-size: 18px; text-align: center;">
-                <span style="color: black; font-size: 20px; font-family: 'Pixeltype', sans-serif;">%</span>
-            </div>
-        </div>
-
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-            <div style="flex: 1;">
-                
-                <select id="cmob-pants" class="armor-select" style="width: 100%; color: white; border: 1px solid #333; font-family: 'Pixeltype', sans-serif; font-size: 18px;" onchange="window.updateArmorPreview('cmob-pants', 'prev-pants')"></select>
-            </div>
-            <div style="width: 32px; height: 32px; background: white; border: 1px solid #444; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
-                <div id="prev-pants" style="width: 32px; height: 32px; image-rendering: pixelated;"></div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 3px; flex-shrink: 0;">
-                <input type="number" id="cmob-drop-pants" value="100" min="0" max="100" style="width: 45px; border: 1px solid #333; color: black; padding: 4px; font-family: 'Pixeltype', sans-serif; font-size: 18px; text-align: center;">
-                <span style="color: black; font-size: 20px; font-family: 'Pixeltype', sans-serif;">%</span>
-            </div>
-        </div>
-
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-            <div style="flex: 1;">
-                
-                <select id="cmob-shoes" class="armor-select" style="width: 100%; color: white; border: 1px solid #333; font-family: 'Pixeltype', sans-serif; font-size: 18px;" onchange="window.updateArmorPreview('cmob-shoes', 'prev-shoes')"></select>
-            </div>
-            <div style="width: 32px; height: 32px; background: white; border: 1px solid #444; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
-                <div id="prev-shoes" style="width: 32px; height: 32px; image-rendering: pixelated;"></div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 3px; flex-shrink: 0;">
-                <input type="number" id="cmob-drop-shoes" value="100" min="0" max="100" style="width: 45px; border: 1px solid #333; color: black; padding: 4px; font-family: 'Pixeltype', sans-serif; font-size: 18px; text-align: center;">
-                <span style="color: black; font-size: 20px; font-family: 'Pixeltype', sans-serif;">%</span>
-            </div>
-        </div>
-
-    </div>
-</div>
-
-        <div style="margin-top: 5px;">
-            <label style="font-size: 14px; color: black; display: flex; align-items: center; gap: 5px; cursor: pointer;">
-                <input type="checkbox" id="cmob-persists" checked> Never Despawn
-            </label>
-            <label style="font-size: 14px; color: black; display: flex; align-items: center; gap: 5px; cursor: pointer;">
-        <input type="checkbox" id="cmob-default-drops" checked> defaultDrops
-    </label>
-        </div>
-        
-        <div style="margin-top: 15px; border-top: 1px solid #333; padding-top: 10px;">
-            <p style="font-size: 14px; color: #f1c40f; margin-bottom: 8px; font-family: 'Pixeltype', sans-serif;">Custom Drops (Inventory):</p>
-            
-            <div id="cmob-inventory-list" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px;"></div>
-            
-            <button onclick="window.addMobInventorySlot()" style="width: 100%; background: #161616; border: 1px dashed #555; color: #aaa; padding: 6px; cursor: pointer; font-family: 'Pixeltype', sans-serif; font-size: 16px; transition: 0.2s;">
-                + Add Item Slot
-            </button>
-        </div>
-    </div>
-</div>
-
-            <div class="mob-actions-container">
-                <button class="btn-load-struct btn-spawn-mob" onclick="injectCustomMob()">Spawn Custom Mob</button>
-            </div>
-        </div>
     </div>
 </div>
 
@@ -1808,26 +1616,34 @@ window.addEventListener('DOMContentLoaded', () => {
 
 
  <script src="scripts/lang.js"></script>
+ <script src="scripts/items-data.js"></script>
+ <script src="scripts/enchants.js"></script>
  <script src="scripts/ui-handler.js"></script>
  <script src="scripts/mbwom.js"></script>
  <script src="scripts/textures.js"></script>
  <script src="scripts/tools.js"></script>
+ <script src="scripts/clipboard.js"></script>
 <script src="scripts/structures.js"></script>
  <script src="scripts/mbw-algorithm.js"></script>
  <script src="scripts/history.js"></script>
  <script src="scripts/mob-templates.js"></script>
+ <script src="scripts/mob-editor.js"></script>
  <script src="scripts/input.js"></script>
  <script src="scripts/file-manager.js"></script>
  <script src="scripts/rendering.js"></script>
- <script src="scripts/clipboard.js"></script>
+ <script src="scripts/profile.js"></script>
  <script src="main.js"></script>
+<script src="scripts/status-bar.js"></script>
 <script src="scripts/custom-items.js"></script>
+ <script src="scripts/player-inventory.js"></script>
  <script src="scripts/audio-manager.js"></script>
  <script src="scripts/file-menu.js"></script>
  <script src="scripts/commands.js"></script>
  
  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
  <script src="scripts/multiplayer.js"></script>
+ <script src="scripts/multiplayer-ui.js"></script>
+ <script src="scripts/chat-dm.js"></script>
  
 <!-- PEGAR ESTO JUSTO ANTES DEL </body> EN EL EDITOR -->
 <script>
