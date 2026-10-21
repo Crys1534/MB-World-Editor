@@ -2,7 +2,7 @@
 // 🧘 MODOS DE PANTALLA (Ronda 13)
 // ----------------------------------------------------------
 // Aquí viven:
-//   · Modo Zen            (botón 🧘 de la barra de estado + tecla H, que se puede cambiar en Ajustes > Controls).
+//   · Modo Zen            (botón ⛶ de la barra de estado, que lo activa junto con la pantalla completa, + tecla H, que se puede cambiar en Ajustes > Controls).
 //                         Es el modo para trabajar en pantalla completa: el mundo ocupa toda la ventana, la barra lateral y la hotbar
 //                         flotan (semitransparentes) y las barras de arriba, de la izquierda y de abajo se ESCONDEN y salen solas
 //                         al acercar el mouse a su borde (antes esto eran dos cosas separadas: Zen y "auto-ocultar"; ahora es una).
@@ -71,7 +71,6 @@
         set('panel-opacity-slider', (el) => { el.value = state.opacity; });
         set('panel-opacity-display', (el) => { el.textContent = state.opacity + '%'; });
         set('fps-limit-select', (el) => { el.value = String(state.fps); });
-        set('zen-btn', (el) => { el.classList.toggle('active', state.zen); });
     }
 
     function sync() {

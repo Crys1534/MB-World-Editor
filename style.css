@@ -937,6 +937,11 @@ button:hover {
     pointer-events: auto; 
 }
 
+/* Vista previa de los drops de un mob (herramienta Move): se ve igual que la de un cofre, pero no recibe el mouse */
+#chest-tooltip-overlay.mob-drops-tip {
+    pointer-events: none;
+}
+
 #chest-tooltip-grid {
     display: grid;
     grid-template-columns: repeat(9, 24px); 

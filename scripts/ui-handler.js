@@ -949,6 +949,7 @@ function openCreateChestModal() {
     const modal = document.getElementById('inventory-modal');
     const modalContent = modal.querySelector('.modal-content'); 
     const chestPanel = document.getElementById('chest-builder-panel');
+    const customPanel = document.getElementById('custom-item-builder-panel');
     const title = document.getElementById('inventory-modal-title');
     
     if (typeof playerInvReset === 'function') playerInvReset();
@@ -958,6 +959,9 @@ function openCreateChestModal() {
     
     if (title) title.innerText = "Create Loot Chest";
     
+    // Si antes se abrió "Create Custom Item" y se cerró, su panel se quedaba abierto y se mezclaba con el del cofre:
+    // aquí se apaga siempre (igual que openCustomItemsModal apaga el del cofre).
+    if (customPanel) customPanel.style.display = 'none';
     if (chestPanel) chestPanel.style.display = 'block'; 
     
     const nameInput = document.getElementById('custom-chest-name');
@@ -2803,7 +2807,9 @@ window.populateLocationSettings = function() {
 
     // Redondeamos a 1 decimal para que no se vea feo (ej: 500.4 en vez de 500.456915)
     if (posX && mbwom.world.worldX !== undefined) posX.value = Math.round(mbwom.world.worldX * 10) / 10;
-    if (posY && mbwom.world.worldY !== undefined) posY.value = Math.round(mbwom.world.worldY * 10) / 10;
+    // La Y del jugador se guarda "hacia abajo" (en el archivo es negativa: -40 = 40 bloques arriba del fondo), pero SOLO en pantalla se
+    // muestra al revés (positiva), como las alturas de siempre. Lo que se guarda en el archivo no cambia: updatePlayerPos la voltea de vuelta.
+    if (posY && mbwom.world.worldY !== undefined) posY.value = (Math.round(-mbwom.world.worldY * 10) / 10) || 0;
 
     // Spawn Point (Es un array [x, y])
     if (spawnX && mbwom.world.spawnPoint1) spawnX.value = Math.round(mbwom.world.spawnPoint1[0] * 10) / 10;
@@ -2818,7 +2824,8 @@ window.updatePlayerPos = function(axis, value) {
     if (axis === 'x') {
         mbwom.world.worldX = numValue;
     } else {
-        mbwom.world.worldY = numValue;
+        // Lo que escribe la persona es la Y "de pantalla" (positiva); en el archivo va con el signo contrario (ver populateLocationSettings)
+        mbwom.world.worldY = numValue ? -numValue : 0;
     }
     
     // Le decimos al editor que hay cambios por si necesitas redibujar el icono del jugador

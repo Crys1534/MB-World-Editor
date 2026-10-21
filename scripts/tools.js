@@ -56,6 +56,7 @@ function checkSelectionState() {
 
 function selectTool(toolName) {
     currentTool = toolName;
+    if (typeof hideMobDropsTip === 'function') hideMobDropsTip();   // el cuadro de drops de un mob solo existe con la herramienta Move
     document.querySelectorAll('.tool-btn').forEach(btn => btn.classList.remove('active'));
     
     // ✨ FIX: Si es una forma, activamos el botón agrupado. Si no, buscamos el botón normal.

@@ -262,8 +262,9 @@ window.addEventListener("keydown", function (event) {
         if (!isNaN(num) && num > 0 && num <= 9) { // (Le puse límite a 9 por seguridad)
             slotIndex = num - 1;
             
-            // ✨ FIX: Si traemos una estructura flotando, la soltamos y regresamos al lápiz
-            if (typeof currentTool !== 'undefined' && currentTool === 'paste') {
+            // Al elegir una casilla de la hotbar con un número (1-9) siempre se vuelve al lápiz, venga de la herramienta que venga
+            // (así también se suelta una estructura que estuviera flotando). Con Ctrl/Alt/Cmd no se toca nada: son atajos del navegador.
+            if (!event.ctrlKey && !event.metaKey && !event.altKey && typeof currentTool !== 'undefined' && currentTool !== 'pencil') {
                 if (typeof selectTool === 'function') selectTool('pencil');
             }
             
@@ -510,13 +511,60 @@ function renderChestOrOvenUI(blockState, gridContainer) {
 
 let chestTipAt = null;   // el cofre que muestra ahora el cuadro de vista previa ({x, y}); null = ninguno
 
+// Vista previa de los DROPS de un mob: con la herramienta Move, al pasar el mouse por encima de un mob que tiene drops propios
+// (los que se le ponen en el Mob Browser) sale el mismo cuadro de casillas que en un cofre. Este cuadro NO recibe el mouse
+// (pointer-events: none) y sale un poco corrido del cursor, así no estorba al hacer clic ni al arrastrar el mob.
+function hideMobDropsTip() {
+    const tooltip = document.getElementById('chest-tooltip-overlay');
+    if (tooltip && tooltip.classList.contains('mob-drops-tip')) {
+        tooltip.classList.remove('mob-drops-tip');
+        tooltip.style.display = 'none';
+        tooltip.dataset.sig = '';
+    }
+}
+
+function showMobDropsTip(tooltip, gridContainer, screenX, screenY) {
+    if (typeof currentTool === 'undefined' || currentTool !== 'move') return false;
+    if (isDraggingMob || mouse.left || mouse.right) return false;                       // mientras se arrastra / se hace clic no se muestra
+    if (typeof mbwom === 'undefined' || !mbwom.mobs || typeof tileSize === 'undefined') return false;
+    if (typeof window.mobDropsPreview !== 'function') return false;
+    const hit = findMobAt(camera.x + (mouse.canvasX / tileSize), camera.y + (mouse.canvasY / tileSize));
+    if (!hit || !hit.mob || !Array.isArray(hit.mob.drops) || !hit.mob.drops.length) return false;
+
+    // Solo se vuelven a dibujar las casillas si cambió el mob o sus drops (no en cada movimiento del mouse)
+    let sig = hit.key + '|' + JSON.stringify(hit.mob.drops);
+    if (!tooltip.classList.contains('mob-drops-tip') || tooltip.dataset.sig !== sig) {
+        if (!window.mobDropsPreview(hit.mob, gridContainer)) return false;
+        tooltip.dataset.sig = sig;
+    }
+    const hint = document.getElementById('chest-tooltip-hint');
+    if (hint) hint.style.display = 'none';
+    tooltip.classList.add('mob-drops-tip');
+    tooltip.style.display = 'block';
+
+    // Un poco abajo y a la derecha del cursor; si no cabe en el espacio del mundo, pasa al otro lado
+    const ws = document.getElementById('workspace');
+    const W = ws ? ws.clientWidth : Infinity, H = ws ? ws.clientHeight : Infinity;
+    let left = screenX + 16, top = screenY + 16;
+    if (left + tooltip.offsetWidth > W) left = Math.max(0, screenX - 16 - tooltip.offsetWidth);
+    if (top + tooltip.offsetHeight > H) top = Math.max(0, screenY - 16 - tooltip.offsetHeight);
+    tooltip.style.left = left + 'px';
+    tooltip.style.top = top + 'px';
+    chestTipAt = null;
+    return true;
+}
+
 function updateChestTooltip(screenX, screenY) {
     const tooltip = document.getElementById('chest-tooltip-overlay');
     if (!tooltip) return;
+    const gridContainer = document.getElementById('chest-tooltip-grid');
+
+    if (showMobDropsTip(tooltip, gridContainer, screenX, screenY)) return;
+    tooltip.classList.remove('mob-drops-tip');
+    tooltip.dataset.sig = '';
 
     // ✨ FIX: Doble seguro. Solo intentamos leer si mbwom existe Y si ya tiene un mapa/escena cargada.
     const blockState = (typeof mbwom !== 'undefined' && mbwom.scene) ? mbwom.getBlockState(mouse.worldX, mouse.worldY) : null;
-    const gridContainer = document.getElementById('chest-tooltip-grid');
 
     if (renderChestOrOvenUI(blockState, gridContainer)) {
         // Con la herramienta Move, el cofre se puede editar con clic derecho: se avisa en el tooltip
@@ -632,6 +680,7 @@ canvas.addEventListener("mousedown", function (event) {
 
     // ✨ SELECCIONAR Y MOVER MOB (MOVE)
     if (currentTool === 'move' && mouse.left) {
+        hideMobDropsTip();
         let clickedOnMob = false;
         let exactWorldX = camera.x + (mouse.canvasX / tileSize);
         let exactWorldY = camera.y + (mouse.canvasY / tileSize);
@@ -911,6 +960,7 @@ window.addEventListener("mouseup", function (event) {
 });
 
 canvas.addEventListener("mouseleave", function() {
+    hideMobDropsTip();   // el cuadro de drops no recibe el mouse: si el cursor sale del lienzo, se esconde
     if (mouse.left || mouse.right) {
         if (currentTool !== 'select' && currentTool !== 'lasso') historyManager.commitAction();
         mouse.left = false;

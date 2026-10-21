@@ -454,6 +454,42 @@
   return 'Overworld';
  }
  const itemFromArr = function (a) { return (Array.isArray(a) && typeof a[0] === 'string') ? cleanItem({ id: a[0], st: a[2] === 0 ? null : a[2], nbt: a[3] }) : emptyItem(); };   // 0 = sin desgaste = "sin dato" (igual que lo escribe toItemArray)
+ // Los drops propios de un mob que ya está en el mundo (mob.drops), leídos al formato del panel. [] si no tiene.
+ function dropsOfMob(mob) {
+  if (!mob || !Array.isArray(mob.drops)) return [];
+  return mob.drops.filter(function (d) { return d && typeof d.type === 'string' && d.type && d.type !== 'air'; }).slice(0, 30).map(function (d, i) {
+   const it = cleanItem({ id: d.type, st: null, nbt: d.extras });
+   const ch = d.chance && Number.isFinite(Number(d.chance.max)) ? pct(d.chance.max) : 100;
+   const o = Object.assign(it, { qty: clampInt(d.quantity, 1, 999, 1), bonus: clampInt(d.randomBonus, 0, 999, 0), lootBonus: clampInt(d.lootBonus, 0, 999, 0), chance: clampNum(ch, 1, 100, 100), props: cleanProps(d.properties) });
+   // el "chance" del mundo se guarda entero solo si NO es el que el editor escribiría solo (semilla = lugar del drop, desde 0, sin Looting)
+   const co = cleanChanceObj(d.chance);
+   if (co && !(co.min === 0 && co.lootOffset === 0 && co.seed === i + 1)) o.chanceObj = co;
+   return o;
+  });
+ }
+ // Vista previa de los drops de un mob del mundo, con casillas como la de un cofre (la usa input.js cuando el mouse pasa por encima de un
+ // mob con la herramienta Move). Rellena "box" y devuelve true; si el mob no tiene drops propios no toca nada y devuelve false.
+ window.mobDropsPreview = function (mob, box) {
+  const list = dropsOfMob(mob);
+  if (!list.length || !box) return false;
+  box.innerHTML = '';
+  box.style.display = 'grid';
+  box.style.gridTemplateColumns = 'repeat(' + Math.min(9, list.length) + ', 24px)';
+  box.style.gap = '0px'; box.style.padding = '0px'; box.style.alignItems = 'start';
+  list.forEach(function (d) {
+   const sl = mk('div', 'chest-tooltip-slot' + (enchList(d).length || d.id === 'ebook' ? ' enchanted-slot' : ''));
+   sl.style.width = '24px'; sl.style.height = '24px'; sl.style.background = '#8B8B8B'; sl.style.border = '1px inset #FFF';
+   sl.style.display = 'flex'; sl.style.justifyContent = 'center'; sl.style.alignItems = 'center'; sl.style.position = 'relative'; sl.style.boxSizing = 'border-box';
+   sl.appendChild(icon(d, 16));
+   if (d.qty > 1 || d.bonus > 0) {
+    const c = mk('span', '', String(d.qty) + (d.bonus > 0 ? '+' : ''));
+    c.style.cssText = 'position:absolute;bottom:-2px;right:2px;color:#fff;font-size:10px;font-weight:bold;text-shadow:1px 1px 0 #000,-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000;';
+    sl.appendChild(c);
+   }
+   box.appendChild(sl);
+  });
+  return true;
+ };
  window.specFromMob = function (mob) {
   const base = baseOfMob(mob);
   if (!base) return null;
@@ -474,17 +510,7 @@
     return Object.assign(itemFromArr(a), { drop: pct(dc) });
    });
   }
-  if (Array.isArray(mob.drops)) {
-   sp.drops = mob.drops.filter(function (d) { return d && typeof d.type === 'string' && d.type && d.type !== 'air'; }).slice(0, 30).map(function (d, i) {
-    const it = cleanItem({ id: d.type, st: null, nbt: d.extras });
-    const ch = d.chance && Number.isFinite(Number(d.chance.max)) ? pct(d.chance.max) : 100;
-    const o = Object.assign(it, { qty: clampInt(d.quantity, 1, 999, 1), bonus: clampInt(d.randomBonus, 0, 999, 0), lootBonus: clampInt(d.lootBonus, 0, 999, 0), chance: clampNum(ch, 1, 100, 100), props: cleanProps(d.properties) });
-    // el "chance" del mundo se guarda entero solo si NO es el que el editor escribiría solo (semilla = lugar del drop, desde 0, sin Looting)
-    const co = cleanChanceObj(d.chance);
-    if (co && !(co.min === 0 && co.lootOffset === 0 && co.seed === i + 1)) o.chanceObj = co;
-    return o;
-   });
-  }
+  if (Array.isArray(mob.drops)) sp.drops = dropsOfMob(mob);
   (sch.fields || []).forEach(function (f) {
    if (f.type === 'skin') sp.extra[f.key] = cleanSkin(mob[f.key]);
    else if (f.key in mob) sp.extra[f.key] = mob[f.key];
@@ -1606,7 +1632,14 @@
   const id = 'p' + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36);
   list.push({ id: id, name: name, spec: spec });
   if (!storePresets(list)) { status(tr('mobed_storage_err')); return; }
-  if (activeMobTab === 'Custom') window.filterMobs('Custom', true);
+  // Se cierra la ventana donde se personaliza el mob y el Mob Browser muestra la pestaña Custom con el mob recién guardado elegido
+  S.presetId = id;
+  window.closeCustomMob();
+  const mm = el('mobs-modal');
+  if (mm) mm.style.display = 'block';
+  window.filterMobs('Custom', true);
+  const mine = document.querySelector('#mobs-grid .mob-item[data-preset="' + id + '"]');
+  if (mine && mine.scrollIntoView) { try { mine.scrollIntoView({ block: 'nearest' }); } catch (e) { /* sin scroll */ } }
   status('✔ ' + tr('mobed_saved') + ': ' + name);
   const tab = el('tab-mob-custom');
   if (tab) { tab.classList.remove('flash'); void tab.offsetWidth; tab.classList.add('flash'); }

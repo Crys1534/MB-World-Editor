@@ -941,8 +941,7 @@
 
     <h4 data-i18n="config_focus_title" style="margin: 22px 0 6px 0; border-bottom: 2px solid #888; padding-bottom: 4px;">🧘 Focus &amp; performance</h4>
 
-    <button id="set-zen-btn" onclick="toggleZenMode(); closeModal('settings-modal');" data-i18n="config_zen_btn" style="padding: 6px 10px; cursor: pointer; font-weight: bold;">🧘 Zen mode</button>
-    <small data-i18n="config_zen_hint" style="display: block; margin-top: 4px; color: #444;">Full-screen work mode: the world fills the window and the bars hide by themselves. Move the mouse to the top, left or bottom edge to bring them back. Press H (or the 🧘 button) to leave it. You can change the key in Controls.</small>
+    <small data-i18n="config_zen_hint" style="display: block; margin-top: 4px; color: #444;">Zen mode is the full-screen work mode: the world fills the window and the bars hide by themselves. Move the mouse to the top, left or bottom edge to bring them back. The ⛶ button in the bottom bar turns on Full screen and Zen mode together. Press H to turn Zen mode on or off by itself (or use the 🧘 ✕ button while in it). You can change the key in Controls.</small>
 
     <label style="display: flex; align-items: center; gap: 8px; font-weight: bold; margin-top: 14px; cursor: pointer;">
         <input type="checkbox" id="float-panels-toggle" onchange="setFloatPanels(this.checked)" style="margin: 0; cursor: pointer;">
@@ -1530,7 +1529,6 @@
         
         <div class="status-divider"></div>
         
-        <button class="status-btn" id="zen-btn" onclick="toggleZenMode()" data-i18n-title="tooltip_zen" title="Zen mode (H)">🧘</button>
         <button class="status-btn" id="fullscreen-btn" onclick="toggleFullscreenHUD()" data-i18n-title="tooltip_fullscreen" title="Fullscreen">⛶</button>
     </div>
 </div>
