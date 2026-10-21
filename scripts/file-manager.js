@@ -188,6 +188,9 @@ const fileManager = {
        if (typeof window.myPresenceRef !== 'undefined' && window.myPresenceRef) {
            window.myPresenceRef.update({ worldName: cleanName });
        }
+
+       // 3. Analytics: se anota el NOMBRE del world que se abrió (solo el nombre)
+       try { if (typeof window.mbwAnalyticsWorld === 'function') window.mbwAnalyticsWorld(cleanName); } catch (e) {}
    }
 
    // Armar el mapa (lo más pesado) por tandas, avisando el avance real a la barra

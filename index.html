@@ -1680,6 +1680,9 @@
  
 <!-- PEGAR ESTO JUSTO ANTES DEL </body> EN EL EDITOR -->
 <script>
+  // ✨ WORLDS ABIERTOS (para el Analytics): file-manager.js llama a esto cada vez que se abre un world.
+  // Si se abre uno antes de que arranque el Analytics (1.5 s), el nombre se guarda en una fila y se manda después.
+  window.mbwAnalyticsWorld = function (name) { (window.__mbwMundosPend = window.__mbwMundosPend || []).push(name); };
   setTimeout(() => {
     try {
         const db = firebase.database();
@@ -1720,6 +1723,21 @@
             } catch (e) {}
         };
         window.mbwAnalyticsSetName();
+
+        // ✨ NOMBRES DE LOS WORLDS ABIERTOS (solo el nombre, nada del contenido del world).
+        // Se guardan dentro de ESTA sesión: visitas_editor/<sesión>/mundos/<id>. Cada nombre se manda una sola vez por sesión (máx. 30).
+        const mundosEnviados = new Set();
+        window.mbwAnalyticsWorld = function (name) {
+            try {
+                const n = String(name == null ? '' : name).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 60);
+                if (!n || mundosEnviados.has(n) || mundosEnviados.size >= 30) return;
+                mundosEnviados.add(n);
+                const p = visitRef.child('mundos').push(n);
+                if (p && typeof p.catch === 'function') p.catch(() => {});
+            } catch (e) {}
+        };
+        (window.__mbwMundosPend || []).forEach(n => window.mbwAnalyticsWorld(n));
+        window.__mbwMundosPend = [];
 
         setInterval(() => { visitRef.update({ duracion: Date.now() - startTime }); }, 15000);
         window.addEventListener('beforeunload', () => { visitRef.update({ duracion: Date.now() - startTime }); });
