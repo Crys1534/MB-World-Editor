@@ -615,6 +615,9 @@
   return (window.images && window.images[k] && window.images[k].src) ? window.images[k].src : ('assets/mobs/' + k + '.png');
  }
  function setImg(img, k) {
+  // Si antes esta misma imagen mostraba una spawnskin que todavía se estaba cargando, ese "pintor" sigue trabajando en segundo plano
+  // (se repite cada 150 ms o cada 4 s) y unos segundos después borraba o pisaba el mob nuevo. Subir el número lo cancela.
+  img._skTok = (img._skTok || 0) + 1;
   img.onerror = function () { this.onerror = null; this.src = 'assets/mobs/' + k + '.png'; };
   img.src = imgSrc(k);
  }
@@ -650,6 +653,14 @@
   img.src = BLANK_IMG;                                                      // (nunca la tira entera)
   if (g && !g.complete) g.addEventListener('load', function () { use(g); }, { once: true });
   else if (!g) { const t = new Image(); t.onload = function () { use(t); }; t.src = imgSrc('spawnskin'); }
+ }
+ // La casilla "Spawnskin" de la LISTA del Mob Browser se ve con assets/Player.png (la imagen grande de la derecha y la ventana
+ // Custom Mob siguen mostrando la skin real que va a tener el mob).
+ const PLAYER_IMG = 'assets/Player.png';
+ function setPlayerImg(img) {
+  img._skTok = (img._skTok || 0) + 1;      // (cancela cualquier pintado de skin pendiente sobre esta imagen)
+  img.onerror = null;
+  img.src = PLAYER_IMG;
  }
  function paintSkinImg(img, id) {
   const tok = (img._skTok = (img._skTok || 0) + 1);
@@ -1826,7 +1837,7 @@
     d.dataset.mob = id;
     d.title = niceMob(id);
     const im = document.createElement('img');
-    if (id === 'spawnskin') paintSkinImg(im, ''); else setImg(im, id);
+    if (id === 'spawnskin') setPlayerImg(im); else setImg(im, id);
     d.appendChild(im);
     d.appendChild(mk('span', 'mob-name', niceMob(id)));
     d.onclick = function () { window.previewMob(id); };

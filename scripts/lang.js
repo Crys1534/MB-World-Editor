@@ -110,6 +110,12 @@ const i18n = {
         "tooltip_tool_lasso": "Free form",
         "tooltip_tool_eyedropper": "Eyedropper",
         "tooltip_screenshot": "Screenshot",
+        "snip_title": "📷 Select Area to Capture",
+        "snip_hint": "Drag to select · WASD, or right-click + drag to move · Mouse wheel to zoom · Enter to download · Esc to cancel",
+        "snip_download": "Download Image",
+        "snip_cancel": "Cancel",
+        "snip_include": "Include mobs and player",
+        "snip_need_selection": "Drag to select an area first!",
 
         // --- SIDEBAR WORLD INFO ---
         "side_info_title": "World Info",
@@ -717,6 +723,12 @@ const i18n = {
         "tooltip_tool_lasso": "Lazo",
         "tooltip_tool_eyedropper": "Gotero",
         "tooltip_screenshot": "Captura de Pantalla",
+        "snip_title": "📷 Elige el área a capturar",
+        "snip_hint": "Arrastra para elegir · WASD, o clic derecho + arrastrar, para moverte · Rueda del mouse para el zoom · Enter para descargar · Esc para cancelar",
+        "snip_download": "Descargar imagen",
+        "snip_cancel": "Cancelar",
+        "snip_include": "Incluir mobs y jugador",
+        "snip_need_selection": "¡Arrastra primero para elegir un área!",
 
         // --- SIDEBAR WORLD INFO ---
         "side_info_title": "Información",
@@ -1324,6 +1336,12 @@ const i18n = {
         "tooltip_tool_lasso": "Laço",
         "tooltip_tool_eyedropper": "Conta-gotas",
         "tooltip_screenshot": "Captura de Tela",
+        "snip_title": "📷 Escolha a área para capturar",
+        "snip_hint": "Arraste para escolher · WASD, ou botão direito + arrastar, para mover · Roda do mouse para o zoom · Enter para baixar · Esc para cancelar",
+        "snip_download": "Baixar imagem",
+        "snip_cancel": "Cancelar",
+        "snip_include": "Incluir mobs e jogador",
+        "snip_need_selection": "Arraste primeiro para escolher uma área!",
 
         // --- SIDEBAR WORLD INFO ---
         "side_info_title": "Info do Mundo",

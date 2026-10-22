@@ -509,91 +509,206 @@ function renderChestOrOvenUI(blockState, gridContainer) {
     return false;
 }
 
-let chestTipAt = null;   // el cofre que muestra ahora el cuadro de vista previa ({x, y}); null = ninguno
+// =====================================================================================================================
+// 🧰 CUADRO DE CASILLAS DE UN MOB (drops), UN COFRE O UN HORNO
+// Sale al pasar el mouse por encima. Ya NO sigue al cursor: queda FIJO justo DEBAJO del objeto, centrado con él, y se
+// queda ahí aunque se mueva el mouse (si se mueve la cámara o el mob, el cuadro se mueve con el objeto). Si no cabe
+// abajo, sale arriba. Al quitar el mouse del objeto el cuadro espera medio segundo y se esconde con un desvanecido (fade);
+// si el mouse vuelve al objeto (o se mete al cuadro, que en los cofres/hornos recibe el mouse para leer los objetos) en
+// ese tiempo, no se esconde. El cuadro de los drops de un mob (solo con Move) NO recibe el mouse (pointer-events: none).
+// =====================================================================================================================
+const TIP_HIDE_DELAY = 500;   // ms que puede estar el mouse fuera del objeto antes de que el cuadro empiece a esconderse
+const TIP_FADE_MS = 250;      // lo que dura el desvanecido (debe coincidir con style.css: #chest-tooltip-overlay.tip-fade)
+const TIP_GAP = 6;            // píxeles entre el objeto y el cuadro
 
-// Vista previa de los DROPS de un mob: con la herramienta Move, al pasar el mouse por encima de un mob que tiene drops propios
-// (los que se le ponen en el Mob Browser) sale el mismo cuadro de casillas que en un cofre. Este cuadro NO recibe el mouse
-// (pointer-events: none) y sale un poco corrido del cursor, así no estorba al hacer clic ni al arrastrar el mob.
-function hideMobDropsTip() {
-    const tooltip = document.getElementById('chest-tooltip-overlay');
-    if (tooltip && tooltip.classList.contains('mob-drops-tip')) {
-        tooltip.classList.remove('mob-drops-tip');
-        tooltip.style.display = 'none';
-        tooltip.dataset.sig = '';
+let chestTipAt = null;        // el cofre / horno que muestra ahora el cuadro ({x, y, type}); null = ninguno (o es el de un mob)
+let tipTarget = null;         // lo que muestra ahora el cuadro: { kind: 'mob' | 'block', id, sig, mobKey | bx, by }
+let tipHideTimer = null, tipFadeTimer = null, tipRaf = 0, tipOverTip = false, tipSigAt = 0;
+
+function tipOverlay() { return document.getElementById('chest-tooltip-overlay'); }
+
+// ¿Qué hay bajo el mouse que merezca el cuadro? Un mob con drops propios (solo con Move) o un cofre / horno. Si no, null.
+function findTipTarget() {
+    if (typeof mbwom === 'undefined' || !mbwom.scene) return null;
+    if (mouse.left || mouse.right || (typeof isDraggingMob !== 'undefined' && isDraggingMob)) return null;   // mientras se hace clic / se arrastra no sale
+    if (typeof currentTool !== 'undefined' && currentTool === 'move' && mbwom.mobs && typeof tileSize !== 'undefined' && typeof window.mobDropsPreview === 'function') {
+        const hit = findMobAt(camera.x + (mouse.canvasX / tileSize), camera.y + (mouse.canvasY / tileSize));
+        if (hit && hit.mob && Array.isArray(hit.mob.drops) && hit.mob.drops.length) {
+            return { kind: 'mob', id: 'm:' + hit.key, mobKey: hit.key, mob: hit.mob, sig: hit.key + '|' + JSON.stringify(hit.mob.drops) };
+        }
     }
+    const bs = mbwom.getBlockState(mouse.worldX, mouse.worldY);
+    if (bs && ((bs.type === 'chest' && Array.isArray(bs.chests)) || bs.toSmelt)) {
+        return { kind: 'block', id: 'b:' + mouse.worldX + ',' + mouse.worldY, bx: mouse.worldX, by: mouse.worldY, bs: bs, sig: JSON.stringify(bs.type === 'chest' ? bs.chests : bs.toSmelt) };
+    }
+    return null;
 }
 
-function showMobDropsTip(tooltip, gridContainer, screenX, screenY) {
-    if (typeof currentTool === 'undefined' || currentTool !== 'move') return false;
-    if (isDraggingMob || mouse.left || mouse.right) return false;                       // mientras se arrastra / se hace clic no se muestra
-    if (typeof mbwom === 'undefined' || !mbwom.mobs || typeof tileSize === 'undefined') return false;
-    if (typeof window.mobDropsPreview !== 'function') return false;
-    const hit = findMobAt(camera.x + (mouse.canvasX / tileSize), camera.y + (mouse.canvasY / tileSize));
-    if (!hit || !hit.mob || !Array.isArray(hit.mob.drops) || !hit.mob.drops.length) return false;
-
-    // Solo se vuelven a dibujar las casillas si cambió el mob o sus drops (no en cada movimiento del mouse)
-    let sig = hit.key + '|' + JSON.stringify(hit.mob.drops);
-    if (!tooltip.classList.contains('mob-drops-tip') || tooltip.dataset.sig !== sig) {
-        if (!window.mobDropsPreview(hit.mob, gridContainer)) return false;
-        tooltip.dataset.sig = sig;
+// El objeto de un target en pantalla: centro en X, borde de abajo y borde de arriba (en píxeles del espacio de trabajo)
+function tipAnchor(target) {
+    if (typeof tileSize === 'undefined' || typeof camera === 'undefined' || typeof canvas === 'undefined') return null;
+    if (target.kind === 'mob') {
+        const m = (typeof mbwom !== 'undefined' && mbwom.mobs) ? mbwom.mobs[target.mobKey] : null;
+        if (!m) return null;
+        const info = getMobDrawInfo(m, true);
+        const bottom = canvas.height - (-Number(m.y) - camera.y) * tileSize;
+        return { cx: (Number(m.x) - camera.x) * tileSize, bottom: bottom, top: bottom - info.h * tileSize };
     }
-    const hint = document.getElementById('chest-tooltip-hint');
-    if (hint) hint.style.display = 'none';
-    tooltip.classList.add('mob-drops-tip');
-    tooltip.style.display = 'block';
+    const bottom = canvas.height - (target.by - camera.y) * tileSize;
+    return { cx: (target.bx + 0.5 - camera.x) * tileSize, bottom: bottom, top: bottom - tileSize };
+}
 
-    // Un poco abajo y a la derecha del cursor; si no cabe en el espacio del mundo, pasa al otro lado
+// Pone el cuadro justo debajo del objeto, centrado. Devuelve false si el objeto ya no existe o salió de la pantalla.
+function placeTip() {
+    const tooltip = tipOverlay();
+    if (!tooltip || !tipTarget) return false;
+    const a = tipAnchor(tipTarget);
+    if (!a) return false;
     const ws = document.getElementById('workspace');
     const W = ws ? ws.clientWidth : Infinity, H = ws ? ws.clientHeight : Infinity;
-    let left = screenX + 16, top = screenY + 16;
-    if (left + tooltip.offsetWidth > W) left = Math.max(0, screenX - 16 - tooltip.offsetWidth);
-    if (top + tooltip.offsetHeight > H) top = Math.max(0, screenY - 16 - tooltip.offsetHeight);
-    tooltip.style.left = left + 'px';
-    tooltip.style.top = top + 'px';
-    chestTipAt = null;
+    const w = tooltip.offsetWidth, h = tooltip.offsetHeight;
+    if (a.bottom < 0 || a.top > H || a.cx < -w / 2 || a.cx > W + w / 2) return false;   // el objeto salió de la vista
+    let left = a.cx - w / 2, top = a.bottom + TIP_GAP;
+    if (top + h > H) top = a.top - TIP_GAP - h;            // no cabe abajo: sale arriba
+    left = Math.max(0, Math.min(left, W - w));
+    top = Math.max(0, Math.min(top, H - h));
+    left = Math.round(left); top = Math.round(top);
+    if (tooltip._tl !== left) { tooltip.style.left = left + 'px'; tooltip._tl = left; }
+    if (tooltip._tt !== top) { tooltip.style.top = top + 'px'; tooltip._tt = top; }
     return true;
 }
 
-function updateChestTooltip(screenX, screenY) {
-    const tooltip = document.getElementById('chest-tooltip-overlay');
-    if (!tooltip) return;
-    const gridContainer = document.getElementById('chest-tooltip-grid');
+// ¿Sigue existiendo lo que muestra el cuadro? (se borró el mob, se cambió el cofre, otra escena...)
+function tipTargetAlive() {
+    if (!tipTarget) return false;
+    if (tipTarget.kind === 'mob') return !!(typeof mbwom !== 'undefined' && mbwom.mobs && mbwom.mobs[tipTarget.mobKey]);
+    const bs = (typeof mbwom !== 'undefined' && mbwom.scene) ? mbwom.getBlockState(tipTarget.bx, tipTarget.by) : null;
+    return !!(bs && ((bs.type === 'chest' && Array.isArray(bs.chests)) || bs.toSmelt));
+}
 
-    if (showMobDropsTip(tooltip, gridContainer, screenX, screenY)) return;
-    tooltip.classList.remove('mob-drops-tip');
-    tooltip.dataset.sig = '';
-
-    // ✨ FIX: Doble seguro. Solo intentamos leer si mbwom existe Y si ya tiene un mapa/escena cargada.
-    const blockState = (typeof mbwom !== 'undefined' && mbwom.scene) ? mbwom.getBlockState(mouse.worldX, mouse.worldY) : null;
-
-    if (renderChestOrOvenUI(blockState, gridContainer)) {
-        // Con la herramienta Move, el cofre se puede editar con clic derecho: se avisa en el tooltip
-        const hint = document.getElementById('chest-tooltip-hint');
-        if (hint) {
-            const canEdit = (typeof currentTool !== 'undefined' && currentTool === 'move' && blockState.type === 'chest');
-            hint.style.display = canEdit ? 'block' : 'none';
-            if (canEdit) hint.textContent = (typeof t === 'function' ? t('chest_edit_hint') : 'Right-click to edit');
+// Mientras el cuadro se ve, sigue al objeto (si la cámara o el mob se mueven) y se pone al día si cambió su contenido
+function tipFrame(now) {
+    tipRaf = 0;
+    const tooltip = tipOverlay();
+    if (!tooltip || !tipTarget || tooltip.style.display === 'none') return;
+    if (!tipTargetAlive()) { hideTip(false); return; }
+    if (now - tipSigAt > 250) {
+        tipSigAt = now;
+        const fresh = tipTarget.kind === 'mob'
+            ? (mbwom.mobs[tipTarget.mobKey] && tipTarget.mobKey + '|' + JSON.stringify(mbwom.mobs[tipTarget.mobKey].drops))
+            : (() => { const bs = mbwom.getBlockState(tipTarget.bx, tipTarget.by); return JSON.stringify(bs.type === 'chest' ? bs.chests : bs.toSmelt); })();
+        if (fresh !== tipTarget.sig) {
+            const t = tipTarget;
+            if (t.kind === 'mob') { if (!window.mobDropsPreview(mbwom.mobs[t.mobKey], document.getElementById('chest-tooltip-grid'))) { hideTip(false); return; } }
+            else renderChestOrOvenUI(mbwom.getBlockState(t.bx, t.by), document.getElementById('chest-tooltip-grid'));
+            t.sig = fresh;
         }
-        tooltip.style.display = 'block';
-        tooltip.style.left = screenX + 'px';
-        tooltip.style.top = screenY + 'px';
-        chestTipAt = { x: mouse.worldX, y: mouse.worldY, type: blockState.type };
-    } else {
-        tooltip.style.display = 'none';
-        chestTipAt = null;
+    }
+    if (!placeTip()) { hideTip(false); return; }
+    tipRaf = requestAnimationFrame(tipFrame);
+}
+function startTipFollow() { if (!tipRaf) tipRaf = requestAnimationFrame(tipFrame); }
+
+function cancelTipHide() {
+    if (tipHideTimer) { clearTimeout(tipHideTimer); tipHideTimer = null; }
+    const tooltip = tipOverlay();
+    if (tooltip && tooltip.classList.contains('tip-fade') && tooltip.style.display !== 'none') {   // ya se estaba desvaneciendo: vuelve a aparecer
+        if (tipFadeTimer) { clearTimeout(tipFadeTimer); tipFadeTimer = null; }
+        tooltip.classList.remove('tip-fade');
+        startTipFollow();
     }
 }
 
-// El cuadro de vista previa recibe el mouse (así se pueden leer los objetos con el cursor encima) y por eso, en cuanto el
-// cursor se mueve un poquito, el clic ya cae sobre el cuadro y no sobre el mundo. Con la herramienta Move, el clic derecho
-// sobre el cuadro abre el inventario del cofre que se está viendo, igual que sobre el cofre mismo.
+// El mouse dejó el objeto: se espera medio segundo y entonces se esconde con fade
+function scheduleTipHide() {
+    const tooltip = tipOverlay();
+    if (!tooltip || tooltip.style.display === 'none' || tooltip.classList.contains('tip-fade')) return;
+    if (tipOverTip || tipHideTimer) return;     // con el mouse metido en el cuadro no se esconde; y el medio segundo ya está corriendo
+    tipHideTimer = setTimeout(function () { tipHideTimer = null; if (!tipOverTip) hideTip(false); }, TIP_HIDE_DELAY);
+}
+
+// Esconde el cuadro. instant = true: de golpe (para cuando se abre otra ventana encima); si no, con el desvanecido
+function hideTip(instant) {
+    const tooltip = tipOverlay();
+    if (tipHideTimer) { clearTimeout(tipHideTimer); tipHideTimer = null; }
+    if (tipFadeTimer) { clearTimeout(tipFadeTimer); tipFadeTimer = null; }
+    if (!tooltip) return;
+    const done = function () {
+        tipFadeTimer = null;
+        tooltip.style.display = 'none';
+        tooltip.classList.remove('tip-fade');
+        tooltip.classList.remove('mob-drops-tip');
+        tipTarget = null; chestTipAt = null; tipOverTip = false;
+    };
+    if (tooltip.style.display === 'none') { done(); return; }
+    if (instant) { done(); return; }
+    tipOverTip = false;
+    tooltip.classList.add('tip-fade');
+    tipFadeTimer = setTimeout(done, TIP_FADE_MS + 30);
+}
+
+// Compatibilidad: otros archivos llaman a esta función (por ejemplo al cambiar de herramienta). Solo esconde el cuadro de un MOB.
+function hideMobDropsTip() {
+    if (tipTarget && tipTarget.kind === 'mob') hideTip(false);
+}
+
+function updateChestTooltip() {
+    const tooltip = tipOverlay();
+    if (!tooltip) return;
+    const target = findTipTarget();
+    if (!target) { scheduleTipHide(); return; }
+
+    const grid = document.getElementById('chest-tooltip-grid');
+    const hidden = tooltip.style.display === 'none';
+    const same = !!tipTarget && tipTarget.id === target.id;
+    if (hidden || !same || tipTarget.sig !== target.sig) {
+        // Solo se vuelven a dibujar las casillas si cambió el objeto o su contenido (no en cada movimiento del mouse)
+        const ok = target.kind === 'mob' ? window.mobDropsPreview(target.mob, grid) : renderChestOrOvenUI(target.bs, grid);
+        if (!ok) { scheduleTipHide(); return; }
+    }
+    // Cuadro de un mob: no recibe el mouse. Cuadro de cofre / horno: sí (para leer los objetos y, con Move, editar el cofre con clic derecho)
+    tooltip.classList.toggle('mob-drops-tip', target.kind === 'mob');
+    const hint = document.getElementById('chest-tooltip-hint');
+    if (hint) {
+        const canEdit = target.kind === 'block' && typeof currentTool !== 'undefined' && currentTool === 'move' && target.bs.type === 'chest';
+        hint.style.display = canEdit ? 'block' : 'none';
+        if (canEdit) hint.textContent = (typeof t === 'function' ? t('chest_edit_hint') : 'Right-click to edit');
+    }
+    tipTarget = target;
+    chestTipAt = target.kind === 'block' ? { x: target.bx, y: target.by, type: target.bs.type } : null;
+
+    if (tipHideTimer) { clearTimeout(tipHideTimer); tipHideTimer = null; }
+    if (hidden) {
+        // aparece con un fade corto: se pone invisible, se muestra y en el siguiente cuadro se vuelve visible
+        tooltip.classList.add('tip-fade');
+        tooltip.style.display = 'block';
+        if (tipFadeTimer) { clearTimeout(tipFadeTimer); tipFadeTimer = null; }
+        if (!placeTip()) { hideTip(true); return; }
+        void tooltip.offsetWidth;
+        tooltip.classList.remove('tip-fade');
+        tipSigAt = performance.now();
+    } else {
+        if (tooltip.classList.contains('tip-fade')) {   // se estaba desvaneciendo y el mouse volvió: aparece otra vez
+            if (tipFadeTimer) { clearTimeout(tipFadeTimer); tipFadeTimer = null; }
+            tooltip.classList.remove('tip-fade');
+        }
+        if (!placeTip()) { hideTip(false); return; }
+    }
+    startTipFollow();
+}
+
+// El cuadro de un cofre / horno recibe el mouse (así se pueden leer los objetos con el cursor encima): mientras el mouse esté
+// dentro de él no se esconde. Con la herramienta Move, el clic derecho sobre el cuadro abre el inventario del cofre que se está
+// viendo, igual que sobre el cofre mismo.
 (function () {
-    const ov = document.getElementById('chest-tooltip-overlay');
+    const ov = tipOverlay();
     if (!ov) return;
+    ov.addEventListener('mouseenter', function () { tipOverTip = true; cancelTipHide(); });
+    ov.addEventListener('mouseleave', function () { tipOverTip = false; scheduleTipHide(); });
     ov.addEventListener('mousedown', function (e) {
         if (e.button !== 2 || typeof currentTool === 'undefined' || currentTool !== 'move') return;
         if (!chestTipAt || chestTipAt.type !== 'chest' || typeof openChestEditor !== 'function') return;
-        if (openChestEditor(chestTipAt.x, chestTipAt.y)) { e.preventDefault(); ov.style.display = 'none'; chestTipAt = null; }
+        if (openChestEditor(chestTipAt.x, chestTipAt.y)) { e.preventDefault(); hideTip(true); }
     });
     ov.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 })();
@@ -664,6 +779,7 @@ canvas.addEventListener("mousedown", function (event) {
     if (typeof mbwom === 'undefined' || !mbwom.scene) return;   // sin mundo abierto no hay nada que tocar
     if (event.button == 0) mouse.left = true;
     if (event.button == 2) mouse.right = true;
+    if (event.button == 0) hideTip(false);   // al hacer clic (dibujar, mover, seleccionar) el cuadro de casillas se esconde con su fade
 
     // ✨ CLIC DERECHO CON MOVE SOBRE UN COFRE: abre su inventario para editar los objetos (scripts/player-inventory.js)
     if (currentTool === 'move' && event.button == 2 && typeof openChestEditor === 'function') {
@@ -671,9 +787,7 @@ canvas.addEventListener("mousedown", function (event) {
         if (bs && bs.type === 'chest' && openChestEditor(mouse.worldX, mouse.worldY)) {
             mouse.right = false;
             event.preventDefault();
-            const ov = document.getElementById('chest-tooltip-overlay');
-            if (ov) ov.style.display = 'none';
-            chestTipAt = null;
+            hideTip(true);   // se abre la ventana del cofre: el cuadro se quita de golpe
             return;
         }
     }
@@ -855,6 +969,7 @@ canvas.addEventListener("mousedown", function (event) {
                 mbwom.mobs[newId].x = exactWorldX;
                 mbwom.mobs[newId].y = -exactWorldY;
                 mbwom.mobs[newId].id = newId;
+                if (typeof window.mbwFixMob === 'function') window.mbwFixMob(mbwom.mobs[newId]);   // (si la plantilla fuera la básica, un creeper se quedaría sin "fuse")
                 
                 // ✨ FIX CRÍTICO: Asignar al mob la escena actual para que no se escape al Overworld
                 mbwom.mobs[newId].scene = typeof mbwom.currentScene !== 'undefined' ? mbwom.currentScene : 1;
@@ -960,7 +1075,7 @@ window.addEventListener("mouseup", function (event) {
 });
 
 canvas.addEventListener("mouseleave", function() {
-    hideMobDropsTip();   // el cuadro de drops no recibe el mouse: si el cursor sale del lienzo, se esconde
+    scheduleTipHide();   // el cursor salió del lienzo: el cuadro de casillas se esconde (con fade) medio segundo después, salvo que el mouse se meta en él
     if (mouse.left || mouse.right) {
         if (currentTool !== 'select' && currentTool !== 'lasso') historyManager.commitAction();
         mouse.left = false;

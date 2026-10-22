@@ -149,56 +149,138 @@ window.addEventListener('keydown', function(e) {
     if (e.key === 'Delete' || e.code === 'Delete') deleteSelection();
 });
 
-// --- NUEVO SISTEMA DE SCREENSHOT CON RECORTE Y SCROLL (WASD + ZOOM) ---
+// --- SISTEMA DE SCREENSHOT: RECORTE, MOVERSE Y ZOOM ---
+// Controles dentro de la ventana de captura:
+//   clic izquierdo + arrastrar ........ elegir el área
+//   WASD / flechas, clic derecho o central + arrastrar, o Espacio + arrastrar ... moverse
+//   rueda del mouse ................... zoom (hacia donde apunta el cursor)
+//   Enter ............................. descargar        Esc ............ cancelar
+// Los textos están en lang.js (claves snip_*). La vista previa y la imagen descargada se dibujan con la MISMA función (snipDrawScene).
+const SNIP_ZOOMS = [1, 2, 4, 8, 16, 32];
 let snipState = {
-    active: false, isDragging: false,
+    active: false, isDragging: false, isPanning: false, hasSel: false, spaceDown: false, exporting: false,
     startX: 0, startY: 0, currentX: 0, currentY: 0,
-    camX: 0, camY: 0,
+    camX: 0, camY: 0, panX: 0, panY: 0,
     keys: {},
-    camLoop: null, tileSize: 16
+    camLoop: null, tileSize: 16,
+    includeEntities: false,
+    wheelAcc: 0, renderQueued: false, needFinal: false, lastPendingRender: 0, noticeTimer: null
 };
 
-// ✨ BLOQUEO GLOBAL DE TECLAS (Evita que el juego principal se mueva)
+function snipT(key) { return (typeof window.t === 'function') ? window.t(key) : key; }
+
+// ✨ BLOQUEO GLOBAL DE TECLAS: mientras la ventana de captura está abierta, el editor de atrás no recibe ninguna tecla
 if (!window.snipKeysAttached) {
+    const SNIP_MODIFIERS = ['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'];
+    const SNIP_MOVE_KEYS = ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'];
     window.addEventListener('keydown', (e) => {
-        if (snipState.active) {
-            const k = e.key.toLowerCase();
-            if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) {
-                snipState.keys[k] = true;
-                e.stopImmediatePropagation();
-                e.preventDefault();
-            }
+        if (!snipState.active) return;
+        if (SNIP_MODIFIERS.includes(e.key)) return;               // Shift/Ctrl/Alt los dejamos pasar (otras partes del editor los vigilan)
+        const k = String(e.key).toLowerCase();
+        if (SNIP_MOVE_KEYS.includes(k)) {
+            snipState.keys[k] = true;
+            e.preventDefault();
+        } else if (e.key === 'Enter') {
+            e.preventDefault();                                    // que no active el botón que tenga el foco
+            if (!e.repeat) window.confirmScreenshot();
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            window.closeSnippingUI();
+        } else if (e.key === ' ') {
+            e.preventDefault();                                    // Espacio + arrastrar = moverse (y no hace scroll ni pulsa botones)
+            snipState.spaceDown = true;
+            snipSetCursor();
         }
+        e.stopImmediatePropagation();
     }, { capture: true });
 
     window.addEventListener('keyup', (e) => {
-        if (snipState.active) {
-            const k = e.key.toLowerCase();
-            if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) {
-                snipState.keys[k] = false;
-                e.stopImmediatePropagation();
-                e.preventDefault();
-            }
+        if (!snipState.active) return;
+        if (SNIP_MODIFIERS.includes(e.key)) return;
+        const k = String(e.key).toLowerCase();
+        if (SNIP_MOVE_KEYS.includes(k)) {
+            snipState.keys[k] = false;
+            e.preventDefault();
+        } else if (e.key === ' ') {
+            e.preventDefault();
+            snipState.spaceDown = false;
+            snipSetCursor();
         }
+        e.stopImmediatePropagation();
     }, { capture: true });
     window.snipKeysAttached = true;
 }
 
+function snipSetCursor() {
+    const c = document.getElementById('snip-container');
+    if (c) c.style.cursor = snipState.isPanning ? 'grabbing' : (snipState.spaceDown ? 'grab' : 'crosshair');
+}
+
+function snipApplyTexts() {
+    const modal = document.getElementById('snip-modal');
+    if (!modal) return;
+    modal.querySelectorAll('[data-i18n]').forEach(el => { el.innerHTML = snipT(el.getAttribute('data-i18n')); });
+}
+
+function snipUpdateZoomLabel() {
+    const btn = document.getElementById('btn-snip-zoom');
+    if (btn) btn.innerText = 'Zoom: ' + snipState.tileSize + 'x';
+}
+
+function snipSkinsPending() {
+    return !!window.skinFetchInProgress && Object.keys(window.skinFetchInProgress).length > 0;
+}
+
+// Aviso dentro de la ventana (reemplaza al alert del navegador)
+function snipShowNotice(key) {
+    const n = document.getElementById('snip-notice');
+    if (!n) return;
+    n.textContent = snipT(key);
+    n.style.opacity = '1';
+    clearTimeout(snipState.noticeTimer);
+    snipState.noticeTimer = setTimeout(() => { n.style.opacity = '0'; }, 2500);
+}
+
+window.snipSetIncludeEntities = function(on) {
+    snipState.includeEntities = !!on;
+    const chk = document.getElementById('snip-include-entities');
+    if (chk) chk.checked = !!on;                       // la casilla siempre refleja el estado
+    try { localStorage.setItem('mbw_snip_entities', on ? '1' : '0'); } catch (e) {}
+    renderSnipPreview();
+};
+
 window.takeScreenshot = function() {
     initSnippingUI();
+    snipApplyTexts();
     snipState.active = true;
-    snipState.keys = {}; 
-    snipState.tileSize = 16; // Restablecer el zoom al abrir
-    
-    const zoomBtn = document.getElementById('btn-snip-zoom');
-    if (zoomBtn) zoomBtn.innerText = `Zoom: 16x`;
-    
+    snipState.keys = {};
+    snipState.isDragging = false;
+    snipState.isPanning = false;
+    snipState.spaceDown = false;
+    snipState.exporting = false;
+    snipState.hasSel = false;                       // la selección ya no se queda guardada de la vez anterior
+    snipState.startX = snipState.startY = snipState.currentX = snipState.currentY = 0;
+    snipState.wheelAcc = 0;
+    snipState.needFinal = false;
+    snipState.tileSize = 16;                        // Restablecer el zoom al abrir
+    snipUpdateZoomLabel();
+
+    let inc = false;
+    try { inc = localStorage.getItem('mbw_snip_entities') === '1'; } catch (e) {}
+    snipState.includeEntities = inc;
+    const chk = document.getElementById('snip-include-entities');
+    if (chk) chk.checked = inc;
+    const n = document.getElementById('snip-notice');
+    if (n) n.style.opacity = '0';
+    snipSetCursor();
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+
     snipState.camX = (typeof camera !== 'undefined' ? Math.floor(camera.x) : 0);
     snipState.camY = (typeof camera !== 'undefined' ? Math.floor(camera.y) : 0);
-    
+
     document.getElementById('snip-modal').style.display = 'flex';
     renderSnipPreview();
-    
+
     if (!snipState.camLoop) {
         snipState.camLoop = requestAnimationFrame(snipCamLoop);
     }
@@ -207,47 +289,62 @@ window.takeScreenshot = function() {
 function initSnippingUI() {
     if (document.getElementById('snip-modal')) return;
 
+    const BTN = "border:none; padding:10px 20px; font-family:'Pixeltype', sans-serif; font-size:24px; border-radius:4px; cursor:pointer; color:white;";
     const modal = document.createElement('div');
     modal.id = 'snip-modal';
     modal.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:999999; display:none; flex-direction:column; align-items:center; justify-content:center;';
 
     modal.innerHTML = `
-        <div style="color:white; font-family:'Pixeltype', sans-serif; font-size:32px; margin-bottom:10px; text-shadow:2px 2px 0 #000;">
-            📷 Select Area to Capture <span style="font-size:18px; color:#aaa;">(Use WASD to move)</span>
+        <div style="color:white; font-family:'Pixeltype', sans-serif; font-size:32px; margin-bottom:10px; text-shadow:2px 2px 0 #000; text-align:center; max-width:92vw;">
+            <span data-i18n="snip_title">📷 Select Area to Capture</span>
+            <div data-i18n="snip_hint" style="font-size:18px; color:#aaa; text-shadow:none;"></div>
         </div>
         <div id="snip-container" style="position:relative; width:80vw; height:70vh; border:4px solid #555; background:#7385b9; overflow:hidden; cursor:crosshair; box-shadow:0 10px 30px rgba(0,0,0,0.8);">
             <canvas id="snip-canvas" style="position:absolute; top:0; left:0; width:100%; height:100%; image-rendering:pixelated;"></canvas>
+            <div id="snip-notice" style="position:absolute; top:12px; left:50%; transform:translateX(-50%); max-width:90%; background:rgba(0,0,0,0.85); color:#fff; border:2px solid #f1c40f; border-radius:4px; padding:6px 16px; font-family:'Pixeltype', sans-serif; font-size:24px; text-align:center; pointer-events:none; opacity:0; transition:opacity 0.3s;"></div>
         </div>
-        <div style="margin-top:15px; display:flex; gap:15px;">
-            <button onclick="confirmScreenshot()" style="background:#2ecc71; color:white; border:none; padding:10px 20px; font-family:'Pixeltype', sans-serif; font-size:24px; border-radius:4px; cursor:pointer;">Download Image</button>
-            <button id="btn-snip-zoom" onclick="cycleSnipZoom()" style="background:#3498db; color:white; border:none; padding:10px 20px; font-family:'Pixeltype', sans-serif; font-size:24px; border-radius:4px; cursor:pointer;">Zoom: 16x</button>
-            <button onclick="closeSnippingUI()" style="background:#e74c3c; color:white; border:none; padding:10px 20px; font-family:'Pixeltype', sans-serif; font-size:24px; border-radius:4px; cursor:pointer;">Cancel</button>
+        <div style="margin-top:15px; display:flex; gap:15px; align-items:center; flex-wrap:wrap; justify-content:center;">
+            <button id="btn-snip-download" onclick="confirmScreenshot(); this.blur()" data-i18n="snip_download" style="background:#2ecc71; ${BTN}">Download Image</button>
+            <button id="btn-snip-zoom" onclick="cycleSnipZoom(); this.blur()" style="background:#3498db; ${BTN}">Zoom: 16x</button>
+            <button id="btn-snip-cancel" onclick="closeSnippingUI()" data-i18n="snip_cancel" style="background:#e74c3c; ${BTN}">Cancel</button>
+            <label style="display:flex; align-items:center; gap:8px; color:white; font-family:'Pixeltype', sans-serif; font-size:24px; cursor:pointer;">
+                <input type="checkbox" id="snip-include-entities" onchange="snipSetIncludeEntities(this.checked); this.blur()" style="width:18px; height:18px; cursor:pointer;">
+                <span data-i18n="snip_include">Include mobs and player</span>
+            </label>
         </div>
     `;
     document.body.appendChild(modal);
 
     const cvs = document.getElementById('snip-canvas');
-    
+    const box = document.getElementById('snip-container');
+
     // Anula el menú del clic derecho
     cvs.addEventListener('contextmenu', (e) => e.preventDefault());
-    
+
+    // Casilla del mundo que está bajo el mouse (la cámara puede tener decimales)
     function getMouseGridCoords(e) {
         const rect = cvs.getBoundingClientRect();
         const mx = e.clientX - rect.left;
         const my = e.clientY - rect.top;
-        
-        const wx = Math.floor(mx / snipState.tileSize) + Math.floor(snipState.camX);
-        const wy = Math.floor((cvs.height - my) / snipState.tileSize) + Math.floor(snipState.camY);
+        const wx = Math.floor(snipState.camX + mx / snipState.tileSize);
+        const wy = Math.floor(snipState.camY + (cvs.height - my) / snipState.tileSize);
         return {wx, wy};
     }
 
     cvs.addEventListener('mousedown', (e) => {
+        // moverse: clic derecho, clic central, o Espacio + clic izquierdo
+        if (e.button === 1 || e.button === 2 || (e.button === 0 && snipState.spaceDown)) {
+            e.preventDefault();
+            snipState.isPanning = true;
+            snipState.panX = e.clientX;
+            snipState.panY = e.clientY;
+            snipSetCursor();
+            return;
+        }
         if (e.button !== 0) return; // ✨ FILTRO DE CLIC IZQUIERDO
-        
-        cvs.width = cvs.parentElement.clientWidth;
-        cvs.height = cvs.parentElement.clientHeight;
+
         snipState.isDragging = true;
-        
+        snipState.hasSel = true;
         const coords = getMouseGridCoords(e);
         snipState.startX = coords.wx;
         snipState.startY = coords.wy;
@@ -258,36 +355,78 @@ function initSnippingUI() {
 
     window.addEventListener('mousemove', (e) => {
         if (!snipState.active) return;
-        if (snipState.isDragging) {
+        if (snipState.isPanning) {
+            snipState.camX -= (e.clientX - snipState.panX) / snipState.tileSize;
+            snipState.camY += (e.clientY - snipState.panY) / snipState.tileSize;
+            snipState.panX = e.clientX;
+            snipState.panY = e.clientY;
+            snipRequestRender();
+        } else if (snipState.isDragging) {
             const coords = getMouseGridCoords(e);
             snipState.currentX = coords.wx;
             snipState.currentY = coords.wy;
-            renderSnipPreview();
+            snipRequestRender();
         }
     });
 
-    window.addEventListener('mouseup', () => { 
-        if (snipState.active) snipState.isDragging = false; 
+    window.addEventListener('mouseup', () => {
+        if (!snipState.active) return;
+        snipState.isDragging = false;
+        snipState.isPanning = false;
+        snipSetCursor();
     });
+
+    // Rueda del mouse = zoom, hacia donde apunta el cursor (el punto bajo el mouse se queda quieto)
+    modal.addEventListener('wheel', (e) => {
+        if (!snipState.active) return;
+        e.preventDefault();
+        if (!box.contains(e.target)) return;
+        const unit = e.deltaMode === 1 ? 33 : (e.deltaMode === 2 ? 100 : 1);   // líneas / páginas / píxeles
+        snipState.wheelAcc += e.deltaY * unit;
+        if (Math.abs(snipState.wheelAcc) < 50) return;
+        const dir = snipState.wheelAcc < 0 ? 1 : -1;                          // rueda hacia arriba = acercar
+        snipState.wheelAcc = 0;
+        const i = SNIP_ZOOMS.indexOf(snipState.tileSize);
+        const ni = Math.max(0, Math.min(SNIP_ZOOMS.length - 1, (i < 0 ? SNIP_ZOOMS.indexOf(16) : i) + dir));
+        const rect = cvs.getBoundingClientRect();
+        snipSetZoom(SNIP_ZOOMS[ni], e.clientX - rect.left, e.clientY - rect.top);
+    }, { passive: false });
 }
 
-// ✨ FUNCIÓN PARA CICLAR EL ZOOM
+// Cambia el zoom. Si se da un punto (mx, my) de la ventana, el punto del mundo que está ahí no se mueve.
+function snipSetZoom(newSize, mx, my) {
+    const cvs = document.getElementById('snip-canvas');
+    const old = snipState.tileSize;
+    if (newSize === old) return;
+    if (cvs && mx !== undefined) {
+        const wx = snipState.camX + mx / old;
+        const wy = snipState.camY + (cvs.height - my) / old;
+        snipState.camX = wx - mx / newSize;
+        snipState.camY = wy - (cvs.height - my) / newSize;
+    }
+    snipState.tileSize = newSize;
+    snipUpdateZoomLabel();
+    renderSnipPreview();
+}
+
+// ✨ FUNCIÓN PARA CICLAR EL ZOOM (botón)
 window.cycleSnipZoom = function() {
     const levels = [16, 8, 4, 2, 1];
     let idx = levels.indexOf(snipState.tileSize);
-    idx = (idx + 1) % levels.length;
-    snipState.tileSize = levels[idx];
-    
-    const btn = document.getElementById('btn-snip-zoom');
-    if (btn) btn.innerText = `Zoom: ${snipState.tileSize}x`;
-    
-    renderSnipPreview();
+    idx = idx < 0 ? 0 : (idx + 1) % levels.length;
+    snipSetZoom(levels[idx]);
 };
 
 window.closeSnippingUI = function() {
-    document.getElementById('snip-modal').style.display = 'none';
+    const m = document.getElementById('snip-modal');
+    if (m) m.style.display = 'none';
     snipState.active = false;
     snipState.isDragging = false;
+    snipState.isPanning = false;
+    snipState.spaceDown = false;
+    snipState.exporting = false;
+    snipState.keys = {};
+    clearTimeout(snipState.noticeTimer);
 };
 
 function snipCamLoop() {
@@ -300,37 +439,52 @@ function snipCamLoop() {
         if (snipState.keys['a'] || snipState.keys['arrowleft']) { snipState.camX -= speed; moved = true; }
         if (snipState.keys['d'] || snipState.keys['arrowright']) { snipState.camX += speed; moved = true; }
 
-        if (moved) renderSnipPreview();
-        
+        if (moved) {
+            renderSnipPreview();
+        } else if (snipState.includeEntities) {
+            // una skin de spawnskin que todavía se está bajando: se repinta hasta que llegue
+            const pending = snipSkinsPending();
+            if (pending || snipState.needFinal) {
+                const now = performance.now();
+                if (now - snipState.lastPendingRender > 250) {
+                    snipState.lastPendingRender = now;
+                    snipState.needFinal = pending;
+                    renderSnipPreview();
+                }
+            }
+        }
+
         snipState.camLoop = requestAnimationFrame(snipCamLoop);
     } else {
         snipState.camLoop = null;
     }
 }
 
-function renderSnipPreview() {
-    const cvs = document.getElementById('snip-canvas');
-    if (!cvs) return;
-    const ctx = cvs.getContext('2d');
-    
-    cvs.width = cvs.parentElement.clientWidth;
-    cvs.height = cvs.parentElement.clientHeight;
+// Pide un repintado (varios pedidos seguidos del mouse se juntan en uno por cuadro)
+function snipRequestRender() {
+    if (snipState.renderQueued) return;
+    snipState.renderQueued = true;
+    requestAnimationFrame(() => { snipState.renderQueued = false; if (snipState.active) renderSnipPreview(); });
+}
 
+// Dibuja el mundo (y, si se pide, mobs y jugador) en un canvas. La cámara (camX, camY) es la esquina de abajo a la izquierda,
+// ts = píxeles por casilla. La usan la vista previa y la imagen descargada, así las dos salen idénticas.
+function snipDrawScene(ctx, W, H, camX, camY, ts, withEntities) {
     ctx.fillStyle = '#7385b9';
-    ctx.fillRect(0, 0, cvs.width, cvs.height);
+    ctx.fillRect(0, 0, W, H);
     ctx.imageSmoothingEnabled = false;
 
-    const startWX = Math.floor(snipState.camX);
-    const startWY = Math.floor(snipState.camY);
-    const endWX = Math.ceil(snipState.camX + cvs.width / snipState.tileSize);
-    const endWY = Math.ceil(snipState.camY + cvs.height / snipState.tileSize);
-
     if (typeof mbwom !== 'undefined' && mbwom.scene) {
-        for (let x = startWX; x <= endWX; x++) {
+        const x0 = Math.floor(camX), x1 = Math.ceil(camX + W / ts) - 1;
+        const y0 = Math.floor(camY), y1 = Math.ceil(camY + H / ts) - 1;
+        const blocksImg = window.images && window.images.blocks;
+        const ready = !!(blocksImg && blocksImg.complete);
+        for (let x = x0; x <= x1; x++) {
             if (!mbwom.scene[x]) continue;
-            for (let y = startWY; y <= endWY; y++) {
+            const px0 = Math.round((x - camX) * ts), px1 = Math.round((x + 1 - camX) * ts);
+            for (let y = y0; y <= y1; y++) {
                 let rawBlock = typeof mbwom.getBlockState === 'function' ? mbwom.getBlockState(x, y) : mbwom.scene[x][y];
-                
+
                 if (!rawBlock || !rawBlock.type || rawBlock.type === 'air' || rawBlock.type === 0 || rawBlock.type === '0') continue;
 
                 let safeState = { type: rawBlock.type };
@@ -340,28 +494,83 @@ function renderSnipPreview() {
                 if (!renderObj && window.blockData && window.blockData[safeState.type]) {
                     renderObj = window.blockData[safeState.type](safeState);
                 }
-                if (!renderObj) continue;
+                if (!renderObj || !ready) continue;
 
-                const drawX = (x - Math.floor(snipState.camX)) * snipState.tileSize;
-                const drawY = cvs.height - ((y - Math.floor(snipState.camY)) * snipState.tileSize) - snipState.tileSize;
-
-                if (window.images && window.images.blocks && window.images.blocks.complete) {
-                    ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, drawX, drawY, snipState.tileSize, snipState.tileSize);
-                }
+                const py1 = Math.round(H - (y - camY) * ts), py0 = Math.round(H - (y + 1 - camY) * ts);
+                ctx.drawImage(blocksImg, renderObj.x, renderObj.y, 16, 16, px0, py0, px1 - px0, py1 - py0);
             }
         }
     }
 
-    if (snipState.isDragging || (snipState.startX !== 0 || snipState.startY !== 0)) {
+    if (withEntities) snipDrawEntities(ctx, W, H, camX, camY, ts);
+}
+
+// Mobs y jugador, con el mismo tamaño y dibujo que en el editor (getMobDrawInfo / drawPlayer), pero sin nombres, barras de vida ni marcas de selección
+function snipDrawEntities(ctx, W, H, camX, camY, ts) {
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+
+    if (typeof mbwom !== 'undefined' && mbwom.mobs && typeof getMobDrawInfo === 'function') {
+        for (const key in mbwom.mobs) {
+            try {
+                const mob = mbwom.mobs[key];
+                if (!mob || !mob.type) continue;
+                const mx = Number(mob.x), my = -Number(mob.y);
+                if (!isFinite(mx) || !isFinite(my)) continue;
+                const info = getMobDrawInfo(mob);
+                const img = info.img;
+                if (!(img && img.complete && img.naturalWidth > 0)) continue;
+                const w = ts * info.w, h = ts * info.h;
+                const sx = (mx - camX) * ts, sy = H - (my - camY) * ts;
+                if (sx + w / 2 < 0 || sx - w / 2 > W || sy < 0 || sy - h > H) continue;
+                ctx.save();
+                ctx.translate(sx, sy);
+                if (mob.direction === 1) ctx.scale(-1, 1);
+                const sw = info.isCustomSkin ? 16 : img.naturalWidth;
+                const sh = info.isCustomSkin ? 22 : img.naturalHeight;
+                ctx.drawImage(img, 0, 0, sw, sh, -(w / 2), -h, w, h);
+                ctx.restore();
+            } catch (e) { /* un mob raro no debe arruinar la captura */ }
+        }
+    }
+
+    if (typeof mbwom !== 'undefined' && mbwom.world && mbwom.world.worldX !== undefined && mbwom.world.worldY !== undefined) {
+        const playerScene = mbwom.world.scene || 1;
+        const currentScene = typeof mbwom.currentScene !== 'undefined' ? mbwom.currentScene : 1;
+        const img = window.images && window.images['Player'];
+        if (playerScene === currentScene && img && img.complete && img.naturalWidth > 0) {
+            const px = Number(mbwom.world.worldX), py = -Number(mbwom.world.worldY);
+            const w = ts * 1.4, h = ts * 2.0;
+            const sx = (px - camX) * ts, sy = H - (py - camY) * ts;
+            if (isFinite(sx) && isFinite(sy) && !(sx + w / 2 < 0 || sx - w / 2 > W || sy < 0 || sy - h > H)) {
+                ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, sx - (w / 2), sy - h, w, h);
+            }
+        }
+    }
+    ctx.restore();
+}
+
+function renderSnipPreview() {
+    const cvs = document.getElementById('snip-canvas');
+    if (!cvs) return;
+    const ctx = cvs.getContext('2d');
+
+    cvs.width = cvs.parentElement.clientWidth;
+    cvs.height = cvs.parentElement.clientHeight;
+
+    const ts = snipState.tileSize;
+    snipDrawScene(ctx, cvs.width, cvs.height, snipState.camX, snipState.camY, ts, snipState.includeEntities);
+
+    if (snipState.hasSel) {
         const minX = Math.min(snipState.startX, snipState.currentX);
         const maxX = Math.max(snipState.startX, snipState.currentX);
         const minY = Math.min(snipState.startY, snipState.currentY);
         const maxY = Math.max(snipState.startY, snipState.currentY);
 
-        const boxX = (minX - Math.floor(snipState.camX)) * snipState.tileSize;
-        const boxY = cvs.height - ((maxY - Math.floor(snipState.camY)) * snipState.tileSize) - snipState.tileSize;
-        const boxW = (maxX - minX + 1) * snipState.tileSize;
-        const boxH = (maxY - minY + 1) * snipState.tileSize;
+        const boxX = (minX - snipState.camX) * ts;
+        const boxY = cvs.height - (maxY + 1 - snipState.camY) * ts;
+        const boxW = (maxX - minX + 1) * ts;
+        const boxH = (maxY - minY + 1) * ts;
 
         ctx.fillStyle = 'rgba(52, 152, 219, 0.4)';
         ctx.fillRect(boxX, boxY, boxW, boxH);
@@ -371,9 +580,20 @@ function renderSnipPreview() {
     }
 }
 
-window.confirmScreenshot = function() {
-    if (snipState.startX === snipState.currentX && snipState.startY === snipState.currentY) {
-        alert("Please drag to select an area first!");
+// Espera (máximo maxMs) a que terminen de bajar las skins de las spawnskins
+function snipWaitSkins(maxMs) {
+    return new Promise((resolve) => {
+        const t0 = Date.now();
+        const iv = setInterval(() => {
+            if (!snipSkinsPending() || Date.now() - t0 > maxMs || !snipState.active) { clearInterval(iv); resolve(); }
+        }, 100);
+    });
+}
+
+window.confirmScreenshot = async function() {
+    if (!snipState.active || snipState.exporting) return;
+    if (!snipState.hasSel || (snipState.startX === snipState.currentX && snipState.startY === snipState.currentY)) {
+        snipShowNotice('snip_need_selection');       // (antes era un alert del navegador)
         return;
     }
 
@@ -381,43 +601,30 @@ window.confirmScreenshot = function() {
     const maxX = Math.floor(Math.max(snipState.startX, snipState.currentX));
     const minY = Math.floor(Math.min(snipState.startY, snipState.currentY));
     const maxY = Math.floor(Math.max(snipState.startY, snipState.currentY));
+    const withEntities = snipState.includeEntities;
+
+    if (withEntities && typeof mbwom !== 'undefined' && mbwom.mobs && typeof getMobDrawInfo === 'function') {
+        // pide ya las skins de los mobs del área (si alguna todavía no bajó, se espera un poco)
+        for (const key in mbwom.mobs) {
+            const m = mbwom.mobs[key];
+            if (!m || !m.type) continue;
+            const mx = Number(m.x), my = -Number(m.y);
+            if (mx >= minX - 3 && mx <= maxX + 4 && my >= minY - 3 && my <= maxY + 4) { try { getMobDrawInfo(m); } catch (e) {} }
+        }
+        if (snipSkinsPending()) {
+            snipState.exporting = true;
+            await snipWaitSkins(2500);
+            if (!snipState.active) return;           // se canceló mientras esperaba
+            snipState.exporting = false;
+        }
+    }
 
     const exportSize = 16;
     const finalCanvas = document.createElement('canvas');
     finalCanvas.width = (maxX - minX + 1) * exportSize;
     finalCanvas.height = (maxY - minY + 1) * exportSize;
     const ctx = finalCanvas.getContext('2d');
-    
-    ctx.fillStyle = '#7385b9';
-    ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
-    ctx.imageSmoothingEnabled = false;
-
-    if (typeof mbwom !== 'undefined' && mbwom.scene) {
-        for (let x = minX; x <= maxX; x++) {
-            if (!mbwom.scene[x]) continue;
-            for (let y = minY; y <= maxY; y++) {
-                let rawBlock = typeof mbwom.getBlockState === 'function' ? mbwom.getBlockState(x, y) : mbwom.scene[x][y];
-                
-                if (!rawBlock || !rawBlock.type || rawBlock.type === 'air' || rawBlock.type === 0 || rawBlock.type === '0') continue;
-
-                let safeState = { type: rawBlock.type };
-                if (rawBlock.states1 !== undefined) safeState.states1 = rawBlock.states1;
-
-                let renderObj = typeof getBlockObject === 'function' ? getBlockObject(safeState) : null;
-                if (!renderObj && window.blockData && window.blockData[safeState.type]) {
-                    renderObj = window.blockData[safeState.type](safeState);
-                }
-                if (!renderObj) continue;
-
-                const drawX = (x - minX) * exportSize;
-                const drawY = (maxY - y) * exportSize;
-
-                if (window.images && window.images.blocks && window.images.blocks.complete) {
-                    ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, drawX, drawY, exportSize, exportSize);
-                }
-            }
-        }
-    }
+    snipDrawScene(ctx, finalCanvas.width, finalCanvas.height, minX, minY, exportSize, withEntities);
 
     const imageBase64 = finalCanvas.toDataURL("image/png");
     const date = new Date();

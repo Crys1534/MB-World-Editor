@@ -261,6 +261,7 @@ function pasteMobFromClipboard() {
     newMob.x = mouse.worldX;
     newMob.y = -mouse.worldY;
     newMob.id = newId;
+    if (typeof window.mbwFixMob === 'function') window.mbwFixMob(newMob);   // un creeper sin "fuse" explota al instante en el juego real
 
     // ✨ ADD HISTORY: Pegar Mob
     historyManager.startAction();

@@ -935,9 +935,19 @@ button:hover {
     padding: 8px; 
     border-radius: 4px;
     pointer-events: auto; 
+    opacity: 1;
+    transition: opacity 0.15s ease;      /* aparece con un fade corto */
 }
 
-/* Vista previa de los drops de un mob (herramienta Move): se ve igual que la de un cofre, pero no recibe el mouse */
+/* Se esconde con un desvanecido (scripts/input.js espera medio segundo desde que el mouse deja el objeto). Mientras se desvanece no recibe el mouse. */
+#chest-tooltip-overlay.tip-fade {
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    pointer-events: none;
+}
+
+/* Vista previa de los drops de un mob (herramienta Move): se ve igual que la de un cofre, pero no recibe el mouse.
+   Al igual que la del cofre / horno, queda fija justo debajo del mob (no sigue al cursor). */
 #chest-tooltip-overlay.mob-drops-tip {
     pointer-events: none;
 }
@@ -2002,7 +2012,7 @@ body.is-spectating #hotbar-container {
    🐷 MOB BROWSER + PANEL DE DATOS DEL MOB (scripts/mob-editor.js)
    ========================================== */
 .mobs-modal-window { width: 940px; height: min(660px, calc(100vh - 24px)); max-width: 96vw; background: #C6C6C6; border: 2px solid #555; padding: 0; display: flex; flex-direction: row; overflow: hidden; }
-.mobs-grid-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0px; overflow-y: auto; background: #252525; padding: 0px; border: 2px solid #373737; border-top: none; border-right-color: #FFF; border-bottom-color: #FFF; flex: 1; align-content: start; }
+.mobs-grid-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0px; overflow-y: auto; background: #252525; padding: 0px; border: 2px solid #373737; border-top: none; border-right-color: #FFF; border-bottom-color: #FFF; flex: 1; align-content: start; }
 .btn-spawn-mob { font-size: 18px; padding: 12px 0; }
 
 #mobs-modal .mob-main { min-width: 0; }

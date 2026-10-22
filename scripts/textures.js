@@ -158,6 +158,7 @@ window.texturesMap = {
  wd_1: { x: 0, y: 41 },
  wd_2: { x: 1, y: 41 },
  snow: { x: 0, y: 50 },
+ snowb: { x: 9, y: 209 },
  b: { x: 0, y: 143 },
 mh: { x: 0, y: 144 },
 mh_1: { x: 1, y: 144 },

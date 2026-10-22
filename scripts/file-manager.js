@@ -90,6 +90,8 @@ const fileManager = {
    }
 
    mbwom.world = parsedWorld;
+   // Creepers de mundos viejos sin el dato "fuse" (explotan al instante en el juego real): se les completa al abrir el mundo
+   try { if (typeof window.mbwFixWorldMobs === 'function') { const fixedC = window.mbwFixWorldMobs(mbwom.world); if (fixedC) console.log('🔧 ' + fixedC + ' creeper(s) sin "fuse" arreglados al abrir el mundo'); } } catch (e) { /* no es grave */ }
    if (typeof window.playerInvRefresh === 'function') window.playerInvRefresh();   // mini hotbar del jugador (pestaña Player)
 
    mbwom.mobs = {};
@@ -364,6 +366,7 @@ prepareData: function() {
         globalMobCount[s]++;
         let internalId = "mob" + globalMobCount[s];
         m.id = internalId; 
+        if (typeof window.mbwFixMob === 'function') window.mbwFixMob(m);   // un creeper sin "fuse" explota al instante en el juego real
         m.x = isNaN(Number(m.x)) ? 0 : Number(m.x);
         m.y = isNaN(Number(m.y)) ? 0 : Number(m.y);
         

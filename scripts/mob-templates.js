@@ -1230,3 +1230,29 @@ window.getMobTemplate = function (type) {
     const key = window.MOB_TEMPLATE_ALIAS[type] || type;
     return Object.prototype.hasOwnProperty.call(MOB_TEMPLATES, key) ? MOB_TEMPLATES[key] : null;
 };
+
+// ==============================================================
+// Datos que el juego real NECESITA en ciertos mobs.
+// Un creeper al que le FALTA el dato "fuse" explota al instante en cuanto se acerca al jugador (probado en el juego real con un
+// mundo de prueba: sin "fuse" explota de golpe; con fuse -1, 0 o 30 se porta normal). Los creepers que puso el editor desde abril
+// ya lo traen, pero los que se pusieron con versiones viejas del editor (o con otras herramientas) no. Esta función les completa
+// "fuse" (-1 = mecha apagada) y "charged" SOLO si faltan: nunca cambia un valor que ya existe. Devuelve true si cambió algo.
+// ==============================================================
+window.mbwFixMob = function (mob) {
+    if (!mob || mob.type !== 'creeper') return false;
+    let changed = false;
+    if (typeof mob.fuse !== 'number' || !isFinite(mob.fuse)) { mob.fuse = -1; changed = true; }
+    if (mob.charged === undefined || mob.charged === null) { mob.charged = false; changed = true; }
+    return changed;
+};
+// Lo mismo para todos los mobs de un mundo (mobs1, mobs2, mobs3). Devuelve cuántos mobs se arreglaron.
+window.mbwFixWorldMobs = function (world) {
+    let n = 0;
+    if (!world) return 0;
+    for (let s = 1; s <= 3; s++) {
+        const group = world['mobs' + s];
+        if (!group || typeof group !== 'object') continue;
+        for (const k in group) { if (window.mbwFixMob(group[k])) n++; }
+    }
+    return n;
+};
