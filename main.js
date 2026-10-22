@@ -669,12 +669,27 @@ function getMobDrawInfo(mob, noFetch) {
 // Cada pieza de armadura que lleva puesta el mob (casco, peto, pantalón, botas) tiene su propia imagen en assets/UI/.
 // Se dibuja ENCIMA de la skin: solo el primer cuadro (16x22 px, desde la izquierda y arriba) de la tira, con el mismo
 // tamaño, posición y giro que el mob. Si el mob solo lleva algunas piezas, solo se ven esas.
-// Para agregar otro material (hierro, oro...) basta con una línea nueva por pieza en MOB_ARMOR_PIECES.
+// Para agregar otro material basta con una línea nueva por pieza en MOB_ARMOR_PIECES (ya están: diamante, cuero, hierro y oro).
 const MOB_ARMOR_PIECES = {
     DiamondCap:   'assets/UI/diamond-helmet_mob.png',
     DiamondShirt: 'assets/UI/diamond-chestplate_mob.png',
     DiamondPants: ['assets/UI/diamond-leggings_mob.png', 'assets/UI/diamond-leggings.png'],   // (si hay varias direcciones, se prueba la siguiente cuando una no existe)
-    DiamondShoes: 'assets/UI/diamond-boots_mob.png'
+    DiamondShoes: 'assets/UI/diamond-boots_mob.png',
+    // Cuero (siempre se dibuja del color café de siempre, también si el objeto está teñido)
+    LeatherCap:   'assets/UI/leather-helmet_mob.png',
+    LeatherShirt: 'assets/UI/leather-chestplate_mob.png',
+    LeatherPants: ['assets/UI/leather-leggings_mob.png', 'assets/UI/leather-leggings.png'],
+    LeatherShoes: ['assets/UI/leather-boots_mob.png', 'assets/UI/leather-boots_armor.png'],
+    // Hierro
+    IronCap:      'assets/UI/iron-helmet_mob.png',
+    IronShirt:    'assets/UI/iron-chestplate_mob.png',
+    IronPants:    ['assets/UI/iron-leggings_mob.png', 'assets/UI/iron-leggings.png'],
+    IronShoes:    'assets/UI/iron-boots_mob.png',
+    // Oro (en el juego los objetos se llaman Gold..., los dibujos se llaman golden-...)
+    GoldCap:      'assets/UI/golden-helmet_mob.png',
+    GoldShirt:    'assets/UI/golden-chestplate_mob.png',
+    GoldPants:    ['assets/UI/golden-leggings_mob.png', 'assets/UI/golden-leggings.png'],
+    GoldShoes:    'assets/UI/golden-boots_mob.png'
 };
 // mob.armor trae 4 objetos en este orden: 0 casco, 1 peto, 2 pantalón, 3 botas.
 // Orden de prioridad (lo que queda más arriba): 1. botas  2. casco  3. pantalón  4. peto  5. el mob.
