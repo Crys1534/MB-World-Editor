@@ -663,6 +663,76 @@ function getMobDrawInfo(mob, noFetch) {
     return { w, h, img, isCustomSkin };
 }
 
+// ==========================================
+// 🛡️ ARMADURA SOBRE EL MOB
+// ==========================================
+// Cada pieza de armadura que lleva puesta el mob (casco, peto, pantalón, botas) tiene su propia imagen en assets/UI/.
+// Se dibuja ENCIMA de la skin: solo el primer cuadro (16x22 px, desde la izquierda y arriba) de la tira, con el mismo
+// tamaño, posición y giro que el mob. Si el mob solo lleva algunas piezas, solo se ven esas.
+// Para agregar otro material (hierro, oro...) basta con una línea nueva por pieza en MOB_ARMOR_PIECES.
+const MOB_ARMOR_PIECES = {
+    DiamondCap:   'assets/UI/diamond-helmet_mob.png',
+    DiamondShirt: 'assets/UI/diamond-chestplate_mob.png',
+    DiamondPants: ['assets/UI/diamond-leggings_mob.png', 'assets/UI/diamond-leggings.png'],   // (si hay varias direcciones, se prueba la siguiente cuando una no existe)
+    DiamondShoes: 'assets/UI/diamond-boots_mob.png'
+};
+// mob.armor trae 4 objetos en este orden: 0 casco, 1 peto, 2 pantalón, 3 botas.
+// Orden de prioridad (lo que queda más arriba): 1. botas  2. casco  3. pantalón  4. peto  5. el mob.
+// Por eso se dibujan de abajo hacia arriba así: peto, pantalón, casco, botas.
+const MOB_ARMOR_DRAW_ORDER = [1, 2, 0, 3];
+const MOB_ARMOR_FRAME = { x: 0, y: 0, w: 16, h: 22 };   // la parte de la imagen que se usa: desde la izquierda y arriba, 16x22 px
+window.mobArmorImages = {};
+
+// La imagen de una pieza, por el id del objeto (se pide una sola vez; cuando llega, se vuelve a dibujar el mundo)
+function getMobArmorImage(pieceId) {
+    const def = MOB_ARMOR_PIECES[pieceId];
+    if (!def) return null;
+    let img = window.mobArmorImages[pieceId];
+    if (!img) {
+        const srcs = Array.isArray(def) ? def.slice() : [def];
+        img = new Image();
+        img.onload = () => { worldDirty = true; };
+        img.onerror = () => {
+            if (srcs.length) img.src = srcs.shift();      // probar la siguiente dirección
+            else img.hasFailed = true;                    // ninguna existe: no se dibuja esa pieza
+        };
+        img.src = srcs.shift();
+        window.mobArmorImages[pieceId] = img;
+    }
+    return img;
+}
+
+// ¿Hay alguna imagen de armadura todavía bajando? (el Screenshot espera a que lleguen)
+function mobArmorPending() {
+    return Object.values(window.mobArmorImages).some(i => !i.hasFailed && !(i.complete && i.naturalWidth > 0));
+}
+
+// Los ids de las piezas que lleva puestas el mob y que tienen imagen, YA en el orden en que se dibujan (de abajo hacia arriba).
+// mob.armor son 4 objetos [id, 1, 0, {extras}] (también se acepta { id }); un hueco vacío es ["air", 0, 0, {}].
+function getMobArmorPieces(mob) {
+    const arm = mob && mob.armor;
+    if (!Array.isArray(arm)) return [];
+    const out = [];
+    MOB_ARMOR_DRAW_ORDER.forEach(slot => {
+        const it = arm[slot];
+        let id = Array.isArray(it) ? it[0] : (it && typeof it === 'object' ? (it.id || it.type) : it);
+        if (typeof id === 'string' && Object.prototype.hasOwnProperty.call(MOB_ARMOR_PIECES, id)) out.push(id);
+    });
+    return out;
+}
+
+// Dibuja las piezas encima del mob. (x, y, w, h) = el mismo rectángulo donde se dibujó su skin; el contexto ya viene girado si el mob mira a la izquierda.
+function drawMobArmorOverlay(c, mob, x, y, w, h) {
+    const pieces = getMobArmorPieces(mob);
+    if (!pieces.length) return;
+    const f = MOB_ARMOR_FRAME;
+    pieces.forEach(id => {
+        const img = getMobArmorImage(id);
+        if (!(img && img.complete && img.naturalWidth > 0)) return;
+        c.drawImage(img, f.x, f.y, Math.min(f.w, img.naturalWidth), Math.min(f.h, img.naturalHeight), x, y, w, h);
+    });
+}
+
 // ID de la skin que tendrá la spawnskin que se va a poner con la herramienta Spawn Mob (la misma regla que usa el clic):
 // si el panel del Mob Browser trae el campo skin, se usa ese ('' = sin skin); si no, la que trae la plantilla.
 function getSpawnGhostSkinId() {
@@ -749,6 +819,9 @@ function drawMobs() {
                     sourceX, sourceY, sourceWidth, sourceHeight,
                     -(mobWidth / 2), -mobHeight, mobWidth, mobHeight
                 );
+
+                // 🛡️ Armadura: cada pieza puesta se dibuja encima de la skin, con el mismo tamaño y giro
+                drawMobArmorOverlay(ctx, mob, -(mobWidth / 2), -mobHeight, mobWidth, mobHeight);
                 
                 ctx.restore(); 
 
@@ -1565,6 +1638,7 @@ function skinRemotePump() {
                 skinRemoteActive--;
                 delete window.skinFetchInProgress[id];
                 if (typeof worldDirty !== 'undefined') worldDirty = true;
+                skinSettled(id);
                 skinRemotePump();
             });
     }
@@ -1591,13 +1665,101 @@ window.getSpawnskinImage = function(skinID, noFetch) {
             window.skinCache[skinID] = { hasFailed: true };
             delete window.skinFetchInProgress[skinID];
             if (typeof worldDirty !== 'undefined') worldDirty = true;
+            skinSettled(skinID);
         };
         const localImg = new Image();
-        localImg.onload = function() { window.skinCache[skinID] = localImg; delete window.skinFetchInProgress[skinID]; if (typeof worldDirty !== 'undefined') worldDirty = true; };
+        localImg.onload = function() { window.skinCache[skinID] = localImg; delete window.skinFetchInProgress[skinID]; if (typeof worldDirty !== 'undefined') worldDirty = true; skinSettled(skinID); };
         localImg.onerror = giveUp;   // no está entre las que trae el editor: se baja de la web de Mine Blocks
         localImg.src = `assets/spawnskins/${skinID}.png`;
     }
     return null;
+};
+
+// ---------------------------------------------------------------------------------------------------------------
+// 🗣️ CABEZAS DE MOB (el objeto "mh")
+// En el mundo una cabeza se guarda así: ["mh", 1, 0, { type: "7", nameChange: "..." }]. El "type" es el ID de la skin
+// (una spawnskin): la cabeza que se ve es esa skin recortada a 16x9 px (desde la izquierda y desde arriba).
+// Si el "type" es el nombre de un mob (zombie, skeleton, creeper, enderdragon) se usa el dibujo de esa cabeza que ya trae blocks.png.
+// Las skins que no cargan (o están vacías) y cualquier otro "type" muestran la cabeza de Steve de siempre.
+// drawItemIcon() es la función que usan todos los lugares que dibujan objetos (cofres, inventario, hotbar, drops de mobs...).
+// ---------------------------------------------------------------------------------------------------------------
+const MOB_HEAD_CROP = { w: 16, h: 9 };       // la parte de la skin que se usa: 16x9 px desde la izquierda y arriba
+const MOB_HEAD_SPRITES = { zombie: 'mh_8', skeleton: 'mh_2', creeper: 'mh_4', enderdragon: 'mh_6' };   // cabezas de mob con nombre -> su dibujo en textures.js
+const MOB_HEAD_TOP = 7;                      // la cabeza va pegada abajo en la casilla de 16x16 (igual que los dibujos de las demás cabezas)
+const skinWaiters = {};                      // dibujos que están esperando a que llegue una skin: { id: [función, ...] }
+const mobHeadBlankCache = {};                // skins cuyo recorte 16x9 está vacío (transparente): { id: true/false }
+let itemIconToken = 0;
+
+// Cuando una skin termina de cargarse (o de fallar) se vuelven a dibujar las casillas que la estaban esperando.
+function skinSettled(id) {
+    const list = skinWaiters[id];
+    if (!list) return;
+    delete skinWaiters[id];
+    list.forEach(function (fn) { try { fn(); } catch (e) { /* esa casilla ya no existe */ } });
+}
+
+// ID de la skin de una cabeza de mob: solo para el objeto "mh" con un "type" numérico. Si no, null.
+window.mobHeadSkinId = function (itemId, extras) {
+    if (itemId !== 'mh' || !extras || typeof extras !== 'object') return null;
+    const t = extras.type;
+    if (t === undefined || t === null) return null;
+    const s = String(t).trim();
+    return /^[0-9]{1,12}$/.test(s) ? s : null;
+};
+
+// Dibujo (de textures.js) de una cabeza cuyo "type" es el nombre de un mob. null si no es una de esas.
+window.mobHeadSpriteKey = function (itemId, extras) {
+    if (itemId !== 'mh' || !extras || typeof extras !== 'object' || typeof extras.type !== 'string') return null;
+    const k = extras.type.trim().toLowerCase();
+    return Object.prototype.hasOwnProperty.call(MOB_HEAD_SPRITES, k) ? MOB_HEAD_SPRITES[k] : null;
+};
+
+// Una skin vacía (todo transparente en el recorte) no se usa: se vería una casilla sin nada. Se revisa una sola vez por skin.
+function mobHeadIsBlank(id, img) {
+    if (mobHeadBlankCache[id] !== undefined) return mobHeadBlankCache[id];
+    let blank = false;
+    try {
+        const c = document.createElement('canvas');
+        c.width = MOB_HEAD_CROP.w; c.height = MOB_HEAD_CROP.h;
+        const x = c.getContext('2d', { willReadFrequently: true });
+        x.drawImage(img, 0, 0, Math.min(MOB_HEAD_CROP.w, img.naturalWidth || img.width), Math.min(MOB_HEAD_CROP.h, img.naturalHeight || img.height), 0, 0, Math.min(MOB_HEAD_CROP.w, img.naturalWidth || img.width), Math.min(MOB_HEAD_CROP.h, img.naturalHeight || img.height));
+        const d = x.getImageData(0, 0, c.width, c.height).data;
+        blank = true;
+        for (let i = 3; i < d.length; i += 4) { if (d[i] > 0) { blank = false; break; } }
+    } catch (e) { blank = false; }                   // (si el navegador no deja leer los píxeles, se usa la skin tal cual)
+    mobHeadBlankCache[id] = blank;
+    return blank;
+}
+
+// Dibuja el objeto "itemId" en el rectángulo (dx, dy, dw, dh) de ctx. "ro" es lo que devolvió getBlockObject (el dibujo del editor
+// dentro de blocks.png) y "extras" son los datos del objeto (para "mh": extras.type = ID de la skin).
+window.drawItemIcon = function (ctx, ro, itemId, extras, dx, dy, dw, dh) {
+    const cvs = ctx.canvas;
+    const tok = ++itemIconToken;
+    if (cvs) cvs.__itemTok = tok;                                   // la última cosa que se dibujó en este lienzo
+    const skin = window.mobHeadSkinId(itemId, extras);
+    if (skin) {
+        const img = window.getSpawnskinImage(skin);                 // null = todavía no llega (ya se está pidiendo)
+        const w = img ? (img.naturalWidth || img.width || 0) : 0, h = img ? (img.naturalHeight || img.height || 0) : 0;
+        if (img && !img.hasFailed && w > 0 && h > 0 && !mobHeadIsBlank(skin, img)) {
+            const sw = Math.min(MOB_HEAD_CROP.w, w), sh = Math.min(MOB_HEAD_CROP.h, h);
+            ctx.clearRect(dx, dy, dw, dh);                          // (borra la cabeza provisional, si ya se había dibujado)
+            ctx.drawImage(img, 0, 0, sw, sh, dx, dy + dh * MOB_HEAD_TOP / 16, dw * sw / 16, dh * sh / 16);
+            return;
+        }
+        if (!img) {                                                 // mientras llega la skin, se vuelve a dibujar en cuanto esté
+            (skinWaiters[skin] = skinWaiters[skin] || []).push(function () {
+                if (cvs && cvs.__itemTok !== tok) return;           // ese lienzo ya muestra otra cosa
+                window.drawItemIcon(ctx, ro, itemId, extras, dx, dy, dw, dh);
+            });
+        }
+        // provisional (o si la skin no existe / está vacía): la cabeza de siempre
+        if (window.texturesMap && window.texturesMap.mh) ro = window.texturesMap.mh;
+        ctx.clearRect(dx, dy, dw, dh);
+    }
+    const spriteKey = window.mobHeadSpriteKey(itemId, extras);      // cabeza de zombie / skeleton / creeper / enderdragon
+    if (spriteKey && window.texturesMap && window.texturesMap[spriteKey]) ro = window.texturesMap[spriteKey];
+    if (ro) ctx.drawImage(window.images.blocks, ro.x, ro.y, 16, 16, dx, dy, dw, dh);
 };
 
 window.openPixelArtModal = function() { if (typeof openModal === 'function') openModal('pixelart-addon-modal'); };

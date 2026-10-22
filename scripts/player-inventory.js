@@ -175,14 +175,15 @@
  function ready() { return !!(window.images && window.images.blocks && window.images.blocks.complete); }
  // Dibuja un objeto en un canvas cuadrado de "size" px. Si el editor no tiene textura para ese id (hay objetos del juego
  // que el editor no dibuja), sale una casilla gris con las primeras letras del id para que se pueda reconocer.
- function paintId(cvs, id, variant, size) {
+ function paintId(cvs, id, variant, size, extras) {
   const ctx = cvs.getContext('2d');
   ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, cvs.width, cvs.height);
+  cvs.__itemTok = 0;                                  // (si una cabeza estaba esperando su skin para este lienzo, ya no)
   let ro = null;
   const miss = window.texturesMap && window.texturesMap.missing;
   try { ro = (typeof getBlockObject === 'function') ? getBlockObject({ type: TEX_ID[id] || id, states1: variant }) : null; } catch (e) { ro = null; }
-  if (ro && ro !== miss && ready()) { ctx.drawImage(window.images.blocks, ro.x, ro.y, 16, 16, 0, 0, size, size); return; }
+  if (ro && ro !== miss && ready()) { drawItemIcon(ctx, ro, id, extras, 0, 0, size, size); return; }
   ctx.fillStyle = '#5E5E5E'; ctx.fillRect(1, 1, size - 2, size - 2);
   ctx.strokeStyle = '#2B2B2B'; ctx.lineWidth = 1; ctx.strokeRect(1.5, 1.5, size - 3, size - 3);
   ctx.fillStyle = '#FFFFFF';
@@ -233,7 +234,7 @@
    d.onclick = () => select(i);
    const c = document.createElement('canvas');
    c.width = 24; c.height = 24;
-   if (it) { paintId(c, it.id, variantOf(it), 24); decorate(d, it); }
+   if (it) { paintId(c, it.id, variantOf(it), 24, it.extras); decorate(d, it); }
    d.appendChild(c);
    box.appendChild(d);
   }
@@ -248,7 +249,7 @@
   if (it) {
    const c = document.createElement('canvas');
    c.width = 48; c.height = 48;
-   paintId(c, it.id, variantOf(it), 48);
+   paintId(c, it.id, variantOf(it), 48, it.extras);
    d.appendChild(c);
    if (it.qty > 1) {
     const n = document.createElement('span');

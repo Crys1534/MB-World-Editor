@@ -671,7 +671,7 @@ function updateFloatingItem() {
 
     let renderObj = typeof getBlockObject === 'function' ? getBlockObject(tempState) : null;
     if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
-        ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
+        drawItemIcon(ctx, renderObj, tempState.type, heldItem.nbt, 0, 0, 16, 16);
     } else {
         ctx.fillStyle = "magenta"; ctx.fillRect(4, 4, 8, 8);
     }
@@ -745,7 +745,7 @@ function renderPlayerInventory() {
 
             let renderObj = typeof getBlockObject === 'function' ? getBlockObject(slotData) : null;
             if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
-                ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
+                drawItemIcon(ctx, renderObj, slotData.type, slotData.nbt, 0, 0, 16, 16);
             }
             slotDiv.appendChild(cvs);
 
@@ -842,7 +842,7 @@ function renderModalHotbar() {
 
             let renderObj = typeof getBlockObject === 'function' ? getBlockObject(slot) : null;
             if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
-                ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
+                drawItemIcon(ctx, renderObj, slot.type, slot.nbt, 0, 0, 16, 16);
             }
             slotDiv.appendChild(cvs);
 
@@ -891,7 +891,7 @@ function renderHotbarUI() {
         }
         
         if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
-            ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 24, 24);
+            drawItemIcon(ctx, renderObj, slot.type, slot.nbt, 0, 0, 24, 24);
         }
         
         slotDiv.appendChild(cvs);
@@ -1032,7 +1032,7 @@ slotDiv.onclick = () => {
 
             let renderObj = typeof getBlockObject === 'function' ? getBlockObject(slotData) : null;
             if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
-                ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
+                drawItemIcon(ctx, renderObj, slotData.type, slotData.nbt, 0, 0, 16, 16);
             }
             slotDiv.appendChild(cvs);
 

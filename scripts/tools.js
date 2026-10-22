@@ -228,7 +228,8 @@ function snipUpdateZoomLabel() {
 }
 
 function snipSkinsPending() {
-    return !!window.skinFetchInProgress && Object.keys(window.skinFetchInProgress).length > 0;
+    return (!!window.skinFetchInProgress && Object.keys(window.skinFetchInProgress).length > 0)
+        || (typeof mobArmorPending === 'function' && mobArmorPending());      // también espera la imagen de la armadura
 }
 
 // Aviso dentro de la ventana (reemplaza al alert del navegador)
@@ -529,6 +530,7 @@ function snipDrawEntities(ctx, W, H, camX, camY, ts) {
                 const sw = info.isCustomSkin ? 16 : img.naturalWidth;
                 const sh = info.isCustomSkin ? 22 : img.naturalHeight;
                 ctx.drawImage(img, 0, 0, sw, sh, -(w / 2), -h, w, h);
+                if (typeof drawMobArmorOverlay === 'function') drawMobArmorOverlay(ctx, mob, -(w / 2), -h, w, h);   // armadura puesta, encima
                 ctx.restore();
             } catch (e) { /* un mob raro no debe arruinar la captura */ }
         }
@@ -609,7 +611,7 @@ window.confirmScreenshot = async function() {
             const m = mbwom.mobs[key];
             if (!m || !m.type) continue;
             const mx = Number(m.x), my = -Number(m.y);
-            if (mx >= minX - 3 && mx <= maxX + 4 && my >= minY - 3 && my <= maxY + 4) { try { getMobDrawInfo(m); } catch (e) {} }
+            if (mx >= minX - 3 && mx <= maxX + 4 && my >= minY - 3 && my <= maxY + 4) { try { getMobDrawInfo(m); if (typeof getMobArmorPieces === 'function') getMobArmorPieces(m).forEach(id => getMobArmorImage(id)); } catch (e) {} }
         }
         if (snipSkinsPending()) {
             snipState.exporting = true;

@@ -709,6 +709,7 @@
   const ctx = cvs.getContext('2d');
   ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, 16, 16);
+  cvs.__itemTok = 0;                                  // (si una cabeza estaba esperando su skin para este lienzo, ya no)
   const o = (typeof it === 'string') ? { id: it } : (it || {});
   if (!o.id || o.id === 'air') return;
   const state = { type: o.id };
@@ -718,7 +719,7 @@
   try { ro = getBlockObject(state); } catch (e) { ro = null; }
   const sheet = window.images && window.images.blocks;
   if (ro && sheet && sheet.complete && sheet.naturalWidth) {
-   try { ctx.drawImage(sheet, ro.x, ro.y, 16, 16, 0, 0, 16, 16); return; } catch (e) { /* cae al cuadro rosa */ }
+   try { drawItemIcon(ctx, ro, o.id, o.nbt, 0, 0, 16, 16); return; } catch (e) { /* cae al cuadro rosa */ }
   }
   ctx.fillStyle = '#ff00ff'; ctx.fillRect(4, 4, 8, 8);
  }

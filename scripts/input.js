@@ -385,7 +385,7 @@ function renderChestOrOvenUI(blockState, gridContainer) {
                 let renderObj = typeof getBlockObject === 'function' ? getBlockObject(tempState) : null;
 
                 if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
-                    ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
+                    drawItemIcon(ctx, renderObj, itemID, enchantments, 0, 0, 16, 16);
                 } else {
                     ctx.fillStyle = "magenta"; ctx.fillRect(4, 4, 8, 8);
                 }
@@ -453,7 +453,7 @@ function renderChestOrOvenUI(blockState, gridContainer) {
                 let renderObj = typeof getBlockObject === 'function' ? getBlockObject(tempState) : null;
 
                 if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
-                    ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
+                    drawItemIcon(ctx, renderObj, itemID, enchantments, 0, 0, 16, 16);
                 } else {
                     ctx.fillStyle = "magenta"; ctx.fillRect(4, 4, 8, 8);
                 }

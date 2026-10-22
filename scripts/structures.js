@@ -663,7 +663,7 @@ function selectStructure(struct) {
                         let renderObj = typeof getBlockObject === 'function' ? getBlockObject(tempState) : null;
                         
                         if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
-                            ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
+                            drawItemIcon(ctx, renderObj, itemID, Array.isArray(item) ? item[3] : (item.nbt || item.extras), 0, 0, 16, 16);
                             let maxDur = maxDurabilityMap[itemID];
                             if (maxDur && typeof drawDurabilityBar === 'function') {
                                 drawDurabilityBar(ctx, 0, 0, 16, 16, itemDamage || 0, maxDur);
@@ -840,7 +840,7 @@ function renderOvenContents(struct) {
         let renderObj = typeof getBlockObject === 'function' ? getBlockObject(tempState) : null;
 
         if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
-            ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
+            drawItemIcon(ctx, renderObj, itemID, itemData[3], 0, 0, 16, 16);
             let maxDur = maxDurabilityMap[itemID];
             if (maxDur && typeof drawDurabilityBar === 'function') {
                 drawDurabilityBar(ctx, 0, 0, 16, 16, itemDamage, maxDur);
