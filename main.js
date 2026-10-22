@@ -669,7 +669,7 @@ function getMobDrawInfo(mob, noFetch) {
 // Cada pieza de armadura que lleva puesta el mob (casco, peto, pantalón, botas) tiene su propia imagen en assets/UI/.
 // Se dibuja ENCIMA de la skin: solo el primer cuadro (16x22 px, desde la izquierda y arriba) de la tira, con el mismo
 // tamaño, posición y giro que el mob. Si el mob solo lleva algunas piezas, solo se ven esas.
-// Para agregar otro material basta con una línea nueva por pieza en MOB_ARMOR_PIECES (ya están: diamante, cuero, hierro y oro).
+// Para agregar otro material basta con una línea nueva por pieza en MOB_ARMOR_PIECES (ya están: diamante, cuero, hierro, oro y escamas de dragón).
 const MOB_ARMOR_PIECES = {
     DiamondCap:   'assets/UI/diamond-helmet_mob.png',
     DiamondShirt: 'assets/UI/diamond-chestplate_mob.png',
@@ -689,7 +689,12 @@ const MOB_ARMOR_PIECES = {
     GoldCap:      'assets/UI/golden-helmet_mob.png',
     GoldShirt:    'assets/UI/golden-chestplate_mob.png',
     GoldPants:    ['assets/UI/golden-leggings_mob.png', 'assets/UI/golden-leggings.png'],
-    GoldShoes:    'assets/UI/golden-boots_mob.png'
+    GoldShoes:    'assets/UI/golden-boots_mob.png',
+    // Escamas de dragón (en el juego los objetos se llaman Dragon..., los dibujos se llaman dragonscale-...)
+    DragonCap:    'assets/UI/dragonscale-helmet_mob.png',
+    DragonShirt:  ['assets/UI/dragonscale-chestplate_mob.png', 'assets/UI/dragonscale-chestplate_,mob.png'],   // (el archivo hoy tiene una coma de más en el nombre: "chestplate_,mob"; si lo renombras a "chestplate_mob" también funciona)
+    DragonPants:  'assets/UI/dragonscale-leggings_mob.png',
+    DragonShoes:  'assets/UI/dragonscale-boots_mob.png'
 };
 // mob.armor trae 4 objetos en este orden: 0 casco, 1 peto, 2 pantalón, 3 botas.
 // Orden de prioridad (lo que queda más arriba): 1. botas  2. casco  3. pantalón  4. peto  5. el mob.
