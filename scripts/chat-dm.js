@@ -271,10 +271,30 @@ function dmBuildReplyRef(rt) {
 // (el formato viejo, reactions/{uid} = "👍" con una sola, se sigue leyendo bien)
 // ------------------------------------------
 const DM_REACTION_MAX_LEN = 16;
-// Firebase no deja usar . $ # [ ] / ni caracteres de control en una clave
+// Firebase no deja usar . $ # [ ] / ni caracteres de control en una clave.
+// Un emote propio se guarda como su código (":minifrank:"), que puede ser un poco más largo que un emoji.
+const DM_EMOTE_RE = /^:([a-zA-Z0-9_]{1,32}):$/;
 function dmReactionValid(e) {
-    return typeof e === 'string' && e.length > 0 && e.length <= DM_REACTION_MAX_LEN && !/[.$#\[\]\/\u0000-\u001f\u007f]/.test(e);
+    if (typeof e !== 'string' || !e) return false;
+    if (DM_EMOTE_RE.test(e)) return true;
+    return e.length <= DM_REACTION_MAX_LEN && !/[.$#\[\]\/\u0000-\u001f\u007f]/.test(e);
 }
+// Lo que se ve de una reacción: la imagen del emote propio (si existe) o el emoji como TEXTO (nunca como HTML)
+function dmReactionGlyph(e, cls) {
+    const m = DM_EMOTE_RE.exec(String(e || ''));
+    const src = m && window.customEmotes && Object.prototype.hasOwnProperty.call(window.customEmotes, m[1]) ? window.customEmotes[m[1]] : null;
+    const span = dmEl('span', cls || 'dc-reaction-emoji');
+    if (src) {
+        const img = document.createElement('img');
+        img.src = src; img.alt = e; img.draggable = false; img.className = 'dc-emote';
+        img.onerror = () => { img.replaceWith(document.createTextNode(e)); };
+        span.appendChild(img);
+        span.title = e;
+    } else span.textContent = String(e).slice(0, m ? 34 : DM_REACTION_MAX_LEN);
+    return span;
+}
+// Los códigos de los emotes propios (":minifrank:", ...)
+function dmEmoteCodes() { return Object.keys(window.customEmotes || {}).filter(n => /^[a-zA-Z0-9_]{1,32}$/.test(n)).map(n => ':' + n + ':'); }
 // { emoji: hora } de UNA persona (acepta el formato nuevo y el viejo)
 function dmUserReactions(raw) {
     const out = {};
@@ -318,7 +338,7 @@ function dmBuildReactions(key, msg) {
         b.type = 'button';
         b.title = r.uids.map(dmReactorName).join(', ');
         b.setAttribute('aria-pressed', mine ? 'true' : 'false');
-        b.appendChild(dmEl('span', 'dc-reaction-emoji', r.emoji.slice(0, DM_REACTION_MAX_LEN)));
+        b.appendChild(dmReactionGlyph(r.emoji));
         b.appendChild(dmEl('span', 'dc-reaction-count', String(r.uids.length)));
         b.addEventListener('click', (ev) => { ev.stopPropagation(); window.toggleReaction(key, r.emoji); });
         wrap.appendChild(b);
@@ -339,8 +359,7 @@ function dmBuildToolbar(key, isMe) {
     const live = dmCur(key);
     if (live && !live.isDeleted) {
         add(DM_ICONS.emoji, dmT('dm_react', 'Reaccionar'), (b) => {
-            const r = b.getBoundingClientRect();
-            dmOpenMenu(r.left, r.bottom + 4, (menu) => dmAddReactStrip(menu, key, true));   // este cuadro se queda abierto: así se ponen varias
+            window.dmOpenReactPicker(b, dmFullReactCtx(key));   // este cuadro se queda abierto: así se ponen varias
         });
         add(DM_ICONS.reply, dmT('dm_reply', 'Responder'), () => { const m = dmCur(key); if (m && !m.isDeleted) window.setReply(key, m.senderName, m.text); });
         if (isMe) add(DM_ICONS.edit, dmT('dm_edit', 'Editar'), () => { const m = dmCur(key); if (m && !m.isDeleted) window.startEditMessage(key, m); });
@@ -878,10 +897,11 @@ window.dmSyncLastMsg = function(key, text) {
 };
 
 // Pone o quita UNA reacción mía (las demás mías no se tocan). Devuelve una promesa: 'added', 'removed' o null (no se pudo).
-window.toggleReaction = function(msgKey, emoji) {
+window.toggleReaction = function(msgKey, emoji, chatId) {
     const myUID = dmMyUid();
-    if (!currentChatId || !myUID || !dmReactionValid(emoji)) return Promise.resolve(null);
-    const ref = database.ref('private_chats/' + currentChatId + '/' + msgKey + '/reactions/' + myUID);
+    const cid = chatId || currentChatId;
+    if (!cid || !myUID || !msgKey || !dmReactionValid(emoji)) return Promise.resolve(null);
+    const ref = database.ref('private_chats/' + cid + '/' + msgKey + '/reactions/' + myUID);
     return ref.once('value').then(snap => {
         const raw = snap.val();
         const mine = dmUserReactions(raw);
@@ -914,17 +934,21 @@ function dmGetMenu() {
     }
     return menu;
 }
-function dmOpenMenu(x, y, build) {
+function dmOpenMenu(x, y, build, cls, aboveY) {
     const menu = dmGetMenu();
     menu.textContent = '';
+    menu.className = 'dc-menu' + (cls ? ' ' + cls : '');
     build(menu);
     menu.style.display = 'flex';
     menu.style.left = '0px';
     menu.style.top = '0px';
     const r = menu.getBoundingClientRect();
+    // si abajo no cabe y se dio dónde empieza el botón (aboveY), se abre ARRIBA del botón
+    if (typeof aboveY === 'number' && y + r.height > window.innerHeight - 8 && aboveY - r.height - 4 >= 8) y = aboveY - r.height - 4;
     menu.style.left = Math.max(8, Math.min(x, window.innerWidth - r.width - 8)) + 'px';
     menu.style.top = Math.max(8, Math.min(y, window.innerHeight - r.height - 8)) + 'px';
 }
+// (dmOpenMenu y dmMenuItem son funciones globales: el mini chat las usa como window.dmOpenMenu / window.dmMenuItem)
 function dmMenuItem(menu, label, svg, fn, danger) {
     const it = dmEl('div', 'dc-menu-item' + (danger ? ' danger' : ''));
     it.appendChild(dmEl('span', null, label));
@@ -933,27 +957,107 @@ function dmMenuItem(menu, label, svg, fn, danger) {
     menu.appendChild(it);
     return it;
 }
-// Fila de emojis rápidos. Las que YA puse están marcadas (.on). Con keepOpen el cuadro no se cierra
-// al elegir, para poder poner varias seguidas.
-function dmAddReactStrip(menu, key, keepOpen) {
-    const strip = dmEl('div', 'dc-menu-react' + (keepOpen ? ' solo' : ''));
-    const mineNow = dmUserReactions(((dmCur(key) || {}).reactions || {})[dmMyUid()]);
-    DM_QUICK_REACTIONS.forEach(emoji => {
-        const b = dmEl('button', 'dc-menu-react-btn' + (mineNow[emoji] ? ' on' : ''), emoji);
-        b.type = 'button';
-        b.setAttribute('aria-pressed', mineNow[emoji] ? 'true' : 'false');
-        b.addEventListener('click', () => {
-            if (!keepOpen) { menu.style.display = 'none'; window.toggleReaction(key, emoji); return; }
-            b.disabled = true;   // (evita dos clics seguidos sobre el mismo emoji antes de que termine de guardarse)
-            window.toggleReaction(key, emoji).then(res => {
-                b.disabled = false;
-                if (res) { b.classList.toggle('on', res === 'added'); b.setAttribute('aria-pressed', res === 'added' ? 'true' : 'false'); }
-            });
+// Qué reacciones tengo puestas en un mensaje y cómo cambiar una. Para el chat grande sale de dmState; el mini chat da las suyas.
+function dmFullReactCtx(key) {
+    return {
+        mine: () => dmUserReactions(((dmCur(key) || {}).reactions || {})[dmMyUid()]),
+        toggle: (emoji) => window.toggleReaction(key, emoji)
+    };
+}
+// Un botón de reacción (emoji o emote) que se marca (.on) si ya la puse. Con keepOpen el cuadro no se cierra al elegir,
+// para poder poner varias seguidas; si no, se cierra y se cambia esa reacción.
+function dmReactButton(menu, emoji, mineNow, keepOpen, ctx, cls) {
+    const b = dmEl('button', (cls || 'dc-menu-react-btn') + (mineNow[emoji] ? ' on' : ''));
+    b.type = 'button';
+    b.dataset.emoji = emoji;
+    const g = dmReactionGlyph(emoji, 'dc-react-glyph');
+    if (g.firstChild && g.firstChild.tagName === 'IMG') { b.appendChild(g.firstChild); b.title = emoji; }
+    else b.textContent = emoji;
+    b.setAttribute('aria-pressed', mineNow[emoji] ? 'true' : 'false');
+    b.addEventListener('click', () => {
+        if (!keepOpen) { menu.style.display = 'none'; ctx.toggle(emoji); return; }
+        b.disabled = true;   // (evita dos clics seguidos sobre el mismo emoji antes de que termine de guardarse)
+        Promise.resolve(ctx.toggle(emoji)).then(res => {
+            b.disabled = false;
+            if (res) {
+                mineNow[emoji] = res === 'added' ? 1 : 0;
+                menu.querySelectorAll('[data-emoji]').forEach(x => { if (x.dataset.emoji === emoji) { x.classList.toggle('on', res === 'added'); x.setAttribute('aria-pressed', res === 'added' ? 'true' : 'false'); } });
+            }
         });
-        strip.appendChild(b);
     });
+    return b;
+}
+// Fila de emojis rápidos + emotes propios. Las que YA puse están marcadas (.on). Con keepOpen el cuadro no se cierra
+// al elegir, para poder poner varias seguidas. Sin keepOpen (menú de clic derecho) lleva al final un "+" que abre el selector completo.
+function dmAddReactStrip(menu, key, keepOpen, ctx) {
+    ctx = ctx || dmFullReactCtx(key);
+    const strip = dmEl('div', 'dc-menu-react' + (keepOpen ? ' solo' : ''));
+    const mineNow = ctx.mine();
+    DM_QUICK_REACTIONS.concat(dmEmoteCodes()).forEach(emoji => strip.appendChild(dmReactButton(menu, emoji, mineNow, keepOpen, ctx)));
+    if (!keepOpen) {
+        const more = dmEl('button', 'dc-menu-react-more', '+');
+        more.type = 'button';
+        more.title = dmT('dm_more_reactions', 'Más reacciones');
+        more.addEventListener('click', () => { const r = more.getBoundingClientRect(); window.dmOpenReactPicker({ left: r.left, bottom: r.bottom, top: r.top }, ctx); });
+        strip.appendChild(more);
+    }
     menu.appendChild(strip);
 }
+// Cuadro de emojis completo: emotes propios y todas las categorías. onPick(emoji) se llama al tocar uno;
+// isOn(emoji) marca los que ya están puestos. El cuadro se queda abierto (se cierra con Esc o clic afuera).
+function dmBuildEmojiGrid(menu, opts) {
+    const tabs = dmEl('div', 'dc-emoji-tabs');
+    const content = dmEl('div', 'dc-emoji-content dc-picker-content');
+    const cats = [{ id: 'custom', icon: '⭐', name: dmT('dm_emotes', 'Emotes'), items: dmEmoteCodes() }].concat(window.emojiCategories || []);
+    const show = (cat, tabEl) => {
+        tabs.querySelectorAll('.dc-emoji-tab').forEach(t => t.classList.remove('active'));
+        if (tabEl) tabEl.classList.add('active');
+        content.textContent = '';
+        content.appendChild(dmEl('div', 'dc-emoji-title', cat.name));
+        const grid = dmEl('div', 'dc-emoji-grid');
+        (cat.items || []).forEach(emj => grid.appendChild(opts.button(emj)));
+        content.appendChild(grid);
+        content.scrollTop = 0;
+    };
+    let first = null;
+    cats.forEach(cat => {
+        if (!cat.items || !cat.items.length) return;
+        const t = dmEl('button', 'dc-emoji-tab', cat.icon);
+        t.type = 'button';
+        t.title = cat.name;
+        t.addEventListener('click', () => show(cat, t));
+        tabs.appendChild(t);
+        if (!first || (first[0].id === 'custom' && cat.id !== 'custom')) first = [cat, t];   // se abre en la primera categoría de emojis (los emotes ya están arriba y en ⭐)
+    });
+    menu.appendChild(tabs);
+    menu.appendChild(content);
+    if (first) show(first[0], first[1]);
+}
+// Selector de reacciones: rápidas + emotes arriba, y debajo todas las categorías. Se queda abierto: así se ponen VARIAS.
+// anchor = el botón (o un rectángulo { left, top, bottom }); ctx = { mine(), toggle(emoji) }.
+window.dmOpenReactPicker = function(anchor, ctx) {
+    const r = anchor && anchor.getBoundingClientRect ? anchor.getBoundingClientRect() : (anchor || { left: 100, top: 100, bottom: 100 });
+    dmOpenMenu(r.left, r.bottom + 4, (menu) => {
+        dmAddReactStrip(menu, null, true, ctx);
+        const mineNow = ctx.mine();
+        dmBuildEmojiGrid(menu, { button: (emj) => dmReactButton(menu, emj, mineNow, true, ctx, 'dc-emoji-item') });
+    }, 'dc-picker', r.top);
+};
+// Selector para ESCRIBIR emojis (la caja de texto del mini chat): toca y se agrega donde está el cursor.
+window.dmOpenEmojiInsert = function(anchor, onPick) {
+    const r = anchor.getBoundingClientRect();
+    dmOpenMenu(r.left, r.bottom + 4, (menu) => {
+        dmBuildEmojiGrid(menu, { button: (emj) => {
+            const b = dmEl('button', 'dc-emoji-item');
+            b.type = 'button';
+            b.dataset.emoji = emj;
+            const g = dmReactionGlyph(emj, 'dc-react-glyph');
+            if (g.firstChild && g.firstChild.tagName === 'IMG') { b.appendChild(g.firstChild); b.title = emj; } else b.textContent = emj;
+            b.addEventListener('click', () => onPick(DM_EMOTE_RE.test(emj) ? emj + ' ' : emj));
+            return b;
+        } });
+    }, 'dc-picker', r.top);
+};
 function dmReactionsAllowed(msg) { return !!msg && !msg.isDeleted; }
 
 // Clic derecho (o "⋯") sobre un mensaje. Siempre usa la versión MÁS NUEVA del mensaje.
