@@ -303,34 +303,91 @@
     };
 
     // ─────────────────────────────────────────────
-    // 💬 Burbuja redonda de mensajes sin leer ("cabeza de chat")
+    // 💬 Burbujas de chat ("cabezas de chat", como Messenger)
     // ─────────────────────────────────────────────
-    // Un círculo con la foto de quien escribió y el número de mensajes sin leer. A diferencia del globito de arriba (que se va solo a los 6
-    // segundos), esta se queda hasta que leas los mensajes o la cierres con la ✕. Un clic abre el chat (si es una sola persona) o la lista de chats.
-    // multiplayer.js le manda la lista de chats sin leer con mbwChatHead.sync([...]) y le dice cómo abrir un chat con setOpener(fn).
+    // Una burbuja redonda POR PERSONA, con su foto y el número de mensajes sin leer, apiladas abajo a la derecha.
+    //   · Un clic abre la mini ventana de chat de esa persona (scripts/mini-chat.js) para leer y contestar sin salir del editor.
+    //     Un clic en la burbuja de la ventana que ya está abierta la minimiza (vuelve a ser solo la burbuja).
+    //   · La burbuja de un chat que abriste se queda (aunque ya no haya nada sin leer) hasta que la cierras con su ✕.
+    //   · La ✕ de una burbuja la esconde; vuelve si esa persona escribe algo nuevo.
+    //   · Si hay más de 4, la última es "+N" y abre la lista de chats completa.
+    // multiplayer.js manda los chats sin leer con mbwChatHead.sync([...]) y dice cómo abrir un chat con setOpener(fn).
     // Todo el texto entra con textContent y la foto pasa por safeIcon (nada de HTML ajeno).
-    const head = { el: null, pfp: null, count: null, x: null, items: [], total: 0, dismissed: false, opener: null, seenTotal: 0 };
-    function headTip(total) {
-        const t = (typeof window.tmsg === 'function') ? window.tmsg('chat_head_tip', 'New messages: {n}. Click to open.', { n: total }) : 'New messages: ' + total;
-        return t;
+    const MAX_HEADS = 4;
+    const head = { box: null, items: [], total: 0, pinned: [], dismissed: {}, seen: {}, active: null, opener: null, onDismiss: null, list: [] };
+    const tm = function (k, fb, vars) { return (typeof window.tmsg === 'function') ? window.tmsg(k, fb, vars || null) : fb.replace('{n}', vars && vars.n != null ? vars.n : ''); };
+    function headTip(it) {
+        const who = String(it.name || '').slice(0, 30);
+        const what = it.count > 0 ? tm('chat_head_tip', 'New messages: {n}. Click to open.', { n: it.count }) : tm('chat_head_open', 'Click to open the chat.');
+        return (who ? who + ' — ' : '') + what;
     }
-    function buildHead() {
+    // Las burbujas que se ven: los chats abiertos en mini ventana + los que tienen mensajes sin leer (sin los que cerraste con ✕)
+    function headList() {
+        const by = {}, out = [];
+        head.pinned.forEach(function (p) {
+            if (head.dismissed[p.uid]) return;
+            const o = { uid: p.uid, name: p.name, pfp: p.pfp, count: 0, ts: 0, at: p.at, pinned: true };
+            by[p.uid] = o; out.push(o);
+        });
+        head.items.forEach(function (i) {
+            if (head.dismissed[i.uid]) return;
+            const o = by[i.uid];
+            if (o) { o.count = i.count; o.ts = i.ts || 0; if (i.name) o.name = i.name; if (i.pfp) o.pfp = i.pfp; return; }
+            out.push({ uid: i.uid, name: i.name, pfp: i.pfp, count: i.count, ts: i.ts || 0, at: 0, pinned: false });
+        });
+        out.sort(function (a, b) { return Math.max(b.ts, b.at) - Math.max(a.ts, a.at); });
+        return out;
+    }
+    function buildBox() {
+        const box = document.createElement('div');
+        box.id = 'chat-heads';
+        document.body.appendChild(box);
+        head.box = box;
+    }
+    function makeHead(it) {
         const el = document.createElement('div');
-        el.id = 'chat-head'; el.setAttribute('role', 'button'); el.tabIndex = 0;
+        el.className = 'chat-head'; el.setAttribute('role', 'button'); el.tabIndex = 0; el.dataset.uid = it.uid;
         const pfp = document.createElement('div'); pfp.className = 'ch-pfp';
+        pfp.style.backgroundImage = 'url(' + JSON.stringify(safeIcon(it.pfp)) + ')';
         const count = document.createElement('div'); count.className = 'ch-count';
+        count.textContent = it.count > 99 ? '99+' : String(it.count);
+        if (!(it.count > 0)) count.style.display = 'none';
         const x = document.createElement('button'); x.type = 'button'; x.className = 'ch-x'; x.textContent = '✕';
+        x.setAttribute('aria-label', tm('chat_head_close', 'Hide'));
         el.appendChild(pfp); el.appendChild(count); el.appendChild(x);
-        el.addEventListener('click', function () { openHead(); });
-        el.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openHead(); } });
-        x.addEventListener('click', function (e) { e.stopPropagation(); head.dismissed = true; renderHead(); });
-        document.body.appendChild(el);
-        head.el = el; head.pfp = pfp; head.count = count; head.x = x;
+        el.title = headTip(it);
+        el.setAttribute('aria-label', el.title);
+        el.classList.toggle('on', head.active === it.uid);
+        el.addEventListener('click', function () { clickHead(it); });
+        el.addEventListener('keydown', function (e) { if (e.target === el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); clickHead(it); } });
+        x.addEventListener('click', function (e) { e.stopPropagation(); dismissHead(it.uid); });
+        return el;
     }
-    function openHead() {
-        const items = head.items.slice();
-        if (typeof head.opener === 'function' && items.length) { try { head.opener(items); } catch (e) { /* un fallo al abrir no debe romper nada más */ } }
-        head.dismissed = true;      // ya lo viste: se esconde (volverá cuando llegue otro mensaje)
+    function makeMore(n, rest) {
+        const el = document.createElement('div');
+        el.className = 'chat-head ch-more'; el.setAttribute('role', 'button'); el.tabIndex = 0;
+        const t = document.createElement('div'); t.className = 'ch-more-n'; t.textContent = '+' + n;
+        el.appendChild(t);
+        el.title = tm('chat_head_more', '{n} more chats. Click to see all your chats.', { n: n });
+        el.setAttribute('aria-label', el.title);
+        const go = function () { if (typeof head.opener === 'function') { try { head.opener(null, rest); } catch (e) { /* sin romper nada */ } } };
+        el.addEventListener('click', go);
+        el.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+        return el;
+    }
+    function clickHead(it) {
+        // la burbuja de la mini ventana que está abierta: la minimiza
+        if (head.active === it.uid && window.mbwMiniChat && typeof window.mbwMiniChat.minimize === 'function') { window.mbwMiniChat.minimize(); return; }
+        if (typeof head.opener === 'function') { try { head.opener([{ uid: it.uid, name: it.name, pfp: it.pfp, count: it.count, ts: it.ts }]); } catch (e) { /* un fallo al abrir no debe romper nada más */ } }
+        // si no quedó abierta en mini ventana (se abrió el chat grande), la burbuja se esconde hasta que llegue algo nuevo
+        if (!head.pinned.some(function (p) { return p.uid === it.uid; })) head.dismissed[it.uid] = true;
+        renderHead();
+    }
+    function dismissHead(uid) {
+        head.dismissed[uid] = true;
+        head.pinned = head.pinned.filter(function (p) { return p.uid !== uid; });
+        if (head.active === uid) head.active = null;
+        if (typeof head.onDismiss === 'function') { try { head.onDismiss(uid); } catch (e) { /* nada */ } }
         renderHead();
     }
     let headObs = null;
@@ -339,36 +396,56 @@
         if (headObs) headObs.takeRecords();     // los cambios de clase que acabo de hacer yo no deben volver a llamarme
     }
     function paintHead() {
-        const show = head.total > 0 && !head.dismissed && !(typeof window.mbwFocusModeActive === 'function' && window.mbwFocusModeActive());
+        const focus = typeof window.mbwFocusModeActive === 'function' && window.mbwFocusModeActive();
+        const list = focus ? [] : headList();
+        head.list = list;
+        const show = list.length > 0;
         document.body.classList.toggle('has-chat-head', show);
-        if (!head.el) { if (!show) return; buildHead(); }
-        head.el.classList.toggle('show', show);
+        if (!head.box) { if (!show) return; buildBox(); }
+        head.box.textContent = '';
+        head.box.classList.toggle('show', show);
         if (!show) return;
-        const top = head.items[0] || {};
-        head.pfp.style.backgroundImage = 'url(' + JSON.stringify(safeIcon(top.pfp)) + ')';
-        head.count.textContent = head.total > 99 ? '99+' : String(head.total);
-        const who = head.items.length > 1 ? head.items.length + ' chats' : String(top.name || '').slice(0, 30);
-        head.el.title = (who ? who + ' — ' : '') + headTip(head.total);
-        head.el.setAttribute('aria-label', head.el.title);
-        head.x.setAttribute('aria-label', (typeof window.tmsg === 'function') ? window.tmsg('chat_head_close', 'Hide', null) : 'Hide');
+        const shown = list.length > MAX_HEADS ? list.slice(0, MAX_HEADS - 1) : list;
+        shown.forEach(function (it) { head.box.appendChild(makeHead(it)); });
+        if (list.length > MAX_HEADS) head.box.appendChild(makeMore(list.length - shown.length, list.slice(shown.length)));
+        if (window.mbwMiniChat && typeof window.mbwMiniChat.refresh === 'function') window.mbwMiniChat.refresh();
     }
     window.mbwChatHead = {
         // items: [{ uid, name, pfp, count, ts }] solo de chats con mensajes sin leer (sin silenciados ni bloqueados)
         sync: function (items) {
-            items = (Array.isArray(items) ? items : []).filter(function (i) { return i && i.count > 0; });
+            items = (Array.isArray(items) ? items : []).filter(function (i) { return i && i.uid && i.count > 0; });
             items.sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
-            const total = items.reduce(function (n, i) { return n + (Number(i.count) || 0); }, 0);
-            if (total > head.seenTotal) head.dismissed = false;       // llegó algo nuevo: vuelve a salir
-            head.seenTotal = total;
-            head.items = items; head.total = total;
+            const seen = {};
+            items.forEach(function (i) {
+                if ((Number(i.count) || 0) > (head.seen[i.uid] || 0)) delete head.dismissed[i.uid];   // esa persona escribió algo nuevo: su burbuja vuelve
+                seen[i.uid] = Number(i.count) || 0;
+            });
+            head.seen = seen;
+            head.items = items;
+            head.total = items.reduce(function (n, i) { return n + (Number(i.count) || 0); }, 0);
             renderHead();
         },
         setOpener: function (fn) { head.opener = fn; },
+        onDismiss: function (fn) { head.onDismiss = fn; },
+        // La mini ventana avisa qué chat tiene abierto (su burbuja se queda) y cuál está a la vista ahora
+        pin: function (uid, name, pfp) {
+            if (!uid) return;
+            delete head.dismissed[uid];
+            head.pinned = head.pinned.filter(function (p) { return p.uid !== uid; });
+            head.pinned.unshift({ uid: uid, name: name, pfp: pfp, at: Date.now() });
+            renderHead();
+        },
+        unpin: function (uid) { head.pinned = head.pinned.filter(function (p) { return p.uid !== uid; }); if (head.active === uid) head.active = null; renderHead(); },
+        setActive: function (uid) { head.active = uid || null; renderHead(); },
         refresh: renderHead,
-        state: function () { return { total: head.total, shown: !!(head.el && head.el.classList.contains('show')), dismissed: head.dismissed, chats: head.items.length }; }
+        state: function () {
+            const shown = !!(head.box && head.box.classList.contains('show'));
+            return { total: head.total, shown: shown, heads: head.list.map(function (i) { return i.uid; }), active: head.active, pinned: head.pinned.map(function (p) { return p.uid; }), chats: head.items.length };
+        }
     };
-    // Al entrar o salir del Zen / pantalla completa la burbuja redonda se esconde o vuelve
+    // Al entrar o salir del Zen / pantalla completa las burbujas se esconden o vuelven
     try { headObs = new MutationObserver(function () { renderHead(); }); headObs.observe(document.body, { attributes: true, attributeFilter: ['class'] }); } catch (e) { /* sin observador: se actualiza con el próximo mensaje */ }
+    document.addEventListener('fullscreenchange', function () { renderHead(); });
 
     // ─────────────────────────────────────────────
     // Arranque

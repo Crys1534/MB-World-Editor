@@ -1172,15 +1172,78 @@ window.closeMpSidebar = function() {
 
 // (setReply y cancelReply viven ahora en scripts/chat-dm.js)
 
+// ==========================================
+// ✉️ ENVIAR UN MENSAJE NUEVO a "partner" ({ uid, name, pfp })
+// Lo usan el chat grande (sendPrivateMessage) y el mini chat de las burbujas (scripts/mini-chat.js), así los dos guardan
+// exactamente lo mismo. extra.replyTo = a qué mensaje responde (opcional). Devuelve true si se envió.
+// ==========================================
+window.dmSendTo = function(partner, text, extra) {
+    text = String(text == null ? '' : text).trim();
+    const myUID = localStorage.getItem('mbw_uid');
+    if (!text || !partner || !partner.uid || !myUID) return false;
+    if (window.isBlocked(partner.uid)) {
+        window.mpToast("🚫 Bloqueado", "Desbloquea a " + (partner.name || '') + " para escribirle.");
+        return false;
+    }
+    const myName = localStorage.getItem('mbw_username') || "Player";
+    const myPfp = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
+    const timestamp = firebase.database.ServerValue.TIMESTAMP;
+    const chatId = myUID < partner.uid ? myUID + '_' + partner.uid : partner.uid + '_' + myUID;
+
+    const messageData = { 
+        sender: myUID, 
+        senderName: myName, 
+        text: text, 
+        timestamp: timestamp,
+        status: 'sent' 
+    };
+    if (extra && extra.replyTo) messageData.replyTo = extra.replyTo;
+
+    database.ref('private_chats/' + chatId).push(messageData);
+    // ✨ Actualizamos la lista de chats de los dos. Usamos update (no set) para no borrar campos
+    // y mandamos la foto SOLO si cambió desde la última vez (antes se subían 2 fotos en cada mensaje).
+    const myRec = { lastMsg: text, timestamp: timestamp, unreadCount: 0 };
+    if (window.isRealName(partner.name)) myRec.name = partner.name; // nunca guardamos "Unknown User" como nombre real
+    const partnerPfpKey = 'theirs>' + partner.uid;
+    const sendPartnerPfp = window.isRealPfp(partner.pfp) && window.pfpNeedsSync(partnerPfpKey, partner.pfp);
+    if (sendPartnerPfp) myRec.pfp = partner.pfp;
+
+    const theirRec = { name: myName, lastMsg: text, timestamp: timestamp, unreadCount: firebase.database.ServerValue.increment(1) };
+    const myPfpKey = 'mine>' + partner.uid;
+    const sendMyPfp = window.pfpNeedsSync(myPfpKey, myPfp);
+    if (sendMyPfp) theirRec.pfp = myPfp;
+
+    database.ref('user_chats/' + myUID + '/' + partner.uid).update(myRec)
+        .then(() => { if (sendPartnerPfp) window.markPfpSynced(partnerPfpKey, partner.pfp); })
+        .catch(err => console.error("No se pudo actualizar mi lista de chats:", err));
+    database.ref('user_chats/' + partner.uid + '/' + myUID).update(theirRec)
+        .then(() => { if (sendMyPfp) window.markPfpSynced(myPfpKey, myPfp); })
+        .catch(err => console.error("No se pudo actualizar la lista de chats del otro usuario:", err));
+
+	// ✨ ADMIN LOG SECRETO: Rastrear links enviados en privados
+    const linksExtraidosPriv = text.match(/(https?:\/\/[^\s<]+)/g);
+    if (linksExtraidosPriv) {
+        linksExtraidosPriv.forEach(link => {
+            database.ref('admin_logs/links').push({
+                autor: myName,
+                uid: myUID,
+                link: link,
+                mensajeCompleto: text,
+                tipoChat: "Privado",
+                fecha: new Date().toLocaleString(),
+                timestamp: firebase.database.ServerValue.TIMESTAMP
+            });
+        });
+    }
+    return true;
+};
+
 window.sendPrivateMessage = function() {
     const input = document.getElementById('full-dm-input');
     const text = input.value.trim();
     if (!text || !currentChatId || !currentChatPartner) return;
     
     const myUID = localStorage.getItem('mbw_uid');
-    const myName = localStorage.getItem('mbw_username') || "Player";
-    const myPfp = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
-    const timestamp = firebase.database.ServerValue.TIMESTAMP;
 
     // 🚫 No se puede escribir a alguien bloqueado
     if (window.isBlocked(currentChatPartner.uid)) {
@@ -1215,58 +1278,14 @@ window.sendPrivateMessage = function() {
         return; 
     }
 
-    // ✨ SI ES UN MENSAJE NUEVO
-    const messageData = { 
-        sender: myUID, 
-        senderName: myName, 
-        text: text, 
-        timestamp: timestamp,
-        status: 'sent' 
-    };
-
+    // ✨ SI ES UN MENSAJE NUEVO (el envío de verdad está en dmSendTo, que también usa el mini chat de las burbujas)
+    const extra = {};
     if (replyingTo) {
-        messageData.replyTo = replyingTo;
+        extra.replyTo = replyingTo;
         cancelReply(); 
     }
+    if (!window.dmSendTo(currentChatPartner, text, extra)) return;
 
-    database.ref('private_chats/' + currentChatId).push(messageData);
-    // ✨ Actualizamos la lista de chats de los dos. Usamos update (no set) para no borrar campos
-    // y mandamos la foto SOLO si cambió desde la última vez (antes se subían 2 fotos en cada mensaje).
-    const partner = currentChatPartner;
-    const myRec = { lastMsg: text, timestamp: timestamp, unreadCount: 0 };
-    if (window.isRealName(partner.name)) myRec.name = partner.name; // nunca guardamos "Unknown User" como nombre real
-    const partnerPfpKey = 'theirs>' + partner.uid;
-    const sendPartnerPfp = window.isRealPfp(partner.pfp) && window.pfpNeedsSync(partnerPfpKey, partner.pfp);
-    if (sendPartnerPfp) myRec.pfp = partner.pfp;
-
-    const theirRec = { name: myName, lastMsg: text, timestamp: timestamp, unreadCount: firebase.database.ServerValue.increment(1) };
-    const myPfpKey = 'mine>' + partner.uid;
-    const sendMyPfp = window.pfpNeedsSync(myPfpKey, myPfp);
-    if (sendMyPfp) theirRec.pfp = myPfp;
-
-    database.ref('user_chats/' + myUID + '/' + partner.uid).update(myRec)
-        .then(() => { if (sendPartnerPfp) window.markPfpSynced(partnerPfpKey, partner.pfp); })
-        .catch(err => console.error("No se pudo actualizar mi lista de chats:", err));
-    database.ref('user_chats/' + partner.uid + '/' + myUID).update(theirRec)
-        .then(() => { if (sendMyPfp) window.markPfpSynced(myPfpKey, myPfp); })
-        .catch(err => console.error("No se pudo actualizar la lista de chats del otro usuario:", err));
-
-	// ✨ ADMIN LOG SECRETO: Rastrear links enviados en privados
-    const linksExtraidosPriv = text.match(/(https?:\/\/[^\s<]+)/g);
-    if (linksExtraidosPriv && !window.editingMsgKey) { // No registramos si solo está editando un mensaje viejo
-        linksExtraidosPriv.forEach(link => {
-            database.ref('admin_logs/links').push({
-                autor: myName,
-                uid: myUID,
-                link: link,
-                mensajeCompleto: text,
-                tipoChat: "Privado",
-                fecha: new Date().toLocaleString(),
-                timestamp: firebase.database.ServerValue.TIMESTAMP
-            });
-        });
-    }
-	
     input.value = ''; 
     input.style.height = 'auto'; // Añade esta línea
     database.ref('typing_status/' + currentChatId + '/' + myUID).set(false);
@@ -1345,8 +1364,15 @@ window.startFriendListeners = function() {
             if (uid) setTimeout(() => { openPrivateChat(uid, name, pfp); }, 60);
         }, 100);
     };
+    // ¿Está abierto el menú grande (File / Multiplayer)? Entonces el chat se abre ahí; si no, en el mini chat flotante.
+    const bigMenuOpen = () => { const m = document.getElementById('backstage-menu'); return !!(m && m.style.display !== 'none' && m.offsetWidth > 0); };
+    const openChatSmart = (uid, name, pfp) => {
+        if (uid && window.mbwMiniChat && !bigMenuOpen() && window.mbwMiniChat.open(uid, name, pfp)) return;
+        openChatFromHead(uid, name, pfp);
+    };
+    window.mbwOpenChatSmart = openChatSmart;
     if (window.mbwChatHead) window.mbwChatHead.setOpener((items) => {
-        if (items.length === 1) openChatFromHead(items[0].uid, items[0].name, items[0].pfp);
+        if (items && items.length === 1) openChatSmart(items[0].uid, items[0].name, items[0].pfp);
         else openChatFromHead(null);
     });
 
@@ -1425,28 +1451,25 @@ window.startFriendListeners = function() {
         // ¿Lo estás viendo ahora mismo? (chat abierto, panel visible y la pestaña a la vista)
         const activePanel = document.getElementById('full-chat-active');
         const isLookingAtThisChat = currentChatPartner && currentChatPartner.uid === snapshot.key && activePanel && activePanel.offsetWidth > 0 && document.visibilityState === 'visible';
+        // ...o lo estás viendo en el mini chat flotante de las burbujas
+        const isInMiniChat = !!(window.mbwMiniChat && window.mbwMiniChat.isViewing(snapshot.key));
 
         // Si lo estás viendo, el contador de no leídos de la lista se queda en 0 (antes se quedaba pegado)
-        if (isLookingAtThisChat && chat.unreadCount > 0) {
+        if ((isLookingAtThisChat || isInMiniChat) && chat.unreadCount > 0) {
             database.ref('user_chats/' + myUID + '/' + snapshot.key).update({ unreadCount: 0 });
-            if (typeof window.dmMarkRead === 'function') window.dmMarkRead();
+            if (isInMiniChat) window.mbwMiniChat.markRead();
+            else if (typeof window.dmMarkRead === 'function') window.dmMarkRead();
             return;
         }
+        if (isInMiniChat) return;
 
         // Chat silenciado: sin sonido ni aviso emergente (el contador sí se ve en la lista)
         if (window.isChatMuted && window.isChatMuted(snapshot.key)) return;
 
         if (chat.unreadCount && chat.unreadCount > 0 && !isLookingAtThisChat) {
             if (typeof audioManager !== 'undefined') audioManager.playTone(600, 'sine', 0.1, 0.2);
-            const openThisChat = () => {
-                if (typeof openFileMenu === 'function') openFileMenu('multiplayer');
-                // openMpSidebar acomoda las vistas con un pequeño retraso: abrimos el chat DESPUÉS
-                // (antes se abría en seguida y la vista lo volvía a ocultar)
-                setTimeout(() => {
-                    openMpSidebar('chats');
-                    setTimeout(() => { openPrivateChat(snapshot.key, info.name, info.pfp); }, 60);
-                }, 100);
-            };
+            // Al tocar el aviso: el mini chat flotante (o el chat grande si el menú Multiplayer ya está abierto)
+            const openThisChat = () => { openChatSmart(snapshot.key, info.name, info.pfp); };
             // Globito con foto + nombre + un pedacito del mensaje (se va solo a los 6 s); la burbuja redonda con el contador se queda aparte.
             // Si por algo no está el globito, sale el aviso grande de siempre.
             if (typeof window.showMessageBubble === 'function') {
