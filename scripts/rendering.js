@@ -68,17 +68,24 @@ function getTexture(block, variant) {
 }
 
 // ==========================================
-// 🌈 LANA ARCOÍRIS ANIMADA
-// El dibujo de cloth_rainbow / bdcloth_rainbow / carpet_rainbow cambia pasando por TODOS los colores de lana.
+// 🌈 LANA ARCOÍRIS ANIMADA (con fundido)
+// cloth_rainbow / bdcloth_rainbow / carpet_rainbow pasan por TODOS los colores de lana, y cada color se FUNDE con el siguiente
+// (rosa → rojo cierra el círculo). Además cada bloque va un poquito adelantado según su lugar en el mundo, como en el juego:
+// en una fila de 4 bloques, el 1.º es rosa, el 2.º ya va entre rosa y rojo, el 3.º casi rojo y el 4.º rojo; todo el dibujo se desplaza con el tiempo.
+//   · cada bloque del mundo guarda el objeto "vivo" (live[...]) como señal; al pintar, main.js le pide a tileAt(señal, x, y) el dibujo que le toca.
+//   · los dibujos intermedios (color A mezclado con color B) se arman una sola vez en pequeños lienzos de 16×16 y se guardan.
 // Solo cambia en el mundo (la foto del mundo usa estos objetos "vivos"); los íconos del inventario siguen con el dibujo fijo.
 // ==========================================
 window.rainbowAnim = (function () {
-    const ORDER = ['red', 'orange', 'yellow', 'lightgreen', 'green', 'cyan', 'lightblue', 'blue', 'purple', 'magenta', 'pink', 'brown', 'black', 'gray', 'lightgray', 'white'];
+    const ORDER = ['red', 'brown', 'orange', 'yellow', 'lightgreen', 'green', 'cyan', 'lightblue', 'white', 'lightgray', 'gray', 'black', 'blue', 'purple', 'magenta', 'pink'];
+    const N = ORDER.length, SUB = 8;                   // SUB = pasos de mezcla entre un color y el siguiente
     const KINDS = { cloth_rainbow: 'cloth_', bdcloth_rainbow: 'bdcloth_', carpet_rainbow: 'carpet_' };
-    const live = {};                                   // objetos { x, y } que comparte todo el mundo
+    const live = {};                                   // objetos { x, y, rb } que comparte todo el mundo (señal de "lana arcoíris")
     const T = window.texturesMap || {};
-    Object.keys(KINDS).forEach(function (k) { if (T[k]) live[k] = { x: T[k].x, y: T[k].y }; });
-    const A = { frame: 0, period: 450, live: live, order: ORDER };
+    Object.keys(KINDS).forEach(function (k) { if (T[k]) live[k] = { x: T[k].x, y: T[k].y, rb: KINDS[k] }; });
+    // period: milisegundos que tarda en pasar de un color al siguiente · stepX / stepY: cuánto "adelanta" cada bloque hacia la derecha / hacia arriba (en pasos de color)
+    const A = { frame: 0, q: 0, t: 0, period: 900, sub: SUB, stepX: 1 / 3, stepY: 1 / 4, live: live, order: ORDER };
+    const blends = {};                                 // "cloth_|3|5" -> { x: 0, y: 0, img: lienzo 16×16 }
     // Si el dibujo es el fijo del arcoíris, devuelve el objeto vivo; si no, el mismo de siempre
     A.map = function (tex) {
         if (!tex) return tex;
@@ -89,18 +96,52 @@ window.rainbowAnim = (function () {
         return tex;
     };
     A.isLive = function (tex) { return !!tex && (tex === live.cloth_rainbow || tex === live.bdcloth_rainbow || tex === live.carpet_rainbow); };
-    // Pone el cuadro n de la animación; devuelve true si cambió
-    A.setFrame = function (n) {
-        n = ((n % ORDER.length) + ORDER.length) % ORDER.length;
-        if (n === A.frame && A.started) return false;
-        A.frame = n; A.started = true;
+    // Mezcla del color i (puro) con el color i+1 en s/SUB. null si todavía no cargó la imagen de bloques.
+    function blend(prefix, i, s) {
+        const key = prefix + i + '|' + s;
+        const hit = blends[key];
+        if (hit) return hit;
+        const img = window.images && window.images.blocks;
         const TM = window.texturesMap;
-        Object.keys(KINDS).forEach(function (k) {
-            const src = TM[KINDS[k] + ORDER[n]];
+        const a = TM[prefix + ORDER[i]], b = TM[prefix + ORDER[(i + 1) % N]];
+        if (!img || !img.complete || !img.naturalWidth || !a || !b) return null;
+        const c = document.createElement('canvas'); c.width = 16; c.height = 16;
+        const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+        g.drawImage(img, a.x, a.y, 16, 16, 0, 0, 16, 16);
+        g.globalAlpha = s / SUB;
+        g.drawImage(img, b.x, b.y, 16, 16, 0, 0, 16, 16);
+        return (blends[key] = { x: 0, y: 0, img: c });
+    }
+    // En qué punto del círculo de colores está el bloque de (x, y) ahora: color i, mezclado con el siguiente en s/SUB (s = 0 → color puro)
+    A.stateAt = function (x, y) {
+        const total = N * SUB;
+        let q = Math.floor((A.t + x * A.stepX + y * A.stepY) * SUB + 1e-6);
+        q = ((q % total) + total) % total;
+        return { i: Math.floor(q / SUB), s: q % SUB };
+    };
+    // Para el bloque de lana arcoíris en (x, y): el dibujo que le toca en este momento (puro o mezclado)
+    A.tileAt = function (mark, x, y) {
+        const total = N * SUB;
+        let q = Math.floor((A.t + x * A.stepX + y * A.stepY) * SUB + 1e-6);
+        q = ((q % total) + total) % total;
+        const i = Math.floor(q / SUB), s = q % SUB;
+        if (s === 0) return window.texturesMap[mark.rb + ORDER[i]] || mark;
+        return blend(mark.rb, i, s) || mark;
+    };
+    // Pone el reloj de la animación en el paso q (cada paso = 1/SUB de un cambio de color); devuelve true si cambió
+    A.setClock = function (q) {
+        if (q === A.q && A.started) return false;
+        A.q = q; A.t = q / SUB; A.started = true;
+        A.frame = ((Math.floor(A.t) % N) + N) % N;
+        const TM = window.texturesMap;
+        Object.keys(KINDS).forEach(function (k) {   // respaldo: lo que se vería si algo dibuja la señal sin pasar por tileAt
+            const src = TM[KINDS[k] + ORDER[A.frame]];
             if (src && live[k]) { live[k].x = src.x; live[k].y = src.y; }
         });
         return true;
     };
+    // Compatibilidad: poner la animación justo en el color n
+    A.setFrame = function (n) { return A.setClock(((n % N) + N) % N * SUB); };
     return A;
 })();
 

@@ -8,7 +8,11 @@
 //   • Se abre desde la pestaña View → grupo "Skins": un botón grande y, al lado, las últimas skins usadas (clic = dejar lista esa skin
 //     para ponerla en el mapa, sin abrir la ventana).
 //   • Pestañas: Mine Blocks (por defecto: Destacadas / Nuevas / Mejores, igual que la web; escribiendo: búsqueda)
-//     · En este mundo (skins que ya usan los mobs del mundo) · Favoritas · Recientes. Las tres últimas funcionan sin internet.
+//     · En este mundo (skins que ya usan los mobs del mundo) · Favoritas. Estas dos funcionan sin internet.
+//     (Las "recientes" ya no son pestaña: siguen en la tira del grupo Skins de la pestaña View.)
+//   • Cada fila (Destacadas / Nuevas / Mejores) muestra 4 tarjetas pegadas con una flecha a cada lado: las flechas CAMBIAN de página
+//     (cuando hace falta se pide la página siguiente al servidor). La búsqueda, "En este mundo" y Favoritas usan una cuadrícula de 8 con las mismas flechas.
+//   • A la derecha, pegada al borde, la vista previa: un clic en una skin la muestra grande con sus botones; doble clic = poner en el mundo / usar.
 //
 // De dónde salen las skins (SIN VERIFICAR contra el servidor real: desde donde se programó no se puede entrar a mineblocks.com;
 // el formato sale de la documentación pública de la librería MBSkinAPI):
@@ -43,7 +47,10 @@
 
     const st = {
         home: null, homeCache: null, open: false, tab: 'web', query: '', filter: 'all',
-        page: 1, loading: false, hasMore: true, items: [], error: '', token: 0,
+        srch: null,                                  // lista de la búsqueda en el servidor (con texto escrito)
+        lview: {},                                   // página actual de las pestañas locales (In this world / Favorites)
+        sel: null,                                   // skin seleccionada (se ve en la vista previa de la derecha)
+        token: 0,
         pick: null,                                  // función que recibe el ID cuando la galería se abrió para ELEGIR (Mob Browser)
         favs: loadList('mbw_skin_favs'), recent: loadList('mbw_skin_recent'),
         meta: {}                                     // id -> { name, author } lo último que se vio en la web
@@ -130,12 +137,33 @@
         catch (e) { throw fail('parse', 'unreadable answer: ' + String(txt).replace(/\s+/g, ' ').slice(0, 50)); }
     }
 
+    // ------------------------------------------------------------------ listas con páginas (flechas a los lados, como la web)
+    // Cada lista (Destacadas / Nuevas / Mejores / resultados de búsqueda) guarda lo que ya bajó y en qué página está; las flechas
+    // CAMBIAN la página que se ve (no se agregan skins hacia abajo). Si la página siguiente aún no se ha pedido, se pide al servidor.
+    const ROW = 4;                                                       // tarjetas por fila en la pantalla de inicio (la web muestra 4 por página)
+    const GRID_COLS = 4, GRID_ROWS = 2, PER_GRID = GRID_COLS * GRID_ROWS; // búsqueda, "In this world" y Favorites
+    function newList() { return { items: [], page: 1, hasMore: true, loading: false, err: '', loaded: false, off: false, view: 0 }; }
+    // Pide páginas al servidor hasta tener al menos "need" skins (o hasta que ya no haya más). false = llegó tarde (otra búsqueda la reemplazó).
+    async function fillList(L, fetcher, need, token, filterFn) {
+        let guard = 0;
+        while (L.items.length < need && L.hasMore && guard++ < 6) {
+            const list = await fetcher(L.page);
+            if (token !== st.token) return false;
+            list.forEach(rememberMeta);
+            const known = {}; L.items.forEach((s) => { known[s.id] = 1; });
+            const add = (filterFn ? list.filter(filterFn) : list).filter((s) => !known[s.id]);
+            L.items = L.items.concat(add);
+            L.loaded = true;
+            if (!list.length) L.hasMore = false; else L.page++;
+        }
+        return true;
+    }
+
     // ------------------------------------------------------------------ pantalla de inicio: Destacadas / Nuevas / Mejores (como la web)
     const SECTIONS = [['featured', 'sg_sec_featured', 'Featured skins'], ['new', 'sg_sec_new', 'New skins'], ['best', 'sg_sec_best', 'Best skins']];
-    const HOME_PAGES = 2;                                              // páginas que se bajan al abrir (la web muestra 4 por página)
     function homeInit() {
         st.home = {};
-        SECTIONS.forEach((s) => { st.home[s[0]] = { items: [], page: 1, loading: false, hasMore: true, err: '', loaded: false, off: false }; });
+        SECTIONS.forEach((s) => { st.home[s[0]] = newList(); });
     }
     async function fetchSection(k, page) {
         if (k === 'new') return fetchRemote('new', '', page);
@@ -151,28 +179,34 @@
         const ref = st.home.new.items;
         return !!list.length && ref.length >= list.length && list.every((s, i) => ref[i] && ref[i].id === s.id);
     }
-    async function homeLoad(k, pages) {
+    // dir 0 = primera carga de la sección; dir 1 = pasar a la página siguiente (pidiéndola si todavía no se tiene)
+    async function homeLoad(k, dir) {
         const h = st.home && st.home[k];
         if (!h || h.loading || h.off) return;
         const token = st.token;
         h.loading = true; h.err = '';
         renderResults();
         try {
-            for (let n = 0; n < (pages || 1) && h.hasMore; n++) {
-                let list = await fetchSection(k, h.page);
-                if (token !== st.token) return;
-                if (k !== 'new' && h.page === 1 && sameAsNew(list)) { h.off = true; list = []; }
-                list.forEach(rememberMeta);
-                const known = {}; h.items.forEach((s) => { known[s.id] = 1; });
-                h.items = h.items.concat(list.filter((s) => !known[s.id]));
-                h.loaded = true;
-                if (!list.length) h.hasMore = false; else h.page++;
-            }
+            const target = h.view + (dir ? 1 : 0);
+            const ok = await fillList(h, async function (p) {
+                const list = await fetchSection(k, p);
+                if (k !== 'new' && p === 1 && sameAsNew(list)) { h.off = true; return []; }
+                return list;
+            }, (target + 1) * ROW, token);
+            if (!ok) return;
+            if (h.items.length > target * ROW) h.view = target;
         } catch (e) {
             if (token !== st.token) return;
-            h.err = (e && e.detail) || 'net'; h.hasMore = false;
+            h.err = (e && e.detail) || 'net'; if (!h.items.length) h.hasMore = false;   // con skins ya mostradas, "Retry" vuelve a pedir la página que falló
         }
         if (token === st.token) { h.loading = false; renderResults(); }
+    }
+    function homeGo(k, dir) {
+        const h = st.home && st.home[k];
+        if (!h || h.loading) return;
+        if (dir < 0) { if (h.view > 0) { h.view--; renderResults(); } return; }
+        if (h.items.length > (h.view + 1) * ROW) { h.view++; renderResults(); return; }
+        if (h.hasMore) { h.err = ''; homeLoad(k, 1); }
     }
     async function homeStart() {
         const c = st.homeCache;
@@ -180,41 +214,73 @@
         homeInit();
         st.homeCache = { t: Date.now(), h: st.home };
         const mine = st.token;
-        await homeLoad('new', HOME_PAGES);
+        await homeLoad('new', 0);
         if (mine !== st.token || !st.open || homeMode() === false) return;
         if (st.home.new.err && !st.home.new.items.length) return;           // sin conexión: no se insiste con Destacadas / Mejores
-        homeLoad('featured', HOME_PAGES);
-        homeLoad('best', HOME_PAGES);
+        homeLoad('featured', 0);
+        homeLoad('best', 0);
     }
     function homeMode() { return st.tab === 'web' && !st.query; }
+
+    // Una sección con título (opcional), fila de tarjetas PEGADAS con una flecha a cada lado, y "Page N" abajo.
+    // o = { title, items, view, per, cols, hasMore, loading, err, onPrev, onNext, onRetry, empty }
+    function buildSection(o) {
+        const sec = document.createElement('div'); sec.className = 'sg-sec';
+        if (o.title) { const hd = document.createElement('div'); hd.className = 'sg-sec-h'; hd.textContent = o.title; sec.appendChild(hd); }
+        const start = o.view * o.per;
+        const slice = o.items.slice(start, start + o.per);
+        const canPrev = !o.loading && o.view > 0;
+        const canNext = !o.loading && (o.items.length > (o.view + 1) * o.per || !!o.hasMore);
+        const arrow = function (cls, title, on, fn) {
+            const b = document.createElement('button'); b.type = 'button'; b.className = 'sg-arrow ' + cls; b.title = title; b.setAttribute('aria-label', title);
+            b.disabled = !on; b.onclick = fn; return b;
+        };
+        const row = document.createElement('div'); row.className = 'sg-pager' + (o.loading ? ' busy' : '');
+        row.appendChild(arrow('sg-prev', tr('sg_prev', 'Previous page'), canPrev, o.onPrev));
+        const grid = document.createElement('div'); grid.className = 'sg-grid'; grid.style.setProperty('--cols', String(o.cols));
+        slice.forEach((it) => grid.appendChild(makeCard(it)));
+        if (!slice.length) { const e = document.createElement('div'); e.className = 'sg-grid-empty'; e.textContent = o.loading ? tr('sg_loading', 'Loading...') : (o.empty || tr('sg_none', 'Nothing to show.')); grid.appendChild(e); }
+        row.appendChild(grid);
+        row.appendChild(arrow('sg-next', tr('sg_next', 'Next page'), canNext, o.onNext));
+        sec.appendChild(row);
+        if (slice.length || o.view > 0) {
+            const pn = document.createElement('div'); pn.className = 'sg-pagenum'; pn.textContent = tr('sg_page', 'Page {n}').replace('{n}', String(o.view + 1));
+            sec.appendChild(pn);
+        }
+        if (o.err) sec.appendChild(errNote(o.err, o.onRetry));
+        return sec;
+    }
+    // Aviso de error con botón "Retry" (y, si hace falta, el cuadro para pegar otra dirección)
+    function errNote(err, onRetry) {
+        const note = document.createElement('div'); note.className = 'sg-sec-note err';
+        note.textContent = errText(err);
+        if (onRetry) {
+            const rb = document.createElement('button'); rb.type = 'button'; rb.className = 'ex-btn sg-retry'; rb.textContent = tr('sg_retry', 'Retry');
+            rb.onclick = onRetry;
+            note.appendChild(document.createElement('br')); note.appendChild(rb);
+        }
+        if (err === NET_DETAIL || customApi()) note.appendChild(proxyBox());
+        return note;
+    }
     function renderHome(box) {
-        let shown = 0;
         SECTIONS.forEach((def) => {
-            const h = st.home[def[0]];
+            const k = def[0], h = st.home[k];
             if (h.off) return;
-            if (def[0] !== 'new' && h.loaded && !h.items.length && !h.err) return;       // el servidor no tiene esa sección
-            if (def[0] !== 'new' && h.err && !h.items.length) return;                   // no hubo manera de pedirla: no estorba
-            if (def[0] !== 'new' && !h.loaded && !h.loading && !h.items.length) return;  // todavía no se pide (o no se va a pedir): no sale vacía
-            shown++;
-            const hd = document.createElement('div'); hd.className = 'sg-sec-h'; hd.textContent = tr(def[1], def[2]); box.appendChild(hd);
-            h.items.forEach((it) => box.appendChild(makeCard(it)));
-            const note = document.createElement('div'); note.className = 'sg-sec-note';
-            if (h.loading) note.textContent = tr('sg_loading', 'Loading...');
-            else if (h.err && def[0] === 'new') {
-                note.className += ' err';
-                note.textContent = errText(h.err);
-                const rb = document.createElement('button'); rb.type = 'button'; rb.className = 'ex-btn'; rb.textContent = tr('sg_retry', 'Retry');
-                rb.onclick = function () { st.token++; homeStart(); };
-                note.appendChild(document.createElement('br')); note.appendChild(rb);
-                if (h.err === NET_DETAIL || customApi()) note.appendChild(proxyBox());
-            } else if (h.hasMore && h.items.length) {
-                const mb = document.createElement('button'); mb.type = 'button'; mb.className = 'ex-btn'; mb.textContent = tr('sg_more', 'Load more');
-                mb.onclick = function () { homeLoad(def[0], 1); };
-                note.appendChild(mb);
-            } else if (!h.items.length) note.textContent = tr('sg_none', 'Nothing to show.');
-            if (note.firstChild || note.textContent) box.appendChild(note);
+            if (k !== 'new' && h.loaded && !h.items.length && !h.err) return;       // el servidor no tiene esa sección
+            if (k !== 'new' && h.err && !h.items.length) return;                    // no hubo manera de pedirla: no estorba
+            if (k !== 'new' && !h.loaded && !h.loading && !h.items.length) return;  // todavía no se pide (o no se va a pedir): no sale vacía
+            if (h.err && !h.items.length) {                                         // New sin conexión: título + aviso con Retry (sin fila vacía)
+                const sec = document.createElement('div'); sec.className = 'sg-sec';
+                const hd = document.createElement('div'); hd.className = 'sg-sec-h'; hd.textContent = tr(def[1], def[2]); sec.appendChild(hd);
+                sec.appendChild(errNote(h.err, function () { st.token++; homeStart(); }));
+                box.appendChild(sec);
+                return;
+            }
+            box.appendChild(buildSection({
+                title: tr(def[1], def[2]), items: h.items, view: h.view, per: ROW, cols: ROW, hasMore: h.hasMore, loading: h.loading, err: h.err,
+                onPrev: function () { homeGo(k, -1); }, onNext: function () { homeGo(k, 1); }, onRetry: function () { homeGo(k, 1); }
+            }));
         });
-        void shown;
     }
 
     // ------------------------------------------------------------------ miniaturas
@@ -340,13 +406,15 @@
         m.innerHTML =
             '<div class="modal-content mbw-standard-modal sg-window">' +
             '<div class="mbw-modal-header"><h3 id="sg-title"></h3><span class="mbw-close-btn" id="sg-close">&times;</span></div>' +
-            '<div class="sg-body">' +
+            '<div class="sg-layout">' +
+            '<div class="sg-main">' +
             '<div class="sg-tabs" id="sg-tabs"></div>' +
             '<div class="sg-search"><input type="text" id="sg-q" autocomplete="off" spellcheck="false" maxlength="60">' +
             '<select id="sg-filter"></select></div>' +
             '<div class="sg-status" id="sg-status"></div>' +
             '<div class="sg-results" id="sg-results"></div>' +
-            '<div class="sg-more"><button type="button" class="ex-btn" id="sg-more"></button></div>' +
+            '</div>' +
+            '<aside class="sg-preview" id="sg-preview"></aside>' +
             '</div></div>';
         document.body.appendChild(m);
         $('sg-close').onclick = closeGallery;
@@ -359,12 +427,7 @@
             timer = setTimeout(function () { reload(); }, 450);
         });
         q.addEventListener('keydown', function (e) { if (e.key === 'Enter') { clearTimeout(timer); st.query = q.value.trim(); reload(); } });
-        $('sg-filter').addEventListener('change', function () { st.filter = this.value; if (st.tab === 'web') renderResults(); else renderResults(); });
-        $('sg-more').onclick = function () { loadMore(); };
-        $('sg-results').addEventListener('scroll', function () {
-            const r = this;
-            if (st.tab === 'web' && st.query && r.scrollHeight > r.clientHeight + 20 && r.scrollTop + r.clientHeight >= r.scrollHeight - 80) loadMore();
-        });
+        $('sg-filter').addEventListener('change', function () { st.filter = this.value; reload(); });
         window.addEventListener('keydown', function (e) {
             if (!st.open || e.key !== 'Escape') return;
             e.stopImmediatePropagation(); e.preventDefault();
@@ -373,6 +436,7 @@
         return m;
     }
 
+    const TABS = ['web', 'world', 'favs'];
     function texts() {
         $('sg-title').textContent = st.pick ? tr('sg_title_pick', '🖼️ Choose a skin') : tr('sg_title', '🖼️ Skin Gallery');
         $('sg-q').placeholder = tr('sg_search_ph', 'Search by name, author or ID...');
@@ -385,16 +449,15 @@
         f.value = cur;
         const tabs = $('sg-tabs');
         tabs.innerHTML = '';
-        [['web', tr('sg_tab_web', '🌐 Mine Blocks')], ['world', tr('sg_tab_world', '🌍 In this world')], ['favs', tr('sg_tab_favs', '⭐ Favorites')], ['recent', tr('sg_tab_recent', '🕘 Recent')]].forEach(function (o) {
+        [['web', tr('sg_tab_web', '🌐 Mine Blocks')], ['world', tr('sg_tab_world', '🌍 In this world')], ['favs', tr('sg_tab_favs', '⭐ Favorites')]].forEach(function (o) {
             const b = document.createElement('button');
             b.type = 'button'; b.className = 'sg-tab' + (st.tab === o[0] ? ' on' : ''); b.dataset.tab = o[0]; b.textContent = o[1];
             b.onclick = function () { setTab(o[0]); };
             tabs.appendChild(b);
         });
-        $('sg-more').textContent = tr('sg_more', 'Load more');
     }
 
-    function setTab(t) { st.tab = t; texts(); reload(); }
+    function setTab(t) { st.tab = TABS.indexOf(t) >= 0 ? t : 'web'; texts(); reload(); }
 
     // Texto que se busca en las pestañas locales (nombre / autor / ID)
     function matches(item) {
@@ -406,75 +469,135 @@
         return n.includes(q) || a.includes(q) || item.id.includes(q);
     }
     function localList() {
-        const base = st.tab === 'world' ? worldSkins() : (st.tab === 'favs' ? st.favs : st.recent);
+        const base = st.tab === 'world' ? worldSkins() : st.favs;
         return base.map((s) => { const m = st.meta[s.id]; return (m && (!s.name || !s.author)) ? { id: s.id, name: s.name || m.name, author: s.author || m.author } : s; }).filter(matches);
+    }
+    // Escribir solo un número ofrece usar directamente ese ID (cualquier pestaña): esa tarjeta va primero
+    function idCardFor(list) {
+        if (!ID_RE.test(st.query) || list.some((s) => s.id === st.query)) return null;
+        const m = st.meta[st.query] || {};
+        return { id: st.query, name: m.name || '', author: m.author || '' };
     }
 
     function reload() {
         st.token++;
-        st.loading = false;                                         // si había una descarga en curso, ya no vale: esta búsqueda la reemplaza
+        st.lview = {};
         const box = $('sg-results'); if (box) box.scrollTop = 0;
-        st.page = 1; st.hasMore = true; st.items = []; st.error = '';
+        st.srch = newList();
         if (homeMode()) homeStart();
-        else if (st.tab === 'web') loadMore(true);
+        else if (st.tab === 'web') searchLoad(0);
         else renderResults();
     }
-    async function loadMore(first) {
-        if (st.tab !== 'web' || st.loading || (!st.hasMore && !first)) return;
+    // Búsqueda en el servidor (con texto escrito). dir 0 = primera página; dir 1 = pasar a la siguiente.
+    async function searchLoad(dir) {
+        const L = st.srch;
+        if (!L || L.loading) return;
         const token = st.token;
-        st.loading = true; st.error = '';
+        L.loading = true; L.err = '';
         renderResults();
         try {
-            const list = await fetchRemote(st.query ? 'search' : 'new', st.query, st.page);
-            if (token !== st.token) return;                           // llegó tarde: ya hay otra búsqueda
-            list.forEach(rememberMeta);
-            let add = list;
-            if (st.query && st.filter !== 'all') add = list.filter(matches);          // el servidor busca en todo: el filtro se aplica aquí
-            const known = {}; st.items.forEach((s) => { known[s.id] = 1; });
-            add = add.filter((s) => !known[s.id]);
-            st.items = st.items.concat(add);
-            if (!list.length) st.hasMore = false; else st.page++;
+            const extra = idCardFor(L.items) ? 1 : 0;
+            const target = L.view + (dir ? 1 : 0);
+            const ok = await fillList(L, function (p) { return fetchRemote('search', st.query, p); }, (target + 1) * PER_GRID - extra, token, st.filter !== 'all' ? matches : null);
+            if (!ok) return;
+            if (L.items.length + extra > target * PER_GRID) L.view = target;
         } catch (e) {
             if (token !== st.token) return;
-            st.error = (e && e.detail) || 'net';
-            st.hasMore = false;
+            L.err = (e && e.detail) || 'net';
+            if (!L.items.length) L.hasMore = false;
         }
-        if (token === st.token) { st.loading = false; renderResults(); }
+        if (token === st.token) { L.loading = false; renderResults(); }
+    }
+    function searchGo(dir) {
+        const L = st.srch;
+        if (!L || L.loading) return;
+        const extra = idCardFor(L.items) ? 1 : 0;
+        if (dir < 0) { if (L.view > 0) { L.view--; renderResults(); } return; }
+        if (L.items.length + extra > (L.view + 1) * PER_GRID) { L.view++; renderResults(); return; }
+        if (L.hasMore) { L.err = ''; searchLoad(1); }
+    }
+    function localGo(dir) {
+        st.lview[st.tab] = Math.max(0, (st.lview[st.tab] || 0) + dir);
+        renderResults();
     }
 
+    // ------------------------------------------------------------------ tarjetas y vista previa
+    function primary(item) { if (st.pick) useSkin(item); else placeInWorld(item); }
+    function select(item) {
+        st.sel = cleanItem(item);
+        const m = st.meta[st.sel.id];
+        if (m) { if (!st.sel.name) st.sel.name = m.name; if (!st.sel.author) st.sel.author = m.author; }
+        Array.prototype.forEach.call(document.querySelectorAll('#sg-results .sg-card'), function (c) { c.classList.toggle('sel', c.dataset.id === st.sel.id); });
+        renderPreview();
+    }
     function makeCard(item) {
         const d = document.createElement('div');
-        d.className = 'sg-card'; d.dataset.id = item.id;
-        // La skin se ve grande, de pie sobre un fondo como el del editor; un clic en ella hace la acción principal
+        d.className = 'sg-card' + (st.sel && st.sel.id === item.id ? ' sel' : ''); d.dataset.id = item.id;
+        // La skin de pie sobre un fondo cuadriculado; un clic la muestra en la vista previa, doble clic hace la acción principal
         const stage = document.createElement('div'); stage.className = 'sg-stage';
         const cv = document.createElement('canvas');
         cv.width = 16; cv.height = 22; cv.className = 'sg-thumb';
         stage.appendChild(cv);
-        stage.onclick = function () { if (st.pick) useSkin(item); else placeInWorld(item); };
+        const fav = document.createElement('button'); fav.type = 'button'; fav.className = 'sg-fav' + (isFav(item.id) ? ' on' : '');
+        fav.textContent = isFav(item.id) ? '★' : '☆'; fav.title = tr('sg_fav_tip', 'Favorite');
+        fav.onclick = function (e) { e.stopPropagation(); toggleFavAndRefresh(item); };
+        stage.appendChild(fav);
         d.appendChild(stage);
         const info = document.createElement('div');
         info.className = 'sg-info';
         const nm = document.createElement('div'); nm.className = 'sg-name'; nm.textContent = item.name || tr('sg_unnamed', 'Skin');
         nm.title = item.name || '';
         const au = document.createElement('div'); au.className = 'sg-author'; au.textContent = item.author ? tr('sg_by', 'by {name}').replace('{name}', item.author) : '';
-        const idl = document.createElement('div'); idl.className = 'sg-id'; idl.textContent = 'ID ' + item.id;
-        info.appendChild(nm); info.appendChild(au); info.appendChild(idl);
+        info.appendChild(nm); info.appendChild(au);
         d.appendChild(info);
-        const acts = document.createElement('div');
-        acts.className = 'sg-acts';
-        const mk = (cls, text, title, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'ex-btn ' + cls; b.textContent = text; if (title) b.title = title; b.onclick = function (e) { e.stopPropagation(); fn(b); }; acts.appendChild(b); return b; };
-        if (st.pick) mk('sg-use ex-primary', tr('sg_use', 'Use this skin'), '', function () { useSkin(item); });
-        mk('sg-place' + (st.pick ? '' : ' ex-primary'), tr('sg_place', '🌍 Place in world'), tr('sg_place_tip', 'Select the Spawn Mob tool with this skin'), function () { placeInWorld(item); });
-        const fav = mk('sg-fav', isFav(item.id) ? '★' : '☆', tr('sg_fav_tip', 'Favorite'), function (b) { toggleFav(item); b.textContent = isFav(item.id) ? '★' : '☆'; b.classList.toggle('on', isFav(item.id)); if (st.tab === 'favs') renderResults(); });
-        fav.classList.toggle('on', isFav(item.id));
-        mk('sg-copy', '#', tr('sg_copy_tip', 'Copy ID'), function (b) { copyId(item, b); });
-        d.appendChild(acts);
+        d.onclick = function () { select(item); };
+        d.ondblclick = function () { primary(item); };
         paintThumb(cv, item.id);
         return d;
     }
+    function toggleFavAndRefresh(item) {
+        toggleFav(item);
+        if (st.tab === 'favs') renderResults();
+        else Array.prototype.forEach.call(document.querySelectorAll('#sg-results .sg-card'), function (c) {
+            if (c.dataset.id !== item.id) return;
+            const b = c.querySelector('.sg-fav'); if (b) { b.textContent = isFav(item.id) ? '★' : '☆'; b.classList.toggle('on', isFav(item.id)); }
+        });
+        renderPreview();
+    }
+    // Panel de la derecha: la skin seleccionada en grande + sus datos + las acciones
+    function renderPreview() {
+        const p = $('sg-preview');
+        if (!p) return;
+        p.innerHTML = '';
+        const hd = document.createElement('div'); hd.className = 'sg-pv-head'; hd.textContent = tr('sg_pv_title', 'Preview'); p.appendChild(hd);
+        const it = st.sel;
+        const stage = document.createElement('div'); stage.className = 'sg-pv-stage';
+        if (!it) {
+            stage.classList.add('empty');
+            const e = document.createElement('div'); e.className = 'sg-pv-empty'; e.textContent = tr('sg_pv_empty', 'Click a skin to see it here.'); stage.appendChild(e);
+            p.appendChild(stage);
+            return;
+        }
+        const cv = document.createElement('canvas'); cv.width = 16; cv.height = 22; cv.className = 'sg-pv-cv'; stage.appendChild(cv);
+        p.appendChild(stage);
+        const nm = document.createElement('div'); nm.className = 'sg-pv-name'; nm.textContent = it.name || tr('sg_unnamed', 'Skin'); p.appendChild(nm);
+        const au = document.createElement('div'); au.className = 'sg-pv-author'; au.textContent = it.author ? tr('sg_by', 'by {name}').replace('{name}', it.author) : ''; p.appendChild(au);
+        const idl = document.createElement('div'); idl.className = 'sg-pv-id'; idl.textContent = 'ID ' + it.id; p.appendChild(idl);
+        const acts = document.createElement('div'); acts.className = 'sg-pv-acts';
+        const mk = function (cls, text, title, fn) { const b = document.createElement('button'); b.type = 'button'; b.className = 'ex-btn ' + cls; b.textContent = text; if (title) b.title = title; b.onclick = function () { fn(b); }; acts.appendChild(b); return b; };
+        if (st.pick) mk('sg-use ex-primary', tr('sg_use', 'Use this skin'), '', function () { useSkin(it); });
+        mk('sg-place' + (st.pick ? '' : ' ex-primary'), tr('sg_place', '🌍 Place in world'), tr('sg_place_tip', 'Select the Spawn Mob tool with this skin'), function () { placeInWorld(it); });
+        mk('sg-pv-fav' + (isFav(it.id) ? ' on' : ''), (isFav(it.id) ? '★ ' : '☆ ') + tr('sg_fav_tip', 'Favorite'), '', function () { toggleFavAndRefresh(it); });
+        mk('sg-copy', '# ' + tr('sg_copy_tip', 'Copy ID'), '', function (b) { copyId(it, b); });
+        p.appendChild(acts);
+        const tip = document.createElement('div'); tip.className = 'sg-pv-tip';
+        tip.textContent = st.pick ? tr('sg_pv_tip_use', 'Tip: double-click a skin to use it.') : tr('sg_pv_tip_place', 'Tip: double-click a skin to place it.');
+        p.appendChild(tip);
+        paintThumb(cv, it.id);
+    }
 
     function renderResults() {
-        const box = $('sg-results'), status = $('sg-status'), more = $('sg-more');
+        const box = $('sg-results'), status = $('sg-status');
         if (!box) return;
         const prevScroll = box.scrollTop;
         box.innerHTML = '';
@@ -482,31 +605,46 @@
             renderHome(box);
             box.scrollTop = prevScroll;
             status.textContent = ''; status.className = 'sg-status';
-            more.style.display = 'none';
             return;
         }
-        let list = st.tab === 'web' ? st.items : localList();
-        // escribir solo un número ofrece usar directamente ese ID (cualquier pestaña)
-        if (ID_RE.test(st.query) && !list.some((s) => s.id === st.query)) {
-            const m = st.meta[st.query] || {};
-            list = [{ id: st.query, name: m.name || '', author: m.author || '' }].concat(list);
-        }
-        list.forEach((it) => box.appendChild(makeCard(it)));
-        if (st.tab === 'web' && st.error && (st.error === NET_DETAIL || customApi())) { const pb = proxyBox(); pb.classList.add('sg-proxy-wide'); box.appendChild(pb); }
-        box.scrollTop = prevScroll;
-        let msg = '';
+        let msg = '', isErr = false;
         if (st.tab === 'web') {
-            if (st.loading) msg = tr('sg_loading', 'Loading...');
-            else if (st.error) msg = errText(st.error);
-            else if (!list.length) msg = st.query ? tr('sg_none_search', 'No skins found.') : tr('sg_none', 'Nothing to show.');
-        } else if (!list.length) {
-            msg = st.tab === 'world' ? tr('sg_empty_world', 'No mob in this world uses a skin yet.') : (st.tab === 'favs' ? tr('sg_empty_favs', 'No favorites yet: press ☆ on a skin.') : tr('sg_empty_recent', 'Skins you use will appear here.'));
+            const L = st.srch || newList();
+            const idc = idCardFor(L.items);
+            const items = (idc ? [idc] : []).concat(L.items);
+            if (items.length || L.loading) {
+                box.appendChild(buildSection({
+                    items: items, view: L.view, per: PER_GRID, cols: GRID_COLS, hasMore: L.hasMore, loading: L.loading,
+                    onPrev: function () { searchGo(-1); }, onNext: function () { searchGo(1); }
+                }));
+            }
+            if (L.err) {
+                isErr = true; msg = errText(L.err);
+                const note = document.createElement('div'); note.className = 'sg-sec-note err';
+                const rb = document.createElement('button'); rb.type = 'button'; rb.className = 'ex-btn sg-retry'; rb.textContent = tr('sg_retry', 'Retry');
+                rb.onclick = function () { L.err = ''; L.hasMore = true; st.token++; if (L.items.length) searchLoad(1); else { st.srch = newList(); searchLoad(0); } };
+                note.appendChild(rb);
+                if (L.err === NET_DETAIL || customApi()) note.appendChild(proxyBox());
+                box.appendChild(note);
+            } else if (L.loading) msg = tr('sg_loading', 'Loading...');
+            else if (!items.length) msg = tr('sg_none_search', 'No skins found.');
+        } else {
+            let list = localList();
+            const idc = idCardFor(list);
+            if (idc) list = [idc].concat(list);
+            const pages = Math.max(1, Math.ceil(list.length / PER_GRID));
+            const view = Math.min(st.lview[st.tab] || 0, pages - 1);
+            st.lview[st.tab] = view;
+            if (list.length) {
+                box.appendChild(buildSection({
+                    items: list, view: view, per: PER_GRID, cols: GRID_COLS, hasMore: false, loading: false,
+                    onPrev: function () { localGo(-1); }, onNext: function () { localGo(1); }
+                }));
+            } else msg = st.tab === 'world' ? tr('sg_empty_world', 'No mob in this world uses a skin yet.') : tr('sg_empty_favs', 'No favorites yet: press ☆ on a skin.');
         }
+        box.scrollTop = prevScroll;
         status.textContent = msg;
-        status.className = 'sg-status' + (st.error ? ' err' : '');
-        more.style.display = (st.tab === 'web' && st.hasMore && !st.loading && !st.error && st.items.length) ? '' : 'none';
-        if (st.tab === 'web' && st.error) { more.style.display = ''; more.textContent = tr('sg_retry', 'Retry'); more.onclick = function () { st.error = ''; st.hasMore = true; st.token++; loadMore(true); }; }
-        else { more.textContent = tr('sg_more', 'Load more'); more.onclick = function () { loadMore(); }; }
+        status.className = 'sg-status' + (isErr ? ' err' : '');
     }
 
     function openGallery(opts) {
@@ -515,10 +653,12 @@
         st.open = true;
         st.favs = loadList('mbw_skin_favs'); st.recent = loadList('mbw_skin_recent');
         st.tab = (opts && opts.tab) || st.tab || 'web';
+        if (TABS.indexOf(st.tab) < 0) st.tab = 'web';
         if (opts && typeof opts.query === 'string') st.query = opts.query;
         m.style.display = 'block';
         texts();
         $('sg-q').value = st.query;
+        renderPreview();
         reload();
         setTimeout(function () { try { $('sg-q').focus(); } catch (e) { /* sin foco */ } }, 30);
     }
@@ -530,8 +670,8 @@
 
     window.openSkinGallery = openGallery;
     window.closeSkinGallery = closeGallery;
-    window.mbwSkinGallery = { state: st, place: placeInWorld, worldSkins: worldSkins, reload: reload, renderStrip: renderRecentStrip };
-    window.skinGalleryOnLanguageChanged = function () { renderRecentStrip(); if (st.open) { texts(); renderResults(); } };
+    window.mbwSkinGallery = { state: st, place: placeInWorld, worldSkins: worldSkins, reload: reload, renderStrip: renderRecentStrip, select: select };
+    window.skinGalleryOnLanguageChanged = function () { renderRecentStrip(); if (st.open) { texts(); renderResults(); renderPreview(); } };
     renderRecentStrip();
     window.addEventListener('load', renderRecentStrip);   // por si las miniaturas aún no podían bajarse cuando cargó la página
 })();

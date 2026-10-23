@@ -384,8 +384,9 @@ function renderWorldToBuffer() {
             const currentX = Math.floor(x + camera.x);
             const currentY = Math.floor(y + camera.y);
             
-            const blockObject = getBlockCache(currentX, currentY);
+            let blockObject = getBlockCache(currentX, currentY);
             if (blockObject != null) {
+                if (blockObject.rb) blockObject = window.rainbowAnim.tileAt(blockObject, currentX, currentY);   // lana arcoíris: su color de este momento
                 const values = {
                     x: Math.floor(x * tileSize),
                     y: Math.floor(canvas.height - y * tileSize),
@@ -530,8 +531,9 @@ function renderSmoothBuffers() {
     // un cuadro más a la derecha y arriba (grid.width / grid.height incluidos) para cubrir el hueco al deslizar
     for (let x = 0; x <= grid.width; x++) {
         for (let y = 0; y <= grid.height; y++) {
-            const blockObject = getBlockCache(cx + x, cy + y);
+            let blockObject = getBlockCache(cx + x, cy + y);
             if (blockObject != null) {
+                if (blockObject.rb) blockObject = window.rainbowAnim.tileAt(blockObject, cx + x, cy + y);   // lana arcoíris: su color de este momento
                 drawBlock(blockObject, { x: Math.floor(x * ts), y: Math.floor(bh - y * ts), width: tw, height: -tw }, blocksCtx);
             }
         }

@@ -89,9 +89,14 @@
         const A = window.rainbowAnim;
         if (!A) return;
         const now = performance.now();
-        if (A.started && now - rbLastCheck < A.period) return;
+        const q = Math.floor(now / A.period * A.sub);
+        if (A.started && q === A.q) return;
+        // con muchísimos cuadros en pantalla (zoom muy alejado) repintar tantas veces por segundo pesaría: se espacia
+        const cells = (typeof grid !== 'undefined' && grid.width && grid.height) ? grid.width * grid.height : 0;
+        const gap = cells > 20000 ? 400 : (cells > 6000 ? 200 : 0);
+        if (A.started && now - rbLastCheck < gap) return;
         rbLastCheck = now;
-        A.setFrame(A.started ? A.frame + 1 : 0);
+        A.setClock(q);
         if (rainbowVisible()) worldDirty = true;
     }
     window.mbwRainbowTick = rainbowTick;

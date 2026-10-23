@@ -2405,8 +2405,10 @@ body.is-spectating #player-hotbar-container {
 .pinv-dur-btns button { flex: 1 1 auto; cursor: pointer; padding: 4px 6px; font-size: 12px; }
 
 /* ---- 🖼️ Galería de spawnskins (scripts/skin-gallery.js) ---- */
-.sg-window { width: 980px; max-width: 96vw; height: auto; max-height: 94vh; margin: 3vh auto; color: #000; }
-.sg-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.sg-window { width: 1140px; max-width: 96vw; height: auto; max-height: 94vh; margin: 3vh auto; color: #000; }
+/* Ventana en dos partes: a la izquierda pestañas + buscador + resultados; a la derecha, PEGADA al borde, la vista previa de la skin elegida */
+.sg-layout { display: flex; align-items: stretch; flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.sg-main { flex: 1 1 auto; min-width: 0; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-height: 0; }
 .sg-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
 .sg-tab { padding: 7px 16px; font-size: 13px; font-weight: bold; cursor: pointer; color: #000; background: #A0A0A0; border: 2px solid #fff; border-right-color: #555; border-bottom-color: #555; }
 .sg-tab:hover { background: #b8b8b8; }
@@ -2417,30 +2419,65 @@ body.is-spectating #player-hotbar-container {
 .sg-search select { padding: 4px 6px; font-size: 13px; }
 .sg-status { min-height: 16px; font-size: 12px; color: #222; }
 .sg-status.err { color: #8a1c1c; font-weight: bold; }
-.sg-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; max-height: 64vh; overflow-y: auto; background: #8B8B8B; border: 2px solid #373737; border-right-color: #fff; border-bottom-color: #fff; padding: 10px; min-height: 140px; align-content: start; }
-/* Tarjeta vertical: la skin grande de pie sobre un fondo como el del editor, luego nombre / autor / ID y los botones */
-.sg-card { position: relative; display: flex; flex-direction: column; align-items: stretch; gap: 6px; background: #b5b5b5; border: 2px solid #555; border-right-color: #fff; border-bottom-color: #fff; padding: 8px; transition: transform 0.12s, box-shadow 0.12s, background 0.12s; }
-.sg-card:hover { background: #c6c6c6; transform: translateY(-2px); box-shadow: 0 3px 0 rgba(0,0,0,0.28); }
-.sg-stage { height: 142px; display: flex; align-items: flex-end; justify-content: center; cursor: pointer;
-    background: linear-gradient(to bottom, #a9bdee 0, #7385B9 calc(100% - 16px), #5a8f3e calc(100% - 16px), #46722f 100%);
-    border: 2px solid #373737; border-right-color: #fff; border-bottom-color: #fff; }
-.sg-thumb { width: 80px; height: 110px; margin-bottom: 11px; image-rendering: pixelated; background: none; flex: none; }
-.sg-info { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; text-align: center; }
-.sg-name { font-weight: bold; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sg-results { display: flex; flex-direction: column; gap: 8px; max-height: calc(94vh - 175px); overflow-y: auto; background: #8B8B8B; border: 2px solid #373737; border-right-color: #fff; border-bottom-color: #fff; padding: 10px; min-height: 160px; }
+.sg-sec { display: flex; flex-direction: column; gap: 4px; flex: none; }
+/* Fila con una flecha a cada lado: las flechas CAMBIAN la página (no se agregan skins hacia abajo) */
+.sg-pager { display: flex; align-items: stretch; gap: 6px; }
+.sg-pager.busy .sg-grid { opacity: 0.55; }
+.sg-arrow { flex: 0 0 38px; padding: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; background: #A0A0A0; border: 2px solid #fff; border-right-color: #555; border-bottom-color: #555; }
+.sg-arrow:hover:not(:disabled) { background: #c2c2c2; }
+.sg-arrow:active:not(:disabled) { border-color: #555; border-right-color: #fff; border-bottom-color: #fff; }
+.sg-arrow:disabled { opacity: 0.35; cursor: default; }
+.sg-arrow::before { content: ''; display: block; width: 0; height: 0; border-top: 12px solid transparent; border-bottom: 12px solid transparent; }
+.sg-prev::before { border-right: 15px solid #1d1d1d; }
+.sg-next::before { border-left: 15px solid #1d1d1d; }
+/* Tarjetas PEGADAS (sin espacio entre ellas) */
+.sg-grid { flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)); gap: 0; align-content: start; background: #9c9c9c; border-top: 1px solid #555; border-left: 1px solid #555; }
+.sg-grid-empty { grid-column: 1 / -1; padding: 46px 10px; text-align: center; font-size: 13px; color: #222; border-right: 1px solid #555; border-bottom: 1px solid #555; background: #b5b5b5; }
+.sg-card { position: relative; display: flex; flex-direction: column; gap: 5px; min-width: 0; padding: 6px; cursor: pointer; background: #b5b5b5; border-right: 1px solid #555; border-bottom: 1px solid #555; }
+.sg-card:hover { background: #cdcdcd; }
+.sg-card.sel { background: #dcebc9; box-shadow: inset 0 0 0 3px #FFD700; }
+.sg-stage { position: relative; height: 108px; display: flex; align-items: flex-end; justify-content: center;
+    background: repeating-conic-gradient(#ececec 0 25%, #d2d2d2 0 50%) 0 0 / 16px 16px; border: 1px solid #777; }
+.sg-thumb { width: 60px; height: 82px; margin-bottom: 8px; image-rendering: pixelated; background: none; flex: none; }
+.sg-info { min-width: 0; display: flex; flex-direction: column; gap: 1px; text-align: center; }
+.sg-name { font-weight: bold; font-size: 14px; color: #6b2a0c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sg-author { font-size: 12px; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 15px; }
-.sg-id { font-size: 10px; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sg-acts { display: grid; grid-template-columns: 1fr; gap: 4px; }
-.sg-acts .ex-btn { padding: 5px 6px; font-size: 12px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* Favorita (★) y copiar ID (#) van como botoncitos sobre la esquina de la imagen, así el botón principal ocupa todo el ancho */
-.sg-acts .sg-fav, .sg-acts .sg-copy { position: absolute; top: 12px; width: 26px; height: 26px; padding: 0; line-height: 1; font-size: 14px; text-align: center; background: rgba(255,255,255,0.78); }
-.sg-acts .sg-fav { right: 12px; }
-.sg-acts .sg-copy { left: 12px; }
-.sg-acts .sg-fav:hover, .sg-acts .sg-copy:hover { background: #fff; }
-.sg-acts .sg-fav.on { color: #b8860b; }
+.sg-fav { position: absolute; top: 3px; right: 3px; width: 24px; height: 24px; padding: 0; line-height: 1; font-size: 14px; text-align: center; cursor: pointer; color: #333; background: rgba(255,255,255,0.8); border: 1px solid #666; }
+.sg-fav:hover { background: #fff; }
+.sg-fav.on { color: #b8860b; }
+.sg-pagenum { text-align: center; font-size: 13px; font-weight: bold; color: #111; }
+/* Vista previa de la derecha */
+.sg-preview { flex: 0 0 290px; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #b5b5b5; border-left: 2px solid #555; min-height: 0; overflow-y: auto; }
+.sg-pv-head { font-weight: bold; font-size: 14px; text-align: center; padding: 4px; background: #6aa84f; border: 2px solid #fff; border-right-color: #555; border-bottom-color: #555; }
+.sg-pv-stage { height: 262px; display: flex; align-items: flex-end; justify-content: center; border: 2px solid #373737; border-right-color: #fff; border-bottom-color: #fff;
+    background: repeating-conic-gradient(#ececec 0 25%, #d2d2d2 0 50%) 0 0 / 20px 20px; }
+.sg-pv-stage.empty { align-items: center; }
+.sg-pv-empty { padding: 0 18px; text-align: center; font-size: 13px; color: #333; }
+.sg-pv-cv { width: 160px; height: 220px; margin-bottom: 14px; image-rendering: pixelated; }
+.sg-pv-name { font-weight: bold; font-size: 17px; text-align: center; color: #6b2a0c; word-break: break-word; }
+.sg-pv-author { font-size: 13px; text-align: center; color: #222; min-height: 16px; }
+.sg-pv-id { font-size: 11px; text-align: center; color: #444; }
+.sg-pv-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.sg-pv-acts .ex-btn { padding: 6px 4px; font-size: 12px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sg-pv-acts .ex-primary { grid-column: 1 / -1; }
+.sg-pv-acts .sg-pv-fav.on { color: #8a5d00; }
+.sg-pv-tip { font-size: 11px; text-align: center; color: #444; }
+.sg-sec-h { font-weight: bold; font-size: 14px; color: #000; padding: 3px 8px; background: #6aa84f; border: 2px solid #fff; border-right-color: #555; border-bottom-color: #555; }
+.sg-sec-note { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; color: #222; text-align: center; padding: 2px 0 4px; }
+.sg-sec-note.err { color: #8a1c1c; font-weight: bold; }
+@media (max-width: 900px) {
+    .sg-layout { flex-direction: column; }
+    .sg-preview { flex: none; border-left: 0; border-top: 2px solid #555; }
+    .sg-pv-stage { height: 190px; }
+    .sg-pv-cv { width: 100px; height: 138px; }
+    .sg-results { max-height: 52vh; }
+    .sg-arrow { flex-basis: 28px; }
+}
 .sg-status:empty { display: none; }
 /* Cuadro para pegar la dirección del "puente" (solo cuando no se puede leer la lista de Mine Blocks) */
 .sg-proxy { display: flex; flex-direction: column; gap: 4px; width: 100%; max-width: 560px; margin: 6px auto 0; padding: 8px; background: rgba(0,0,0,0.12); border: 1px solid #555; text-align: left; font-size: 12px; font-weight: normal; color: #111; }
-.sg-proxy-wide { grid-column: 1 / -1; }
+.sg-proxy-wide { align-self: center; }
 .sg-proxy-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .sg-proxy-in { flex: 1 1 220px; min-width: 0; box-sizing: border-box; padding: 5px 7px; font-size: 13px; border: 2px solid #373737; border-right-color: #fff; border-bottom-color: #fff; background: #8B8B8B; color: #000; }
 .sg-proxy-msg { min-height: 0; color: #8a1c1c; font-weight: bold; }
@@ -2450,7 +2487,6 @@ body.is-spectating #player-hotbar-container {
     background: linear-gradient(to bottom, #a9bdee 0, #7385B9 calc(100% - 5px), #5a8f3e calc(100% - 5px)); border: 1px solid #555; border-radius: 2px; }
 .sg-rs-item:hover { border-color: #FFD700; }
 .sg-rs-item canvas { width: 24px; height: 33px; image-rendering: pixelated; }
-.sg-more { display: flex; justify-content: center; }
 .sg-open-btn { margin-top: 6px; }
 #sg-toast, #pf-toast { position: fixed; left: 50%; bottom: 70px; transform: translateX(-50%); z-index: 6500; background: rgba(0,0,0,0.85); color: #fff; padding: 8px 14px; font-size: 14px; border: 2px solid #6aa84f; opacity: 0; pointer-events: none; transition: opacity 0.25s; max-width: 90vw; text-align: center; }
 #sg-toast.on, #pf-toast.on { opacity: 1; }
@@ -2478,10 +2514,6 @@ body.ex-picking canvas, body.pf-picking canvas { cursor: crosshair !important; }
 #ex-pick-banner, #pf-banner { display: none; position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 3500; padding: 8px 16px;
     background: rgba(20,20,20,0.88); color: #FFD700; border: 2px solid #FFD700; border-radius: 4px; font: bold 13px Arial, sans-serif; pointer-events: none; text-align: center; max-width: 90vw; }
 
-.sg-sec-h { grid-column: 1 / -1; font-weight: bold; font-size: 14px; color: #000; padding: 5px 8px; margin-top: 6px; background: #6aa84f; border: 2px solid #fff; border-right-color: #555; border-bottom-color: #555; }
-.sg-sec-h:first-child { margin-top: 0; }
-.sg-sec-note { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; color: #222; text-align: center; padding: 2px 0 4px; }
-.sg-sec-note.err { color: #8a1c1c; font-weight: bold; }
 
 /* --- Editor de letreros con el aspecto del juego: título, tablón de madera con 3 renglones, botón Close --- */
 #ex-sign-modal.ex-sign-overlay { background: rgba(0,0,0,0.38); }
