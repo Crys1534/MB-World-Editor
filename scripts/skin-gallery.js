@@ -20,8 +20,9 @@
 //   Si el servidor no deja leer la respuesta (CORS) o no hay internet, la pestaña 🌐 dice que no se pudo conectar; las demás siguen.
 //   COMPROBADO por el usuario (consola del navegador): mineblocks.com NO manda el permiso CORS (Access-Control-Allow-Origin), así que
 //   desde otra página (github.io) el navegador no deja leer la lista. Las IMÁGENES de las skins sí cargan (se dibujan con <img>).
-//   Solución sin tocar su servidor: un "puente" propio gratis (ver docs del Project: proxy-skins-cloudflare.md). Su dirección se
-//   guarda en este navegador (mbw_skin_api) y la ventana tiene un cuadro para pegarla; window.SKIN_LIST_URL también la reemplaza.
+//   Solución sin tocar su servidor: un "puente" propio gratis (ver docs del Project: proxy-skins-cloudflare.md). Ya viene puesto de
+//   fábrica (DEFAULT_API = Cloudflare Worker del dueño del editor). Quien quiera otro lo pega en el cuadro de la ventana (se guarda
+//   en su navegador: mbw_skin_api); window.SKIN_LIST_URL también lo reemplaza. Pegar la dirección de Mine Blocks vuelve a "directo".
 //
 // Se guarda solo en este navegador (localStorage): mbw_skin_favs, mbw_skin_recent. Nunca se escribe en el .mbw.
 // Todo el texto que llega del servidor se muestra como TEXTO (nunca como HTML) y solo se aceptan IDs numéricos.
@@ -52,14 +53,18 @@
     const isFav = (id) => st.favs.some((f) => f.id === id);
 
     // ------------------------------------------------------------------ servidor
-    const DEFAULT_API = 'https://mineblocks.com/1/scripts/returnSkins.php';
+    // Dirección real de Mine Blocks: desde otra página el navegador NO deja leer su respuesta (falta el permiso CORS).
+    const DIRECT_API = 'https://mineblocks.com/1/scripts/returnSkins.php';
+    // "Puente" propio de fábrica (Cloudflare Worker del dueño del editor): hace la misma consulta y devuelve la respuesta con el permiso CORS.
+    // Se puede cambiar por usuario (cuadro de la ventana → localStorage mbw_skin_api) o por página (window.SKIN_LIST_URL).
+    const DEFAULT_API = 'https://mbwe-skins.crystalsnow1534.workers.dev/';
     const NET_DETAIL = 'no connection or blocked by the browser';
     function customApi() { return window.SKIN_LIST_URL || lsGet('mbw_skin_api', ''); }
     function apiUrl() { return customApi() || DEFAULT_API; }
     function validApi(u) { return /^https:\/\/[^\s"'<>]{4,300}$/i.test(u); }
-    // Un fallo "de red" con internet encendido y sin puente casi siempre es el bloqueo CORS de mineblocks.com
+    // Un fallo "de red" con internet encendido cuando se consulta Mine Blocks directo casi siempre es su bloqueo CORS
     function errText(detail) {
-        if (detail === NET_DETAIL && navigator.onLine !== false && !customApi()) return tr('sg_error_cors', 'mineblocks.com does not let other websites read its skin list, so the list and the search cannot load here. You can still type a skin ID number above, or use the other tabs.');
+        if (detail === NET_DETAIL && navigator.onLine !== false && apiUrl() === DIRECT_API) return tr('sg_error_cors', 'mineblocks.com does not let other websites read its skin list, so the list and the search cannot load here. You can still type a skin ID number above, or use the other tabs.');
         return tr('sg_error', 'Could not connect to mineblocks.com (no internet, or the server does not allow it). The other tabs still work.') + ' [' + detail + ']';
     }
     // Cuadro para pegar la dirección del "puente" propio (solo sale cuando falla la conexión)
@@ -80,7 +85,7 @@
         inp.addEventListener('keydown', function (e) { e.stopPropagation(); if (e.key === 'Enter') save.onclick(); });
         row.appendChild(inp); row.appendChild(save);
         if (lsGet('mbw_skin_api', '')) {
-            const rs = document.createElement('button'); rs.type = 'button'; rs.className = 'ex-btn sg-proxy-reset'; rs.textContent = tr('sg_proxy_reset', 'Use Mine Blocks directly');
+            const rs = document.createElement('button'); rs.type = 'button'; rs.className = 'ex-btn sg-proxy-reset'; rs.textContent = tr('sg_proxy_reset', 'Use the default address');
             rs.onclick = function () { apply(''); };
             row.appendChild(rs);
         }
