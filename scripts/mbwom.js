@@ -145,10 +145,18 @@ loadScene: function (index) {
 			}
 		}
 	},
+	// Logros del mundo. Algunos mundos no traen la lista "achieve" (por ejemplo los creados desde cero): antes eso hacía
+	// fallar el guardado y el autoguardado con "this.world.achieve is undefined". Ahora, sin lista, un logro apagado no
+	// hace nada (el mundo se guarda igual que antes) y la lista solo se crea cuando de verdad se enciende un logro.
 	setAchievement: function (boolean, index) {
+		if (!this.world) return;
+		if (!Array.isArray(this.world.achieve) && (this.world.achieve == null || typeof this.world.achieve !== 'object')) {
+			if (!boolean) return;
+			this.world.achieve = [];
+		}
 		this.world.achieve[index] = boolean ? 1 : null;
 	},
 	getAchievement: function (index) {
-		return this.world.achieve[index] === 1;
+		return !!this.world && !!this.world.achieve && this.world.achieve[index] === 1;
 	}
 }

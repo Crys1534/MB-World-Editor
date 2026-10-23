@@ -18,6 +18,10 @@
 //   → lista JSON [{ id, name, author }, ...]  ("0" o vacío = no hay más). A veces trae avisos de PHP antes del JSON: se limpian.
 //   Las imágenes siguen siendo https://mineblocks.com/1/skins/images/{id}.png (las pide getSpawnskinImage de main.js).
 //   Si el servidor no deja leer la respuesta (CORS) o no hay internet, la pestaña 🌐 dice que no se pudo conectar; las demás siguen.
+//   COMPROBADO por el usuario (consola del navegador): mineblocks.com NO manda el permiso CORS (Access-Control-Allow-Origin), así que
+//   desde otra página (github.io) el navegador no deja leer la lista. Las IMÁGENES de las skins sí cargan (se dibujan con <img>).
+//   Solución sin tocar su servidor: un "puente" propio gratis (ver docs del Project: proxy-skins-cloudflare.md). Su dirección se
+//   guarda en este navegador (mbw_skin_api) y la ventana tiene un cuadro para pegarla; window.SKIN_LIST_URL también la reemplaza.
 //
 // Se guarda solo en este navegador (localStorage): mbw_skin_favs, mbw_skin_recent. Nunca se escribe en el .mbw.
 // Todo el texto que llega del servidor se muestra como TEXTO (nunca como HTML) y solo se aceptan IDs numéricos.
@@ -48,7 +52,41 @@
     const isFav = (id) => st.favs.some((f) => f.id === id);
 
     // ------------------------------------------------------------------ servidor
-    function apiUrl() { return window.SKIN_LIST_URL || 'https://mineblocks.com/1/scripts/returnSkins.php'; }
+    const DEFAULT_API = 'https://mineblocks.com/1/scripts/returnSkins.php';
+    const NET_DETAIL = 'no connection or blocked by the browser';
+    function customApi() { return window.SKIN_LIST_URL || lsGet('mbw_skin_api', ''); }
+    function apiUrl() { return customApi() || DEFAULT_API; }
+    function validApi(u) { return /^https:\/\/[^\s"'<>]{4,300}$/i.test(u); }
+    // Un fallo "de red" con internet encendido y sin puente casi siempre es el bloqueo CORS de mineblocks.com
+    function errText(detail) {
+        if (detail === NET_DETAIL && navigator.onLine !== false && !customApi()) return tr('sg_error_cors', 'mineblocks.com does not let other websites read its skin list, so the list and the search cannot load here. You can still type a skin ID number above, or use the other tabs.');
+        return tr('sg_error', 'Could not connect to mineblocks.com (no internet, or the server does not allow it). The other tabs still work.') + ' [' + detail + ']';
+    }
+    // Cuadro para pegar la dirección del "puente" propio (solo sale cuando falla la conexión)
+    function proxyBox() {
+        const d = document.createElement('div'); d.className = 'sg-proxy';
+        const lab = document.createElement('div'); lab.className = 'sg-proxy-l'; lab.textContent = tr('sg_proxy_label', 'Have a bridge address? Paste it here:');
+        const row = document.createElement('div'); row.className = 'sg-proxy-row';
+        const inp = document.createElement('input'); inp.type = 'text'; inp.className = 'sg-proxy-in'; inp.placeholder = 'https://....workers.dev'; inp.spellcheck = false; inp.maxLength = 300; inp.autocomplete = 'off';
+        inp.value = lsGet('mbw_skin_api', '');
+        const msg = document.createElement('div'); msg.className = 'sg-proxy-msg';
+        const save = document.createElement('button'); save.type = 'button'; save.className = 'ex-btn ex-primary sg-proxy-save'; save.textContent = tr('sg_proxy_save', 'Save');
+        const apply = function (v) { lsSet('mbw_skin_api', v); st.homeCache = null; st.token++; reload(); };
+        save.onclick = function () {
+            const v = inp.value.trim();
+            if (v && !validApi(v)) { msg.textContent = tr('sg_proxy_bad', 'That address does not look right (it must start with https://).'); return; }
+            apply(v);
+        };
+        inp.addEventListener('keydown', function (e) { e.stopPropagation(); if (e.key === 'Enter') save.onclick(); });
+        row.appendChild(inp); row.appendChild(save);
+        if (lsGet('mbw_skin_api', '')) {
+            const rs = document.createElement('button'); rs.type = 'button'; rs.className = 'ex-btn sg-proxy-reset'; rs.textContent = tr('sg_proxy_reset', 'Use Mine Blocks directly');
+            rs.onclick = function () { apply(''); };
+            row.appendChild(rs);
+        }
+        d.appendChild(lab); d.appendChild(row); d.appendChild(msg);
+        return d;
+    }
     // Respuesta del servidor -> lista de skins. Quita etiquetas y avisos de PHP; "0" = sin resultados.
     function parseSkinList(text) {
         let t = String(text == null ? '' : text);
@@ -80,7 +118,7 @@
         if (key) fd.append('key', key);
         let res;
         try { res = await fetch(apiUrl(), { method: 'POST', body: fd }); }
-        catch (e) { throw fail('net', 'no connection or blocked by the browser'); }
+        catch (e) { throw fail('net', NET_DETAIL); }
         if (!res || !res.ok) throw fail('http', 'HTTP ' + (res ? res.status : '?'));
         const txt = await res.text();
         try { return parseSkinList(txt); }
@@ -139,6 +177,7 @@
         const mine = st.token;
         await homeLoad('new', HOME_PAGES);
         if (mine !== st.token || !st.open || homeMode() === false) return;
+        if (st.home.new.err && !st.home.new.items.length) return;           // sin conexión: no se insiste con Destacadas / Mejores
         homeLoad('featured', HOME_PAGES);
         homeLoad('best', HOME_PAGES);
     }
@@ -150,6 +189,7 @@
             if (h.off) return;
             if (def[0] !== 'new' && h.loaded && !h.items.length && !h.err) return;       // el servidor no tiene esa sección
             if (def[0] !== 'new' && h.err && !h.items.length) return;                   // no hubo manera de pedirla: no estorba
+            if (def[0] !== 'new' && !h.loaded && !h.loading && !h.items.length) return;  // todavía no se pide (o no se va a pedir): no sale vacía
             shown++;
             const hd = document.createElement('div'); hd.className = 'sg-sec-h'; hd.textContent = tr(def[1], def[2]); box.appendChild(hd);
             h.items.forEach((it) => box.appendChild(makeCard(it)));
@@ -157,10 +197,11 @@
             if (h.loading) note.textContent = tr('sg_loading', 'Loading...');
             else if (h.err && def[0] === 'new') {
                 note.className += ' err';
-                note.textContent = tr('sg_error', 'Could not connect to mineblocks.com (no internet, or the server does not allow it). The other tabs still work.') + ' [' + h.err + ']';
+                note.textContent = errText(h.err);
                 const rb = document.createElement('button'); rb.type = 'button'; rb.className = 'ex-btn'; rb.textContent = tr('sg_retry', 'Retry');
                 rb.onclick = function () { st.token++; homeStart(); };
                 note.appendChild(document.createElement('br')); note.appendChild(rb);
+                if (h.err === NET_DETAIL || customApi()) note.appendChild(proxyBox());
             } else if (h.hasMore && h.items.length) {
                 const mb = document.createElement('button'); mb.type = 'button'; mb.className = 'ex-btn'; mb.textContent = tr('sg_more', 'Load more');
                 mb.onclick = function () { homeLoad(def[0], 1); };
@@ -446,11 +487,12 @@
             list = [{ id: st.query, name: m.name || '', author: m.author || '' }].concat(list);
         }
         list.forEach((it) => box.appendChild(makeCard(it)));
+        if (st.tab === 'web' && st.error && (st.error === NET_DETAIL || customApi())) { const pb = proxyBox(); pb.classList.add('sg-proxy-wide'); box.appendChild(pb); }
         box.scrollTop = prevScroll;
         let msg = '';
         if (st.tab === 'web') {
             if (st.loading) msg = tr('sg_loading', 'Loading...');
-            else if (st.error) msg = tr('sg_error', 'Could not connect to mineblocks.com (no internet, or the server does not allow it). The other tabs still work.') + ' [' + st.error + ']';
+            else if (st.error) msg = errText(st.error);
             else if (!list.length) msg = st.query ? tr('sg_none_search', 'No skins found.') : tr('sg_none', 'Nothing to show.');
         } else if (!list.length) {
             msg = st.tab === 'world' ? tr('sg_empty_world', 'No mob in this world uses a skin yet.') : (st.tab === 'favs' ? tr('sg_empty_favs', 'No favorites yet: press ☆ on a skin.') : tr('sg_empty_recent', 'Skins you use will appear here.'));
