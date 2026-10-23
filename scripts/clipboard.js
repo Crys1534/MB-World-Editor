@@ -89,10 +89,210 @@ function activatePasteMode() {
     selectTool('paste');
 }
 
+// ------------------------------------------
+// Pegar solo sobre un tipo de bloque
+// ------------------------------------------
+// El filtro mira lo que YA hay en el mapa, casilla por casilla: solo se cambian las casillas del destino que coinciden.
+//   null ........................... pega sobre todo (como siempre)
+//   { mode: 'air' } ................ solo en espacio vacío (no pisa nada)
+//   { mode: 'block', type, variant, anyVariant }
+//                                    solo sobre ese bloque. En bloques que giran (escaleras, antorchas, losas...) vale cualquier
+//                                    orientación; en los demás (lana de colores, por ejemplo) tiene que ser la misma variante.
+// Shift sigue igual que antes: también pega el aire de la copia, pero solo donde el filtro lo deja.
+window.pasteFilter = null;
+
+function pfIsAir(s) { return !s || s.type == null || s.type === 'air' || s.type === '0' || s.type === 0; }
+
+function pasteFilterFromState(state) {
+    if (pfIsAir(state)) return { mode: 'air' };
+    return { mode: 'block', type: state.type, variant: blockVariantKey(state), anyVariant: !!variantFamilyFor(state.type), states: structuredClone(state) };
+}
+
+function pasteFilterMatches(f, oldState) {
+    if (!f) return true;
+    if (f.mode === 'air') return pfIsAir(oldState);
+    if (pfIsAir(oldState)) return false;
+    if (oldState.type !== f.type) return false;
+    return f.anyVariant || blockVariantKey(oldState) === f.variant;
+}
+window.pasteFilterMatches = pasteFilterMatches;
+window.pasteFilterFromState = pasteFilterFromState;
+
+let pfToastTimer = null;
+function pfToast(msg) {
+    let el = document.getElementById('pf-toast');
+    if (!el) { el = document.createElement('div'); el.id = 'pf-toast'; document.body.appendChild(el); }
+    el.textContent = msg;
+    el.classList.add('on');
+    clearTimeout(pfToastTimer);
+    pfToastTimer = setTimeout(function () { el.classList.remove('on'); }, 2600);
+}
+
+// Dibuja un bloque en un lienzo de 16x16 (el icono del botón y del menú)
+function pfPaintIcon(cv, state) {
+    if (!cv) return;
+    const c = cv.getContext('2d');
+    c.clearRect(0, 0, 16, 16);
+    if (!state) return;
+    try {
+        const tex = getBlockObject(state);
+        if (tex) drawBlock(tex, { x: 0, y: 0, width: 16, height: 16 }, c);
+    } catch (e) { /* si el dibujo no existe, el icono queda vacío */ }
+}
+
+function pfFilterName(f) {
+    if (!f) return tmsg('pf_any', 'Any block');
+    if (f.mode === 'air') return tmsg('pf_air_short', 'Empty');
+    return String(f.type);
+}
+
+// Pinta el botón del ribbon según el filtro actual
+function paintPasteFilterButton() {
+    const f = window.pasteFilter;
+    const btn = document.getElementById('btn-paste-filter');
+    if (!btn) return;
+    const cv = document.getElementById('pf-icon');
+    const lab = document.getElementById('pf-label');
+    btn.classList.toggle('pf-on', !!f);
+    if (cv) {
+        cv.getContext('2d').clearRect(0, 0, 16, 16);
+        if (f && f.mode === 'block') pfPaintIcon(cv, f.states);
+        cv.classList.toggle('pf-air', !!f && f.mode === 'air');
+        cv.classList.toggle('pf-all', !f);
+    }
+    if (lab) lab.textContent = f ? pfFilterName(f) : tmsg('pf_any_short', 'Any');
+    btn.title = f
+        ? tmsg('pf_tip_on', 'Paste only over: {name}. Click to change.', { name: f.mode === 'air' ? tmsg('pf_air', 'Empty space only') : String(f.type) })
+        : tmsg('pf_tip', 'Paste only over one kind of block (for example only over stone). Now: any block.');
+    if (typeof worldDirty !== 'undefined') worldDirty = true;
+}
+
+function setPasteFilter(f) {
+    window.pasteFilter = f || null;
+    paintPasteFilterButton();
+    closePasteFilterMenu();
+}
+window.setPasteFilter = setPasteFilter;
+
+// ---- Menú del botón ----
+let pfMenu = null;
+function closePasteFilterMenu() { if (pfMenu) pfMenu.style.display = 'none'; }
+function pfMenuItem(label, iconState, kind, onClick, disabled) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'pf-item' + (disabled ? ' pf-disabled' : '');
+    b.setAttribute('data-pf', kind);
+    if (kind === 'pick') {
+        const em = document.createElement('span'); em.className = 'pf-emoji'; em.textContent = '🎯';
+        b.appendChild(em);
+    } else {
+        const cv = document.createElement('canvas'); cv.width = 16; cv.height = 16; cv.className = 'pf-mini' + (kind === 'air' ? ' pf-air' : '') + (kind === 'any' ? ' pf-all' : '');
+        if (iconState) pfPaintIcon(cv, iconState);
+        b.appendChild(cv);
+    }
+    const sp = document.createElement('span'); sp.textContent = label;
+    b.appendChild(sp);
+    if (disabled) b.disabled = true;
+    else b.addEventListener('click', function (e) { e.stopPropagation(); onClick(); });
+    return b;
+}
+function buildPasteFilterMenu() {
+    if (!pfMenu) {
+        pfMenu = document.createElement('div');
+        pfMenu.id = 'pf-menu';
+        document.body.appendChild(pfMenu);
+        // Un clic fuera del menú lo cierra
+        document.addEventListener('mousedown', function (e) {
+            if (pfMenu.style.display === 'none') return;
+            if (pfMenu.contains(e.target) || (e.target.closest && e.target.closest('#btn-paste-filter'))) return;
+            closePasteFilterMenu();
+        }, true);
+    }
+    pfMenu.textContent = '';
+    const title = document.createElement('div'); title.className = 'pf-title'; title.textContent = tmsg('pf_title', 'Paste only over…');
+    pfMenu.appendChild(title);
+    pfMenu.appendChild(pfMenuItem(tmsg('pf_any', 'Any block'), null, 'any', function () { setPasteFilter(null); }));
+    let hand = null;
+    try { hand = (typeof hotbar !== 'undefined' && hotbar.slots) ? hotbar.slots[slotIndex] : null; } catch (e) { hand = null; }
+    const hasHand = !!hand && !pfIsAir(hand);
+    pfMenu.appendChild(pfMenuItem(hasHand ? tmsg('pf_hand', 'The block in my hand: {name}', { name: String(hand.type) }) : tmsg('pf_hand_none', 'The block in my hand (empty hand)'), hasHand ? hand : null, 'hand', function () { setPasteFilter(pasteFilterFromState(hand)); }, !hasHand));
+    pfMenu.appendChild(pfMenuItem(tmsg('pf_pick', 'Pick a block from the map…'), null, 'pick', function () { closePasteFilterMenu(); startPasteFilterPick(); }));
+    pfMenu.appendChild(pfMenuItem(tmsg('pf_air', 'Empty space only'), null, 'air', function () { setPasteFilter({ mode: 'air' }); }));
+    const note = document.createElement('div'); note.className = 'pf-note'; note.textContent = tmsg('pf_note', 'The rest of the blocks around stay untouched.');
+    pfMenu.appendChild(note);
+}
+function togglePasteFilterMenu(ev) {
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    const btn = document.getElementById('btn-paste-filter');
+    if (!btn) return;
+    if (pfMenu && pfMenu.style.display === 'block') { closePasteFilterMenu(); return; }
+    buildPasteFilterMenu();
+    const r = btn.getBoundingClientRect();
+    pfMenu.style.display = 'block';
+    pfMenu.style.left = Math.max(4, Math.min(r.left, window.innerWidth - pfMenu.offsetWidth - 4)) + 'px';
+    pfMenu.style.top = (r.bottom + 2) + 'px';
+}
+window.togglePasteFilterMenu = togglePasteFilterMenu;
+
+// ---- "Pick a block from the map": el siguiente clic en el mapa elige el bloque (Esc o clic derecho cancelan) ----
+const pfPick = { on: false };
+function pfPickBanner(show) {
+    let el = document.getElementById('pf-banner');
+    if (!show) { if (el) el.style.display = 'none'; return; }
+    if (!el) { el = document.createElement('div'); el.id = 'pf-banner'; document.body.appendChild(el); }
+    el.textContent = tmsg('pf_pick_hint', 'Click a block on the map: the paste will only replace blocks like it. Esc or right-click cancels.');
+    el.style.display = 'block';
+}
+function startPasteFilterPick() {
+    pfPick.on = true;
+    document.body.classList.add('pf-picking');
+    pfPickBanner(true);
+}
+function endPasteFilterPick() {
+    if (!pfPick.on) return;
+    pfPick.on = false;
+    document.body.classList.remove('pf-picking');
+    pfPickBanner(false);
+}
+function pfPickHandler(e) {
+    if (!pfPick.on) return;
+    if (e.type === 'keydown') {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); endPasteFilterPick(); }
+        return;
+    }
+    if (e.target !== canvas) return;
+    if (e.type === 'mousemove') return;
+    e.preventDefault(); e.stopImmediatePropagation();   // el gesto no llega a la herramienta activa
+    if (e.type === 'contextmenu') { endPasteFilterPick(); return; }
+    if (e.button !== undefined && e.button === 2) return;
+    if (e.type === 'mousedown' || e.type === 'pointerdown' || e.type === 'touchstart') {
+        const src = e.touches && e.touches[0] ? e.touches[0] : e;
+        const r = canvas.getBoundingClientRect();
+        const px = (src.clientX - r.left) * (canvas.width / (r.width || canvas.width));
+        const py = (src.clientY - r.top) * (canvas.height / (r.height || canvas.height));
+        const wx = Math.floor(camera.x + px / tileSize);
+        const wy = Math.floor(camera.y + (canvas.height - py) / tileSize);
+        const st = mbwom.getBlockState(wx, wy);
+        endPasteFilterPick();
+        setPasteFilter(pasteFilterFromState(st));
+        if (!pfIsAir(st)) pfToast(tmsg('pf_picked', 'Now pasting only over: {name}', { name: String(st.type) }));
+        else pfToast(tmsg('pf_picked_air', 'Now pasting only over empty space.'));
+    }
+}
+['mousedown', 'mouseup', 'pointerdown', 'pointerup', 'click', 'dblclick', 'contextmenu', 'touchstart', 'mousemove', 'keydown'].forEach(function (n) {
+    window.addEventListener(n, pfPickHandler, true);
+});
+
+window.pasteFilterOnLanguageChanged = paintPasteFilterButton;
+document.addEventListener('DOMContentLoaded', paintPasteFilterButton);
+
 function performPaste(targetX, targetY, replaceAir = false, isFromNetwork = false, networkClipboard = null) {
     // Si viene de la red, usamos la estructura que mandó el amigo, sino, usamos nuestro portapapeles
     const currentClipboard = isFromNetwork ? networkClipboard : window.clipboard;
     if (!currentClipboard) return;
+    // "Pegar solo sobre…": el filtro es cosa de quien pega. El amigo recibe únicamente las casillas que sí se cambiaron.
+    const pf = isFromNetwork ? null : window.pasteFilter;
+    const applied = pf ? [] : null;
     historyManager.startAction();
 
     // ✨ PEGAMOS LA ESTRUCTURA: Solo iteramos sobre los puntos exactos que fueron copiados (la forma azul)
@@ -105,9 +305,13 @@ function performPaste(targetX, targetY, replaceAir = false, isFromNetwork = fals
         const absY = targetY + blockData.dy;
         const oldState = mbwom.getBlockState(absX, absY);
         
+        // Con el filtro "pegar solo sobre…", las casillas del destino que no coinciden se quedan como estaban
+        if (pf && !pasteFilterMatches(pf, oldState)) return;
+
         // Si en el destino ya hay aire y lo que pegamos también es aire, no hacemos nada para ahorrar memoria
         if (!oldState && !blockData.state) return;
         
+        if (applied) applied.push(blockData);
         historyManager.recordChange(absX, absY, oldState, blockData.state);
         
         // Colocamos el bloque, o lo borramos si el punto azul copiado era aire
@@ -138,16 +342,18 @@ function performPaste(targetX, targetY, replaceAir = false, isFromNetwork = fals
         });
     }
 
-    // ✨ MULTIPLAYER: Mandamos la estructura entera al amigo (sin los mobs: esos van aparte)
-    if (!isFromNetwork && typeof enviarMensajeEnRed === 'function') {
+    // ✨ MULTIPLAYER: Mandamos la estructura entera al amigo (sin los mobs: esos van aparte).
+    // Con el filtro activo solo se manda lo que de verdad se pegó, para que el amigo vea exactamente lo mismo.
+    if (!isFromNetwork && typeof enviarMensajeEnRed === 'function' && (!applied || applied.length)) {
         enviarMensajeEnRed({ 
             tipo: "accion_pegar", 
             x: targetX, 
             y: targetY, 
             replaceAir: replaceAir, 
-            clipboard: { width: currentClipboard.width, height: currentClipboard.height, data: currentClipboard.data } 
+            clipboard: { width: currentClipboard.width, height: currentClipboard.height, data: applied || currentClipboard.data } 
         });
     }
+    if (applied && !applied.length && !(currentClipboard.mobs && currentClipboard.mobs.length)) pfToast(tmsg('pf_none', "Nothing was pasted: no block there matches the filter."));
     
     if (typeof worldDirty !== 'undefined') worldDirty = true;
     historyManager.commitAction();

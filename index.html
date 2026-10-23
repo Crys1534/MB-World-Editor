@@ -471,6 +471,10 @@
                     <button class="ribbon-btn-small" onclick="cutSelection()" data-i18n-title="tooltip_cut" title="Cut (Ctrl+X)"><span>✂️</span></button>
                     <button class="ribbon-btn-small" onclick="copySelection()" data-i18n-title="tooltip_copy" title="Copy (Ctrl+C)"><span>📄</span></button>
                 </div>
+                <!-- Pegar solo sobre un tipo de bloque (por ejemplo solo sobre stone): el menú lo arma scripts/clipboard.js -->
+                <button class="ribbon-btn-large pf-btn" id="btn-paste-filter" type="button" onclick="togglePasteFilterMenu(event)" title="Paste only over one kind of block">
+                    <canvas id="pf-icon" class="pf-icon pf-all" width="16" height="16"></canvas><span class="text" id="pf-label">Any</span>
+                </button>
             </div>
             <div class="ribbon-group-label" data-i18n="lbl_clipboard">Clipboard</div>
         </div>
@@ -488,13 +492,13 @@
                         <label class="lbl-check-small">
                             <input type="checkbox" id="tool-rounded-checkbox" onchange="updateToolRounded(this.checked)"> <span data-i18n="lbl_rounded">Rounded</span>
                         </label>
-                        <span style="display:flex; gap:3px;">
-                        <button class="ribbon-btn-small" onclick="if(typeof flipClipboardHorizontal !== 'undefined') { flipClipboardHorizontal(); selectTool('paste'); }" style="padding: 2px 5px; font-size: 11px;" title="Mirror" data-i18n-title="tooltip_mirror" id="btn-flip-h">
-							<span>↔️ <span data-i18n="btn_mirror">Mirror</span></span>
-						</button>
-                        <button class="ribbon-btn-small" onclick="if(typeof rotateFromButton !== 'undefined') rotateFromButton();" style="padding: 2px 5px; font-size: 11px;" title="Rotate (R)" data-i18n-title="tooltip_rotate" id="btn-rotate">
-							<span>🔄 <span data-i18n="btn_rotate">Rotate</span></span>
-						</button>
+                        <span class="bs-icons">
+                        <button class="ribbon-btn-small ribbon-btn-icon" id="btn-flip-h" onclick="if(typeof flipClipboardHorizontal !== 'undefined') { flipClipboardHorizontal(); selectTool('paste'); }" title="Mirror" data-i18n-title="tooltip_mirror">
+                            <span aria-hidden="true">↔️</span><span class="sr-only" data-i18n="btn_mirror">Mirror</span>
+                        </button>
+                        <button class="ribbon-btn-small ribbon-btn-icon" id="btn-rotate" onclick="if(typeof rotateFromButton !== 'undefined') rotateFromButton();" title="Rotate (R)" data-i18n-title="tooltip_rotate">
+                            <span aria-hidden="true">🔄</span><span class="sr-only" data-i18n="btn_rotate">Rotate</span>
+                        </button>
                         </span>
                     </div>
                 </div>
@@ -534,7 +538,6 @@
             <div class="ribbon-group-content rg-row-center">
                 <div id="recent-mobs-ribbon" class="recent-ribbon-container"><span class="empty-text" data-i18n="lbl_empty">Empty</span></div>
                 <button class="mini-arrow-btn arrow-tall" onclick="openMobModal()" data-i18n-title="tooltip_mobs" title="Open Mob Browser"><span>»</span></button>
-                <button id="btn-skin-gallery" class="mini-arrow-btn arrow-tall" onclick="openSkinGallery()" data-i18n-title="sg_btn_tip" title="Skin Gallery: search spawnskins"><span>🖼️</span></button>
             </div>
             <div class="ribbon-group-label" data-i18n="lbl_mobs_tab">Mobs (M)</div>
         </div>
@@ -794,6 +797,18 @@
                 </button>
             </div>
             <div class="ribbon-group-label" data-i18n="ex_bm_group">Places</div>
+        </div>
+        <div class="separator"></div>
+
+        <!-- 🖼️ Skins: galería de spawnskins + las últimas usadas (scripts/skin-gallery.js) -->
+        <div class="ribbon-group">
+            <div class="ribbon-group-content">
+                <button class="ribbon-btn-large" id="btn-skin-gallery" onclick="openSkinGallery()" data-i18n-title="sg_btn_tip" title="Skin Gallery: search spawnskins">
+                    <span class="icon">🖼️</span><span class="text" data-i18n="sg_btn_label">Skin Gallery</span>
+                </button>
+                <div id="recent-skins-ribbon" class="recent-ribbon-container sg-recent"></div>
+            </div>
+            <div class="ribbon-group-label" data-i18n="sg_group">Skins</div>
         </div>
         <div class="separator"></div>
 

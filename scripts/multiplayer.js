@@ -1323,11 +1323,38 @@ window.startFriendListeners = function() {
     };
     const countInvites = (invites) => invites ? Object.keys(invites).filter(id => !window.isBlocked(id)).length : 0;
 
+    // 💬 Burbuja redonda de mensajes sin leer (scripts/ui-modes.js): le pasamos los chats con mensajes sin leer (sin bloqueados ni silenciados)
+    const unreadChatItems = (chats) => {
+        const out = [];
+        if (chats) {
+            for (let id in chats) {
+                const c = chats[id];
+                if (!c || !(c.unreadCount > 0) || window.isBlocked(id) || (window.isChatMuted && window.isChatMuted(id))) continue;
+                const inf = window.resolveChatInfo(id, c);
+                out.push({ uid: id, name: inf.name, pfp: inf.pfp, count: Number(c.unreadCount) || 0, ts: Number(c.timestamp) || 0 });
+            }
+        }
+        return out;
+    };
+    const syncChatHead = (chats) => { if (window.mbwChatHead) window.mbwChatHead.sync(unreadChatItems(chats)); };
+    const openChatFromHead = (uid, name, pfp) => {
+        if (typeof openFileMenu === 'function') openFileMenu('multiplayer');
+        // openMpSidebar acomoda las vistas con un pequeño retraso: el chat se abre DESPUÉS
+        setTimeout(() => {
+            openMpSidebar('chats');
+            if (uid) setTimeout(() => { openPrivateChat(uid, name, pfp); }, 60);
+        }, 100);
+    };
+    if (window.mbwChatHead) window.mbwChatHead.setOpener((items) => {
+        if (items.length === 1) openChatFromHead(items[0].uid, items[0].name, items[0].pfp);
+        else openChatFromHead(null);
+    });
+
     // Se llama al bloquear/desbloquear para que los contadores se recalculen al instante
     window.refreshSocialBadges = function() {
         Promise.all([
             database.ref('friend_requests/' + myUID).once('value').then(s => setBadge('badge-friends', countRequests(s.val()))),
-            database.ref('user_chats/' + myUID).once('value').then(s => setBadge('badge-messages', countUnreadChats(s.val()))),
+            database.ref('user_chats/' + myUID).once('value').then(s => { setBadge('badge-messages', countUnreadChats(s.val())); syncChatHead(s.val()); }),
             database.ref('server_invites/' + myUID).once('value').then(s => setBadge('badge-invites', countInvites(s.val())))
         ]).then(() => window.updateGlobalMpBadge()).catch(() => {});
     };
@@ -1356,6 +1383,7 @@ window.startFriendListeners = function() {
 
     database.ref('user_chats/' + myUID).on('value', (snapshot) => {
         setBadge('badge-messages', countUnreadChats(snapshot.val()));
+        syncChatHead(snapshot.val());
         
         if (typeof currentSidebarMode !== 'undefined' && currentSidebarMode === 'chats') {
             const content = document.getElementById('full-chat-list-container');
@@ -1419,9 +1447,9 @@ window.startFriendListeners = function() {
                     setTimeout(() => { openPrivateChat(snapshot.key, info.name, info.pfp); }, 60);
                 }, 100);
             };
-            // En Modo Zen, con las barras escondidas o en pantalla completa no se ve el contador de arriba y el aviso grande
-            // estorba: sale un globito discreto (scripts/ui-modes.js). En la pantalla normal sigue el aviso de siempre.
-            if (typeof window.mbwFocusModeActive === 'function' && window.mbwFocusModeActive() && typeof window.showMessageBubble === 'function') {
+            // Globito con foto + nombre + un pedacito del mensaje (se va solo a los 6 s); la burbuja redonda con el contador se queda aparte.
+            // Si por algo no está el globito, sale el aviso grande de siempre.
+            if (typeof window.showMessageBubble === 'function') {
                 window.showMessageBubble(info.name, chat.lastMsg || '', info.pfp, openThisChat);
             } else {
                 showDesktopNotification("💬 " + info.name, chat.lastMsg || '', info.pfp, openThisChat);

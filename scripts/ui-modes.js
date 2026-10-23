@@ -303,6 +303,74 @@
     };
 
     // ─────────────────────────────────────────────
+    // 💬 Burbuja redonda de mensajes sin leer ("cabeza de chat")
+    // ─────────────────────────────────────────────
+    // Un círculo con la foto de quien escribió y el número de mensajes sin leer. A diferencia del globito de arriba (que se va solo a los 6
+    // segundos), esta se queda hasta que leas los mensajes o la cierres con la ✕. Un clic abre el chat (si es una sola persona) o la lista de chats.
+    // multiplayer.js le manda la lista de chats sin leer con mbwChatHead.sync([...]) y le dice cómo abrir un chat con setOpener(fn).
+    // Todo el texto entra con textContent y la foto pasa por safeIcon (nada de HTML ajeno).
+    const head = { el: null, pfp: null, count: null, x: null, items: [], total: 0, dismissed: false, opener: null, seenTotal: 0 };
+    function headTip(total) {
+        const t = (typeof window.tmsg === 'function') ? window.tmsg('chat_head_tip', 'New messages: {n}. Click to open.', { n: total }) : 'New messages: ' + total;
+        return t;
+    }
+    function buildHead() {
+        const el = document.createElement('div');
+        el.id = 'chat-head'; el.setAttribute('role', 'button'); el.tabIndex = 0;
+        const pfp = document.createElement('div'); pfp.className = 'ch-pfp';
+        const count = document.createElement('div'); count.className = 'ch-count';
+        const x = document.createElement('button'); x.type = 'button'; x.className = 'ch-x'; x.textContent = '✕';
+        el.appendChild(pfp); el.appendChild(count); el.appendChild(x);
+        el.addEventListener('click', function () { openHead(); });
+        el.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openHead(); } });
+        x.addEventListener('click', function (e) { e.stopPropagation(); head.dismissed = true; renderHead(); });
+        document.body.appendChild(el);
+        head.el = el; head.pfp = pfp; head.count = count; head.x = x;
+    }
+    function openHead() {
+        const items = head.items.slice();
+        if (typeof head.opener === 'function' && items.length) { try { head.opener(items); } catch (e) { /* un fallo al abrir no debe romper nada más */ } }
+        head.dismissed = true;      // ya lo viste: se esconde (volverá cuando llegue otro mensaje)
+        renderHead();
+    }
+    let headObs = null;
+    function renderHead() {
+        paintHead();
+        if (headObs) headObs.takeRecords();     // los cambios de clase que acabo de hacer yo no deben volver a llamarme
+    }
+    function paintHead() {
+        const show = head.total > 0 && !head.dismissed && !(typeof window.mbwFocusModeActive === 'function' && window.mbwFocusModeActive());
+        document.body.classList.toggle('has-chat-head', show);
+        if (!head.el) { if (!show) return; buildHead(); }
+        head.el.classList.toggle('show', show);
+        if (!show) return;
+        const top = head.items[0] || {};
+        head.pfp.style.backgroundImage = 'url(' + JSON.stringify(safeIcon(top.pfp)) + ')';
+        head.count.textContent = head.total > 99 ? '99+' : String(head.total);
+        const who = head.items.length > 1 ? head.items.length + ' chats' : String(top.name || '').slice(0, 30);
+        head.el.title = (who ? who + ' — ' : '') + headTip(head.total);
+        head.el.setAttribute('aria-label', head.el.title);
+        head.x.setAttribute('aria-label', (typeof window.tmsg === 'function') ? window.tmsg('chat_head_close', 'Hide', null) : 'Hide');
+    }
+    window.mbwChatHead = {
+        // items: [{ uid, name, pfp, count, ts }] solo de chats con mensajes sin leer (sin silenciados ni bloqueados)
+        sync: function (items) {
+            items = (Array.isArray(items) ? items : []).filter(function (i) { return i && i.count > 0; });
+            items.sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+            const total = items.reduce(function (n, i) { return n + (Number(i.count) || 0); }, 0);
+            if (total > head.seenTotal) head.dismissed = false;       // llegó algo nuevo: vuelve a salir
+            head.seenTotal = total;
+            head.items = items; head.total = total;
+            renderHead();
+        },
+        setOpener: function (fn) { head.opener = fn; },
+        refresh: renderHead,
+        state: function () { return { total: head.total, shown: !!(head.el && head.el.classList.contains('show')), dismissed: head.dismissed, chats: head.items.length }; }
+    };
+    // Al entrar o salir del Zen / pantalla completa la burbuja redonda se esconde o vuelve
+    try { headObs = new MutationObserver(function () { renderHead(); }); headObs.observe(document.body, { attributes: true, attributeFilter: ['class'] }); } catch (e) { /* sin observador: se actualiza con el próximo mensaje */ }
+
+    // ─────────────────────────────────────────────
     // Arranque
     // ─────────────────────────────────────────────
     sync();

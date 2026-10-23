@@ -1197,10 +1197,12 @@ function drawUI() {
         ctx.save();
         ctx.globalAlpha = 0.5;
 
+        const pasteFilterNow = window.pasteFilter;   // "pegar solo sobre…": el fantasma solo muestra lo que se va a cambiar de verdad
         window.clipboard.data.forEach(blockData => {
             if (!blockData.state) return;
             const absX = mouse.worldX + blockData.dx;
             const absY = mouse.worldY + blockData.dy;
+            if (pasteFilterNow && !window.pasteFilterMatches(pasteFilterNow, mbwom.getBlockState(absX, absY))) return;
             
             const screenX = (absX - camera.x) * tileSize;
             const screenY = canvas.height - (absY - camera.y) * tileSize;

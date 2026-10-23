@@ -5,6 +5,8 @@
 //   • Ventana con skins de Mine Blocks (miniaturas): buscar por nombre / autor, ver las más nuevas, guardarlas en
 //     favoritas, y "poner en el mundo" (deja activa la herramienta Spawn Mob con esa skin: se hace clic en el mapa).
 //   • También se abre desde el Mob Browser (campo "ID de la skin"): ahí el botón principal es "Usar esta skin".
+//   • Se abre desde la pestaña View → grupo "Skins": un botón grande y, al lado, las últimas skins usadas (clic = dejar lista esa skin
+//     para ponerla en el mapa, sin abrir la ventana).
 //   • Pestañas: Mine Blocks (por defecto: Destacadas / Nuevas / Mejores, igual que la web; escribiendo: búsqueda)
 //     · En este mundo (skins que ya usan los mobs del mundo) · Favoritas · Recientes. Las tres últimas funcionan sin internet.
 //
@@ -201,6 +203,31 @@
         const c = cleanItem(item);
         st.recent = [c].concat(st.recent.filter((r) => r.id !== c.id)).slice(0, MAX_RECENT);
         lsSet('mbw_skin_recent', JSON.stringify(st.recent));
+        renderRecentStrip();
+    }
+
+    // Tira de skins recientes del ribbon (pestaña View → Skins): las últimas 4, un clic deja lista esa skin para el mapa
+    const STRIP_MAX = 4;
+    function renderRecentStrip() {
+        const box = $('recent-skins-ribbon');
+        if (!box) return;
+        box.textContent = '';
+        const list = st.recent.slice(0, STRIP_MAX);
+        if (!list.length) {
+            const e = document.createElement('span'); e.className = 'empty-text'; e.textContent = tr('lbl_empty', 'Empty');
+            box.appendChild(e);
+            return;
+        }
+        list.forEach((item) => {
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'sg-rs-item'; b.dataset.id = item.id;
+            b.title = tr('sg_rs_tip', 'Place the skin: {name}').replace('{name}', labelOf(item));
+            const cv = document.createElement('canvas'); cv.width = 16; cv.height = 22;
+            b.appendChild(cv);
+            b.onclick = function () { placeInWorld(item); };
+            box.appendChild(b);
+            paintThumb(cv, item.id);
+        });
     }
 
     // ------------------------------------------------------------------ skins que ya usa el mundo
@@ -372,9 +399,13 @@
     function makeCard(item) {
         const d = document.createElement('div');
         d.className = 'sg-card'; d.dataset.id = item.id;
+        // La skin se ve grande, de pie sobre un fondo como el del editor; un clic en ella hace la acción principal
+        const stage = document.createElement('div'); stage.className = 'sg-stage';
         const cv = document.createElement('canvas');
         cv.width = 16; cv.height = 22; cv.className = 'sg-thumb';
-        d.appendChild(cv);
+        stage.appendChild(cv);
+        stage.onclick = function () { if (st.pick) useSkin(item); else placeInWorld(item); };
+        d.appendChild(stage);
         const info = document.createElement('div');
         info.className = 'sg-info';
         const nm = document.createElement('div'); nm.className = 'sg-name'; nm.textContent = item.name || tr('sg_unnamed', 'Skin');
@@ -452,6 +483,8 @@
 
     window.openSkinGallery = openGallery;
     window.closeSkinGallery = closeGallery;
-    window.mbwSkinGallery = { state: st, place: placeInWorld, worldSkins: worldSkins, reload: reload };
-    window.skinGalleryOnLanguageChanged = function () { if (st.open) { texts(); renderResults(); } };
+    window.mbwSkinGallery = { state: st, place: placeInWorld, worldSkins: worldSkins, reload: reload, renderStrip: renderRecentStrip };
+    window.skinGalleryOnLanguageChanged = function () { renderRecentStrip(); if (st.open) { texts(); renderResults(); } };
+    renderRecentStrip();
+    window.addEventListener('load', renderRecentStrip);   // por si las miniaturas aún no podían bajarse cuando cargó la página
 })();
