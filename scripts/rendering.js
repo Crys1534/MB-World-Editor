@@ -69,22 +69,22 @@ function getTexture(block, variant) {
 
 // ==========================================
 // 🌈 LANA ARCOÍRIS ANIMADA (con fundido)
-// cloth_rainbow / bdcloth_rainbow / carpet_rainbow pasan por TODOS los colores de lana, y cada color se FUNDE con el siguiente
-// (rosa → rojo cierra el círculo). Además cada bloque va un poquito adelantado según su lugar en el mundo, como en el juego:
-// en una fila de 4 bloques, el 1.º es rosa, el 2.º ya va entre rosa y rojo, el 3.º casi rojo y el 4.º rojo; todo el dibujo se desplaza con el tiempo.
+// cloth_rainbow / bdcloth_rainbow / carpet_rainbow pasan por los colores de lana (sin blanco, gris claro, gris ni negro, como se pidió),
+// y cada color se FUNDE poco a poco con el siguiente (rosa → rojo cierra el círculo). Además cada bloque va un poquito adelantado según su lugar en el mundo, como en el juego:
+// de un bloque al de al lado el color cambia solo un poquito (en 6 bloques seguidos se pasa de rosa a rojo); todo el dibujo se desplaza con el tiempo.
 //   · cada bloque del mundo guarda el objeto "vivo" (live[...]) como señal; al pintar, main.js le pide a tileAt(señal, x, y) el dibujo que le toca.
 //   · los dibujos intermedios (color A mezclado con color B) se arman una sola vez en pequeños lienzos de 16×16 y se guardan.
 // Solo cambia en el mundo (la foto del mundo usa estos objetos "vivos"); los íconos del inventario siguen con el dibujo fijo.
 // ==========================================
 window.rainbowAnim = (function () {
-    const ORDER = ['red', 'brown', 'orange', 'yellow', 'lightgreen', 'green', 'cyan', 'lightblue', 'white', 'lightgray', 'gray', 'black', 'blue', 'purple', 'magenta', 'pink'];
-    const N = ORDER.length, SUB = 8;                   // SUB = pasos de mezcla entre un color y el siguiente
+    const ORDER = ['red', 'brown', 'orange', 'yellow', 'lightgreen', 'green', 'cyan', 'lightblue', 'blue', 'purple', 'magenta', 'pink'];
+    const N = ORDER.length, SUB = 30;                  // SUB = pasos de mezcla entre un color y el siguiente (muchos = cambio suave)
     const KINDS = { cloth_rainbow: 'cloth_', bdcloth_rainbow: 'bdcloth_', carpet_rainbow: 'carpet_' };
     const live = {};                                   // objetos { x, y, rb } que comparte todo el mundo (señal de "lana arcoíris")
     const T = window.texturesMap || {};
     Object.keys(KINDS).forEach(function (k) { if (T[k]) live[k] = { x: T[k].x, y: T[k].y, rb: KINDS[k] }; });
     // period: milisegundos que tarda en pasar de un color al siguiente · stepX / stepY: cuánto "adelanta" cada bloque hacia la derecha / hacia arriba (en pasos de color)
-    const A = { frame: 0, q: 0, t: 0, period: 900, sub: SUB, stepX: 1 / 3, stepY: 1 / 4, live: live, order: ORDER };
+    const A = { frame: 0, q: 0, t: 0, period: 1000, sub: SUB, stepX: 1 / 5, stepY: 1 / 6, live: live, order: ORDER };
     const blends = {};                                 // "cloth_|3|5" -> { x: 0, y: 0, img: lienzo 16×16 }
     // Si el dibujo es el fijo del arcoíris, devuelve el objeto vivo; si no, el mismo de siempre
     A.map = function (tex) {
