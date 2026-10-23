@@ -1395,6 +1395,14 @@
     inp.addEventListener('input', function () { const c = inp.value.replace(/\D/g, ''); if (c !== inp.value) inp.value = c; });
     body.appendChild(row);
     body.appendChild(mk('small', 'mob-hint', tr('mobed_skin_hint')));
+    // Galería de skins: buscar por nombre / autor y elegir (la skin elegida se escribe en este campo)
+    const gal = mk('button', 'ex-btn sg-open-btn', tr('sg_open_btn', '🖼️ Skin gallery'));
+    gal.type = 'button'; gal.id = 'mobed-skin-gallery';
+    gal.onclick = function () {
+     if (typeof window.openSkinGallery !== 'function') return;
+     window.openSkinGallery({ pick: function (id) { const i = el('mobed-skin'); if (i) { i.value = id; i.dispatchEvent(new Event('input', { bubbles: true })); } } });
+    };
+    body.appendChild(gal);
    } else {
     const opts = f.options.map(function (o) { return { value: o, label: f.colors ? colorName(o) : (f.i18n ? tr(f.i18n + o) : String(o)) }; });
     body.appendChild(fSelect(label, opts, cur, function (v) {

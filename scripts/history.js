@@ -36,6 +36,21 @@ const historyManager = {
         });
     },
 
+    // 🚃 HISTORIAL PARA VAGONETAS Y BALSAS (scripts/world-extras.js): kind = 'cart' | 'raft', scn = dimensión
+    recordVehicleChange: function(kind, scn, id, oldState, newState) {
+        if (!this.currentBatch) return;
+        if (JSON.stringify(oldState) === JSON.stringify(newState)) return;
+
+        this.currentBatch.push({
+            type: 'vehicle',
+            kind: kind,
+            scene: scn,
+            id: id,
+            old: oldState ? structuredClone(oldState) : null,
+            new: newState ? structuredClone(newState) : null
+        });
+    },
+
     commitAction: function() {
         if (this.currentBatch && this.currentBatch.length > 0) {
             this.undoStack.push(this.currentBatch);
@@ -56,6 +71,8 @@ const historyManager = {
             const change = actionBatch[i];
             if (change.type === 'mob') {
                 this.applyMobState(change.id, change.old);
+            } else if (change.type === 'vehicle') {
+                this.applyVehicleState(change.kind, change.scene, change.id, change.old);
             } else {
                 this.applyBlockState(change.x, change.y, change.old);
             }
@@ -72,6 +89,8 @@ const historyManager = {
         for (const change of actionBatch) {
             if (change.type === 'mob') {
                 this.applyMobState(change.id, change.new);
+            } else if (change.type === 'vehicle') {
+                this.applyVehicleState(change.kind, change.scene, change.id, change.new);
             } else {
                 this.applyBlockState(change.x, change.y, change.new);
             }
@@ -119,6 +138,11 @@ const historyManager = {
         
         if (typeof toggleMobInfo === 'function') toggleMobInfo(false);
         if (typeof worldDirty !== 'undefined') worldDirty = true;
+    },
+
+    // 🚃 Pone, cambia o quita una vagoneta / balsa (state = null la quita). Avisa a los demás jugadores.
+    applyVehicleState: function(kind, scn, id, state) {
+        if (typeof window.mbwSetVehicleState === 'function') window.mbwSetVehicleState(kind, scn, id, state);
     },
 
     updateButtonsUI: function() {

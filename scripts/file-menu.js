@@ -12,8 +12,8 @@ const projectTemplates = [
         image: 'assets/Superflat World.png'
     },
     {
-        filename: 'Biomes 1.1b - QoL Update.mbw',
-        name: 'Biomes 1.1b - QoL Update',
+        filename: 'Biomes 1.2 - QoL Update.mbw',
+        name: 'Biomes 1.2 - QoL Update',
         version: '1.31.1',
         seed: 'Crystal',
         author: 'Crystal',
@@ -162,14 +162,14 @@ function initBackstageMenu() {
             onmouseover="this.style.backgroundColor='#41b3ff'" 
             onmouseout="this.style.backgroundColor='#3498db'" 
             style="background: #3498db; color: white; border: 2px solid #2980b9; padding: 6px 12px; font-family: 'Pixeltype', sans-serif; font-size: 20px; font-weight: bold; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 5px; box-shadow: 2px 2px 0 rgba(0,0,0,0.5);">
-        <span style="font-size: 24px; line-height: 1;">📂</span> Import
+        <span style="font-size: 24px; line-height: 1;">📂</span> <span data-i18n="btn_backup_import">Import</span>
     </button>
     
     <button onclick="backupAllWorlds()" 
             onmouseover="this.style.backgroundColor='#36ff8b'" 
             onmouseout="this.style.backgroundColor='#2ecc71'" 
             style="background: #2ecc71; color: white; border: 2px solid #27ae60; padding: 6px 12px; font-family: 'Pixeltype', sans-serif; font-size: 20px; font-weight: bold; cursor: pointer; border-radius: 4px; display: flex; align-items: center; gap: 5px; box-shadow: 2px 2px 0 rgba(0,0,0,0.5);">
-        <span style="font-size: 24px; line-height: 1;">💾</span> Backup All
+        <span style="font-size: 24px; line-height: 1;">💾</span> <span data-i18n="btn_backup_all">Backup All</span>
     </button>
 </div>
                 </div>
@@ -626,5 +626,5 @@ window.togglePinWorld = function(worldName) {
 };
 
 window.deleteSavedLocalWorld = async function(name) {
-    if(confirm('Are you sure?')) { await localDB.deleteWorld(name); renderFullscreenWorldsList(); }
+    if(confirm(tmsg('msg_confirm_sure', 'Are you sure?'))) { await localDB.deleteWorld(name); renderFullscreenWorldsList(); }
 };

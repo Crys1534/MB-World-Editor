@@ -1331,6 +1331,7 @@ window.dmOnLanguageChanged = function() {
             dmUpdateMuteButton();
             dmScrollBottom();
         }
+        dmUpdateMuteButton();
         const list = $dm('full-chat-list-container');
         if (list && typeof window.renderChatList === 'function') window.renderChatList(list);
     } catch (e) { console.warn('[chat] idioma:', e); }

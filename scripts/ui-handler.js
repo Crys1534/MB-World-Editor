@@ -672,6 +672,7 @@ function updateFloatingItem() {
     let renderObj = typeof getBlockObject === 'function' ? getBlockObject(tempState) : null;
     if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
         drawItemIcon(ctx, renderObj, tempState.type, heldItem.nbt, 0, 0, 16, 16);
+        if (heldItem.dmg && typeof window.mbwDrawDurBar === 'function') window.mbwDrawDurBar(ctx, 16, heldItem.dmg, heldItem.type);   // barra de durabilidad
     } else {
         ctx.fillStyle = "magenta"; ctx.fillRect(4, 4, 8, 8);
     }
@@ -1862,10 +1863,10 @@ function populateWorldInfo() {
     const seedInput = document.getElementById('sidebar-world-seed');
     
     if (typeof fileInfo !== 'undefined' && fileInfo !== null) {
-        if (versionInput) versionInput.value = fileInfo.version || "Unknown";
+        if (versionInput) versionInput.value = fileInfo.version || uiTr('val_unknown', "Unknown");
         if (seedInput) seedInput.value = fileInfo.seed || "";
     } else {
-        if (versionInput) versionInput.value = "No file loaded";
+        if (versionInput) versionInput.value = uiTr('val_no_file', "No file loaded");
         if (seedInput) seedInput.value = "";
     }
     
@@ -1879,7 +1880,7 @@ function populateWorldInfo() {
             const cheatsCheckbox = document.getElementById('cheats');
             if (cheatsCheckbox) areCheatsOn = cheatsCheckbox.checked; // Fallback al checkbox
         }
-        cheatsDisplay.textContent = areCheatsOn ? "Yes" : "No";
+        cheatsDisplay.textContent = areCheatsOn ? uiTr('val_yes', "Yes") : uiTr('val_no', "No");
         cheatsDisplay.style.color = areCheatsOn ? "#2E7D32" : "#C0392B"; // Verde o Rojo
     }
     
@@ -1890,7 +1891,7 @@ function populateWorldInfo() {
         if (typeof defeatedEnder !== 'undefined') {
             isDefeated = defeatedEnder;
         }
-        enderDisplay.textContent = isDefeated ? "Yes" : "No";
+        enderDisplay.textContent = isDefeated ? uiTr('val_yes', "Yes") : uiTr('val_no', "No");
         enderDisplay.style.color = isDefeated ? "#2E7D32" : "#C0392B";
     }
     
@@ -1904,7 +1905,7 @@ function populateWorldInfo() {
         const infoPanel = document.getElementById('world-info-sidebar');
         const panelOpen = !!infoPanel && infoPanel.style.display === 'flex';
         if (!mbwom || !mbwom.world) {
-            sizeSpan.innerText = "Unknown";
+            sizeSpan.innerText = uiTr('val_unknown', "Unknown");
         } else if (!panelOpen) {
             // Con el panel cerrado no se calcula: era lo más pesado de abrir un mundo grande (1.5 s) y nadie lo estaba viendo.
             // Se calcula en cuanto se abre el panel (toggleWorldInfo vuelve a llamar a esta función).
@@ -2040,7 +2041,7 @@ function renderRecentMobs() {
     if (!container) return;
 
     if (recentMobsList.length === 0) {
-        container.innerHTML = '<span style="font-size: 10px; color: #555;">Empty</span>';
+        container.innerHTML = '<span style="font-size: 10px; color: #555;">' + uiTr('val_empty', 'Empty') + '</span>';
         return;
     }
 
@@ -2056,7 +2057,7 @@ function renderRecentMobs() {
 
         // Usamos la misma clase que ya tienes para las estructuras!
         html += `
-        <button class="quick-struct-btn" onclick="selectMobToSpawn('${mob}')" title="Spawn ${niceName}">
+        <button class="quick-struct-btn" onclick="selectMobToSpawn('${mob}')" title="${uiTr('tt_spawn_named', 'Spawn {name}').replace('{name}', niceName)}">
             <img src="${imgSrc}" alt="${niceName}" style="width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated;" onerror="this.onerror=null; this.src='assets/mobs/${mob}.png'">
         </button>
         `;
@@ -2361,6 +2362,12 @@ window.openSettingsTab = function(tabId) {
 // ⌨️ SISTEMA DE ATAJOS DE TECLADO (KEYBINDS)
 // ==========================================
 
+// Traduce un texto por clave; si la clave no existe devuelve el texto de respaldo.
+function uiTr(key, fallback) {
+    const v = (typeof window.t === 'function') ? window.t(key) : key;
+    return (v && v !== key) ? v : fallback;
+}
+
 const DEFAULT_KEYBINDS = {
     inventory: { key: 'e', label: '🎒 Open Inventory' },
     structures: { key: 'y', label: '🏘️ Open Structures' },
@@ -2418,7 +2425,7 @@ window.renderKeybinds = function() {
         row.style.cssText = 'display: flex; justify-content: space-between; align-items: center; background: #A0A0A0; padding: 6px 12px; border: 2px solid #555; border-radius: 3px; margin-bottom: 4px;';
 
         row.innerHTML = `
-            <span style="color: black; font-weight: bold; font-size: 14px;">${bind.label}</span>
+            <span style="color: black; font-weight: bold; font-size: 14px;">${uiTr('kb_' + action, bind.label)}</span>
             <button id="btn-bind-${action}" onclick="startRebind('${action}')" style="min-width: 90px; padding: 4px 8px; background: #222; color: #FFF; border: 2px inset #555; cursor: pointer; font-family: 'Consolas', monospace; font-weight: bold; font-size: 14px; text-transform: capitalize;">
                 ${displayKey}
             </button>
@@ -2430,7 +2437,7 @@ window.renderKeybinds = function() {
 window.startRebind = function(action) {
     isWaitingForKey = action;
     const btn = document.getElementById(`btn-bind-${action}`);
-    btn.innerText = "Press key...";
+    btn.innerText = uiTr('kb_press_key', "Press key...");
     btn.style.background = "#e67e22";
     btn.style.borderColor = "#d35400";
     btn.style.color = "#FFF";
@@ -2489,13 +2496,13 @@ window.addEventListener('DOMContentLoaded', () => {
 // ==========================================
 
 const availableTools = [
-    { id: 'tool-move', icon: '👆', name: 'Move Tool' },
-    { id: 'tool-eraser', icon: '🧼', name: 'Eraser' },
-    { id: 'tool-bucket', icon: '🪣', name: 'Bucket' },
-    { id: 'tool-select', icon: '🔳', name: 'Select' },
-    { id: 'tool-magic', icon: '🪄', name: 'Magic Wand' },
-    { id: 'tool-lasso', icon: '➰', name: 'Lasso / Free Form' },
-    { id: 'tool-screenshot', icon: '📷', name: 'Screenshot' },
+    { id: 'tool-move', icon: '👆', name: 'Move Tool', key: 'tooltip_tool_move' },
+    { id: 'tool-eraser', icon: '🧼', name: 'Eraser', key: 'tooltip_tool_eraser' },
+    { id: 'tool-bucket', icon: '🪣', name: 'Bucket', key: 'tooltip_tool_bucket' },
+    { id: 'tool-select', icon: '🔳', name: 'Select', key: 'tooltip_tool_select' },
+    { id: 'tool-magic', icon: '🪄', name: 'Magic Wand', key: 'tooltip_tool_magic' },
+    { id: 'tool-lasso', icon: '➰', name: 'Lasso / Free Form', key: 'tb_tool_lasso' },
+    { id: 'tool-screenshot', icon: '📷', name: 'Screenshot', key: 'tooltip_screenshot' },
 ];
 
 window.toolbarConfig = {};
@@ -2543,7 +2550,7 @@ function renderToolbarSettingsList() {
         row.innerHTML = `
             <div style="display: flex; align-items: center; gap: 10px;">
                 <span style="font-size: 20px;">${t.icon}</span>
-                <span style="font-weight: bold; color: #333;">${t.name}</span>
+                <span style="font-weight: bold; color: #333;">${uiTr(t.key, t.name)}</span>
             </div>
             <label style="cursor: pointer; display: flex; align-items: center;">
                 <input type="checkbox" onchange="toggleToolVisibility('${t.id}', this.checked)" ${isChecked ? 'checked' : ''} style="width: 18px; height: 18px; margin: 0;">
@@ -2557,3 +2564,15 @@ window.addEventListener('DOMContentLoaded', initToolbarSettings);
 
 
 // (El medidor de FPS, la memoria, el zoom y la pantalla completa ahora viven en scripts/status-bar.js)
+
+
+// El cambio de idioma vuelve a pintar lo que se dibuja por código (atajos, lista de herramientas, datos del mundo, mobs recientes)
+window.uiOnLanguageChanged = function() {
+    try { if (typeof window.renderKeybinds === 'function') window.renderKeybinds(); } catch (e) {}
+    try { if (typeof renderToolbarSettingsList === 'function') renderToolbarSettingsList(); } catch (e) {}
+    try { if (typeof renderRecentMobs === 'function') renderRecentMobs(); } catch (e) {}
+    try {
+        const sb = document.getElementById('world-info-sidebar');
+        if (sb && sb.style.display === 'flex' && typeof populateWorldInfo === 'function') populateWorldInfo();
+    } catch (e) {}
+};

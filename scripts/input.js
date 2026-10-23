@@ -792,6 +792,17 @@ canvas.addEventListener("mousedown", function (event) {
         }
     }
 
+    // ✨ CLIC DERECHO CON MOVE SOBRE UN LETRERO: abre el editor de texto (scripts/world-extras.js)
+    if (currentTool === 'move' && event.button == 2 && typeof openSignEditor === 'function') {
+        const bs = mbwom.getBlockState(mouse.worldX, mouse.worldY);
+        if (bs && bs.type === 'sign' && openSignEditor(mouse.worldX, mouse.worldY)) {
+            mouse.right = false;
+            event.preventDefault();
+            hideTip(true);
+            return;
+        }
+    }
+
     // ✨ SELECCIONAR Y MOVER MOB (MOVE)
     if (currentTool === 'move' && mouse.left) {
         hideMobDropsTip();

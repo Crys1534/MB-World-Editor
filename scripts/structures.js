@@ -271,7 +271,7 @@ window.addEventListener('keydown', function(e) {
 // --- IMPORT/EXPORT ---
 function exportSavedStructures() {
     const savedStructs = structureDB.filter(s => s.category === 'saved');
-    if (savedStructs.length === 0) { alert("No saved structures."); return; }
+    if (savedStructs.length === 0) { alert(tmsg('msg_no_saved_structs', "No saved structures.")); return; }
     
     // Preparar JSON bonito
     const formattedJson = "[\n" + savedStructs.map(struct => {
@@ -317,11 +317,11 @@ function handleImportFile(input) {
             }
             
             filterStructures('saved', 'all');
-            alert(`Imported ${count} structures.`);
+            alert(tmsg('msg_imported_structs', "Imported {n} structures.", { n: count }));
             updateRibbonQuickAccess();
         } catch (err) { 
             console.error(err);
-            alert("Error importing file."); 
+            alert(tmsg('msg_import_file_error', "Error importing file.")); 
         }
     };
     reader.readAsText(file);
@@ -664,7 +664,7 @@ function selectStructure(struct) {
                         
                         if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
                             drawItemIcon(ctx, renderObj, itemID, Array.isArray(item) ? item[3] : (item.nbt || item.extras), 0, 0, 16, 16);
-                            let maxDur = maxDurabilityMap[itemID];
+                            let maxDur = (window.itemMaxDurability ? window.itemMaxDurability(itemID) : maxDurabilityMap[itemID]);
                             if (maxDur && typeof drawDurabilityBar === 'function') {
                                 drawDurabilityBar(ctx, 0, 0, 16, 16, itemDamage || 0, maxDur);
                             }
@@ -841,7 +841,7 @@ function renderOvenContents(struct) {
 
         if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
             drawItemIcon(ctx, renderObj, itemID, itemData[3], 0, 0, 16, 16);
-            let maxDur = maxDurabilityMap[itemID];
+            let maxDur = (window.itemMaxDurability ? window.itemMaxDurability(itemID) : maxDurabilityMap[itemID]);
             if (maxDur && typeof drawDurabilityBar === 'function') {
                 drawDurabilityBar(ctx, 0, 0, 16, 16, itemDamage, maxDur);
             }
@@ -968,7 +968,7 @@ async function saveEditedInfo() {
     const newAuthor = document.getElementById('edit-struct-author').value.trim();
     const newSubcategory = document.getElementById('edit-struct-subcategory').value;
     
-    if (!newTitle) { alert("Title cannot be empty"); return; }
+    if (!newTitle) { alert(tmsg('msg_title_empty', "Title cannot be empty")); return; }
     
     // Actualizar objeto en memoria
     selectedStructure.title = newTitle;
@@ -988,7 +988,7 @@ async function saveEditedInfo() {
 // --- GUARDAR NUEVA ESTRUCTURA ---
 function openSaveStructureModal() {
     if (!window.selection.p1 || (!window.selection.p2 && window.selection.path.length === 0)) {
-        alert("Select an area first!"); return;
+        alert(tmsg('msg_select_area_first', "Select an area first!")); return;
     }
     
     let minX, maxX, minY, maxY;
@@ -1031,7 +1031,7 @@ function openSaveStructureModal() {
     
     // 3. Revisamos si TODO lo que se seleccionó era solo aire
     const hasSolidBlocks = data.some(b => b.state !== null);
-    if (!hasSolidBlocks) { alert("Area empty!"); return; }
+    if (!hasSolidBlocks) { alert(tmsg('msg_area_empty', "Area empty!")); return; }
 
     tempSaveData = data;
     
@@ -1063,7 +1063,7 @@ async function saveNewStructure() {
     const category = 'saved'; 
     const subcategory = document.getElementById('input-struct-subcategory').value;
 
-    if (!title) { alert("Please enter a title."); return; }
+    if (!title) { alert(tmsg('msg_enter_title', "Please enter a title.")); return; }
 
     const newStruct = {
         title: title, 
@@ -1078,7 +1078,7 @@ async function saveNewStructure() {
     try {
         await dbManager.save(newStruct);
     } catch (e) {
-        alert("Error saving to database: " + e);
+        alert(tmsg('msg_db_save_error', "Error saving to database: {e}", { e: e }));
         return;
     }
 
@@ -1196,7 +1196,7 @@ function updateRibbonQuickAccess() {
             };
         } else {
             btn.classList.add('empty-slot');
-            btn.title = "Empty Slot";
+            btn.title = (typeof window.t === 'function' && window.t('tt_empty_slot') !== 'tt_empty_slot') ? window.t('tt_empty_slot') : "Empty Slot";
         }
         container.appendChild(btn);
     }
@@ -1258,11 +1258,11 @@ async function generateRandomLootChest() {
             { id: "topaz", min: 10, max: 20, weight: 15 },
             
             // Bloques premium
-            { id: "obsidian", min: 5, max: 14, weight: 15 },
-            { id: "enchantmenttable", min: 1, max: 1, weight: 5 },
+            { id: "ob", min: 5, max: 14, weight: 15 },
+            { id: "enchant", min: 1, max: 1, weight: 5 },
             
             // Comida Buena
-            { id: "cookedmeat", min: 10, max: 25, weight: 15 }
+            { id: "cbeef", min: 10, max: 25, weight: 15 }
         ];
     } else {
         lootTable = [
@@ -1387,6 +1387,6 @@ async function generateRandomLootChest() {
         
     } catch(e) {
         console.error("Error al generar el cofre:", e);
-        alert("Hubo un error al generar el Loot Chest.");
+        alert(tmsg('msg_loot_chest_error', "Hubo un error al generar el Loot Chest."));
     }
 }

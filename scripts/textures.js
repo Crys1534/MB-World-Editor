@@ -547,7 +547,7 @@ WoodenShovel: { x: 0, y: 207 },
 StoneShovel: { x: 1, y: 207 },
 IronShovel: { x: 2, y: 207 },
 GoldShovel: { x: 3, y: 207 },
-DiamondShovel: { x: 4, y: 208 },
+DiamondShovel: { x: 4, y: 207 },
 WoodenHoe: { x: 0, y: 208 },
 StoneHoe: { x: 1, y: 208 },
 IronHoe: { x: 2, y: 208 },
@@ -588,8 +588,8 @@ book: { x: 2, y: 219 },
 ebook: { x: 3, y: 219 },
 cbook: { x: 4, y: 219 },
 ccb: { x: 10, y: 211 },
-ep: { x: 13, y: 210 },
-gp: { x: 8, y: 210 },
+ep: { x: 13, y: 214 },        // perla de ender (antes apuntaba a la papa horneada)
+gp: { x: 8, y: 214 },        // pólvora (antes apuntaba a la manzana de caramelo)
 gap: { x: 6, y: 210 },
 egg: { x: 0, y: 210 },
 fireegg: { x: 1, y: 210 },
@@ -639,11 +639,11 @@ csalmon: { x: 14, y: 212 },
 clown: { x: 15, y: 212 },
 
 puff: { x: 0, y: 213 },
-rf: { x: 1, y: 213 },
-bowl: { x: 2, y: 213 },
-soup: { x: 3, y: 213 },
-rabbitsoup: { x: 4, y: 213 },
-beetsoup: { x: 5, y: 213 },
+rf: { x: 3, y: 213 },        // carne podrida
+bowl: { x: 4, y: 213 },
+soup: { x: 5, y: 213 },
+rabbitsoup: { x: 6, y: 213 },
+beetsoup: { x: 7, y: 213 },
 lade: { x: 5, y: 222 },
 apade: { x: 6, y: 222 },
 orade: { x: 4, y: 222 },
@@ -654,6 +654,99 @@ splash: { x: 9, y: 227 }, // <--- AQUÍ ESTÁ LA POCIÓN
 Scepter: { x: 5, y: 205 },
 scepters: { x: 6, y: 205 },
 slimeb: { x: 1, y: 30 },
+
+ // ==========================================================================================
+ // ✨ DIBUJOS QUE YA ESTABAN EN blocks.png PERO NADIE HABÍA CONECTADO (x = columna, y = fila)
+ // ==========================================================================================
+ // Los ids son los de los mundos reales del juego. Los marcados con (?) son la mejor suposición según el dibujo.
+ TNT: { x: 0, y: 72 },
+ ap: { x: 5, y: 210 },          // manzana
+ fas: { x: 4, y: 209 },         // encendedor (flint and steel)
+ clock: { x: 5, y: 209 },
+ compass: { x: 6, y: 209 },
+ bshur: { x: 8, y: 209 },       // shuriken de hueso
+ spear: { x: 1, y: 209 },       // (?) lanza
+ se: { x: 1, y: 213 },          // ojo de araña
+ fse: { x: 2, y: 213 },         // ojo de araña fermentado (?)
+ feather: { x: 0, y: 214 },
+ leather: { x: 1, y: 214 },
+ rleather: { x: 2, y: 214 },    // piel de conejo
+ bone: { x: 3, y: 214 },
+ bonem: { x: 4, y: 214 },       // polvo de hueso
+ rfoot: { x: 5, y: 214 },       // pata de conejo (?)
+ ink: { x: 6, y: 214 },
+ fiber: { x: 7, y: 214 },       // hilo
+ blazer: { x: 9, y: 214 },      // vara de blaze
+ bp: { x: 10, y: 214 },         // polvo de blaze
+ slimeball: { x: 11, y: 214 },
+ magmac: { x: 12, y: 214 },     // crema de magma
+ eoe: { x: 14, y: 214 },        // ojo de ender
+ gt: { x: 0, y: 215 },          // lágrima de ghast
+ dscl: { x: 1, y: 215 },        // escama de dragón
+ cy: { x: 0, y: 216 },          // bola de arcilla
+ brick: { x: 1, y: 216 },
+ nbr: { x: 2, y: 216 },         // ladrillo del Nether
+ cart: { x: 4, y: 217, w: 32 }, // vagoneta (el dibujo mide 2 casillas de ancho)
+ raft: { x: 6, y: 217, w: 32 }, // balsa (2 casillas de ancho)
+ saddle: { x: 8, y: 217 },
+ gss: { x: 4, y: 218 },         // fragmento de vidrio
+ goldn: { x: 6, y: 218 },       // pepita de oro
+ ironn: { x: 7, y: 218 },       // pepita de hierro
+ boe: { x: 7, y: 222 },         // botella de encantamiento (?)
+ dtg: { x: 1, y: 36 },          // (?) tierra con pasto
+ obsidian: { x: 0, y: 6 },      // alias (el id real del bloque es "ob")
+ enchantmenttable: { x: 0, y: 31 }, // alias (el id real es "enchant")
+ cookedmeat: { x: 3, y: 212 },  // alias (el id real es "cbeef")
+ dr: { x: 0, y: 77 },           // puertas como objeto: se ve la casilla de abajo de la puerta de madera / hierro / (tercera)
+ idr: { x: 0, y: 79 },
+ bbdr: { x: 0, y: 81 },
+
+ // Papa recién plantada: la etapa 1 usa el dibujo del cultivo, no la papa de comida
+ potato_1: { x: 0, y: 149 },
+
+ // Pistones: la base extendida (piston1/spiston1) y el brazo (piston2/spiston2). La variante 1-4 es la dirección (arriba, derecha, abajo, izquierda)
+ piston1_1: { x: 0, y: 63 }, piston1_2: { x: 1, y: 63 }, piston1_3: { x: 2, y: 63 }, piston1_4: { x: 3, y: 63 },
+ piston2: { x: 0, y: 64 },
+ piston2_1: { x: 0, y: 64 }, piston2_2: { x: 1, y: 64 }, piston2_3: { x: 2, y: 64 }, piston2_4: { x: 3, y: 64 },
+ spiston1: { x: 0, y: 66 },
+ spiston1_1: { x: 0, y: 66 }, spiston1_2: { x: 1, y: 66 }, spiston1_3: { x: 2, y: 66 }, spiston1_4: { x: 3, y: 66 },
+ spiston2: { x: 0, y: 67 },
+ spiston2_1: { x: 0, y: 67 }, spiston2_2: { x: 1, y: 67 }, spiston2_3: { x: 2, y: 67 }, spiston2_4: { x: 3, y: 67 },
+
+ // Huevos de spawn (megg + el nombre del mob en extras.type). Las parejas dibujo-mob son una suposición por el color.
+ megg: { x: 3, y: 220 },
+ megg_skeleton: { x: 0, y: 220 }, megg_magmacube: { x: 1, y: 220 }, megg_zombie: { x: 2, y: 220 }, megg_ghast: { x: 3, y: 220 },
+ megg_spider: { x: 4, y: 220 }, megg_blaze: { x: 5, y: 220 }, megg_chicken: { x: 6, y: 220 }, megg_cow: { x: 7, y: 220 },
+ megg_creeper: { x: 8, y: 220 }, megg_enderman: { x: 9, y: 220 }, megg_mushroom: { x: 10, y: 220 }, megg_nethereye: { x: 11, y: 220 },
+ megg_pig: { x: 12, y: 220 }, megg_sheep: { x: 13, y: 220 }, megg_wolf: { x: 14, y: 220 }, megg_enderdragon: { x: 15, y: 220 },
+ megg_squid: { x: 0, y: 221 }, megg_rabbit: { x: 1, y: 221 }, megg_cowctus: { x: 2, y: 221 }, megg_zombiepigman: { x: 3, y: 221 },
+ megg_bat: { x: 4, y: 221 }, megg_slime: { x: 5, y: 221 },
+
+ // Tintes (dye + color en extras.type): 13 colores (el blanco, el negro y el azul son polvo de hueso, tinta y lapislázuli)
+ dye: { x: 6, y: 225 },
+ dye_lightgray: { x: 0, y: 225 }, dye_gray: { x: 1, y: 225 }, dye_brown: { x: 2, y: 225 }, dye_purple: { x: 3, y: 225 },
+ dye_magenta: { x: 4, y: 225 }, dye_red: { x: 5, y: 225 }, dye_orange: { x: 6, y: 225 }, dye_pink: { x: 7, y: 225 },
+ dye_yellow: { x: 8, y: 225 }, dye_lightgreen: { x: 9, y: 225 }, dye_green: { x: 10, y: 225 }, dye_cyan: { x: 11, y: 225 },
+ dye_lightblue: { x: 12, y: 225 }, dye_white: { x: 4, y: 214 }, dye_black: { x: 6, y: 214 },
+
+ // Globos (bl + color en extras.type). Mismo orden de colores que la lana. "ghast" = el globo con cara de ghast.
+ bl: { x: 0, y: 224 },
+ bl_white: { x: 0, y: 224 }, bl_lightgray: { x: 1, y: 224 }, bl_gray: { x: 2, y: 224 }, bl_black: { x: 3, y: 224 },
+ bl_brown: { x: 4, y: 224 }, bl_purple: { x: 5, y: 224 }, bl_magenta: { x: 6, y: 224 }, bl_red: { x: 7, y: 224 },
+ bl_orange: { x: 8, y: 224 }, bl_pink: { x: 9, y: 224 }, bl_yellow: { x: 10, y: 224 }, bl_lightgreen: { x: 11, y: 224 },
+ bl_green: { x: 12, y: 224 }, bl_cyan: { x: 13, y: 224 }, bl_lightblue: { x: 14, y: 224 }, bl_blue: { x: 15, y: 224 },
+ bl_ghast: { x: 16, y: 224 },
+
+ // Pociones por tipo (potion_<tipo>) y arrojadizas (splash_<tipo>). Las usa el dibujo "potion" de rendering.js.
+ potion_empty: { x: 0, y: 222 }, splash_empty: { x: 2, y: 222 },
+ potion_water: { x: 0, y: 226 }, potion_healing: { x: 1, y: 226 }, potion_harming: { x: 2, y: 226 }, potion_swiftness: { x: 3, y: 226 },
+ potion_slowness: { x: 4, y: 226 }, potion_poison: { x: 5, y: 226 }, potion_fireresistance: { x: 6, y: 226 }, potion_strength: { x: 7, y: 226 },
+ potion_waterbreathing: { x: 8, y: 226 }, potion_regeneration: { x: 9, y: 226 }, potion_weakness: { x: 10, y: 226 }, potion_leaping: { x: 11, y: 226 },
+ potion_invisibility: { x: 12, y: 226 }, potion_nightvision: { x: 13, y: 226 },
+ splash_water: { x: 2, y: 222 }, splash_healing: { x: 0, y: 227 }, splash_harming: { x: 1, y: 227 }, splash_swiftness: { x: 2, y: 227 },
+ splash_slowness: { x: 3, y: 227 }, splash_poison: { x: 4, y: 227 }, splash_fireresistance: { x: 5, y: 227 }, splash_strength: { x: 6, y: 227 },
+ splash_waterbreathing: { x: 7, y: 227 }, splash_regeneration: { x: 8, y: 227 }, splash_weakness: { x: 9, y: 227 }, splash_leaping: { x: 10, y: 227 },
+ splash_invisibility: { x: 11, y: 227 }, splash_nightvision: { x: 12, y: 227 },
  // ALIAS para que aparezcan en el inventario bloques que no tienen textura base directa
 
 }

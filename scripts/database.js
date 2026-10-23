@@ -149,7 +149,7 @@ window.backupAllWorlds = async function() {
         request.onsuccess = function() {
             const worlds = request.result;
             if (!worlds || worlds.length === 0) {
-                alert("No tienes mundos locales para respaldar.");
+                alert(tmsg('msg_backup_none', "No tienes mundos locales para respaldar."));
                 return;
             }
 
@@ -181,17 +181,17 @@ window.backupAllWorlds = async function() {
                 document.body.removeChild(link);
                 
                 document.body.style.cursor = 'default';
-                alert(`✅ Backup exitoso!\nSe comprimieron ${worlds.length} mundos.`);
+                alert(tmsg('msg_backup_ok', "✅ Backup exitoso!", { n: worlds.length }));
             }).catch(function(err) {
                 console.error("Error al empaquetar:", err);
                 document.body.style.cursor = 'default';
-                alert("Ocurrió un error al crear el archivo ZIP.");
+                alert(tmsg('msg_zip_error', "Ocurrió un error al crear el archivo ZIP."));
             });
         };
-        request.onerror = function() { alert("Error al intentar leer la base de datos."); };
+        request.onerror = function() { alert(tmsg('msg_db_read_error', "Error al intentar leer la base de datos.")); };
     } catch (e) {
         console.error("Backup error:", e);
         document.body.style.cursor = 'default';
-        alert("Fallo al acceder a los mundos locales.");
+        alert(tmsg('msg_db_access_error', "Fallo al acceder a los mundos locales."));
     }
 };

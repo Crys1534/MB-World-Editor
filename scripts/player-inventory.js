@@ -47,6 +47,38 @@
  // id del objeto en el mundo -> id con el que el editor tiene la textura (la cama del mundo es "bed"; el editor la dibuja como "bed1")
  const TEX_ID = { bed: 'bed1' };
 
+ // ---- Durabilidad máxima por objeto (la usan las ranuras, los tooltips y el editor de durabilidad)
+ // Herramientas: valores que ya usaba el editor (clásicos de Minecraft). Armaduras: valores clásicos de Minecraft (cuero, hierro, oro, diamante);
+ // la de dragón usa los mismos que el diamante. SIN VERIFICAR en Mine Blocks (el juego no los publica).
+ const TOOL_DUR = { Wooden: 60, Stone: 132, Iron: 251, Gold: 33, Diamond: 1562 };
+ const TOOL_RE = /^(Wooden|Stone|Iron|Gold|Diamond)(Pickaxe|Sword|Axe|Shovel|Hoe)$/;
+ const ARMOR_DUR = { Leather: [55, 80, 75, 65], Iron: [165, 240, 225, 195], Gold: [77, 112, 105, 91], Diamond: [363, 528, 495, 429], Dragon: [363, 528, 495, 429] };
+ const ARMOR_RE = /^(Leather|Iron|Gold|Diamond|Dragon)(Cap|Shirt|Pants|Shoes)$/;
+ const ARMOR_IDX = { Cap: 0, Shirt: 1, Pants: 2, Shoes: 3 };
+ function maxDurability(id) {
+  id = String(id || '');
+  if (id === 'ObsidianPickaxe') return 2500;
+  let m = TOOL_RE.exec(id);
+  if (m) return TOOL_DUR[m[1]];
+  m = ARMOR_RE.exec(id);
+  if (m) return ARMOR_DUR[m[1]][ARMOR_IDX[m[2]]];
+  return 0;
+ }
+ window.itemMaxDurability = maxDurability;
+ // Barra de durabilidad abajo del objeto (solo si ya tiene desgaste): verde lleno -> rojo casi roto. "size" = lado del lienzo en px.
+ function drawDurBar(ctx, size, dmg, id) {
+  const max = maxDurability(id);
+  dmg = Number(dmg) || 0;
+  if (!max || dmg <= 0) return;
+  const p = Math.max(0, Math.min(1, (max - dmg) / max));
+  const u = size / 16;
+  ctx.fillStyle = '#000';
+  ctx.fillRect(2 * u, 13 * u, 12 * u, 2 * u);
+  ctx.fillStyle = 'hsl(' + Math.round(p * 120) + ',100%,45%)';
+  ctx.fillRect(2 * u, 13 * u, Math.max(u, Math.round(12 * u * p)), u * 1.2);
+ }
+ window.mbwDrawDurBar = drawDurBar;
+
  const st = { open: false, expanded: false, chest: null };     // ventana abierta / inventario creativo visible / cofre que se está editando { x, y, key, before }
 
  const $ = (id) => document.getElementById(id);
@@ -175,15 +207,15 @@
  function ready() { return !!(window.images && window.images.blocks && window.images.blocks.complete); }
  // Dibuja un objeto en un canvas cuadrado de "size" px. Si el editor no tiene textura para ese id (hay objetos del juego
  // que el editor no dibuja), sale una casilla gris con las primeras letras del id para que se pueda reconocer.
- function paintId(cvs, id, variant, size, extras) {
+ function paintId(cvs, id, variant, size, extras, dmg) {
   const ctx = cvs.getContext('2d');
   ctx.imageSmoothingEnabled = false;
   ctx.clearRect(0, 0, cvs.width, cvs.height);
   cvs.__itemTok = 0;                                  // (si una cabeza estaba esperando su skin para este lienzo, ya no)
   let ro = null;
   const miss = window.texturesMap && window.texturesMap.missing;
-  try { ro = (typeof getBlockObject === 'function') ? getBlockObject({ type: TEX_ID[id] || id, states1: variant }) : null; } catch (e) { ro = null; }
-  if (ro && ro !== miss && ready()) { drawItemIcon(ctx, ro, id, extras, 0, 0, size, size); return; }
+  try { ro = (typeof getBlockObject === 'function') ? getBlockObject({ type: TEX_ID[id] || id, states1: variant, nbt: extras }) : null; } catch (e) { ro = null; }
+  if (ro && ro !== miss && ready()) { drawItemIcon(ctx, ro, id, extras, 0, 0, size, size); drawDurBar(ctx, size, dmg, id); return; }
   ctx.fillStyle = '#5E5E5E'; ctx.fillRect(1, 1, size - 2, size - 2);
   ctx.strokeStyle = '#2B2B2B'; ctx.lineWidth = 1; ctx.strokeRect(1.5, 1.5, size - 3, size - 3);
   ctx.fillStyle = '#FFFFFF';
@@ -199,23 +231,29 @@
   if (v && it.id !== 'potion') name += ' (' + v + ')';
   return name;
  }
- function tooltipHtml(it) {
+ function tooltipHtml(it, withHint) {
   let html = '<strong>' + esc(prettyName(it)) + '</strong>';
   const ex = it.extras || {};
   const tl = (typeof enchantTranslations !== 'undefined') ? enchantTranslations : {};
   Object.keys(ex).forEach((k) => {
    if (ex[k] === 'enchant') html += '<span class="tooltip-enchant" style="color: #FFFF; display: block; line-height: 0.6; margin-top: 2px;">' + esc(tl[k] || k) + '</span>';
   });
+  const max = maxDurability(it.id);
+  if (max) {                                                         // herramientas y armaduras: durabilidad que le queda
+   const left = Math.max(0, max - (it.dmg || 0));
+   html += '<span class="tooltip-dur" style="color: #BFBFBF; display: block; margin-top: 4px;">' + esc(tr('pinv_durability', 'Durability')) + ': ' + left + ' / ' + max + '</span>';
+   if (withHint !== false) html += '<span class="tooltip-dur-hint" style="color: #8A8A8A; display: block; font-size: 0.8em;">' + esc(tr('pinv_dur_hint', 'Ctrl + click: edit durability')) + '</span>';
+  }
   return html;
  }
  // Los tooltips los pinta el "tooltip maestro" de ui-handler.js (clase enchanted-slot o pinv-tip + data-enchant-tooltip).
  // enchanted-slot además le pone el brillo morado: solo se usa en objetos encantados y pociones.
- function decorate(div, it) {
+ function decorate(div, it, noHint) {
   if (!it) return;
   const ex = it.extras || {};
   const glow = it.id === 'potion' || it.id === 'ebook' || Object.keys(ex).some((k) => ex[k] === 'enchant');
   div.classList.add(glow ? 'enchanted-slot' : 'pinv-tip');
-  div.dataset.enchantTooltip = tooltipHtml(it);
+  div.dataset.enchantTooltip = tooltipHtml(it, !noHint);
  }
 
  let ribbonTimer = null;
@@ -234,7 +272,7 @@
    d.onclick = () => select(i);
    const c = document.createElement('canvas');
    c.width = 24; c.height = 24;
-   if (it) { paintId(c, it.id, variantOf(it), 24, it.extras); decorate(d, it); }
+   if (it) { paintId(c, it.id, variantOf(it), 24, it.extras, it.dmg); decorate(d, it, true); }
    d.appendChild(c);
    box.appendChild(d);
   }
@@ -249,7 +287,7 @@
   if (it) {
    const c = document.createElement('canvas');
    c.width = 48; c.height = 48;
-   paintId(c, it.id, variantOf(it), 48, it.extras);
+   paintId(c, it.id, variantOf(it), 48, it.extras, it.dmg);
    d.appendChild(c);
    if (it.qty > 1) {
     const n = document.createElement('span');
@@ -390,11 +428,86 @@
   return true;
  }
 
+ // ---- Editor de durabilidad (Ctrl + clic en una herramienta o armadura)
+ let durPop = null;
+ function closeDurPop() {
+  if (!durPop) return;
+  document.removeEventListener('mousedown', durOutside, true);
+  document.removeEventListener('keydown', durKey, true);
+  durPop.remove();
+  durPop = null;
+ }
+ function durOutside(e) { if (durPop && !durPop.contains(e.target)) closeDurPop(); }
+ function durKey(e) { if (e.key === 'Escape') { e.stopImmediatePropagation(); closeDurPop(); } }
+ function openDurEditor(addr, anchor) {
+  const it0 = getSlot(addr);
+  const max = it0 ? maxDurability(it0.id) : 0;
+  if (!it0 || !max) return false;
+  closeDurPop();
+  const pop = document.createElement('div');
+  pop.id = 'pinv-dur-pop';
+  pop.className = 'pinv-dur-pop';
+  const title = document.createElement('div');
+  title.className = 'pinv-dur-title';
+  title.textContent = prettyName(it0);
+  const lab = document.createElement('div');
+  lab.className = 'pinv-dur-label';
+  lab.textContent = tr('pinv_dur_remaining', 'Durability left') + ' (1 – ' + max + ')';
+  const row = document.createElement('div');
+  row.className = 'pinv-dur-row';
+  const range = document.createElement('input');
+  range.type = 'range'; range.min = 1; range.max = max; range.id = 'pinv-dur-range';
+  const numIn = document.createElement('input');
+  numIn.type = 'number'; numIn.min = 1; numIn.max = max; numIn.id = 'pinv-dur-num';
+  row.appendChild(range); row.appendChild(numIn);
+  const btns = document.createElement('div');
+  btns.className = 'pinv-dur-btns';
+  const mk = (id, key, fb) => { const b = document.createElement('button'); b.type = 'button'; b.id = id; b.textContent = tr(key, fb); btns.appendChild(b); return b; };
+  const bFull = mk('pinv-dur-full', 'pinv_dur_full', 'Repair (full)');
+  const bLow = mk('pinv-dur-low', 'pinv_dur_low', 'Almost broken');
+  const bOk = mk('pinv-dur-ok', 'pinv_dur_ok', 'Close');
+  pop.appendChild(title); pop.appendChild(lab); pop.appendChild(row); pop.appendChild(btns);
+  document.body.appendChild(pop);
+  durPop = pop;
+  const cur0 = Math.max(1, Math.min(max, max - (it0.dmg || 0)));
+  range.value = cur0; numIn.value = cur0;
+  // aplica un valor: durabilidad que queda -> desgaste guardado (dmg = máximo - lo que queda)
+  const apply = (left, from) => {
+   left = Math.max(1, Math.min(max, Math.round(Number(left)) || 1));
+   if (from !== 'range') range.value = left;
+   if (from !== 'num') numIn.value = left;
+   const it = getSlot(addr);
+   if (!it || it.id !== it0.id) { closeDurPop(); return; }
+   const nd = max - left;
+   if ((it.dmg || 0) === nd) return;
+   setSlot(addr, { id: it.id, qty: it.qty, dmg: nd, extras: it.extras, legacy: it.legacy });
+   renderAll();
+  };
+  range.oninput = () => apply(range.value, 'range');
+  numIn.onchange = () => apply(numIn.value, 'num');
+  numIn.onkeydown = (e) => { if (e.key === 'Enter') { apply(numIn.value, 'num'); closeDurPop(); } };
+  bFull.onclick = () => apply(max);
+  bLow.onclick = () => apply(1);
+  bOk.onclick = () => { apply(numIn.value, 'num'); closeDurPop(); };
+  // posición: al lado de la casilla, sin salirse de la pantalla
+  const r = anchor && anchor.getBoundingClientRect ? anchor.getBoundingClientRect() : { left: 200, top: 200, right: 264, bottom: 264 };
+  const pw = pop.offsetWidth || 240, ph = pop.offsetHeight || 140;
+  let x = r.right + 8, y = r.top;
+  if (x + pw > window.innerWidth - 8) x = Math.max(8, r.left - pw - 8);
+  if (y + ph > window.innerHeight - 8) y = Math.max(8, window.innerHeight - ph - 8);
+  pop.style.left = x + 'px'; pop.style.top = y + 'px';
+  setTimeout(() => { if (durPop === pop) { document.addEventListener('mousedown', durOutside, true); document.addEventListener('keydown', durKey, true); } }, 0);
+  return true;
+ }
+
  function onSlot(addr, ev, right) {
   if (!ensure()) return;
   const cur = getSlot(addr);
   const held = fromHeld(heldItem);
   const armor = addr.k === 'a';
+
+  // Ctrl + clic en una herramienta o armadura: editor de durabilidad
+  if ((ev.ctrlKey || ev.metaKey) && !right && !held && cur && maxDurability(cur.id) && openDurEditor(addr, ev.currentTarget || ev.target)) return;
 
   if (!held && armor && !right && !ev.shiftKey && openArmorMenu(addr, ev, cur)) return;   // clic en una casilla de armadura: mini menú de piezas
 
@@ -546,6 +659,7 @@
  function closed() {
   if (!st.open) return;
   closeArmorMenu();
+  closeDurPop();
   st.open = false;
   st.expanded = false;
   giveBackCursor();

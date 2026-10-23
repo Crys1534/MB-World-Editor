@@ -306,7 +306,7 @@ window.selectMpMapForServer = function(mapName) {
 
     // Límite de seguridad
     if (sizeMB > 25.0) {
-        alert(`⚠️ Map is too heavy!\n\nThe map "${mapName}" weighs ${sizeMB.toFixed(2)} MB.\n\nTo guarantee a stable connection without crashing the server, the absolute limit is 25 MB.\n\nPlease select a lighter map.`);
+        alert(tmsg('msg_map_heavy', "⚠️ Map is too heavy!", { name: mapName, mb: sizeMB.toFixed(2) }));
         window.mpSelectedMapData = null;
         window.mpSelectedMapName = null;
         const nextBtn = document.getElementById('btn-next-to-id');
@@ -370,7 +370,7 @@ window.cancelMpMapSelection = function() {
 };
 
 window.prepareServerMap = async function() {
-    if (!window.mpSelectedMapName) { alert("Error: No map selected."); return; }
+    if (!window.mpSelectedMapName) { alert(tmsg('msg_no_map_selected', "Error: No map selected.")); return; }
     if (typeof loadSavedLocalWorld === 'function') {
         await loadSavedLocalWorld(window.mpSelectedMapName);
     } else {
@@ -443,7 +443,7 @@ window.hostMultiplayerSession = function() {
     // Si la ID por casualidad ya existe, PeerJS tirará este error
     peer.on('error', function(err) {
         if (err.type === 'unavailable-id') {
-            alert("Vaya, esa ID ya estaba en uso. Intenta crear el servidor de nuevo.");
+            alert(tmsg('msg_id_in_use', "Vaya, esa ID ya estaba en uso. Intenta crear el servidor de nuevo."));
             setMpView('create-1');
         }
     });
@@ -461,11 +461,11 @@ window.joinMultiplayerSession = function(directId = null, skipHostConfirm = fals
 
     const inputEl = document.getElementById('join-peer-id');
     const hostId = directId || (inputEl ? inputEl.value.trim() : null);
-    if (!hostId) { alert("Please enter a Room ID!"); return; }
+    if (!hostId) { alert(tmsg('msg_enter_room_id', "Please enter a Room ID!")); return; }
 
     // ⚠️ Si somos anfitriones de una sala activa, avisamos: unirse a otra la cierra
     if (isHost && isMultiplayer && !skipHostConfirm) {
-        if (!confirm("Eres el anfitrión de una sala. Si te unes a otra, tu sala se cerrará y tus jugadores serán desconectados.\n\n¿Continuar?")) return;
+        if (!confirm(tmsg('msg_host_leave_confirm', "You are the host of a room. Continue?"))) return;
     }
 
     // 🔒 2. Activamos el candado
@@ -501,7 +501,7 @@ window.joinMultiplayerSession = function(directId = null, skipHostConfirm = fals
     peer.on('error', function(err) {
         window.isConnecting = false; // 🔓 Quitamos el candado si hay error
         if (statusText) { statusText.innerText = "Status: Connection Error"; statusText.style.color = "#e74c3c"; }
-        alert("Could not connect. The room might be closed or full.");
+        alert(tmsg('msg_could_not_connect', "Could not connect. The room might be closed or full."));
         console.error("Error de PeerJS:", err);
     });
 };
@@ -647,7 +647,7 @@ function setupClientConnection(conn) {
         renderLivePlayers();
         const statusText = document.getElementById('multiplayer-status');
         if (statusText) { statusText.innerText = "Status: Disconnected 🔴"; statusText.style.color = "#e74c3c"; }
-        alert("Disconnected from Server.");
+        alert(tmsg('msg_disconnected', "Disconnected from Server."));
     });
 }
 
@@ -705,7 +705,7 @@ function recibirMensajeDeRed(datos) {
         const filenameDisplay = document.getElementById("filename-display"); 
         if (filenameDisplay && mbwom.world.fileInfo) filenameDisplay.value = mbwom.world.fileInfo.name || "Multiplayer World";
         if (typeof closeFileMenu === 'function') closeFileMenu();
-        alert("Map downloaded successfully! Welcome to the server.");
+        alert(tmsg('msg_map_downloaded', "Map downloaded successfully! Welcome to the server."));
     }
     if (datos.tipo === "actualizar_bloque") {
         if (typeof mbwom !== 'undefined' && mbwom.scene) { 
@@ -720,6 +720,8 @@ function recibirMensajeDeRed(datos) {
     if (datos.tipo === "accion_spawn_mob") { if (typeof mbwom !== 'undefined') mbwom.mobs[datos.id] = datos.mob; }
     if (datos.tipo === "accion_mover_mob") { if (typeof mbwom !== 'undefined' && mbwom.mobs[datos.id]) { mbwom.mobs[datos.id].x = datos.x; mbwom.mobs[datos.id].y = datos.y; } }
     if (datos.tipo === "accion_eliminar_mob") { if (typeof mbwom !== 'undefined' && mbwom.mobs[datos.id]) delete mbwom.mobs[datos.id]; }
+    // 🚃 Vagonetas y balsas (scripts/world-extras.js): datos = null significa que se borró
+    if (datos.tipo === "accion_vehiculo") { if (typeof window.mbwApplyRemoteVehicle === 'function') window.mbwApplyRemoteVehicle(datos); }
     
     // ==========================================
     // ✨ MULTIPLAYER D: Recepción del Mob en Vivo
@@ -848,7 +850,7 @@ window.sendServerInvite = function(targetUid, targetName, event) {
 window.acceptServerInvite = function(roomId, senderUid) {
     // Si somos anfitriones, preguntamos ANTES de gastar la invitación
     if (isHost && isMultiplayer) {
-        if (!confirm("Eres el anfitrión de una sala. Si te unes a otra, tu sala se cerrará y tus jugadores serán desconectados.\n\n¿Continuar?")) return;
+        if (!confirm(tmsg('msg_host_leave_confirm', "You are the host of a room. Continue?"))) return;
     }
     const myUID = localStorage.getItem('mbw_uid');
     database.ref('server_invites/' + myUID + '/' + senderUid).remove(); 
@@ -870,7 +872,7 @@ window.kickPlayer = function(targetUid, targetName) {
     if (!isHost) return;
     
     // Preguntamos por seguridad
-    if (!confirm(`¿Estás seguro de que quieres expulsar a ${targetName} de tu servidor?`)) return;
+    if (!confirm(tmsg('msg_kick_confirm', "Are you sure you want to kick {name} from your server?", { name: targetName }))) return;
 
     // 1. Buscamos su PeerID
     const player = window.roomPlayers.find(p => p.uid === targetUid);
@@ -994,7 +996,7 @@ window.declineFriendRequest = function(senderUid) {
 window.removeFriend = function(uid, name, skipConfirm) {
     const myUID = localStorage.getItem('mbw_uid');
     const shown = window.isRealName(name) ? name : 'este amigo';
-    if (!skipConfirm && !confirm("¿Eliminar a " + shown + " de tus amigos?")) return Promise.resolve(false);
+    if (!skipConfirm && !confirm(tmsg('msg_remove_friend_confirm', "Remove {name} from your friends?", { name: shown }))) return Promise.resolve(false);
 
     const updates = {};
     updates['friends/' + myUID + '/' + uid] = null;
@@ -1014,7 +1016,7 @@ window.removeFriend = function(uid, name, skipConfirm) {
 // Bloquear: se guarda en este navegador. No verás sus mensajes, solicitudes ni invitaciones.
 window.blockUser = function(uid, name) {
     const shown = window.isRealName(name) ? name : 'este usuario';
-    if (!confirm("¿Bloquear a " + shown + "?\n\nNo verás sus mensajes, solicitudes ni invitaciones, y dejará de ser tu amigo.")) return;
+    if (!confirm(tmsg('msg_block_confirm', "Block {name}?", { name: shown }))) return;
 
     const map = window.getBlockedMap();
     map[uid] = window.isRealName(name) ? name : 'Usuario';

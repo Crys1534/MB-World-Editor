@@ -67,6 +67,43 @@ function getTexture(block, variant) {
     return texture;
 }
 
+// ==========================================
+// 🌈 LANA ARCOÍRIS ANIMADA
+// El dibujo de cloth_rainbow / bdcloth_rainbow / carpet_rainbow cambia pasando por TODOS los colores de lana.
+// Solo cambia en el mundo (la foto del mundo usa estos objetos "vivos"); los íconos del inventario siguen con el dibujo fijo.
+// ==========================================
+window.rainbowAnim = (function () {
+    const ORDER = ['red', 'orange', 'yellow', 'lightgreen', 'green', 'cyan', 'lightblue', 'blue', 'purple', 'magenta', 'pink', 'brown', 'black', 'gray', 'lightgray', 'white'];
+    const KINDS = { cloth_rainbow: 'cloth_', bdcloth_rainbow: 'bdcloth_', carpet_rainbow: 'carpet_' };
+    const live = {};                                   // objetos { x, y } que comparte todo el mundo
+    const T = window.texturesMap || {};
+    Object.keys(KINDS).forEach(function (k) { if (T[k]) live[k] = { x: T[k].x, y: T[k].y }; });
+    const A = { frame: 0, period: 450, live: live, order: ORDER };
+    // Si el dibujo es el fijo del arcoíris, devuelve el objeto vivo; si no, el mismo de siempre
+    A.map = function (tex) {
+        if (!tex) return tex;
+        const TM = window.texturesMap;
+        if (tex === TM.cloth_rainbow) return live.cloth_rainbow || tex;
+        if (tex === TM.bdcloth_rainbow) return live.bdcloth_rainbow || tex;
+        if (tex === TM.carpet_rainbow) return live.carpet_rainbow || tex;
+        return tex;
+    };
+    A.isLive = function (tex) { return !!tex && (tex === live.cloth_rainbow || tex === live.bdcloth_rainbow || tex === live.carpet_rainbow); };
+    // Pone el cuadro n de la animación; devuelve true si cambió
+    A.setFrame = function (n) {
+        n = ((n % ORDER.length) + ORDER.length) % ORDER.length;
+        if (n === A.frame && A.started) return false;
+        A.frame = n; A.started = true;
+        const TM = window.texturesMap;
+        Object.keys(KINDS).forEach(function (k) {
+            const src = TM[KINDS[k] + ORDER[n]];
+            if (src && live[k]) { live[k].x = src.x; live[k].y = src.y; }
+        });
+        return true;
+    };
+    return A;
+})();
+
 // Lista base de bloques con lógica especial
 window.blockData = {
     oven: window.renderers.furnace,
@@ -120,6 +157,24 @@ if (typeof window.texturesMap !== 'undefined') {
 }
 
 
+
+// Pociones: el dibujo depende del tipo (healing, swiftness, ...) y de si es arrojadiza (category: "splash").
+// "states" puede traer los datos del objeto en nbt / extras, y el tipo también en states1 (como lo manda el inventario).
+window.blockData.potion = function (states) {
+    const T = window.texturesMap;
+    const data = (states && (states.nbt || states.extras)) || {};
+    let type = (states && typeof states.states1 === 'string' && states.states1) ? states.states1 : data.type;
+    const splash = data.category === 'splash' || (states && states.category === 'splash');
+    const pre = splash ? 'splash_' : 'potion_';
+    if (typeof type === 'string' && type) {
+        type = type.toLowerCase();
+        // "swiftness2", "fireresistance+" ... usan el dibujo del tipo base
+        const base = type.replace(/[+0-9]+$/, '');
+        if (T[pre + type]) return T[pre + type];
+        if (T[pre + base]) return T[pre + base];
+    }
+    return splash ? (T.splash || T.potion) : T.potion;
+};
 
 function drawDurabilityBar(ctx, x, y, slotWidth, slotHeight, damage, maxDurability) {
     // Si no hay daño, no tiene durabilidad o está intacto, no dibujamos nada

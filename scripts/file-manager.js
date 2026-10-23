@@ -228,7 +228,7 @@ const fileManager = {
 
   } catch (error) {
    console.error("Error cargando mundo:", error);
-   alert("Error al cargar el archivo.");
+   alert(tmsg('msg_file_load_error', "Error al cargar el archivo."));
    const overlay = document.getElementById('loading-overlay');
    if (overlay) overlay.style.display = 'none';
   }
@@ -390,7 +390,7 @@ prepareData: function() {
  
  export: function () {
     const data = this.prepareData();
-    if (!data) { alert("No hay mundo cargado."); return; }
+    if (!data) { alert(tmsg('msg_no_world', "No hay mundo cargado.")); return; }
 
     const blob = new Blob([data.textData], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
@@ -405,7 +405,7 @@ prepareData: function() {
  
  saveAs: async function() {
     const data = this.prepareData();
-    if (!data) { alert("No hay mundo cargado para exportar."); return; }
+    if (!data) { alert(tmsg('msg_no_world_export', "No hay mundo cargado para exportar.")); return; }
 
     try {
         // Verificamos si el navegador soporta la API moderna de Guardar Como
@@ -423,14 +423,14 @@ prepareData: function() {
             console.log("¡Archivo físico guardado con éxito en la PC!");
         } else {
             // Fallback: Si el usuario usa un navegador viejo (o Firefox), se descarga normalmente
-            alert("Tu navegador no soporta elegir la carpeta exacta. Se descargará en Descargas.");
+            alert(tmsg('msg_no_folder_picker', "Tu navegador no soporta elegir la carpeta exacta. Se descargará en Descargas."));
             this.export();
         }
     } catch (err) {
         // Si el usuario cancela o cierra la ventana de Windows, lo ignoramos silenciosamente
         if (err.name !== 'AbortError') {
             console.error("Error en Save As:", err);
-            alert("Ocurrió un error al intentar guardar el archivo.");
+            alert(tmsg('msg_save_error', "Ocurrió un error al intentar guardar el archivo."));
         }
     }
  },
@@ -438,7 +438,7 @@ prepareData: function() {
 saveLocal: async function(isAutoSave = false) {
     const data = this.prepareData();
     if (!data) { 
-        if (!isAutoSave) alert("No hay mundo cargado para guardar."); 
+        if (!isAutoSave) alert(tmsg('msg_no_world_save', "No hay mundo cargado para guardar.")); 
         return; 
     }
     
@@ -560,7 +560,7 @@ dropZone.addEventListener('drop', (e) => {
         if (fileManager.file.name.toLowerCase().endsWith('.mbw')) {
             readWorldFile(fileManager.file);
         } else {
-            alert("⚠️ Please, drop a valid Mine Blocks file (.mbw)");
+            alert(tmsg('msg_drop_valid', "⚠️ Please, drop a valid Mine Blocks file (.mbw)"));
         }
     }
 });
@@ -897,7 +897,7 @@ async function loadMyWorldsList() {
 
 async function loadSavedLocalWorld(name) {
     const textData = await localDB.loadWorld(name);
-    if(!textData) { alert("Error while reading the file."); return; }
+    if(!textData) { alert(tmsg('msg_read_error', "Error while reading the file.")); return; }
     
     if (typeof closeModal === 'function') closeModal('file-modal');
     else document.getElementById('file-modal').style.display = 'none';
@@ -909,7 +909,7 @@ async function loadSavedLocalWorld(name) {
 }
 
 async function deleteSavedLocalWorld(name) {
-    if(confirm(`¿Are you sure to DELETE "${name}" ?`)) {
+    if(confirm(tmsg('msg_confirm_delete_world', 'Are you sure you want to DELETE "{name}"?', { name: name }))) {
         await localDB.deleteWorld(name);
         loadMyWorldsList(); 
     }
@@ -1125,7 +1125,7 @@ window.openBackupsModal = async function(worldName) {
 };
 
 window.restoreWorldBackup = async function(worldName, backupIndex) {
-    if (!confirm("⚠️ WARNING!\n\nAre you sure you want to restore this version? Your CURRENT progress in this world will be overwritten!")) return;
+    if (!confirm(tmsg('msg_time_machine_confirm', "⚠️ WARNING!"))) return;
     
     try {
         let db = await localDB.init();
@@ -1155,7 +1155,7 @@ window.restoreWorldBackup = async function(worldName, backupIndex) {
                 putReq.onsuccess = () => {
                     localDB.metaPut(localDB.metaFromRecord(world));   // la lista de mundos muestra la versión restaurada
                     closeModal('backups-modal');
-                    alert("✅ Time Machine successful! The world has been restored.");
+                    alert(tmsg('msg_time_machine_ok', "✅ Time Machine successful! The world has been restored."));
                     
                     // Cargamos el mundo en el mapa y cerramos el menú
                     if (typeof loadSavedLocalWorld === 'function') {
@@ -1166,7 +1166,7 @@ window.restoreWorldBackup = async function(worldName, backupIndex) {
             }
         };
     } catch (err) {
-        alert("Error restoring backup.");
+        alert(tmsg('msg_restore_error', "Error restoring backup."));
         console.error(err);
     }
 };
@@ -1194,7 +1194,7 @@ window.backupAllWorlds = async function() {
         request.onsuccess = function() {
             const worlds = request.result;
             if (!worlds || worlds.length === 0) {
-                alert("No tienes mundos locales para respaldar.");
+                alert(tmsg('msg_backup_none', "No tienes mundos locales para respaldar."));
                 return;
             }
 
@@ -1219,18 +1219,18 @@ window.backupAllWorlds = async function() {
                 document.body.removeChild(link);
                 
                 document.body.style.cursor = 'default';
-                alert(`✅ Backup exitoso!\nSe comprimieron ${worlds.length} mundos.`);
+                alert(tmsg('msg_backup_ok', "✅ Backup exitoso!", { n: worlds.length }));
             }).catch(function(err) {
                 console.error("Error al empaquetar:", err);
                 document.body.style.cursor = 'default';
-                alert("Ocurrió un error al crear el archivo ZIP.");
+                alert(tmsg('msg_zip_error', "Ocurrió un error al crear el archivo ZIP."));
             });
         };
-        request.onerror = function() { alert("Error al intentar leer la base de datos."); };
+        request.onerror = function() { alert(tmsg('msg_db_read_error', "Error al intentar leer la base de datos.")); };
     } catch (e) {
         console.error("Backup error:", e);
         document.body.style.cursor = 'default';
-        alert("Fallo al acceder a los mundos locales.");
+        alert(tmsg('msg_db_access_error', "Fallo al acceder a los mundos locales."));
     }
 };
 
@@ -1304,7 +1304,7 @@ window.importBackupFiles = async function(event) {
             loadMyWorldsList();
         }
         
-        alert(`✅ Importación finalizada!\nSe han cargado ${mundosImportados} mundo(s) en tu biblioteca local.`);
+        alert(tmsg('msg_import_ok', "✅ Importación finalizada!", { n: mundosImportados }));
         
         // 🔄 Doble seguridad: Si la pestaña de "My Worlds" está abierta, simulamos un clic para que se refresque visualmente
         const myWorldsTabBtn = document.getElementById('btn-tab-my-worlds');
@@ -1316,6 +1316,6 @@ window.importBackupFiles = async function(event) {
         console.error("Error al importar:", err);
         document.body.style.cursor = 'default';
         event.target.value = "";
-        alert("Ocurrió un error al intentar importar los archivos. Asegúrate de que no estén corruptos.");
+        alert(tmsg('msg_import_error', "Ocurrió un error al intentar importar los archivos."));
     }
 };

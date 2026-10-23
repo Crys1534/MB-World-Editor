@@ -32,9 +32,9 @@ let mobClipboard = null;   // mob copiado (null = vacío)
 // ------------------------------------------
 function copySelection(keepSelection = false) {
     const bounds = getSelectionBounds();
-    if (!bounds) { alert("Select an area."); return; }
+    if (!bounds) { alert(tmsg('msg_select_area', "Select an area.")); return; }
     
-    if (window.selection.type === 'poly' && window.selection.path.length < 3) { alert("Invalid area."); return; }
+    if (window.selection.type === 'poly' && window.selection.path.length < 3) { alert(tmsg('msg_invalid_area', "Invalid area.")); return; }
 
     const data = [];
     for (let x = bounds.minX; x <= bounds.maxX; x++) {
@@ -85,7 +85,7 @@ function cutSelection() {
 }
 
 function activatePasteMode() {
-    if (!window.clipboard) { alert("Clipboard empty."); return; }
+    if (!window.clipboard) { alert(tmsg('msg_clipboard_empty', "Clipboard empty.")); return; }
     selectTool('paste');
 }
 

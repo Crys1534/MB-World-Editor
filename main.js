@@ -239,7 +239,7 @@ function makeWorldCacheBuilder() {
                     texture = textureByType.get(type);
                     if (texture === undefined) { texture = getTexture(type, undefined); textureByType.set(type, texture); }
                 } else {
-                    texture = getTexture(type, variant);
+                    texture = window.rainbowAnim.map(getTexture(type, variant));   // la lana arcoíris usa el dibujo animado
                 }
             } else {
                 texture = renderer(mbwom.getBlockState(x, y));   // bloques especiales: el camino de siempre
@@ -292,7 +292,7 @@ function renderBlock(x, y) {
     if (!worldCache[x]) worldCache[x] = [];
     const states = mbwom.getBlockState(x, y);
     if (states.type != null) {
-        worldCache[x][y] = getBlockObject(states);
+        worldCache[x][y] = window.rainbowAnim.map(getBlockObject(states));
         if (states.type === 'fnc') worldCache[x][y] = window.fenceVisual.pick(mbwom.scene, x, y, worldCache[x][y]);
     } else {
         delete worldCache[x][y];
@@ -675,7 +675,7 @@ const MOB_ARMOR_PIECES = {
     DiamondShirt: 'assets/UI/diamond-chestplate_mob.png',
     DiamondPants: ['assets/UI/diamond-leggings_mob.png', 'assets/UI/diamond-leggings.png'],   // (si hay varias direcciones, se prueba la siguiente cuando una no existe)
     DiamondShoes: 'assets/UI/diamond-boots_mob.png',
-    // Cuero (siempre se dibuja del color café de siempre, también si el objeto está teñido)
+    // Cuero (si el objeto está teñido, extras.type = el color, se pinta de ese color; si no, café de siempre)
     LeatherCap:   'assets/UI/leather-helmet_mob.png',
     LeatherShirt: 'assets/UI/leather-chestplate_mob.png',
     LeatherPants: ['assets/UI/leather-leggings_mob.png', 'assets/UI/leather-leggings.png'],
@@ -727,29 +727,113 @@ function mobArmorPending() {
     return Object.values(window.mobArmorImages).some(i => !i.hasFailed && !(i.complete && i.naturalWidth > 0));
 }
 
-// Los ids de las piezas que lleva puestas el mob y que tienen imagen, YA en el orden en que se dibujan (de abajo hacia arriba).
-// mob.armor son 4 objetos [id, 1, 0, {extras}] (también se acepta { id }); un hueco vacío es ["air", 0, 0, {}].
-function getMobArmorPieces(mob) {
+// Las piezas que lleva puestas el mob y que tienen imagen, YA en el orden en que se dibujan (de abajo hacia arriba): [{ id, extras }].
+// mob.armor son 4 objetos [id, 1, 0, {extras}] (también se acepta { id, extras }); un hueco vacío es ["air", 0, 0, {}].
+function getMobArmorItems(mob) {
     const arm = mob && mob.armor;
     if (!Array.isArray(arm)) return [];
     const out = [];
     MOB_ARMOR_DRAW_ORDER.forEach(slot => {
         const it = arm[slot];
         let id = Array.isArray(it) ? it[0] : (it && typeof it === 'object' ? (it.id || it.type) : it);
-        if (typeof id === 'string' && Object.prototype.hasOwnProperty.call(MOB_ARMOR_PIECES, id)) out.push(id);
+        if (typeof id === 'string' && Object.prototype.hasOwnProperty.call(MOB_ARMOR_PIECES, id)) {
+            let extras = Array.isArray(it) ? it[3] : (it && typeof it === 'object' ? it.extras : null);
+            if (!extras || typeof extras !== 'object') extras = {};
+            out.push({ id: id, extras: extras });
+        }
     });
     return out;
 }
 
+// Solo los ids (lo que usan el Screenshot y las pruebas)
+function getMobArmorPieces(mob) {
+    return getMobArmorItems(mob).map(p => p.id);
+}
+
+// ---------------------------------------------------------------------------------------------
+// 🎨 Cuero teñido: el color va en extras.type (LeatherCap {"type":"blue"}). Se pinta el dibujo de cuero de ese color.
+// ✨ Brillo de encantamiento: si el objeto tiene algún encantamiento (un valor "enchant" en extras) se le pasa encima un brillo morado en movimiento
+// (los mobs se dibujan en cada cuadro, así que el movimiento sale solo de la hora: no hace falta redibujar nada más).
+// ---------------------------------------------------------------------------------------------
+const MOB_LEATHER_IDS = { LeatherCap: true, LeatherShirt: true, LeatherPants: true, LeatherShoes: true };
+const MOB_DYE_RGB = {   // los mismos colores de la lana
+    white: [230, 230, 230], lightgray: [190, 190, 190], gray: [95, 95, 95], black: [47, 47, 47], brown: [74, 47, 18], purple: [123, 36, 153],
+    magenta: [169, 8, 107], red: [177, 0, 0], orange: [238, 89, 0], pink: [238, 158, 158], yellow: [214, 188, 0], lightgreen: [100, 187, 0],
+    green: [38, 134, 0], cyan: [42, 195, 140], lightblue: [0, 190, 238], blue: [0, 0, 196]
+};
+window.mobArmorTinted = {};     // { "LeatherCap|0,0,196": canvas }
+window.mobArmorGlints = {};     // { "LeatherCap|0,0,196|3": canvas }
+const MOB_GLINT_STEPS = 8, MOB_GLINT_MS = 110;
+
+// El color [r, g, b] de un cuero teñido, o null (sin teñir, color que no existe o el cuero café de siempre).
+function mobDyeRgb(type) {
+    if (typeof type !== 'string') return null;
+    const k = type.trim().toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(MOB_DYE_RGB, k)) return MOB_DYE_RGB[k];
+    const m = /^#?([0-9a-f]{6})$/.exec(k);
+    return m ? [parseInt(m[1].slice(0, 2), 16), parseInt(m[1].slice(2, 4), 16), parseInt(m[1].slice(4, 6), 16)] : null;
+}
+
+function mobArmorIsEnchanted(extras) {
+    return !!extras && typeof extras === 'object' && Object.keys(extras).some(k => extras[k] === 'enchant');
+}
+
+// El dibujo del cuero pintado de ese color (un lienzo con el mismo recorte de 16x22). null si la imagen todavía no llega.
+function getTintedMobArmor(id, rgb, img) {
+    const key = id + '|' + rgb.join(',');
+    if (window.mobArmorTinted[key]) return window.mobArmorTinted[key];
+    if (!(img && img.complete && img.naturalWidth > 0)) return null;
+    const f = MOB_ARMOR_FRAME, sw = Math.min(f.w, img.naturalWidth), sh = Math.min(f.h, img.naturalHeight);
+    const cv = document.createElement('canvas'); cv.width = sw; cv.height = sh;
+    const t = cv.getContext('2d'); t.imageSmoothingEnabled = false;
+    try { t.filter = 'grayscale(1) brightness(2.8) contrast(1.15)'; } catch (e) { /* navegador viejo: se pinta sin aclarar */ }
+    t.drawImage(img, f.x, f.y, sw, sh, 0, 0, sw, sh);
+    t.filter = 'none';
+    t.globalCompositeOperation = 'multiply';                // gris x color = el cuero de ese color
+    t.fillStyle = 'rgb(' + rgb.join(',') + ')'; t.fillRect(0, 0, sw, sh);
+    t.globalCompositeOperation = 'destination-in';           // y solo donde había armadura
+    t.drawImage(img, f.x, f.y, sw, sh, 0, 0, sw, sh);
+    window.mobArmorTinted[key] = cv;
+    return cv;
+}
+
+// El brillo morado de una pieza (lienzo del mismo tamaño que la pieza) en el paso "phase" de la animación.
+function getMobArmorGlint(key, src, sw, sh, phase) {
+    const gk = key + '|' + phase;
+    if (window.mobArmorGlints[gk]) return window.mobArmorGlints[gk];
+    const cv = document.createElement('canvas'); cv.width = sw; cv.height = sh;
+    const t = cv.getContext('2d'); t.imageSmoothingEnabled = false;
+    t.fillStyle = 'rgba(110, 40, 200, 0.18)'; t.fillRect(0, 0, sw, sh);                 // base morada suave
+    t.fillStyle = 'rgba(205, 140, 255, 0.50)';                                           // rayas en diagonal que se van moviendo
+    for (let k = -sh; k < sw + sh; k += MOB_GLINT_STEPS) {
+        const o = k + phase;
+        t.beginPath(); t.moveTo(o, 0); t.lineTo(o + 2, 0); t.lineTo(o + 2 - sh, sh); t.lineTo(o - sh, sh); t.closePath(); t.fill();
+    }
+    t.globalCompositeOperation = 'destination-in';                                       // solo sobre la armadura
+    t.drawImage(src, 0, 0, sw, sh, 0, 0, sw, sh);
+    window.mobArmorGlints[gk] = cv;
+    return cv;
+}
+
 // Dibuja las piezas encima del mob. (x, y, w, h) = el mismo rectángulo donde se dibujó su skin; el contexto ya viene girado si el mob mira a la izquierda.
 function drawMobArmorOverlay(c, mob, x, y, w, h) {
-    const pieces = getMobArmorPieces(mob);
-    if (!pieces.length) return;
+    const items = getMobArmorItems(mob);
+    if (!items.length) return;
     const f = MOB_ARMOR_FRAME;
-    pieces.forEach(id => {
-        const img = getMobArmorImage(id);
+    items.forEach(p => {
+        const img = getMobArmorImage(p.id);
         if (!(img && img.complete && img.naturalWidth > 0)) return;
-        c.drawImage(img, f.x, f.y, Math.min(f.w, img.naturalWidth), Math.min(f.h, img.naturalHeight), x, y, w, h);
+        let src = img, sw = Math.min(f.w, img.naturalWidth), sh = Math.min(f.h, img.naturalHeight), sx = f.x, sy = f.y, tag = p.id;
+        const rgb = MOB_LEATHER_IDS[p.id] ? mobDyeRgb(p.extras.type) : null;
+        if (rgb) {
+            const tc = getTintedMobArmor(p.id, rgb, img);
+            if (tc) { src = tc; sx = 0; sy = 0; tag = p.id + '|' + rgb.join(','); }
+        }
+        c.drawImage(src, sx, sy, sw, sh, x, y, w, h);
+        if (mobArmorIsEnchanted(p.extras)) {
+            const phase = Math.floor(Date.now() / MOB_GLINT_MS) % MOB_GLINT_STEPS;
+            c.drawImage(getMobArmorGlint(tag, src, sw, sh, phase), 0, 0, sw, sh, x, y, w, h);   // (el brillo se recorta con la misma pieza)
+        }
     });
 }
 
@@ -1377,7 +1461,10 @@ function mainLoop(ts) {
     }
     
     drawWorld();
+    // scripts/world-extras.js: texto de letreros y vagonetas / balsas van debajo de los mobs; marcadores y fantasma de vagoneta encima
+    if (window.mbwExtras) { try { window.mbwExtras.beforeMobs(); } catch (e) { if (!window.mbwExtrasErr) { window.mbwExtrasErr = true; console.error('world-extras:', e); } } }
     if (typeof drawMobs === 'function') drawMobs(); 
+    if (window.mbwExtras) { try { window.mbwExtras.afterMobs(); } catch (e) { if (!window.mbwExtrasErr) { window.mbwExtrasErr = true; console.error('world-extras:', e); } } }
     drawPlayer();
 
     const liveTimeToggle = document.getElementById('live-time-toggle');
@@ -1492,7 +1579,7 @@ function changeDimension(sceneIndex) {
             }
             console.log("Switched to dimension:", sceneIndex);
         } else {
-            alert("This dimension is not generated in the current world.");
+            alert(tmsg('msg_dim_not_generated', "This dimension is not generated in the current world."));
         }
     }
 }
@@ -1555,8 +1642,16 @@ if (canvasElement) {
             let nextZoom = ZOOM_LEVELS[currentZoomIndex];
             let newTileSize = BASE_TILE_SIZE * (nextZoom / 100);
 
-            camera.x = exactWorldX - (mX / newTileSize);
-            camera.y = exactWorldY - (mY / newTileSize);
+            if (window.smoothScroll) {
+                // con el desplazamiento fluido la cámara puede quedar entre dos cuadros: el punto bajo el cursor se queda casi exacto
+                camera.x = exactWorldX - (mX / newTileSize);
+                camera.y = exactWorldY - (mY / newTileSize);
+            } else {
+                // sin él la cámara solo puede quedar en cuadros enteros (y redondear al más cercano a veces pasaba el cursor al cuadro de al lado):
+                // se elige el único entero con el que el CUADRO que estaba bajo el cursor sigue bajo el cursor
+                camera.x = Math.ceil(Math.floor(exactWorldX) - (mX / newTileSize) - 1e-9);
+                camera.y = Math.ceil(Math.floor(exactWorldY) - (mY / newTileSize) - 1e-9);
+            }
 
             updateZoomSlider(currentZoomIndex);
 
@@ -1779,7 +1874,10 @@ window.drawItemIcon = function (ctx, ro, itemId, extras, dx, dy, dw, dh) {
     }
     const spriteKey = window.mobHeadSpriteKey(itemId, extras);      // cabeza de zombie / skeleton / creeper / enderdragon
     if (spriteKey && window.texturesMap && window.texturesMap[spriteKey]) ro = window.texturesMap[spriteKey];
-    if (ro) ctx.drawImage(window.images.blocks, ro.x, ro.y, 16, 16, dx, dy, dw, dh);
+    if (ro) {
+        if (ro.w === 32) ctx.drawImage(window.images.blocks, ro.x, ro.y, 32, 16, dx, dy + dh / 4, dw, dh / 2);   // dibujos anchos (vagoneta, balsa): las dos mitades, a lo ancho de la casilla
+        else ctx.drawImage(window.images.blocks, ro.x, ro.y, 16, 16, dx, dy, dw, dh);
+    }
 };
 
 window.openPixelArtModal = function() { if (typeof openModal === 'function') openModal('pixelart-addon-modal'); };
@@ -1840,20 +1938,20 @@ window.processPixelArt = function(event) {
                     if (typeof currentTool !== 'undefined') currentTool = 'pixelart';
                     else window.currentTool = 'pixelart';
                     
-                    alert("✅ ¡Imagen procesada!\\nCierra este menú y haz clic en el mapa para pegarla.");
+                    alert(tmsg('msg_pixel_ready', "✅ Image processed! Close this menu and click on the map to paste it."));
                     
                     if (typeof closeModal === 'function') closeModal('pixelart-addon-modal');
                     const uploadInput = document.getElementById('pixelart-upload');
                     if(uploadInput) uploadInput.value = "";
                 } catch(err) {
-                    alert("Error al procesar la imagen: " + err.message);
+                    alert(tmsg('msg_pixel_error', "Error processing the image: {e}", { e: err.message }));
                 }
             };
             img.src = e.target.result;
         };
         reader.readAsDataURL(file);
     } catch(err) {
-        alert("Error de lectura: " + err.message);
+        alert(tmsg('msg_read_error_detail', "Read error: {e}", { e: err.message }));
     }
 };
 
@@ -1917,7 +2015,7 @@ window.buildPixelArtInWorld = function(pD, w, h, sX, sY, useDithering) {
         
         return true;
     } catch(e) {
-        alert("Error al construir en el mundo: " + e.message);
+        alert(tmsg('msg_build_error', "Error building in the world: {e}", { e: e.message }));
         return false;
     }
 };
@@ -1951,7 +2049,7 @@ function handlePixelArtClick(e) {
             if (typeof selectTool === 'function') selectTool('move'); 
             else if (typeof currentTool !== 'undefined') currentTool = 'move';
             
-            alert("🎨 ¡Pixel Art pegado con éxito!");
+            alert(tmsg('msg_pixel_done', "🎨 Pixel Art pasted successfully!"));
         }
     }
 }
