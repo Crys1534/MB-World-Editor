@@ -490,15 +490,28 @@ function snipDrawScene(ctx, W, H, camX, camY, ts, withEntities) {
 
                 let safeState = { type: rawBlock.type };
                 if (rawBlock.states1 !== undefined) safeState.states1 = rawBlock.states1;
+                if (rawBlock.hasSignal !== undefined) safeState.hasSignal = rawBlock.hasSignal;   // (lámpara de redstone encendida)
 
                 let renderObj = typeof getBlockObject === 'function' ? getBlockObject(safeState) : null;
                 if (!renderObj && window.blockData && window.blockData[safeState.type]) {
                     renderObj = window.blockData[safeState.type](safeState);
                 }
                 if (!renderObj || !ready) continue;
+                // la lana arcoíris (y los demás bloques animados) salen en la captura igual que en el editor, en su color de este momento
+                if (typeof window.mbwAnimatedTile === 'function') renderObj = window.mbwAnimatedTile(renderObj, x, y) || renderObj;
 
                 const py1 = Math.round(H - (y - camY) * ts), py0 = Math.round(H - (y + 1 - camY) * ts);
-                ctx.drawImage(blocksImg, renderObj.x, renderObj.y, 16, 16, px0, py0, px1 - px0, py1 - py0);
+                if (renderObj.img && (renderObj.img.tagName === 'CANVAS' || (renderObj.img.complete && renderObj.img.naturalWidth > 0))) {
+                    if (renderObj.alpha != null) ctx.globalAlpha = renderObj.alpha;
+                    if (renderObj.flip) { ctx.save(); ctx.translate(px0 + (px1 - px0), py0); ctx.scale(-1, 1); ctx.drawImage(renderObj.img, renderObj.sx || 0, renderObj.sy || 0, 16, 16, 0, 0, px1 - px0, py1 - py0); ctx.restore(); }
+                    else ctx.drawImage(renderObj.img, renderObj.sx || 0, renderObj.sy || 0, 16, 16, px0, py0, px1 - px0, py1 - py0);
+                    ctx.globalAlpha = 1;
+                } else {
+                    if (renderObj.alpha != null) ctx.globalAlpha = renderObj.alpha;
+                    if (renderObj.flip) { ctx.save(); ctx.translate(px0 + (px1 - px0), py0); ctx.scale(-1, 1); ctx.drawImage(blocksImg, renderObj.x, renderObj.y, 16, 16, 0, 0, px1 - px0, py1 - py0); ctx.restore(); }
+                    else ctx.drawImage(blocksImg, renderObj.x, renderObj.y, 16, 16, px0, py0, px1 - px0, py1 - py0);
+                    ctx.globalAlpha = 1;
+                }
             }
         }
     }
@@ -519,7 +532,9 @@ function snipDrawEntities(ctx, W, H, camX, camY, ts) {
                 const mx = Number(mob.x), my = -Number(mob.y);
                 if (!isFinite(mx) || !isFinite(my)) continue;
                 const info = getMobDrawInfo(mob);
-                const img = info.img;
+                let img = info.img;
+                // una skin que llegó "sin permiso" no se puede meter en una imagen descargable: va la spawnskin genérica
+                if (img && img.__tainted) img = window.images && window.images['spawnskin'];
                 if (!(img && img.complete && img.naturalWidth > 0)) continue;
                 const w = ts * info.w, h = ts * info.h;
                 const sx = (mx - camX) * ts, sy = H - (my - camY) * ts;
@@ -546,6 +561,8 @@ function snipDrawEntities(ctx, W, H, camX, camY, ts) {
             const sx = (px - camX) * ts, sy = H - (py - camY) * ts;
             if (isFinite(sx) && isFinite(sy) && !(sx + w / 2 < 0 || sx - w / 2 > W || sy < 0 || sy - h > H)) {
                 ctx.drawImage(img, 0, 0, img.naturalWidth, img.naturalHeight, sx - (w / 2), sy - h, w, h);
+                const pArmor = window.mbwPlayerArmorMob ? window.mbwPlayerArmorMob() : null;   // su armadura, encima
+                if (pArmor && typeof drawMobArmorOverlay === 'function') drawMobArmorOverlay(ctx, pArmor, sx - (w / 2), sy - h, w, h);
             }
         }
     }

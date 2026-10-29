@@ -53,9 +53,33 @@
         token: 0,
         pick: null,                                  // función que recibe el ID cuando la galería se abrió para ELEGIR (Mob Browser)
         favs: loadList('mbw_skin_favs'), recent: loadList('mbw_skin_recent'),
-        meta: {}                                     // id -> { name, author } lo último que se vio en la web
+        newest: loadList('mbw_skin_newest'),         // las 3 más nuevas de "New skins" (para la tira de la cinta cuando aún no usaste ninguna)
+        meta: loadMeta()                             // id -> { name, author } lo que se sabe de cada skin (se guarda en el navegador)
     };
-    function rememberMeta(s) { st.meta[s.id] = { name: s.name, author: s.author }; }
+    // Nombre y autor de cada skin vista: se guardan en el navegador (hasta 600) para mostrarlos aunque no haya internet
+    function loadMeta() {
+        try {
+            const o = JSON.parse(lsGet('mbw_skin_meta', '{}')), out = {};
+            if (o && typeof o === 'object') Object.keys(o).forEach((id) => { const m = o[id]; if (ID_RE.test(id) && m && typeof m === 'object') out[id] = { name: String(m.name || '').slice(0, 80), author: String(m.author || '').slice(0, 60) }; });
+            return out;
+        } catch (e) { return {}; }
+    }
+    function saveMetaSoon() {
+        clearTimeout(saveMetaSoon.t);
+        saveMetaSoon.t = setTimeout(function () {
+            const ids = Object.keys(st.meta);
+            if (ids.length > 600) ids.slice(0, ids.length - 600).forEach((id) => { delete st.meta[id]; });
+            lsSet('mbw_skin_meta', JSON.stringify(st.meta));
+        }, 800);
+    }
+    function rememberMeta(s) {
+        if (!s || !ID_RE.test(String(s.id))) return;
+        const name = String(s.name || '').slice(0, 80), author = String(s.author || '').slice(0, 60);
+        const cur = st.meta[s.id];
+        if (cur && ((!name && !author) || (cur.name === name && cur.author === author))) return;
+        st.meta[s.id] = { name: name || (cur && cur.name) || '', author: author || (cur && cur.author) || '' };
+        saveMetaSoon();
+    }
     st.favs.concat(st.recent).forEach(rememberMeta);
     const isFav = (id) => st.favs.some((f) => f.id === id);
 
@@ -68,6 +92,8 @@
     const NET_DETAIL = 'no connection or blocked by the browser';
     function customApi() { return window.SKIN_LIST_URL || lsGet('mbw_skin_api', ''); }
     function apiUrl() { return customApi() || DEFAULT_API; }
+    // El mismo puente sirve las imágenes de las skins (versión 2 del puente): main.js lo usa para bajarlas "limpias"
+    function bridgeBase() { const u = apiUrl(); return (u && u !== DIRECT_API && validApi(u)) ? u : null; }
     function validApi(u) { return /^https:\/\/[^\s"'<>]{4,300}$/i.test(u); }
     // Un fallo "de red" con internet encendido cuando se consulta Mine Blocks directo casi siempre es su bloqueo CORS
     function errText(detail) {
@@ -144,9 +170,9 @@
     const GRID_COLS = 4, GRID_ROWS = 2, PER_GRID = GRID_COLS * GRID_ROWS; // búsqueda, "In this world" y Favorites
     function newList() { return { items: [], page: 1, hasMore: true, loading: false, err: '', loaded: false, off: false, view: 0 }; }
     // Pide páginas al servidor hasta tener al menos "need" skins (o hasta que ya no haya más). false = llegó tarde (otra búsqueda la reemplazó).
-    async function fillList(L, fetcher, need, token, filterFn) {
+    async function fillList(L, fetcher, need, token, filterFn, maxPages) {
         let guard = 0;
-        while (L.items.length < need && L.hasMore && guard++ < 6) {
+        while (L.items.length < need && L.hasMore && guard++ < (maxPages || 6)) {
             const list = await fetcher(L.page);
             if (token !== st.token) return false;
             list.forEach(rememberMeta);
@@ -157,6 +183,22 @@
             if (!list.length) L.hasMore = false; else L.page++;
         }
         return true;
+    }
+
+    // Todo lo que pide páginas de UNA lista va en fila (uno después de otro): así "preparar las siguientes" y "pasar de página"
+    // nunca piden la misma página dos veces.
+    function enqueue(L, job) { const run = function () { return job(); }; L.chain = (L.chain || Promise.resolve()).then(run, run); return L.chain; }
+    // Prepara en segundo plano las páginas siguientes (lista + imágenes), sin mostrar "Cargando" ni cambiar de página
+    function prefetchList(L, fetcher, upTo, filterFn, maxPages) {
+        const token = st.token;
+        return enqueue(L, async function () {
+            if (token !== st.token || L.off || !L.hasMore || L.items.length >= upTo) return;
+            try { await fillList(L, fetcher, upTo, token, filterFn, maxPages); } catch (e) { /* se vuelve a intentar al pedir esa página */ }
+        }).then(function () {
+            if (token !== st.token) return;
+            if (typeof window.mbwSkinPrefetch === 'function') window.mbwSkinPrefetch(L.items.slice(0, upTo).map((s) => s.id), false);
+            if (st.open) refreshArrows();
+        });
     }
 
     // ------------------------------------------------------------------ pantalla de inicio: Destacadas / Nuevas / Mejores (como la web)
@@ -188,24 +230,28 @@
         renderResults();
         try {
             const target = h.view + (dir ? 1 : 0);
-            const ok = await fillList(h, async function (p) {
-                const list = await fetchSection(k, p);
-                if (k !== 'new' && p === 1 && sameAsNew(list)) { h.off = true; return []; }
-                return list;
-            }, (target + 1) * ROW, token);
+            const ok = await enqueue(h, function () { return fillList(h, homeFetcher(k, h), (target + 1) * ROW, token); });
             if (!ok) return;
             if (h.items.length > target * ROW) h.view = target;
         } catch (e) {
             if (token !== st.token) return;
             h.err = (e && e.detail) || 'net'; if (!h.items.length) h.hasMore = false;   // con skins ya mostradas, "Retry" vuelve a pedir la página que falló
         }
-        if (token === st.token) { h.loading = false; renderResults(); }
+        if (token === st.token) { h.loading = false; renderResults(); homePrefetch(k); }
     }
+    function homeFetcher(k, h) {
+        return async function (p) {
+            const list = await fetchSection(k, p);
+            if (k !== 'new' && p === 1 && sameAsNew(list)) { h.off = true; return []; }
+            return list;
+        };
+    }
+    function homePrefetch(k) { const h = st.home && st.home[k]; if (h && !h.off && !h.err) prefetchList(h, homeFetcher(k, h), (h.view + 2) * ROW, null, 3); }
     function homeGo(k, dir) {
         const h = st.home && st.home[k];
         if (!h || h.loading) return;
         if (dir < 0) { if (h.view > 0) { h.view--; renderResults(); } return; }
-        if (h.items.length > (h.view + 1) * ROW) { h.view++; renderResults(); return; }
+        if (h.items.length > (h.view + 1) * ROW) { h.view++; renderResults(); homePrefetch(k); return; }
         if (h.hasMore) { h.err = ''; homeLoad(k, 1); }
     }
     async function homeStart() {
@@ -230,7 +276,10 @@
         const start = o.view * o.per;
         const slice = o.items.slice(start, start + o.per);
         const canPrev = !o.loading && o.view > 0;
-        const canNext = !o.loading && (o.items.length > (o.view + 1) * o.per || !!o.hasMore);
+        // (o.liveLen: cuántas hay AHORA en la lista; las páginas que se preparan en segundo plano la hacen crecer)
+        const nextOk = function () { const n = o.liveLen ? o.liveLen() : o.items.length; return !o.loading && (n > (o.view + 1) * o.per || !!(o.list ? o.list.hasMore : o.hasMore)); };
+        const canNext = nextOk();
+        sec._canNext = nextOk;
         const arrow = function (cls, title, on, fn) {
             const b = document.createElement('button'); b.type = 'button'; b.className = 'sg-arrow ' + cls; b.title = title; b.setAttribute('aria-label', title);
             b.disabled = !on; b.onclick = fn; return b;
@@ -243,12 +292,20 @@
         row.appendChild(grid);
         row.appendChild(arrow('sg-next', tr('sg_next', 'Next page'), canNext, o.onNext));
         sec.appendChild(row);
-        if (slice.length || o.view > 0) {
+        if (o.showPage && (slice.length || o.view > 0)) {             // "Página N" solo en los resultados de una búsqueda
             const pn = document.createElement('div'); pn.className = 'sg-pagenum'; pn.textContent = tr('sg_page', 'Page {n}').replace('{n}', String(o.view + 1));
             sec.appendChild(pn);
         }
         if (o.err) sec.appendChild(errNote(o.err, o.onRetry));
         return sec;
+    }
+    // Cuando termina de prepararse una página en segundo plano, las flechas "→" se ponen al día (sin volver a dibujar las tarjetas)
+    function refreshArrows() {
+        const box = $('sg-results'); if (!box) return;
+        Array.prototype.forEach.call(box.querySelectorAll('.sg-sec'), function (sec) {
+            const b = sec.querySelector('.sg-next');
+            if (b && typeof sec._canNext === 'function') b.disabled = !sec._canNext();
+        });
     }
     // Aviso de error con botón "Retry" (y, si hace falta, el cuadro para pegar otra dirección)
     function errNote(err, onRetry) {
@@ -277,7 +334,7 @@
                 return;
             }
             box.appendChild(buildSection({
-                title: tr(def[1], def[2]), items: h.items, view: h.view, per: ROW, cols: ROW, hasMore: h.hasMore, loading: h.loading, err: h.err,
+                title: tr(def[1], def[2]), items: h.items, view: h.view, per: ROW, cols: ROW, hasMore: h.hasMore, list: h, liveLen: function () { return h.items.length; }, loading: h.loading, err: h.err,
                 onPrev: function () { homeGo(k, -1); }, onNext: function () { homeGo(k, 1); }, onRetry: function () { homeGo(k, 1); }
             }));
         });
@@ -318,13 +375,16 @@
         renderRecentStrip();
     }
 
-    // Tira de skins recientes del ribbon (pestaña View → Skins): las últimas 4, un clic deja lista esa skin para el mapa
-    const STRIP_MAX = 4;
+    // Tira de skins del grupo Skins de la cinta: las 3 últimas que usaste; si todavía no usaste ninguna, las 3 más nuevas de
+    // "New skins" (se piden a la web unos segundos después de abrir el editor). Un clic deja lista esa skin para el mapa.
+    const STRIP_MAX = 3;
     function renderRecentStrip() {
         const box = $('recent-skins-ribbon');
         if (!box) return;
         box.textContent = '';
-        const list = st.recent.slice(0, STRIP_MAX);
+        const useNew = !st.recent.length;
+        const list = (useNew ? st.newest : st.recent).slice(0, STRIP_MAX);
+        box.classList.toggle('sg-recent-new', useNew && list.length > 0);
         if (!list.length) {
             const e = document.createElement('span'); e.className = 'empty-text'; e.textContent = tr('lbl_empty', 'Empty');
             box.appendChild(e);
@@ -333,7 +393,7 @@
         list.forEach((item) => {
             const b = document.createElement('button');
             b.type = 'button'; b.className = 'sg-rs-item'; b.dataset.id = item.id;
-            b.title = tr('sg_rs_tip', 'Place the skin: {name}').replace('{name}', labelOf(item));
+            b.title = (useNew ? tr('sg_rs_new_tip', 'New skin: {name}. Click to place it.') : tr('sg_rs_tip', 'Place the skin: {name}')).replace('{name}', labelOf(item) + (item.author ? ' (' + item.author + ')' : ''));
             const cv = document.createElement('canvas'); cv.width = 16; cv.height = 22;
             b.appendChild(cv);
             b.onclick = function () { placeInWorld(item); };
@@ -498,7 +558,7 @@
         try {
             const extra = idCardFor(L.items) ? 1 : 0;
             const target = L.view + (dir ? 1 : 0);
-            const ok = await fillList(L, function (p) { return fetchRemote('search', st.query, p); }, (target + 1) * PER_GRID - extra, token, st.filter !== 'all' ? matches : null);
+            const ok = await enqueue(L, function () { return fillList(L, searchFetcher(), (target + 1) * PER_GRID - extra, token, st.filter !== 'all' ? matches : null, 8); });
             if (!ok) return;
             if (L.items.length + extra > target * PER_GRID) L.view = target;
         } catch (e) {
@@ -506,14 +566,21 @@
             L.err = (e && e.detail) || 'net';
             if (!L.items.length) L.hasMore = false;
         }
-        if (token === st.token) { L.loading = false; renderResults(); }
+        if (token === st.token) { L.loading = false; renderResults(); searchPrefetch(); }
+    }
+    function searchFetcher() { const q = st.query; return function (p) { return fetchRemote('search', q, p); }; }
+    // Deja listas las 4 páginas siguientes de la búsqueda (sus skins y sus imágenes), por si la persona sigue pasando páginas
+    function searchPrefetch() {
+        const L = st.srch;
+        if (!L || L.err) return;
+        prefetchList(L, searchFetcher(), (L.view + 5) * PER_GRID, st.filter !== 'all' ? matches : null, 10);
     }
     function searchGo(dir) {
         const L = st.srch;
         if (!L || L.loading) return;
         const extra = idCardFor(L.items) ? 1 : 0;
         if (dir < 0) { if (L.view > 0) { L.view--; renderResults(); } return; }
-        if (L.items.length + extra > (L.view + 1) * PER_GRID) { L.view++; renderResults(); return; }
+        if (L.items.length + extra > (L.view + 1) * PER_GRID) { L.view++; renderResults(); searchPrefetch(); return; }
         if (L.hasMore) { L.err = ''; searchLoad(1); }
     }
     function localGo(dir) {
@@ -538,7 +605,7 @@
         const cv = document.createElement('canvas');
         cv.width = 16; cv.height = 22; cv.className = 'sg-thumb';
         stage.appendChild(cv);
-        const fav = document.createElement('button'); fav.type = 'button'; fav.className = 'sg-fav' + (isFav(item.id) ? ' on' : '');
+        const fav = document.createElement('button'); fav.type = 'button'; fav.className = 'sg-fav sg-favimg' + (isFav(item.id) ? ' on' : '');
         fav.textContent = isFav(item.id) ? '★' : '☆'; fav.title = tr('sg_fav_tip', 'Favorite');
         fav.onclick = function (e) { e.stopPropagation(); toggleFavAndRefresh(item); };
         stage.appendChild(fav);
@@ -587,7 +654,9 @@
         const mk = function (cls, text, title, fn) { const b = document.createElement('button'); b.type = 'button'; b.className = 'ex-btn ' + cls; b.textContent = text; if (title) b.title = title; b.onclick = function () { fn(b); }; acts.appendChild(b); return b; };
         if (st.pick) mk('sg-use ex-primary', tr('sg_use', 'Use this skin'), '', function () { useSkin(it); });
         mk('sg-place' + (st.pick ? '' : ' ex-primary'), tr('sg_place', '🌍 Place in world'), tr('sg_place_tip', 'Select the Spawn Mob tool with this skin'), function () { placeInWorld(it); });
-        mk('sg-pv-fav' + (isFav(it.id) ? ' on' : ''), (isFav(it.id) ? '★ ' : '☆ ') + tr('sg_fav_tip', 'Favorite'), '', function () { toggleFavAndRefresh(it); });
+        const pf = mk('sg-pv-fav' + (isFav(it.id) ? ' on' : ''), '', '', function () { toggleFavAndRefresh(it); });
+        const pfi = document.createElement('span'); pfi.className = 'sg-favimg sg-pv-favimg' + (isFav(it.id) ? ' on' : ''); pfi.setAttribute('aria-hidden', 'true'); pfi.textContent = isFav(it.id) ? '★' : '☆';
+        pf.appendChild(pfi); pf.appendChild(document.createTextNode(' ' + tr('sg_fav_tip', 'Favorite')));
         mk('sg-copy', '# ' + tr('sg_copy_tip', 'Copy ID'), '', function (b) { copyId(it, b); });
         p.appendChild(acts);
         const tip = document.createElement('div'); tip.className = 'sg-pv-tip';
@@ -605,6 +674,7 @@
             renderHome(box);
             box.scrollTop = prevScroll;
             status.textContent = ''; status.className = 'sg-status';
+            prioritizeVisible();
             return;
         }
         let msg = '', isErr = false;
@@ -614,7 +684,7 @@
             const items = (idc ? [idc] : []).concat(L.items);
             if (items.length || L.loading) {
                 box.appendChild(buildSection({
-                    items: items, view: L.view, per: PER_GRID, cols: GRID_COLS, hasMore: L.hasMore, loading: L.loading,
+                    items: items, view: L.view, per: PER_GRID, cols: GRID_COLS, hasMore: L.hasMore, list: L, liveLen: function () { return L.items.length + (idCardFor(L.items) ? 1 : 0); }, loading: L.loading, showPage: true,
                     onPrev: function () { searchGo(-1); }, onNext: function () { searchGo(1); }
                 }));
             }
@@ -645,6 +715,42 @@
         box.scrollTop = prevScroll;
         status.textContent = msg;
         status.className = 'sg-status' + (isErr ? ' err' : '');
+        prioritizeVisible();
+        if (st.tab === 'world') lookupMeta(localList().filter((x) => !x.author || !x.name).map((x) => x.id));
+    }
+    // Las imágenes de las skins que se ven AHORA van primero en la fila de descargas
+    function prioritizeVisible() {
+        if (typeof window.mbwSkinPrefetch !== 'function') return;
+        const box = $('sg-results'); if (!box) return;
+        const ids = Array.prototype.map.call(box.querySelectorAll('.sg-card'), function (c) { return c.dataset.id; });
+        if (st.sel) ids.unshift(st.sel.id);
+        window.mbwSkinPrefetch(ids, true);
+    }
+    // "In this world": las skins del mundo de las que no se sabe el nombre/autor se buscan por su ID en la web (de a 2 a la vez)
+    const lookup = { q: [], state: {}, active: 0 };
+    function lookupMeta(ids) {
+        ids.forEach(function (id) {
+            if (!ID_RE.test(String(id)) || lookup.state[id]) return;
+            const m = st.meta[id];
+            if (m && m.name && m.author) return;
+            lookup.state[id] = 'queued'; lookup.q.push(String(id));
+        });
+        pumpLookup();
+    }
+    function pumpLookup() {
+        while (lookup.active < 2 && lookup.q.length) {
+            const id = lookup.q.shift();
+            lookup.active++;
+            fetchRemote('search', id, 1).then(function (list) {
+                const hit = list.find(function (x) { return x.id === id; });
+                if (hit) { rememberMeta(hit); lookup.state[id] = 'done'; } else lookup.state[id] = 'none';
+            }, function () { delete lookup.state[id]; })                   // sin conexión: se vuelve a intentar la próxima vez
+                .then(function () {
+                    lookup.active--;
+                    if (st.open && st.tab === 'world' && lookup.state[id] === 'done') { clearTimeout(pumpLookup.t); pumpLookup.t = setTimeout(renderResults, 120); }
+                    pumpLookup();
+                });
+        }
     }
 
     function openGallery(opts) {
@@ -670,7 +776,19 @@
 
     window.openSkinGallery = openGallery;
     window.closeSkinGallery = closeGallery;
-    window.mbwSkinGallery = { state: st, place: placeInWorld, worldSkins: worldSkins, reload: reload, renderStrip: renderRecentStrip, select: select };
+    // Las 3 skins más nuevas de la web para la tira (una vez por sesión)
+    function refreshNewest() {
+        fetchRemote('new', '', 1).then(function (list) {
+            if (!list.length) return;
+            list.forEach(rememberMeta);
+            st.newest = list.slice(0, STRIP_MAX).map(cleanItem);
+            lsSet('mbw_skin_newest', JSON.stringify(st.newest));
+            renderRecentStrip();
+            if (typeof window.mbwSkinPrefetch === 'function') window.mbwSkinPrefetch(st.newest.map((x) => x.id), false);
+        }).catch(function () { /* sin conexión: se queda la lista guardada */ });
+    }
+    setTimeout(refreshNewest, 4000);
+    window.mbwSkinGallery = { state: st, place: placeInWorld, worldSkins: worldSkins, reload: reload, renderStrip: renderRecentStrip, select: select, bridgeBase: bridgeBase, refreshNewest: refreshNewest };
     window.skinGalleryOnLanguageChanged = function () { renderRecentStrip(); if (st.open) { texts(); renderResults(); renderPreview(); } };
     renderRecentStrip();
     window.addEventListener('load', renderRecentStrip);   // por si las miniaturas aún no podían bajarse cuando cargó la página

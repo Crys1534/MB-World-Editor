@@ -489,6 +489,7 @@ function populateInventory() {
             let renderObj = typeof getBlockObject === 'function' ? getBlockObject({type: itemID}) : null;
             if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
                 ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
+                if (window.mbwAnimIcon) window.mbwAnimIcon(ctx, renderObj, 0, 0, 16, 16);
             } else {
                 ctx.fillStyle = "magenta"; ctx.fillRect(4, 4, 8, 8);
             }
@@ -563,6 +564,7 @@ function populateInventory() {
 
         if (renderObj && images.blocks && images.blocks.complete) {
              ctx.drawImage(images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 16, 16);
+             if (window.mbwAnimIcon) window.mbwAnimIcon(ctx, renderObj, 0, 0, 16, 16);   // lana arcoíris / magma / fuego: ícono animado
         } else {
              ctx.fillStyle = "magenta"; 
              ctx.fillRect(4, 4, 8, 8);

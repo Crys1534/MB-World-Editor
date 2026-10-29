@@ -277,6 +277,50 @@ window.addEventListener("keyup", function (event) {
     if (keys.hasOwnProperty(event.code)) keys[event.code] = false;
 });
 
+// --- Ctrl mantenido = Move Tool (mientras se mantenga) ---
+// Con el Pencil (o colocando mobs / vehículos), mantener Ctrl cambia a la herramienta Move;
+// al soltar Ctrl se regresa a la herramienta de antes. Así se puede colocar un mob y moverlo
+// o seleccionarlo enseguida, sin ir a la barra de herramientas.
+// Si se suelta Ctrl a mitad de un arrastre, se espera a soltar el clic para regresar.
+(function () {
+    const FROM = ['pencil', 'spawn_mob', 'spawn_vehicle'];
+    let from = null, waitMouse = false;
+    function typing() {
+        const a = document.activeElement;
+        if (!a) return false;
+        const tag = a.tagName;
+        return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || !!a.isContentEditable;
+    }
+    function restore() {
+        waitMouse = false;
+        if (!from) return;
+        const back = from;
+        from = null;
+        if (typeof currentTool === 'undefined' || currentTool !== 'move') return;   // la persona eligió otra herramienta mientras tanto
+        if (typeof selectTool === 'function') selectTool(back); else currentTool = back;
+    }
+    window.addEventListener('keydown', function (e) {
+        if (e.key !== 'Control' && e.key !== 'Meta') return;
+        if (e.repeat || from || window.profileLocked || typing()) return;
+        if (typeof currentTool === 'undefined' || FROM.indexOf(currentTool) < 0) return;
+        if (typeof mouse !== 'undefined' && mouse.left) return;   // a mitad de un trazo con el lápiz: no se cambia
+        if (typeof snipState !== 'undefined' && snipState && snipState.active) return;
+        from = currentTool;
+        if (typeof selectTool === 'function') selectTool('move'); else currentTool = 'move';
+    });
+    window.addEventListener('keyup', function (e) {
+        if (e.key !== 'Control' && e.key !== 'Meta') return;
+        if (!from) return;
+        if (typeof mouse !== 'undefined' && mouse.left) { waitMouse = true; return; }
+        restore();
+    });
+    window.addEventListener('mouseup', function () {
+        if (waitMouse) setTimeout(restore, 0);   // después de que el editor termine de soltar lo que se arrastraba
+    });
+    window.addEventListener('blur', restore);
+    window.mbwCtrlMoveState = function () { return { from: from, waitMouse: waitMouse }; };
+})();
+
 // --- MOUSE MOVE ---
 canvas.addEventListener("mousemove", (event) => {
     // ✨ FIX: Salimos inmediatamente si main.js no ha terminado de cargar
@@ -382,6 +426,8 @@ function renderChestOrOvenUI(blockState, gridContainer) {
                 ctx.imageSmoothingEnabled = false;
 
                 let tempState = { type: itemID }; 
+                const texVar = window.itemTexVariant ? window.itemTexVariant(itemID, itemDamage, enchantments) : undefined;   // lana de color, etc.
+                if (texVar !== undefined) tempState.states1 = texVar;
                 let renderObj = typeof getBlockObject === 'function' ? getBlockObject(tempState) : null;
 
                 if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
@@ -450,6 +496,8 @@ function renderChestOrOvenUI(blockState, gridContainer) {
                 ctx.imageSmoothingEnabled = false;
 
                 let tempState = { type: itemID }; 
+                const texVar = window.itemTexVariant ? window.itemTexVariant(itemID, itemDamage, enchantments) : undefined;   // lana de color, etc.
+                if (texVar !== undefined) tempState.states1 = texVar;
                 let renderObj = typeof getBlockObject === 'function' ? getBlockObject(tempState) : null;
 
                 if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {

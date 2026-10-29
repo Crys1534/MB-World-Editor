@@ -478,6 +478,7 @@ cauldron: { x: 0, y: 33 },
  hay_1: { x: 0, y: 137 },
  hay_2: { x: 1, y: 137 },
  light: { x: 0, y: 71 },
+ light_true: { x: 1, y: 71 },   // lámpara de redstone ENCENDIDA (el dibujo de al lado en blocks.png)
  rstorch: { x: 0, y: 57 },
  piston_2: { x: 1, y: 62 },
  piston_3: { x: 2, y: 62 },

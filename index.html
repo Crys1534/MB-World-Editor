@@ -349,10 +349,10 @@
   <div class="left-group">
    <img src="favicon.ico" class="app-icon" alt="App Icon">
    <button class="icon-btn" onclick="openFileMenu()" data-i18n="btn_file">File</button>
-   <button class="icon-btn" onclick="document.getElementById('file-input').click()">📂</button>
+   <button class="icon-btn" onclick="document.getElementById('file-input').click()"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-folder"></use></svg></button>
    
    <div class="ms-switch-container">
-    <button class="menu-btn btn-save-quick" onclick="fileManager.saveLocal()" data-i18n-title="tooltip_save_now" title="Save Now">💾</button>
+    <button class="menu-btn btn-save-quick" onclick="fileManager.saveLocal()" data-i18n-title="tooltip_save_now" title="Save Now"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-save"></use></svg></button>
     <span class="ms-switch-label" onclick="document.getElementById('autosave-toggle').click()" data-i18n="lbl_auto_save">Auto save</span>
     <label class="ms-switch">
         <input type="checkbox" id="autosave-toggle" onchange="toggleAutoSave()">
@@ -361,14 +361,14 @@
    </div>
    
    <button class="icon-btn btn-multiplayer" onclick="openFileMenu('multiplayer');">
-    🌐 <span data-i18n="btn_multiplayer">Multiplayer</span>
+    <svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-globe"></use></svg> <span data-i18n="btn_multiplayer">Multiplayer</span>
     <div id="global-mp-badge" class="badge-global-mp">0</div>
    </button>
 
    <div class="dropdown-container">
         <button class="icon-btn" onclick="toggleHelpMenu()" data-i18n="btn_help">Help</button>
         <div id="help-dropdown" class="dropdown-content">
-            <a href="#" onclick="openModal('settings-modal'); closeHelpMenu();">⚙️ <span data-i18n="menu_configuration">Configuration</span></a>
+            <a href="#" onclick="openModal('settings-modal'); closeHelpMenu();"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-gear"></use></svg> <span data-i18n="menu_configuration">Configuration</span></a>
             <a href="https://discord.gg/GHJutHJ" target="_blank" onclick="closeHelpMenu();">👾 <span data-i18n="menu_join_discord">Join our community!</span></a>
             <a href="#" onclick="openModal('about-modal'); closeHelpMenu();">ℹ️ <span data-i18n="menu_about">About...</span></a>
         </div>
@@ -376,8 +376,8 @@
    
    <div class="separator"></div>
    
-   <button class="icon-btn" onclick="historyManager.undo()" data-i18n-title="tooltip_undo" title="Undo (Ctrl+Z)">↶</button>
-   <button class="icon-btn" onclick="historyManager.redo()" data-i18n-title="tooltip_redo" title="Redo (Ctrl+Y)">↷</button>
+   <button class="icon-btn" onclick="historyManager.undo()" data-i18n-title="tooltip_undo" title="Undo (Ctrl+Z)"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-undo"></use></svg></button>
+   <button class="icon-btn" onclick="historyManager.redo()" data-i18n-title="tooltip_redo" title="Redo (Ctrl+Y)"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-redo"></use></svg></button>
    <div class="separator"></div>
    
    <div class="filename-wrapper">
@@ -393,7 +393,7 @@
             <img id="top-profile-img" class="img-profile-top" src="assets/default pfp.png">
         </button>
 
-        <button class="icon-btn btn-news" id="news-btn" onclick="openNewsModal()" data-i18n-title="tooltip_news" title="Updates & Changelog">📰 <span data-i18n="btn_news">Updates</span></button>
+        <button class="icon-btn btn-news" id="news-btn" onclick="openNewsModal()" data-i18n-title="tooltip_news" title="Updates & Changelog"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-news"></use></svg> <span data-i18n="btn_news">Updates</span></button>
     </div>
 </div>
  <div id="ui-collapse-wrapper" class="collapsible-wrapper">
@@ -412,7 +412,7 @@
 
 <div class="dropdown-container" id="addons-dropdown-container" style="position: relative; display: flex; align-items: flex-end;">
     <button class="tab-btn" onclick="toggleAddonsMenu()" style="color: #f1c40f; display: flex; flex-direction: row; align-items: center; gap: 4px; padding-bottom: 8px; white-space: nowrap;">
-        <span style="font-size: 12px;" data-i18n="addons_tab_btn">➕ Addons</span>
+        <svg class="mbw-ic mbw-ic-sm" aria-hidden="true" focusable="false"><use href="#ic-plus"></use></svg><span style="font-size: 12px;" data-i18n="addons_tab_btn">Addons</span>
         <span style="font-size: 10px;">▼</span>
     </button>
     
@@ -451,7 +451,7 @@
 	
 	<!-- ✨ NUEVO: BOTÓN DE PUBLICAR ✨ -->
     <button id="btn-publish-map" onclick="window.open('https://forms.gle/BfFqecsjVyU3ZNND7', '_blank')" style="margin-bottom: 4px; margin-left: 8px; align-self: flex-end; background-color: #2ecc71; color: black; font-weight: bold; border: 2px solid #27ae60; cursor: pointer; padding: 4px 10px; display: flex; align-items: center; gap: 5px;" data-i18n-title="tt_publish_map" title="Publish your map">
-        📢 <span data-i18n="btn_publish">Publish</span>
+        <svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-publish"></use></svg> <span data-i18n="btn_publish">Publish</span>
     </button>
     <!-- ✨ FIN DEL BOTÓN DE PUBLICAR ✨ -->
     
@@ -465,11 +465,11 @@
         <div class="ribbon-group">
             <div class="ribbon-group-content">
                 <button class="ribbon-btn-large" onclick="activatePasteMode()" data-i18n-title="tooltip_paste" title="Paste (Ctrl+V)">
-                    <span class="icon">📋</span><span class="text" data-i18n="btn_paste">Paste</span>
+                    <span class="icon"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-paste"></use></svg></span><span class="text" data-i18n="btn_paste">Paste</span>
                 </button>
                 <div class="ribbon-btn-col">
-                    <button class="ribbon-btn-small" onclick="cutSelection()" data-i18n-title="tooltip_cut" title="Cut (Ctrl+X)"><span>✂️</span></button>
-                    <button class="ribbon-btn-small" onclick="copySelection()" data-i18n-title="tooltip_copy" title="Copy (Ctrl+C)"><span>📄</span></button>
+                    <button class="ribbon-btn-small" onclick="cutSelection()" data-i18n-title="tooltip_cut" title="Cut (Ctrl+X)"><span><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-cut"></use></svg></span></button>
+                    <button class="ribbon-btn-small" onclick="copySelection()" data-i18n-title="tooltip_copy" title="Copy (Ctrl+C)"><span><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-copy"></use></svg></span></button>
                 </div>
                 <!-- Pegar solo sobre un tipo de bloque (por ejemplo solo sobre stone): el menú lo arma scripts/clipboard.js -->
                 <button class="ribbon-btn-large pf-btn" id="btn-paste-filter" type="button" onclick="togglePasteFilterMenu(event)" title="Paste only over one kind of block">
@@ -494,10 +494,10 @@
                         </label>
                         <span class="bs-icons">
                         <button class="ribbon-btn-small ribbon-btn-icon" id="btn-flip-h" onclick="if(typeof flipClipboardHorizontal !== 'undefined') { flipClipboardHorizontal(); selectTool('paste'); }" title="Mirror" data-i18n-title="tooltip_mirror">
-                            <span aria-hidden="true">↔️</span><span class="sr-only" data-i18n="btn_mirror">Mirror</span>
+                            <span aria-hidden="true"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-mirror"></use></svg></span><span class="sr-only" data-i18n="btn_mirror">Mirror</span>
                         </button>
                         <button class="ribbon-btn-small ribbon-btn-icon" id="btn-rotate" onclick="if(typeof rotateFromButton !== 'undefined') rotateFromButton();" title="Rotate (R)" data-i18n-title="tooltip_rotate">
-                            <span aria-hidden="true">🔄</span><span class="sr-only" data-i18n="btn_rotate">Rotate</span>
+                            <span aria-hidden="true"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-rotate"></use></svg></span><span class="sr-only" data-i18n="btn_rotate">Rotate</span>
                         </button>
                         </span>
                     </div>
@@ -524,7 +524,7 @@
         <div class="ribbon-group">
             <div class="ribbon-group-content">
                 <button id="btn-save-struct" class="btn-ribbon-save-struct" onclick="openSaveStructureModal()" disabled data-i18n-title="tooltip_save_struct" title="Select an area first">
-                    <span class="icon-text">💾</span>
+                    <span class="icon-text"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-save"></use></svg></span>
                     <span class="text-multiline" data-i18n="btn_save_structure_multiline">Save<br>Structure</span>
                 </button>
                 <div id="recent-structures-ribbon" class="recent-ribbon-container"><span class="empty-text" data-i18n="lbl_empty">Empty</span></div>
@@ -540,6 +540,18 @@
                 <button class="mini-arrow-btn arrow-tall" onclick="openMobModal()" data-i18n-title="tooltip_mobs" title="Open Mob Browser"><span>»</span></button>
             </div>
             <div class="ribbon-group-label" data-i18n="lbl_mobs_tab">Mobs (M)</div>
+        </div>
+        <div class="separator"></div>
+
+        <!-- 🖼️ Skins: galería de spawnskins + las últimas usadas (scripts/skin-gallery.js) -->
+        <div class="ribbon-group">
+            <div class="ribbon-group-content">
+                <button class="ribbon-btn-large" id="btn-skin-gallery" onclick="openSkinGallery()" data-i18n-title="sg_btn_tip" title="Skin Gallery: search spawnskins">
+                    <span class="icon"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-gallery"></use></svg></span><span class="text" data-i18n="sg_btn_label">Skin Gallery</span>
+                </button>
+                <div id="recent-skins-ribbon" class="recent-ribbon-container sg-recent"></div>
+            </div>
+            <div class="ribbon-group-label" data-i18n="sg_group">Skins</div>
         </div>
    </div>
 
@@ -622,7 +634,7 @@
         <div class="ribbon-group">
             <div class="ribbon-group-content rg-flex-gap12">
     <div class="gamerule-item">
-        <span class="icon-18">🎒</span>
+        <span class="icon-18"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-backpack"></use></svg></span>
         <div style="display: flex; align-items: flex-start; gap: 4px; margin-top: 4px;">
             <input type="checkbox" id="gr-keepinventory" style="margin: 0; margin-top: 2px;">
             <label class="lbl-tiny" data-i18n="lbl_keep_inv" style="text-align: left;">Keep<br>Inv.</label>
@@ -636,7 +648,7 @@
         </div>
     </div>
     <div class="gamerule-item">
-        <span class="icon-18">💥</span>
+        <span class="icon-18"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-boom"></use></svg></span>
         <div style="display: flex; align-items: flex-start; gap: 4px; margin-top: 4px;">
             <input type="checkbox" id="gr-mobgriefing" checked style="margin: 0; margin-top: 2px;">
             <label class="lbl-tiny" data-i18n="lbl_mob_griefing" style="text-align: left;">Mob<br>Griefing</label>
@@ -660,28 +672,7 @@
             <div class="ribbon-group-label" data-i18n="lbl_gamerules">Game Rules</div>
         </div>
         
-        <div class="separator"></div>
 
-        <div class="ribbon-group">
-            <div class="ribbon-group-content rg-flex-gap15">
-                
-<!-- Current Position -->
-<div class="rg-col-center gap-2">
-    <label class="lbl-small" style="font-weight: bold; text-align: center; margin-bottom: 2px;" data-i18n="lbl_current_pos">Current Pos.</label>
-    <div class="rg-row-center gap-2">
-        <label class="lbl-small" style="color: #4DA6FF; font-weight: bold;">X</label>
-        <input type="number" id="player-pos-x" class="input-stat w-52" onchange="updatePlayerPos('x', this.value)" step="0.1">
-    </div>
-    <div class="rg-row-center gap-2">
-        <label class="lbl-small" style="color: #2ecc71; font-weight: bold;">Y</label>
-        <input type="number" id="player-pos-y" class="input-stat w-52" onchange="updatePlayerPos('y', this.value)" step="0.1">
-    </div>
-</div>
-
-
-            </div>
-            <div class="ribbon-group-label" data-i18n="lbl_location">Location</div>
-        </div>
         
     </div>
 
@@ -739,6 +730,24 @@
         </div>
         <div class="separator"></div>
 
+        <!-- 🌑 Oscuridad bajo tierra (con auras de luz) y 🗺️ franja de biomas: scripts/darkness.js -->
+        <div class="ribbon-group">
+            <div class="ribbon-group-content rg-col-start gap-4 view-toggles">
+                <label class="rg-row-center gap-5 lbl-small pointer" data-i18n-title="dark_toggle_tip" title="Below Y 90 the world gets darker the deeper you go. Torches, lamps and the player light it up.">
+                    <svg class="vt-ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 1.5a6.5 6.5 0 1 0 4 11.6A6 6 0 0 1 10.5 1.5z" fill="#3a3f5c" stroke="#111" stroke-width="1"/><circle cx="12.5" cy="4" r="1" fill="#ffd54a"/></svg>
+                    <input type="checkbox" id="darkness-toggle" checked onchange="setDarkness(this.checked)">
+                    <span data-i18n="lbl_darkness_toggle">Darkness</span>
+                </label>
+                <label class="rg-row-center gap-5 lbl-small pointer" data-i18n-title="biomes_toggle_tip" title="Shows a colored band on top of the world with the biome of each column.">
+                    <svg class="vt-ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="5" width="4" height="6" fill="#2f8f3a"/><rect x="5" y="5" width="3" height="6" fill="#e3cf7a"/><rect x="8" y="5" width="4" height="6" fill="#3b6fe0"/><rect x="12" y="5" width="3" height="6" fill="#8d8d8d"/><rect x="1" y="5" width="14" height="6" fill="none" stroke="#111" stroke-width="1"/></svg>
+                    <input type="checkbox" id="biomes-toggle" onchange="setShowBiomes(this.checked)">
+                    <span data-i18n="lbl_biomes_toggle">Biomes</span>
+                </label>
+            </div>
+            <div class="ribbon-group-label" data-i18n="lbl_lighting_group">Darkness &amp; Biomes</div>
+        </div>
+        <div class="separator"></div>
+
         <div class="ribbon-group">
             <div class="ribbon-group-content">
                 <button class="ribbon-btn-large" onclick="openModal('dimensions-modal')">
@@ -752,7 +761,7 @@
 
         <div class="ribbon-group">
             <label class="ribbon-group-content rg-col-center gap-2 pointer">
-                <span class="icon-24 m-auto">🌦️</span>
+                <span class="icon-24 m-auto"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-weather"></use></svg></span>
                 <div class="rg-row-center gap-5 lbl-small">
                     <input type="checkbox" id="show-weather-anim" checked onchange="toggleWeatherAnimation(this.checked)"> 
                     <span data-i18n="lbl_weather_anim">Weather<br>Animation</span>
@@ -779,7 +788,7 @@
 		
 		<div class="ribbon-group">
             <label class="ribbon-group-content rg-col-center gap-2 pointer">
-                <span class="icon-24 m-auto">🏷️</span>
+                <span class="icon-24 m-auto"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-tag"></use></svg></span>
                 <div class="rg-row-center gap-5 lbl-small">
                     <input type="checkbox" id="hide-mob-names" onchange="toggleMobNames(this.checked)"> 
                     <span data-i18n="lbl_hide_names">Hide Names</span>
@@ -793,24 +802,13 @@
         <div class="ribbon-group">
             <div class="ribbon-group-content">
                 <button class="ribbon-btn-large" id="btn-bookmarks" onclick="openBookmarks()" data-i18n-title="ex_bm_tip" title="Saved places: add the spot you are looking at and jump back to it later">
-                    <span class="icon">⭐</span><span class="text" data-i18n="ex_bm_btn">Bookmarks</span>
+                    <span class="icon"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-star"></use></svg></span><span class="text" data-i18n="ex_bm_btn">Bookmarks</span>
                 </button>
             </div>
             <div class="ribbon-group-label" data-i18n="ex_bm_group">Places</div>
         </div>
         <div class="separator"></div>
 
-        <!-- 🖼️ Skins: galería de spawnskins + las últimas usadas (scripts/skin-gallery.js) -->
-        <div class="ribbon-group">
-            <div class="ribbon-group-content">
-                <button class="ribbon-btn-large" id="btn-skin-gallery" onclick="openSkinGallery()" data-i18n-title="sg_btn_tip" title="Skin Gallery: search spawnskins">
-                    <span class="icon">🖼️</span><span class="text" data-i18n="sg_btn_label">Skin Gallery</span>
-                </button>
-                <div id="recent-skins-ribbon" class="recent-ribbon-container sg-recent"></div>
-            </div>
-            <div class="ribbon-group-label" data-i18n="sg_group">Skins</div>
-        </div>
-        <div class="separator"></div>
 
     </div>
 
@@ -838,6 +836,7 @@
         </div>
         <div class="separator"></div>
 
+
         <!-- 🎒 Inventario del jugador (se guarda en el mundo: inventoryList / armors / selectedInventoryItem) -->
         <div class="ribbon-group">
             <div class="ribbon-group-content">
@@ -845,6 +844,29 @@
                 <button class="mini-arrow-btn arrow-top" onclick="togglePlayerInventory()" data-i18n-title="tooltip_player_inventory" title="Open the Player Inventory"><span>»</span></button>
             </div>
             <div class="ribbon-group-label" data-i18n="lbl_player_inventory">Player Inventory</div>
+        </div>
+        <div class="separator"></div>
+
+        <!-- 📍 Posición del jugador (antes estaba en World Settings) -->
+        <div class="ribbon-group">
+            <div class="ribbon-group-content rg-flex-gap15">
+                
+<!-- Current Position -->
+<div class="rg-col-center gap-2">
+    <label class="lbl-small" style="font-weight: bold; text-align: center; margin-bottom: 2px;" data-i18n="lbl_current_pos">Current Pos.</label>
+    <div class="rg-row-center gap-2">
+        <label class="lbl-small" style="color: #4DA6FF; font-weight: bold;">X</label>
+        <input type="number" id="player-pos-x" class="input-stat w-52" onchange="updatePlayerPos('x', this.value)" step="0.1">
+    </div>
+    <div class="rg-row-center gap-2">
+        <label class="lbl-small" style="color: #2ecc71; font-weight: bold;">Y</label>
+        <input type="number" id="player-pos-y" class="input-stat w-52" onchange="updatePlayerPos('y', this.value)" step="0.1">
+    </div>
+</div>
+
+
+            </div>
+            <div class="ribbon-group-label" data-i18n="lbl_location">Location</div>
         </div>
         <div class="separator"></div>
     </div>
@@ -856,17 +878,17 @@
 </div><!-- /top-area -->
 
 <div id="toolbar-sidebar">
-    <button class="tool-btn" id="tool-move" onclick="selectTool('move')" data-i18n-title="tooltip_tool_move" title="Move Tool">👆</button>
-    <button class="tool-btn active" id="tool-pencil" onclick="selectTool('pencil')" data-i18n-title="tooltip_tool_pencil" title="Pencil">✏️</button>
-    <button class="tool-btn" id="tool-eraser" onclick="selectTool('eraser')" data-i18n-title="tooltip_tool_eraser" title="Eraser">🧼</button>
-    <button class="tool-btn" id="tool-bucket" onclick="selectTool('bucket')" data-i18n-title="tooltip_tool_bucket" title="Bucket">🪣</button>
-    <button class="tool-btn" id="tool-select" onclick="selectTool('select')" data-i18n-title="tooltip_tool_select" title="Select">🔳</button>
-    <button class="tool-btn" id="tool-magic" onclick="selectTool('magic')" data-i18n-title="tooltip_tool_magic" title="Magic Wand">🪄</button>
-    <button class="tool-btn" id="tool-lasso" onclick="selectTool('lasso')" data-i18n-title="tooltip_tool_lasso" title="Free form">➰</button>
+    <button class="tool-btn" id="tool-move" onclick="selectTool('move')" data-i18n-title="tooltip_tool_move" title="Move Tool"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-move"></use></svg></button>
+    <button class="tool-btn active" id="tool-pencil" onclick="selectTool('pencil')" data-i18n-title="tooltip_tool_pencil" title="Pencil"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-pencil"></use></svg></button>
+    <button class="tool-btn" id="tool-eraser" onclick="selectTool('eraser')" data-i18n-title="tooltip_tool_eraser" title="Eraser"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-eraser"></use></svg></button>
+    <button class="tool-btn" id="tool-bucket" onclick="selectTool('bucket')" data-i18n-title="tooltip_tool_bucket" title="Bucket"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-bucket"></use></svg></button>
+    <button class="tool-btn" id="tool-select" onclick="selectTool('select')" data-i18n-title="tooltip_tool_select" title="Select"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-select"></use></svg></button>
+    <button class="tool-btn" id="tool-magic" onclick="selectTool('magic')" data-i18n-title="tooltip_tool_magic" title="Magic Wand"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-magic"></use></svg></button>
+    <button class="tool-btn" id="tool-lasso" onclick="selectTool('lasso')" data-i18n-title="tooltip_tool_lasso" title="Free form"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-lasso"></use></svg></button>
     
     <div class="toolbar-separator"></div>
     
-    <button class="tool-btn" onclick="takeScreenshot()" data-i18n-title="tooltip_screenshot" title="Screenshot">📷</button>
+    <button class="tool-btn" onclick="takeScreenshot()" data-i18n-title="tooltip_screenshot" title="Screenshot"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-camera"></use></svg></button>
 </div>
 
  <div id="workspace">
@@ -935,7 +957,7 @@
  </div>
 
 <div id="settings-modal" class="modal">
-    <div class="modal-content mbw-standard-modal" style="width: 550px; height: 500px;">
+    <div class="modal-content mbw-standard-modal" style="width: 780px; height: 600px;">
         <div class="mbw-modal-header">
             <h3 data-i18n="config_title">⚙️ Configuration</h3>
             <span class="mbw-close-btn" onclick="closeModal('settings-modal')">&times;</span>
@@ -982,6 +1004,12 @@
         <span data-i18n="config_smooth_scroll">Smooth scrolling</span>
     </label>
     <small data-i18n="config_smooth_scroll_hint" style="display: block; margin-top: 4px; margin-left: 24px; color: #444;">The camera glides pixel by pixel instead of jumping one block at a time.</small>
+
+    <label style="display: flex; align-items: center; gap: 8px; font-weight: bold; margin-top: 14px; cursor: pointer;">
+        <input type="checkbox" id="animations-toggle" checked onchange="setAnimationsEnabled(this.checked)" style="margin: 0; cursor: pointer;">
+        <span data-i18n="config_animations">Animations</span>
+    </label>
+    <small data-i18n="config_animations_hint" style="display: block; margin-top: 4px; margin-left: 24px; color: #444;">Animated blocks: rainbow wool and carpet change color, magma glows and fire flickers. Turn it off to see them still.</small>
 
     <h4 data-i18n="config_focus_title" style="margin: 22px 0 6px 0; border-bottom: 2px solid #888; padding-bottom: 4px;">🧘 Focus &amp; performance</h4>
 
@@ -1154,6 +1182,10 @@
                     </div>
                     <div class="ci-enchant-col">
                         <div class="ci-enchant-header" data-i18n="lbl_enchantments">Enchantments</div>
+                        <label class="ci-any-ench" data-i18n-title="ci_any_ench_tip" title="Lets any item get any enchantment (ignores which items each enchantment is for, and which ones can't go together)">
+                            <input type="checkbox" id="ci-any-ench" onchange="ciSetAnyEnchant(this.checked)">
+                            <span data-i18n="ci_any_ench">Any enchantment on any item</span>
+                        </label>
                         <div id="ci-enchantments-list" class="ci-enchant-list"></div>
                     </div>
                 </div>
@@ -1181,7 +1213,17 @@
                     <button class="mini-btn btn-import" onclick="importStructures()" data-i18n-title="tooltip_import_json" title="Import JSON">📥 <span data-i18n="btn_import_mini">Import</span></button>
                     <button class="mini-btn btn-export" onclick="exportSavedStructures()" data-i18n-title="tooltip_export_json" title="Export JSON">💾 <span data-i18n="btn_export_mini">Export</span></button>
                     <button class="mini-btn btn-reset" onclick="resetSavedStructures()" data-i18n-title="tooltip_delete_all" title="Delete All Saved">⚠️ <span data-i18n="btn_reset_mini">Reset</span></button>
+                    <button class="mini-btn btn-multi" id="struct-multi-toggle" onclick="toggleStructMulti()" data-i18n-title="struct_multi_tip" title="Select several saved structures to delete or export them (or Ctrl + click)"><svg class="mbw-ic mbw-ic-sm" aria-hidden="true" focusable="false"><use href="#ic-check"></use></svg> <span data-i18n="struct_multi_btn">Select</span></button>
                 </div>
+            </div>
+
+            <!-- Barra de "varias a la vez" (solo en Saved, con Select encendido) -->
+            <div id="struct-multi-bar" class="struct-multi-bar" style="display: none;">
+                <span id="struct-multi-count" class="struct-multi-count">0 selected</span>
+                <button type="button" class="mini-btn" onclick="structMultiAll()" data-i18n="struct_multi_all">Select all</button>
+                <button type="button" class="mini-btn btn-export" id="struct-multi-export" onclick="structMultiExport()" data-i18n="struct_multi_export">Export selected</button>
+                <button type="button" class="mini-btn btn-reset" id="struct-multi-delete" onclick="structMultiDelete()" data-i18n="struct_multi_delete">Delete selected</button>
+                <button type="button" class="mini-btn" onclick="toggleStructMulti(false)" data-i18n="struct_multi_cancel">Cancel</button>
             </div>
 
             <div id="struct-subtabs" class="struct-subtabs-row">
@@ -1688,6 +1730,7 @@
 </div>
 
 
+ <script src="scripts/ui-icons.js"></script> <!-- 🎨 íconos propios de la interfaz (pixel art) -->
  <script src="scripts/lang.js"></script>
  <script src="scripts/items-data.js"></script>
  <script src="scripts/enchants.js"></script>
@@ -1705,6 +1748,7 @@
  <script src="scripts/mob-editor.js"></script>
  <script src="scripts/input.js"></script>
  <script src="scripts/file-manager.js"></script>
+ <script src="scripts/anim-frames.js"></script> <!-- 🎞️ cuadros de las animaciones elegidos en el editor secreto (vacío = los de fábrica) -->
  <script src="scripts/rendering.js"></script>
  <script src="scripts/profile.js"></script>
  <script src="main.js"></script>
@@ -1714,6 +1758,8 @@
  <script src="scripts/player-inventory.js"></script>
  <script src="scripts/skin-gallery.js"></script> <!-- 🖼️ galería de spawnskins -->
  <script src="scripts/world-extras.js"></script> <!-- ⭐ marcadores, 🪧 editor de letreros, 🚃 vagonetas y balsas, 🌈 lana arcoíris animada -->
+ <script src="scripts/darkness.js"></script> <!-- 🌑 oscuridad bajo tierra, auras de luz y franja de biomas -->
+ <script src="scripts/anim-editor.js"></script> <!-- 🎞️ editor secreto de animaciones (Ctrl + Shift + Alt + A) -->
  <script src="scripts/audio-manager.js"></script>
  <script src="scripts/file-menu.js"></script>
  <script src="scripts/commands.js"></script>
@@ -1721,6 +1767,7 @@
  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
  <script src="scripts/multiplayer.js"></script>
  <script src="scripts/multiplayer-ui.js"></script>
+ <script src="scripts/join-requests.js"></script> <!-- 🚪 pedir entrar al mundo de otro jugador (lista Online) -->
  <script src="scripts/chat-dm.js"></script>
  <script src="scripts/mini-chat.js"></script> <!-- 💬 mini ventana de chat de las burbujas (como Messenger) -->
  

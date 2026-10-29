@@ -85,17 +85,21 @@
         }
         return false;
     }
+    let bkLast = null;
     function rainbowTick() {
         const A = window.rainbowAnim;
         if (!A) return;
         const now = performance.now();
-        const q = Math.floor(now / A.period * A.sub);
-        if (A.started && q === A.q) return;
+        // (con las animaciones apagadas el reloj de la lana se queda quieto; magma y fuego tampoco cambian)
+        const q = (window.mbwAnimationsOn === false && A.started) ? A.q : Math.floor(now / A.period * A.sub);
+        const bk = window.blockAnim ? window.blockAnim.clock() : 0;
+        if (A.started && q === A.q && bk === bkLast) return;
         // con muchísimos cuadros en pantalla (zoom muy alejado) repintar tantas veces por segundo pesaría: se espacia
         const cells = (typeof grid !== 'undefined' && grid.width && grid.height) ? grid.width * grid.height : 0;
         const gap = cells > 20000 ? 400 : (cells > 6000 ? 200 : 0);
         if (A.started && now - rbLastCheck < gap) return;
         rbLastCheck = now;
+        bkLast = bk;
         A.setClock(q);
         if (rainbowVisible()) worldDirty = true;
     }
@@ -587,12 +591,14 @@
         // el dibujo mide 2 cuadros de ancho x 1 de alto; los pies van abajo y la x es el centro
         // (la balsa trae 4 píxeles vacíos abajo: se baja un poco para que se vea apoyada en el agua)
         const drop = kind === 'raft' ? tileSize * 0.19 : 0;
-        c.drawImage(im, T.x, T.y, 32, 16, px - tileSize, pyFeet - tileSize + drop, tileSize * 2, tileSize);
+        // lo que lleva la vagoneta (cofre / horno / TNT) se dibuja PRIMERO, y la vagoneta encima:
+        // así parece que va metido dentro (solo asoma la parte de arriba por el borde)
         if (kind === 'cart' && d && d.type) {
             const k = d.type === 'oven' ? 'oven' : d.type;
             const R = (typeof getBlockObject === 'function') ? getBlockObject({ type: k }) : null;
-            if (R) { const s = tileSize * 0.62; c.drawImage(im, R.x, R.y, 16, 16, px - s / 2, pyFeet - tileSize * 0.45 - s, s, s); }
+            if (R) { const s = tileSize * 0.75; c.drawImage(im, R.x, R.y, 16, 16, px - s / 2, pyFeet - tileSize * 0.3 - s, s, s); }
         }
+        c.drawImage(im, T.x, T.y, 32, 16, px - tileSize, pyFeet - tileSize + drop, tileSize * 2, tileSize);
         c.restore();
     }
     function vehBox(v) {   // caja para hacer clic (en coordenadas del mundo): sobre el dibujo visible, con un poco de margen

@@ -53,12 +53,14 @@ let currentCiEditIndex = null;
 function updateCiPreviewCanvas() {
     let ctx = document.getElementById('ci-preview-canvas').getContext('2d');
     ctx.clearRect(0, 0, 64, 64);
+    ctx.canvas.__itemTok = 'ci' + Math.random();       // (si antes mostraba un objeto animado, deja de animarse)
     ctx.imageSmoothingEnabled = false;
     
     // Ahora simplemente dibuja la ID que tengamos, ya que la cambiaremos dinámicamente
     let renderObj = typeof getBlockObject === 'function' ? getBlockObject({type: currentCiBaseItem}) : null;
     if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
         ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 64, 64);
+        if (window.mbwAnimIcon) window.mbwAnimIcon(ctx, renderObj, 0, 0, 64, 64);   // lana arcoíris / magma / fuego: animado
     }
 }
 
@@ -153,6 +155,7 @@ function renderEnchantmentList() {
     list.innerHTML = '';
     mbwEnchPicker(list, {
         item: currentCiBaseItem,
+        free: ciAnyEnchant(),
         data: currentCiEnchants,
         open: ciEnchantOpen,
         onChange: () => {
@@ -170,6 +173,23 @@ function renderEnchantmentList() {
         }
     });
 }
+
+// 🔓 Casilla "Any enchantment on any item": cualquier objeto puede llevar cualquier encantamiento
+// (sin la regla de en qué objetos va cada uno, ni la de los que no se pueden juntar). Se recuerda en este navegador.
+function ciAnyEnchant() {
+    try { return localStorage.getItem('mbw_ci_any_ench') === '1'; } catch (e) { return false; }
+}
+function ciSetAnyEnchant(on) {
+    try { localStorage.setItem('mbw_ci_any_ench', on ? '1' : '0'); } catch (e) { /* no se recuerda */ }
+    const cb = document.getElementById('ci-any-ench');
+    if (cb) cb.checked = !!on;
+    if (currentCiBaseItem) renderEnchantmentList();
+}
+window.ciSetAnyEnchant = ciSetAnyEnchant;
+document.addEventListener('DOMContentLoaded', function () {
+    const cb = document.getElementById('ci-any-ench');
+    if (cb) cb.checked = ciAnyEnchant();
+});
 
 // ✨ 5. GUARDAR Y ACTUALIZAR
 function saveCustomItem() {

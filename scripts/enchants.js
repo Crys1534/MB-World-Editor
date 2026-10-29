@@ -211,7 +211,8 @@ function mbwEnchPicker(host, o) {
     var data = o.data || {};
     var open = o.open || {};
     host.innerHTML = '';
-    var fams = o.families || mbwEnchFamiliesFor(o.item);
+    // o.free = "cualquier encantamiento en cualquier objeto": todos los encantamientos y sin los que se excluyen entre sí
+    var fams = o.families || (o.free ? MBW_ENCHANTS.slice() : mbwEnchFamiliesFor(o.item));
     // los más fáciles de encontrar: por orden alfabético
     fams = fams.slice().sort(function (a, b) { return a.name.localeCompare(b.name); });
     if (!fams.length) {
@@ -252,7 +253,7 @@ function mbwEnchPicker(host, o) {
         rows.forEach(function (r) {
             var lvl = activeLevel(r.fam);
             var blocked = false;
-            Object.keys(act).forEach(function (fid) { if (fid !== r.fam.id && mbwEnchConflicts(fid, r.fam.id)) blocked = true; });
+            if (!o.free) Object.keys(act).forEach(function (fid) { if (fid !== r.fam.id && mbwEnchConflicts(fid, r.fam.id)) blocked = true; });
             r.head.classList.toggle('active-enchant', lvl > 0);
             r.head.classList.toggle('disabled-enchant', blocked && lvl === 0);
             if (r.badge) r.badge.textContent = lvl > 0 ? (MBW_ENCH_ROMAN[lvl] || String(lvl)) : '';

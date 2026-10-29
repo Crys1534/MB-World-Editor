@@ -197,6 +197,8 @@ let selectedStructure = null;
 let tempSaveData = null; 
 let isInputBlocked = false; 
 let confirmCallback = null; 
+const structMulti = { on: false, sel: new Set() };   // varias guardadas marcadas a la vez (ver "VARIAS A LA VEZ" más abajo)
+window.structMulti = structMulti;
 
 // ==========================================
 // 3. CARGA E INICIALIZACIÓN
@@ -269,8 +271,8 @@ window.addEventListener('keydown', function(e) {
 }, true); 
 
 // --- IMPORT/EXPORT ---
-function exportSavedStructures() {
-    const savedStructs = structureDB.filter(s => s.category === 'saved');
+function exportSavedStructures(only) {
+    const savedStructs = Array.isArray(only) ? only : structureDB.filter(s => s.category === 'saved');
     if (savedStructs.length === 0) { alert(tmsg('msg_no_saved_structs', "No saved structures.")); return; }
     
     // Preparar JSON bonito
@@ -337,6 +339,51 @@ function resetSavedStructures() {
     });
 }
 
+// --- VARIAS A LA VEZ (pestaña Saved): marcar con "Select" (o Ctrl + clic) y después borrar o exportar las marcadas ---
+function structMultiPicked() { return structureDB.filter(s => s.category === 'saved' && structMulti.sel.has(s.timestamp)); }
+function structMultiRefresh() {
+    const bar = document.getElementById('struct-multi-bar');
+    const btn = document.getElementById('struct-multi-toggle');
+    const show = currentStructCategory === 'saved';
+    if (btn) { btn.classList.toggle('active', structMulti.on); btn.style.display = show ? '' : 'none'; }
+    if (!bar) return;
+    bar.style.display = (show && structMulti.on) ? 'flex' : 'none';
+    const n = structMultiPicked().length;
+    const cnt = document.getElementById('struct-multi-count');
+    if (cnt) cnt.textContent = tmsg('struct_multi_count', '{n} selected', { n: n });
+    ['struct-multi-delete', 'struct-multi-export'].forEach(id => { const b = document.getElementById(id); if (b) b.disabled = n === 0; });
+}
+function toggleStructMulti(on) {
+    structMulti.on = on === undefined ? !structMulti.on : !!on;
+    if (!structMulti.on) structMulti.sel.clear();
+    renderStructureGrid();
+}
+function structMultiAll() {
+    const saved = structureDB.filter(s => s.category === 'saved' && (currentStructSubCategory === 'all' || (s.subcategory || '').toLowerCase() === String(currentStructSubCategory).toLowerCase()));
+    const all = saved.length && saved.every(s => structMulti.sel.has(s.timestamp));
+    if (all) structMulti.sel.clear(); else saved.forEach(s => structMulti.sel.add(s.timestamp));
+    renderStructureGrid();
+}
+function structMultiExport() {
+    const list = structMultiPicked();
+    if (!list.length) return;
+    exportSavedStructures(list.slice().sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0)));
+}
+function structMultiDelete() {
+    const list = structMultiPicked();
+    if (!list.length) return;
+    showCustomConfirm(tmsg('struct_multi_del_q', 'Delete {n} saved structures permanently?', { n: list.length }), async function () {
+        if (typeof audioManager !== 'undefined') audioManager.playSound('trash');
+        for (const st of list) { try { if (st.timestamp) await dbManager.delete(st.timestamp); } catch (e) { console.error(e); } }
+        const gone = new Set(list);
+        structureDB = structureDB.filter(s => !gone.has(s));
+        structMulti.sel.clear(); structMulti.on = false;
+        filterStructures('saved', currentStructSubCategory || 'all');
+        updateRibbonQuickAccess();
+    });
+}
+window.toggleStructMulti = toggleStructMulti; window.structMultiAll = structMultiAll; window.structMultiExport = structMultiExport; window.structMultiDelete = structMultiDelete;
+
 // --- GESTIÓN DE MODALES ---
 function openStructuresModal() {
     document.getElementById('structures-modal').style.display = 'flex';
@@ -382,6 +429,7 @@ document.getElementById('btn-confirm-yes').onclick = function() {
 
 // --- LOGICA PRINCIPAL DE ESTRUCTURAS ---
 function filterStructures(category, subcategory = null) {
+    if (category !== currentStructCategory) { structMulti.on = false; structMulti.sel.clear(); }
     currentStructCategory = category;
     if (subcategory) currentStructSubCategory = subcategory;
 
@@ -481,6 +529,10 @@ function renderStructureGrid() {
         return true;
     });
 
+    // Las guardadas: la última que guardaste, primero
+    if (currentStructCategory === 'saved') filtered.sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0));
+    structMultiRefresh();
+
     if (filtered.length === 0) {
         grid.innerHTML = '<div style="color:#FFF; grid-column: 1/-1; text-align:center; padding-top:20px;">No structures found.</div>';
         return;
@@ -490,6 +542,15 @@ function renderStructureGrid() {
         const item = document.createElement('div');
         item.className = 'struct-item';
         item.style.position = 'relative'; // Para que la estrella flote encima
+        item.dataset.ts = String(struct.timestamp || '');
+        // Varias a la vez (pestaña Saved): casilla en cada tarjeta
+        if (structMulti.on && struct.category === 'saved') {
+            item.classList.add('struct-multi');
+            if (structMulti.sel.has(struct.timestamp)) item.classList.add('struct-picked');
+            const box = document.createElement('span');
+            box.className = 'struct-check';
+            item.appendChild(box);
+        }
         
 // --- CREACIÓN DE LA ESTRELLA FAVORITA ---
         const star = document.createElement('img');
@@ -552,7 +613,14 @@ function renderStructureGrid() {
         item.appendChild(previewCanvas);
         item.appendChild(nameDiv);
 
-        item.onclick = function() {
+        item.onclick = function(e) {
+            // Ctrl + clic en una guardada (o el modo "Select" encendido): marcar / desmarcar varias
+            if (struct.category === 'saved' && (structMulti.on || (e && (e.ctrlKey || e.metaKey)))) {
+                if (!structMulti.on) { structMulti.on = true; if (selectedStructure && selectedStructure.category === 'saved') structMulti.sel.add(selectedStructure.timestamp); }
+                if (structMulti.sel.has(struct.timestamp)) structMulti.sel.delete(struct.timestamp); else structMulti.sel.add(struct.timestamp);
+                renderStructureGrid();
+                return;
+            }
             document.querySelectorAll('.struct-item').forEach(el => el.classList.remove('selected'));
             this.classList.add('selected');
             selectStructure(struct);
@@ -660,6 +728,8 @@ function selectStructure(struct) {
                         ctx.imageSmoothingEnabled = false;
 
                         let tempState = { type: itemID }; 
+                        const texVar = window.itemTexVariant ? window.itemTexVariant(itemID, itemDamage, Array.isArray(item) ? item[3] : (item.nbt || item.extras)) : undefined;   // lana de color, etc.
+                        if (texVar !== undefined) tempState.states1 = texVar;
                         let renderObj = typeof getBlockObject === 'function' ? getBlockObject(tempState) : null;
                         
                         if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
@@ -837,6 +907,8 @@ function renderOvenContents(struct) {
         ctx.imageSmoothingEnabled = false;
 
         let tempState = { type: itemID }; 
+        const texVar = window.itemTexVariant ? window.itemTexVariant(itemID, itemDamage, itemData[3]) : undefined;   // lana de color, etc.
+        if (texVar !== undefined) tempState.states1 = texVar;
         let renderObj = typeof getBlockObject === 'function' ? getBlockObject(tempState) : null;
 
         if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {

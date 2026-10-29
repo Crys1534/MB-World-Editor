@@ -2538,7 +2538,7 @@ body.is-spectating #player-hotbar-container {
 .sg-results { display: flex; flex-direction: column; gap: 8px; max-height: calc(94vh - 175px); overflow-y: auto; background: #8B8B8B; border: 2px solid #373737; border-right-color: #fff; border-bottom-color: #fff; padding: 10px; min-height: 160px; }
 .sg-sec { display: flex; flex-direction: column; gap: 4px; flex: none; }
 /* Fila con una flecha a cada lado: las flechas CAMBIAN la página (no se agregan skins hacia abajo) */
-.sg-pager { display: flex; align-items: stretch; gap: 6px; }
+.sg-pager { display: flex; align-items: stretch; justify-content: center; gap: 6px; }
 .sg-pager.busy .sg-grid { opacity: 0.55; }
 .sg-arrow { flex: 0 0 38px; padding: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; background: #A0A0A0; border: 2px solid #fff; border-right-color: #555; border-bottom-color: #555; }
 .sg-arrow:hover:not(:disabled) { background: #c2c2c2; }
@@ -2548,7 +2548,7 @@ body.is-spectating #player-hotbar-container {
 .sg-prev::before { border-right: 15px solid #1d1d1d; }
 .sg-next::before { border-left: 15px solid #1d1d1d; }
 /* Tarjetas PEGADAS (sin espacio entre ellas) */
-.sg-grid { flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)); gap: 0; align-content: start; background: #9c9c9c; border-top: 1px solid #555; border-left: 1px solid #555; }
+.sg-grid { flex: 0 1 auto; min-width: 0; display: grid; grid-template-columns: repeat(var(--cols, 4), minmax(96px, 124px)); gap: 0; align-content: start; background: #9c9c9c; border-top: 1px solid #555; border-left: 1px solid #555; }
 .sg-grid-empty { grid-column: 1 / -1; padding: 46px 10px; text-align: center; font-size: 13px; color: #222; border-right: 1px solid #555; border-bottom: 1px solid #555; background: #b5b5b5; }
 .sg-card { position: relative; display: flex; flex-direction: column; gap: 5px; min-width: 0; padding: 6px; cursor: pointer; background: #b5b5b5; border-right: 1px solid #555; border-bottom: 1px solid #555; }
 .sg-card:hover { background: #cdcdcd; }
@@ -2562,6 +2562,13 @@ body.is-spectating #player-hotbar-container {
 .sg-fav { position: absolute; top: 3px; right: 3px; width: 24px; height: 24px; padding: 0; line-height: 1; font-size: 14px; text-align: center; cursor: pointer; color: #333; background: rgba(255,255,255,0.8); border: 1px solid #666; }
 .sg-fav:hover { background: #fff; }
 .sg-fav.on { color: #b8860b; }
+/* Estrella de favoritas con las imágenes de assets/UI: gris = no es favorita, dorada = favorita, clarita = al pasar el mouse */
+.sg-favimg { background: url('assets/UI/fav_2.png') center / contain no-repeat; image-rendering: pixelated; color: transparent !important; font-size: 0 !important; }
+.sg-favimg.on { background-image: url('assets/UI/fav.png'); }
+.sg-fav.sg-favimg { width: 26px; height: 26px; border: none; background-color: transparent; }
+.sg-fav.sg-favimg:hover { background-color: transparent; background-image: url('assets/UI/fav_1.png'); transform: scale(1.12); }
+.sg-pv-favimg { display: inline-block; width: 16px; height: 16px; vertical-align: -3px; }
+.sg-recent-new .sg-rs-item { border-color: #6aa84f; }
 .sg-pagenum { text-align: center; font-size: 13px; font-weight: bold; color: #111; }
 /* Vista previa de la derecha */
 .sg-preview { flex: 0 0 290px; box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #b5b5b5; border-left: 2px solid #555; min-height: 0; overflow-y: auto; }
@@ -2645,3 +2652,125 @@ body.ex-picking canvas, body.pf-picking canvas { cursor: crosshair !important; }
 .ex-signui-btn { font-family: 'Pixeltype', sans-serif; font-size: 26px; padding: 2px 18px; color: #fff; background: #6f6f6f; border: 3px solid #1e1e1e; border-top-color: #b4b4b4; border-left-color: #b4b4b4; text-shadow: 2px 2px 0 #3a3a3a; cursor: pointer; }
 .ex-signui-btn:hover { background: #7e86b8; }
 .ex-signui-hint { margin-top: 6px; color: #d8d8d8; font-size: 20px; text-shadow: 2px 2px 0 #3a3a3a; }
+
+/* Ventana Configuration: más grande y siempre en el centro de la pantalla */
+#settings-modal > .modal-content {
+    position: absolute; left: 50%; top: 50%; margin: 0;
+    max-width: 94vw; max-height: 90vh; box-sizing: border-box;
+    transform: translate(-50%, -50%);
+    animation: mbwCenteredModalOpen 0.15s cubic-bezier(0.25, 1, 0.25, 1);
+}
+#settings-modal > .modal-content > .mbw-modal-body { height: auto !important; flex: 1 1 auto; min-height: 0; }
+#settings-modal .settings-sidebar { width: 180px; overflow-y: auto; }
+@keyframes mbwCenteredModalOpen {
+    0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+/* Custom Item Creator: casilla "cualquier encantamiento en cualquier objeto" */
+.ci-any-ench { display: flex; align-items: center; gap: 6px; padding: 4px 6px; font-size: 12px; font-weight: bold; color: #222; background: #b5b5b5; border-bottom: 2px solid #8b8b8b; cursor: pointer; user-select: none; }
+.ci-any-ench input { margin: 0; cursor: pointer; }
+
+/* View: casillas de Oscuridad y Biomas */
+.view-toggles { display: flex; flex-direction: column; justify-content: center; gap: 6px; padding: 0 4px; }
+.view-toggles label { display: flex; align-items: center; gap: 5px; cursor: pointer; white-space: nowrap; }
+.view-toggles input { margin: 0; cursor: pointer; }
+.vt-ic { width: 16px; height: 16px; flex: 0 0 16px; image-rendering: pixelated; }
+
+/* Aviso de la primera vez que se ve la oscuridad */
+#dark-notice { position: absolute; left: 50%; bottom: 90px; transform: translate(-50%, 20px); z-index: 60; display: flex; align-items: center; gap: 12px;
+    max-width: min(560px, calc(100% - 32px)); padding: 12px 14px; background: rgba(20, 22, 34, 0.95); color: #f1f1f1; border: 2px solid #5b5f7a;
+    border-radius: 8px; box-shadow: 0 6px 22px rgba(0,0,0,0.5); opacity: 0; transition: opacity .25s, transform .25s; font-size: 13px; }
+#dark-notice.show { opacity: 1; transform: translate(-50%, 0); }
+#dark-notice .dn-icon { width: 30px; height: 30px; flex: 0 0 30px; border-radius: 50%; background: radial-gradient(circle at 65% 35%, #ffd54a 0 12%, transparent 13%), radial-gradient(circle at 40% 55%, #3a3f5c 0 55%, #11131f 56%); }
+#dark-notice .dn-text { display: flex; flex-direction: column; gap: 2px; line-height: 1.35; }
+#dark-notice .dn-title { font-size: 14px; }
+#dark-notice .dn-btns { display: flex; flex-direction: column; gap: 6px; flex: 0 0 auto; }
+#dark-notice button { padding: 5px 10px; border-radius: 5px; border: 1px solid #777; background: #3a3f5c; color: #fff; cursor: pointer; font-weight: bold; white-space: nowrap; }
+#dark-notice button.dn-ok { background: #2d7d46; border-color: #3fa35f; }
+#dark-notice button:hover { filter: brightness(1.15); }
+
+/* 🎞️ Editor secreto de animaciones */
+#anim-editor-modal .ae-box { position: absolute; left: 50%; top: 50%; margin: 0; transform: translate(-50%, -50%); width: 900px; height: 640px; max-width: 96vw; max-height: 92vh; box-sizing: border-box; animation: mbwCenteredModalOpen 0.15s cubic-bezier(0.25, 1, 0.25, 1); }
+#anim-editor-modal .ae-body { flex: 1 1 auto; min-height: 0; display: flex; }
+.ae-list { width: 190px; flex: 0 0 190px; background: #a0a0a0; border-right: 2px solid #555; overflow-y: auto; display: flex; flex-direction: column; }
+.ae-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 0; border-bottom: 1px solid #888; background: transparent; color: #222; font-weight: bold; font-size: 13px; text-align: left; cursor: pointer; position: relative; }
+.ae-item canvas { image-rendering: pixelated; flex: 0 0 32px; }
+.ae-item:hover { background: #909090; }
+.ae-item.on { background: #c6c6c6; }
+.ae-mod { position: absolute; right: 8px; top: 8px; width: 8px; height: 8px; border-radius: 50%; background: #2d7d46; }
+.ae-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; background: #c6c6c6; color: #111; }
+.ae-top { display: flex; gap: 14px; align-items: center; }
+.ae-preview { width: 96px; height: 96px; image-rendering: pixelated; background: #7385b9 repeating-conic-gradient(#6a7cb0 0 25%, #7385b9 0 50%) 0 0 / 24px 24px; border: 2px solid #555; flex: 0 0 96px; }
+.ae-props { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.ae-name { font-size: 16px; font-weight: bold; }
+.ae-row { display: flex; align-items: center; gap: 8px; }
+.ae-lbl { font-weight: bold; min-width: 120px; }
+.ae-row input[type=number] { width: 80px; padding: 3px 5px; }
+.ae-hint { color: #333; font-size: 12px; }
+.ae-frames-h, .ae-sheet-h { font-weight: bold; font-size: 13px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ae-goto { font-weight: normal; display: flex; align-items: center; gap: 6px; }
+.ae-goto input { width: 70px; }
+.ae-frames { display: flex; gap: 6px; overflow-x: auto; padding: 4px; min-height: 92px; background: #b5b5b5; border: 2px inset #fff; }
+.ae-frame { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px; background: #8b8b8b; border: 2px solid #555; flex: 0 0 auto; }
+.ae-frame canvas { image-rendering: pixelated; background: #7385b9; }
+.ae-frame small { font-size: 10px; color: #fff; }
+.ae-ftools { display: flex; gap: 2px; }
+.ae-ftools button { width: 22px; height: 20px; padding: 0; font-size: 11px; cursor: pointer; border: 1px solid #444; background: #ddd; border-radius: 3px; }
+.ae-ftools button.on { background: #ffd54a; }
+.ae-ftools button:disabled { opacity: 0.4; cursor: default; }
+.ae-sheet { position: relative; flex: 1 1 auto; min-height: 120px; overflow: auto; background: #7385b9 repeating-conic-gradient(#6a7cb0 0 25%, #7385b9 0 50%) 0 0 / 32px 32px; border: 2px inset #fff; }
+.ae-sheet canvas { display: block; image-rendering: pixelated; cursor: crosshair; }
+.ae-hover { position: absolute; display: none; width: 32px; height: 32px; box-sizing: border-box; border: 2px solid #ffeb3b; pointer-events: none; box-shadow: 0 0 0 1px #000; }
+.ae-actions { display: flex; align-items: center; gap: 8px; }
+.ae-btn { padding: 6px 12px; border: 2px solid #555; background: #ddd; font-weight: bold; cursor: pointer; border-radius: 4px; }
+.ae-btn:hover { filter: brightness(1.08); }
+.ae-primary { background: #2d7d46; color: #fff; border-color: #1f5a31; margin-left: auto; }
+.ae-saved { font-size: 12px; color: #333; }
+.ae-saved.warn { color: #b04500; font-weight: bold; }
+.ae-saved.ok { color: #1f6b35; font-weight: bold; }
+
+/* Estructuras guardadas: marcar varias */
+.struct-multi-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 6px 8px; margin: 4px 0; background: #2f3a52; border: 1px solid #4DA6FF; border-radius: 4px; color: #fff; }
+.struct-multi-count { font-weight: bold; margin-right: auto; }
+.struct-multi-bar .mini-btn:disabled { opacity: 0.45; cursor: default; }
+.mini-btn.btn-multi.active { background: #4DA6FF; color: #fff; }
+.struct-item.struct-multi { cursor: pointer; }
+.struct-item .struct-check { position: absolute; top: 6px; left: 6px; width: 22px; height: 22px; box-sizing: border-box; border: 3px solid #fff; background: rgba(0,0,0,0.45); border-radius: 4px; z-index: 11; box-shadow: 0 0 0 1px #000; pointer-events: none; }
+.struct-item.struct-picked { outline: 3px solid #4DA6FF; outline-offset: -3px; }
+.struct-item.struct-picked .struct-check { background: #4DA6FF; }
+.struct-item.struct-picked .struct-check::after { content: ''; position: absolute; left: 4px; top: 0px; width: 6px; height: 11px; border: solid #fff; border-width: 0 3px 3px 0; transform: rotate(45deg); }
+
+/* 🚪 Solicitudes para entrar a tu mundo */
+#jr-stack { position: fixed; top: 70px; right: 16px; z-index: 9999998; display: flex; flex-direction: column; gap: 10px; max-width: calc(100vw - 32px); }
+.jr-pop { display: flex; align-items: center; gap: 12px; width: 380px; max-width: 100%; box-sizing: border-box; padding: 12px 14px; background: #2c3e50; color: #fff; border-left: 5px solid #3498db; border-radius: 6px; box-shadow: 0 4px 20px rgba(0,0,0,0.6); font-family: Arial, sans-serif; animation: jrIn .3s cubic-bezier(.175,.885,.32,1.275); }
+@keyframes jrIn { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.jr-av { width: 44px; height: 44px; flex: 0 0 44px; border-radius: 50%; background: #34495e center / cover no-repeat; border: 2px solid #fff; }
+.jr-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: 13px; line-height: 1.3; }
+.jr-text b { font-size: 14px; color: #8ec9ff; overflow-wrap: anywhere; }
+.jr-btns { display: flex; flex-direction: column; gap: 6px; margin-left: auto; }
+.jr-btns button { padding: 6px 12px; border: none; border-radius: 4px; color: #fff; font-weight: bold; cursor: pointer; white-space: nowrap; }
+.jr-ok { background: #27ae60; } .jr-ok:hover { background: #2ecc71; }
+.jr-no { background: #7f8c8d; } .jr-no:hover { background: #95a5a6; }
+.jr-btns button:disabled { opacity: .6; cursor: default; }
+
+/* 🎨 Íconos propios (pixel art 16 x 16, scripts/ui-icons.js): siempre nítidos */
+.mbw-ic { display: inline-block; width: 1em; height: 1em; flex: 0 0 auto; vertical-align: -0.15em; shape-rendering: crispEdges; image-rendering: pixelated; pointer-events: none; }
+.tool-btn .mbw-ic { width: 32px; height: 32px; }
+.ribbon-btn-large .icon .mbw-ic { width: 32px; height: 32px; vertical-align: middle; }
+.ribbon-btn-small .mbw-ic { width: 16px; height: 16px; vertical-align: middle; }
+.ribbon-btn-small.ribbon-btn-icon .mbw-ic { width: 16px; height: 16px; }
+.btn-ribbon-save-struct .icon-text .mbw-ic { width: 32px; height: 32px; }
+.icon-18 .mbw-ic, .icon-24 .mbw-ic { width: 32px; height: 32px; display: block; margin: 0 auto; }
+.icon-btn .mbw-ic { width: 16px; height: 16px; }
+.btn-save-quick .mbw-ic { width: 16px; height: 16px; }
+#btn-publish-map .mbw-ic { width: 16px; height: 16px; }
+.mbw-ic.mbw-ic-sm { width: 16px; height: 16px; }
+#help-menu .mbw-ic, .dropdown-content .mbw-ic { width: 16px; height: 16px; vertical-align: -3px; }
+
+/* Sin paneles flotantes la hotbar vive en la pestaña Insert: los atajos de Structures / Mobs / Skins se achican un poco
+   para que todo quepa (también el grupo Skins, que volvió a Insert) */
+body:not(.float-panels) #tab-insert .quick-struct-btn { width: 46px; height: 46px; }
+body:not(.float-panels) #tab-insert .quick-struct-btn img { max-width: 42px; max-height: 42px; }
+body:not(.float-panels) #tab-insert .sg-rs-item { width: 30px; }
+body:not(.float-panels) #tab-insert .sg-recent { gap: 2px; margin-left: 4px; }

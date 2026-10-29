@@ -126,6 +126,7 @@ window.loadPublicServers = function() {
                 continue; 
             }
 
+            if (s.access === 'private' && s.hostUid !== myUID) continue;   // sala creada para dejar entrar a alguien que lo pidió (scripts/join-requests.js)
             if (s.access === 'friends_only' && s.hostUid !== myUID) {
                 if (!misAmigosConfirmados.includes(s.hostUid)) continue; 
             }
@@ -216,8 +217,17 @@ window.renderPresenceList = function() {
             const addBtn = isFriend
                 ? `<span title="Ya son amigos" style="color: #2ecc71; font-size: 16px; font-weight: bold; padding: 6px 4px;">✔ Amigos</span>`
                 : `<button onclick="sendFriendRequest('${u.uid}', '${safeName}')" style="background: #2ecc71; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#27ae60'" onmouseout="this.style.background='#2ecc71'" title="Añadir amigo">➕ Add</button>`;
+            // 🚪 Pedir entrar a su mundo (si no estoy ya en su sala y no soy yo el que tiene la sala)
+            let joinBtn = '';
+            if (!isInMyRoom && !(isHost && window.currentRoomId) && typeof window.requestJoinWorld === 'function') {
+                const waiting = window.mbwJoinCooling && window.mbwJoinCooling(u.uid);
+                joinBtn = waiting
+                    ? `<button class="mp-join-req is-waiting" disabled style="background: #7f8c8d; border: none; padding: 6px 10px; border-radius: 4px; cursor: not-allowed; color: white; font-size: 16px;">⏳ ${window.tmsg ? window.tmsg('jr_waiting_btn', 'Asked') : 'Asked'}</button>`
+                    : `<button class="mp-join-req" data-uid="${u.uid}" onclick="requestJoinWorld(this.dataset.uid)" style="background: #3498db; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#2980b9'" onmouseout="this.style.background='#3498db'" title="${window.tmsg ? window.tmsg('jr_btn_tip', 'Ask to join the world they are editing') : 'Ask to join'}">🚪 ${window.tmsg ? window.tmsg('jr_btn', 'Join') : 'Join'}</button>`;
+            }
             rightSide = `<div style="margin-left: auto; display: flex; gap: 8px;">
                         ${actionBtn}
+                        ${joinBtn}
                         ${addBtn}
                         <button onclick="openDirectMessage('${u.uid}', '${safeName}')" style="background: transparent; border: 1px solid #7f8c8d; padding: 4px 8px; border-radius: 4px; cursor: pointer; color: white; font-size: 14px;" title="Enviar mensaje">💬</button>
                     </div>`;

@@ -237,7 +237,7 @@ function makeWorldCacheBuilder() {
                 const variant = states['blockX' + x + 'Y' + y];
                 if (variant === undefined) {
                     texture = textureByType.get(type);
-                    if (texture === undefined) { texture = getTexture(type, undefined); textureByType.set(type, texture); }
+                    if (texture === undefined) { texture = window.rainbowAnim.map(getTexture(type, undefined)); textureByType.set(type, texture); }   // (magma / fuego: el dibujo animado)
                 } else {
                     texture = window.rainbowAnim.map(getTexture(type, variant));   // la lana arcoíris usa el dibujo animado
                 }
@@ -386,7 +386,7 @@ function renderWorldToBuffer() {
             
             let blockObject = getBlockCache(currentX, currentY);
             if (blockObject != null) {
-                if (blockObject.rb) blockObject = window.rainbowAnim.tileAt(blockObject, currentX, currentY);   // lana arcoíris: su color de este momento
+                if (blockObject.rb || blockObject.an) blockObject = window.mbwAnimatedTile(blockObject, currentX, currentY);   // lana arcoíris / magma / fuego: su dibujo de este momento
                 const values = {
                     x: Math.floor(x * tileSize),
                     y: Math.floor(canvas.height - y * tileSize),
@@ -533,7 +533,7 @@ function renderSmoothBuffers() {
         for (let y = 0; y <= grid.height; y++) {
             let blockObject = getBlockCache(cx + x, cy + y);
             if (blockObject != null) {
-                if (blockObject.rb) blockObject = window.rainbowAnim.tileAt(blockObject, cx + x, cy + y);   // lana arcoíris: su color de este momento
+                if (blockObject.rb || blockObject.an) blockObject = window.mbwAnimatedTile(blockObject, cx + x, cy + y);   // lana arcoíris / magma / fuego: su dibujo de este momento
                 drawBlock(blockObject, { x: Math.floor(x * ts), y: Math.floor(bh - y * ts), width: tw, height: -tw }, blocksCtx);
             }
         }
@@ -1004,6 +1004,20 @@ function drawMobs() {
     }
 }
 
+// La armadura que lleva puesta el jugador (world.armors = 4 piezas [id, daño, extras]: cabeza, pecho, piernas, pies),
+// con la misma forma que la de un mob para dibujarla con drawMobArmorOverlay.
+window.mbwPlayerArmorMob = function () {
+    const w = (typeof mbwom !== 'undefined' && mbwom.world) ? mbwom.world : null;
+    const arr = w && Array.isArray(w.armors) ? w.armors : null;
+    if (!arr) return null;
+    return { armor: [0, 1, 2, 3].map(i => {
+        const a = arr[i];
+        if (!Array.isArray(a)) return ['air', 0, 0, {}];
+        const ex = (a[2] && typeof a[2] === 'object') ? a[2] : ((a[3] && typeof a[3] === 'object') ? a[3] : {});
+        return { id: a[0], extras: ex };
+    }) };
+};
+
 function drawPlayer() {
     if (typeof mbwom === 'undefined' || !mbwom.world || mbwom.world.worldX === undefined || mbwom.world.worldY === undefined) return;
     const playerScene = mbwom.world.scene || 1; 
@@ -1034,6 +1048,8 @@ function drawPlayer() {
             0, 0, playerImg.naturalWidth, playerImg.naturalHeight,
             -(playerWidth / 2), -playerHeight, playerWidth, playerHeight 
         );
+        const pArmor = window.mbwPlayerArmorMob();                     // su armadura puesta, encima (igual que en los mobs)
+        if (pArmor) drawMobArmorOverlay(ctx, pArmor, -(playerWidth / 2), -playerHeight, playerWidth, playerHeight);
         ctx.restore();
     } else {
         ctx.fillStyle = "rgba(0, 100, 255, 0.6)"; 
@@ -1096,7 +1112,7 @@ function drawUI() {
     if (typeof updateRotateButtonState === 'function') updateRotateButtonState();   // (apaga el botón Rotate si el bloque de la mano no se gira)
     const coordsDiv = document.getElementById('coords-overlay');
     if (coordsDiv) {
-        coordsDiv.innerText = `X: ${Math.floor(mouse.worldX)} Y: ${Math.floor(mouse.worldY)}`;
+        coordsDiv.innerText = `X: ${Math.floor(mouse.worldX)} Y: ${Math.floor(mouse.worldY)}` + (window.mbwBiomeLabel ? window.mbwBiomeLabel(Math.floor(mouse.worldX)) : '');
     }
     
     const selDiv = document.getElementById('selection-overlay');
@@ -1470,6 +1486,7 @@ function mainLoop(ts) {
     if (typeof drawMobs === 'function') drawMobs(); 
     if (window.mbwExtras) { try { window.mbwExtras.afterMobs(); } catch (e) { if (!window.mbwExtrasErr) { window.mbwExtrasErr = true; console.error('world-extras:', e); } } }
     drawPlayer();
+    if (window.mbwDarkness) window.mbwDarkness.draw(ctx);   // 🌑 oscuridad bajo tierra + auras de luz + 🗺️ franja de biomas (scripts/darkness.js)
 
     const liveTimeToggle = document.getElementById('live-time-toggle');
     const timeInput = document.getElementById('gr-time');
@@ -1688,20 +1705,37 @@ window.skinCache = window.skinCache || {};
 window.skinFetchInProgress = window.skinFetchInProgress || {};
 
 // ---------------------------------------------------------------------------------------------------------------
-// Imagen de una spawnskin por su ID. Orden de búsqueda:
-//   1) assets/spawnskins/{id}.png   (las que vienen con el editor)
-//   2) https://mineblocks.com/1/skins/images/{id}.png   (la web de Mine Blocks: así cualquier skin se ve sola)
-// El servidor manda "Access-Control-Allow-Origin: *", por eso la imagen se carga con crossOrigin="anonymous" y NO
-// "ensucia" el lienzo (las capturas de pantalla y la selección con el mouse siguen funcionando).
+// Imagen de una spawnskin por su ID.
+//   0) assets/spawnskins/{id}.png  SOLO si el ID está en window.LOCAL_SPAWNSKINS (hoy el editor no trae ninguna: antes se
+//      probaba siempre y cada skin perdía tiempo esperando un "no existe" antes de bajarse de internet)
+//   Luego, de internet, en este orden (la primera fuente que funciona se recuerda y las siguientes skins van directo a ella):
+//   1) el "puente" propio (Cloudflare Worker, versión 2):  <puente>/skin/{id}.png  — trae el permiso CORS, así la imagen
+//      NO "ensucia" el lienzo: se le quita el fondo blanco y las capturas de pantalla la incluyen
+//   2) mineblocks.com pidiendo ese permiso (COMPROBADO 28 oct: mineblocks.com NO lo da; queda por si algún día lo activa)
+//   3) mineblocks.com sin pedir permiso: la skin SE VE, pero el navegador no deja leer sus píxeles (no se le quita el fondo
+//      y las capturas la dibujan como la spawnskin genérica). Es lo que pasa mientras el puente no tenga la versión 2.
 // Algunas skins de la web traen el fondo en un color sólido (blanco) en vez de transparente: ese fondo se vuelve
 // transparente (solo la parte que toca el borde, así los ojos blancos de la skin se quedan).
+// Prioridad: window.mbwSkinPrefetch(ids, true) pone esas skins al frente de la fila (la galería lo usa con la página que
+// estás viendo) y con false las agrega al final (las páginas siguientes, para tenerlas listas).
 // ---------------------------------------------------------------------------------------------------------------
 window.SKIN_REMOTE_URL = 'https://mineblocks.com/1/skins/images/';
+// Las skins que vienen dentro del editor (carpeta assets/spawnskins/): se cargan de ahí primero (misma página = sin problemas de permiso).
+// Si agregas o quitas archivos de esa carpeta, agrega o quita su número en esta lista (las que no están aquí se bajan de internet).
+window.LOCAL_SPAWNSKINS = window.LOCAL_SPAWNSKINS || (function () {
+    const o = {};
+    '1 7 174 180 329 1080 1327 1973 2115 7111 8526 12693 13806 19644 20651 21068 24843 25616 27363 27397 27573 28573 30121 33287 33662 34547 34999 37260 39838 41063 42817 42906 43120 49044 49549 52187 55906 56245 57308 58300 58333 58445 58650 58779 58882 58923 58936 59364 59694 59829 60217 60720 61101 61200 61288 61392 61536 61868 62919 63095 64318 65038 65039 65053 65245 65512 65565 65629 65779 65965 66093 66200 66425 66479 66519 66842 66935 67095 67300 67690 68179 68255 68897 69016 69080 69350 69575 69653 70142 70290 70403 70453 70496 70783 70804 70819 70915 70940 71364 71365 71369 71435 71530 71553 71555 71576 71620 71644 71691 71695 71718 71726 71746 71748 71751 71754 71765 72407 72747 72814 72815 73087 73727 73792 74085 74584 74788 75528 75560 75884 76169 76442'.split(' ').forEach(function (id) { if (id) o[id] = true; });
+    return o;
+})();
 window.skinRemoteEnabled = true;                 // se puede apagar con window.skinRemoteEnabled = false
-const SKIN_REMOTE_MAX = 6;                       // descargas a la vez
+const SKIN_REMOTE_MAX = 8;                       // descargas a la vez
 const SKIN_REMOTE_RETRY_MS = 60000;              // si falló (sin internet...), se vuelve a intentar pasado este tiempo
 let skinRemoteActive = 0;
 const skinRemoteQueue = [];
+const skinRemoteLoading = {};                    // las que se están bajando en este momento (no se vuelven a pedir)
+const SKIN_SOURCES = ['bridge', 'plain'];      // (mineblocks.com no da permiso CORS: pedirla "con permiso" siempre falla y llena la consola de errores)
+const skinSource = { ok: null, dead: {} };       // la fuente que ya funcionó · las que no sirven (no se vuelven a probar)
+window.mbwSkinSourceState = function () { return { ok: skinSource.ok, dead: Object.keys(skinSource.dead) }; };
 
 function skinRemoteAllowed(id) { return window.skinRemoteEnabled !== false && /^[0-9]{1,12}$/.test(String(id)); }   // solo IDs numéricos: nada de rutas raras que vengan en un mundo
 
@@ -1729,32 +1763,75 @@ function skinKeyBackground(img) {
     return c;
 }
 
-function skinRemoteLoad(id) {
+// Dirección del puente para imágenes (la misma que usa la galería para la lista), o null si no hay puente
+function skinBridgeBase() {
+    try {
+        const g = window.mbwSkinGallery;
+        const b = g && typeof g.bridgeBase === 'function' ? g.bridgeBase() : null;
+        return (typeof b === 'string' && /^https:\/\//i.test(b)) ? b : null;
+    } catch (e) { return null; }
+}
+function skinSourceUrl(src, id) {
+    if (src === 'bridge') { const b = skinBridgeBase(); return b ? b.replace(/\/+$/, '') + '/skin/' + id + '.png' : null; }
+    return window.SKIN_REMOTE_URL + id + '.png';
+}
+function skinLoadImg(url, cors) {
     return new Promise((resolve, reject) => {
         const im = new Image();
-        im.crossOrigin = 'anonymous';
-        im.onload = () => {
-            let out;
-            try { out = skinKeyBackground(im); } catch (e) { reject(e); return; }
-            if (out === im) { resolve(im); return; }
-            const fin = new Image();                                   // el lienzo ya procesado, convertido en una imagen normal
-            fin.onload = () => resolve(fin);
-            fin.onerror = () => reject(new Error('skin ' + id));
-            fin.src = out.toDataURL('image/png');
-        };
-        im.onerror = () => reject(new Error('skin ' + id));
-        im.src = window.SKIN_REMOTE_URL + id + '.png';
+        if (cors) im.crossOrigin = 'anonymous';
+        im.onload = () => (im.naturalWidth > 0 ? resolve(im) : reject(new Error('empty')));
+        im.onerror = () => reject(new Error('load'));
+        im.src = url;
     });
+}
+// La imagen ya bajada, lista para usar (sin fondo blanco si se pueden leer sus píxeles)
+function skinFinish(im, id) {
+    return new Promise((resolve, reject) => {
+        let out;
+        try { out = skinKeyBackground(im); } catch (e) { im.__tainted = true; resolve(im); return; }   // no se pueden leer sus píxeles: tal cual
+        if (out === im) { resolve(im); return; }
+        const fin = new Image();                                       // el lienzo ya procesado, convertido en una imagen normal
+        fin.onload = () => resolve(fin);
+        fin.onerror = () => reject(new Error('skin ' + id));
+        fin.src = out.toDataURL('image/png');
+    });
+}
+async function skinRemoteLoad(id) {
+    const order = skinSource.ok ? [skinSource.ok].concat(SKIN_SOURCES.filter(s => s !== skinSource.ok)) : SKIN_SOURCES.slice();
+    const failed = [];
+    for (const src of order) {
+        if (skinSource.dead[src]) continue;
+        const url = skinSourceUrl(src, id);
+        if (!url) continue;
+        let im;
+        try { im = await skinLoadImg(url, src !== 'plain'); }
+        catch (e) {
+            failed.push(src);
+            // el puente ya funcionó antes con otras skins: si ahora no la da, es que esa skin no existe (no se pide otra vez por otro lado)
+            if (src === 'bridge' && skinSource.ok === 'bridge') break;
+            continue;
+        }
+        // Esta fuente sirve. Las que fallaron antes con ESTA MISMA skin (que sí existe) no sirven: no se vuelven a probar
+        // (salvo que alguna vez hayan funcionado: entonces fue un tropiezo de esa skin)
+        failed.forEach(f => { if (skinSource.ok !== f) skinSource.dead[f] = true; });
+        if (!skinSource.ok || skinSource.dead[skinSource.ok]) skinSource.ok = src;
+        if (src === 'plain') { im.__tainted = true; return im; }
+        return skinFinish(im, id);
+    }
+    throw new Error('skin ' + id);
 }
 
 function skinRemotePump() {
     while (skinRemoteActive < SKIN_REMOTE_MAX && skinRemoteQueue.length) {
         const id = skinRemoteQueue.shift();
+        if (skinRemoteLoading[id]) continue;
         skinRemoteActive++;
+        skinRemoteLoading[id] = true;
         skinRemoteLoad(id).then(img => { window.skinCache[id] = img; })
             .catch(() => { window.skinCache[id] = { hasFailed: true, remoteFailedAt: Date.now() }; })
             .then(() => {
                 skinRemoteActive--;
+                delete skinRemoteLoading[id];
                 delete window.skinFetchInProgress[id];
                 if (typeof worldDirty !== 'undefined') worldDirty = true;
                 skinSettled(id);
@@ -1762,8 +1839,11 @@ function skinRemotePump() {
             });
     }
 }
-function skinRemoteQueueAdd(id) {
-    if (skinRemoteQueue.indexOf(id) < 0) skinRemoteQueue.push(id);
+function skinRemoteQueueAdd(id, front) {
+    if (skinRemoteLoading[id]) return;                       // ya se está bajando
+    const at = skinRemoteQueue.indexOf(id);
+    if (at >= 0 && front) skinRemoteQueue.splice(at, 1);
+    if (at < 0 || front) { if (front) skinRemoteQueue.unshift(id); else skinRemoteQueue.push(id); }
     window.skinFetchInProgress[id] = true;
     skinRemotePump();
 }
@@ -1780,19 +1860,38 @@ window.getSpawnskinImage = function(skinID, noFetch) {
     if (!window.skinFetchInProgress[skinID]) {
         window.skinFetchInProgress[skinID] = true;
         const giveUp = function() {
-            if (skinRemoteAllowed(skinID)) { skinRemoteQueueAdd(skinID); return; }   // 3) la web de Mine Blocks
+            if (skinRemoteAllowed(skinID)) { skinRemoteQueueAdd(skinID); return; }   // de internet
             window.skinCache[skinID] = { hasFailed: true };
             delete window.skinFetchInProgress[skinID];
             if (typeof worldDirty !== 'undefined') worldDirty = true;
             skinSettled(skinID);
         };
+        if (!window.LOCAL_SPAWNSKINS[String(skinID)]) { giveUp(); return null; }
         const localImg = new Image();
         localImg.onload = function() { window.skinCache[skinID] = localImg; delete window.skinFetchInProgress[skinID]; if (typeof worldDirty !== 'undefined') worldDirty = true; skinSettled(skinID); };
-        localImg.onerror = giveUp;   // no está entre las que trae el editor: se baja de la web de Mine Blocks
+        localImg.onerror = giveUp;   // no está entre las que trae el editor: se baja de internet
         localImg.src = `assets/spawnskins/${skinID}.png`;
     }
     return null;
 };
+// Pide varias skins de una vez: front = true las pone al FRENTE de la fila (lo que estás viendo); false, al final (para después)
+window.mbwSkinPrefetch = function (ids, front) {
+    // (al frente: se recorren al revés para que el primero quede primero en la fila; al final: en orden, la página siguiente antes que las otras)
+    const list = (Array.isArray(ids) ? ids : []).slice();
+    if (front) list.reverse();
+    list.forEach(function (id) {
+        id = String(id);
+        if (!skinRemoteAllowed(id)) return;
+        const c = window.skinCache[id];
+        if (c && !c.hasFailed) return;
+        if (window.skinFetchInProgress[id]) { if (front) skinRemoteQueueAdd(id, true); return; }
+        if (c && c.hasFailed) return;                                  // (los que fallaron se reintentan solos más tarde)
+        if (front) { window.skinFetchInProgress[id] = true; skinRemoteQueueAdd(id, true); }
+        else window.getSpawnskinImage(id);
+    });
+};
+// ¿Se puede usar esta imagen en una captura? (las que vienen "sin permiso" no: el navegador no dejaría guardar la captura)
+window.mbwImageExportable = function (img) { return !!img && !img.__tainted; };
 
 // ---------------------------------------------------------------------------------------------------------------
 // 🗣️ CABEZAS DE MOB (el objeto "mh")
@@ -1880,8 +1979,20 @@ window.drawItemIcon = function (ctx, ro, itemId, extras, dx, dy, dw, dh) {
     if (spriteKey && window.texturesMap && window.texturesMap[spriteKey]) ro = window.texturesMap[spriteKey];
     if (ro) {
         if (ro.w === 32) ctx.drawImage(window.images.blocks, ro.x, ro.y, 32, 16, dx, dy + dh / 4, dw, dh / 2);   // dibujos anchos (vagoneta, balsa): las dos mitades, a lo ancho de la casilla
-        else ctx.drawImage(window.images.blocks, ro.x, ro.y, 16, 16, dx, dy, dw, dh);
+        else if (!(window.mbwAnimIcon && window.mbwAnimIcon(ctx, ro, dx, dy, dw, dh))) ctx.drawImage(window.images.blocks, ro.x, ro.y, 16, 16, dx, dy, dw, dh);   // (lana arcoíris, magma, fuego: ícono animado)
     }
+};
+
+// Variante de dibujo de un objeto guardado en el mundo ([id, cantidad, daño, extras]). El color va en extras.type
+// ("cloth" + { type: "orange" } = lana naranja, igual que las camas); en mundos viejos puede venir en el 3er dato ("orange").
+// Solo se usa si existe ese dibujo (cloth_orange...). Las cabezas de mob (mh) se dibujan aparte (su "type" es el ID de una skin).
+window.itemTexVariant = function (itemId, damage, extras) {
+    const TM = window.texturesMap || {};
+    if (!itemId || itemId === 'mh') return undefined;
+    const t = (extras && typeof extras === 'object') ? extras.type : undefined;
+    if (typeof t === 'string' && t && TM[itemId + '_' + t]) return t;
+    if (typeof damage === 'string' && damage && isNaN(Number(damage)) && TM[itemId + '_' + damage]) return damage;
+    return undefined;
 };
 
 window.openPixelArtModal = function() { if (typeof openModal === 'function') openModal('pixelart-addon-modal'); };

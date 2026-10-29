@@ -70,8 +70,8 @@
   color: { key: 'color', type: 'select', colors: true, options: COLORS },
   sheared: { key: 'sheared', type: 'bool' },
   tamed: { key: 'tamed', type: 'bool' },
-  sitting: { key: 'sitting', type: 'bool' },
-  collarColor: { key: 'collarColor', type: 'select', colors: true, options: [''].concat(COLORS) },
+  sitting: { key: 'sitting', type: 'bool', needs: 'tamed' },                 // (needs = solo se muestra si esa casilla está marcada)
+  collarColor: { key: 'collarColor', type: 'select', colors: true, options: [''].concat(COLORS), needs: 'tamed' },
   teleportDistance: { key: 'teleportDistance', type: 'int', min: 1, max: 100 },
   hanging: { key: 'hanging', type: 'bool' },
   skin: { key: 'skin', type: 'skin' },         // ID de la skin (solo dígitos; en el mob se guarda como NÚMERO)
@@ -1377,11 +1377,15 @@
  }
 
  function renderSpecific(body, sp, sch) {
+  // Las opciones que dependen de otra (Sitting y Collar color dependen de Tamed) solo se ven con esa casilla marcada
+  const deps = [];
+  function syncDeps() { deps.forEach(function (d) { d.node.style.display = sp.extra[d.needs] ? '' : 'none'; }); }
   (sch.fields || []).forEach(function (f) {
    const label = tr('mobed_f_' + f.key);
    const cur = sp.extra[f.key];
+   const before = body.childNodes.length;
    if (f.type === 'bool') {
-    body.appendChild(fCheck(label, cur, function (v) { sp.extra[f.key] = v; if (f.key === 'tamed') refreshImage(); }));
+    body.appendChild(fCheck(label, cur, function (v) { sp.extra[f.key] = v; if (f.key === 'tamed') refreshImage(); syncDeps(); }));
    } else if (f.type === 'int') {
     body.appendChild(fNumber(label, cur, function (v) { if (Number.isFinite(v)) sp.extra[f.key] = clampInt(v, f.min, f.max, cur); }, { min: f.min, max: f.max }));
    } else if (f.type === 'skin') {
@@ -1413,7 +1417,12 @@
      }
     }));
    }
+   if (f.needs) for (let i = before; i < body.childNodes.length; i++) {
+    const node = body.childNodes[i];
+    if (node.nodeType === 1) { node.setAttribute('data-needs', f.needs); deps.push({ node: node, needs: f.needs }); }
+   }
   });
+  syncDeps();
  }
 
  function renderForm() {
@@ -1489,6 +1498,7 @@
   if (sch.variant) L.push([tr('mobed_variant'), tr('mobed_var_' + (spec.variant || 'normal'))]);
   if (sch.baby) L.push([tr('mobed_baby'), yesNo(spec.baby)]);
   (sch.fields || []).forEach(function (f) {
+   if (f.needs && !spec.extra[f.needs]) return;                 // (Sitting / Collar color sin Tamed: no aplican)
    const v = spec.extra[f.key];
    let shown;
    if (f.type === 'bool') shown = yesNo(v);

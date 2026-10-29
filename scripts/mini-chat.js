@@ -143,7 +143,8 @@
     function tsOf(m) { const n = Number(m && m.timestamp); return n > 0 ? n : Date.now(); }
     function dayKey(ts) { const d = new Date(ts); return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate(); }
     function dayLabel(ts) { return (typeof dmDayLabel === 'function') ? dmDayLabel(ts) : new Date(ts).toLocaleDateString(); }
-    function fmtTime(ts) { try { return new Date(ts).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } }
+    // solo la hora (el día ya lo dicen los separadores "Hoy", "Ayer"...)
+    function fmtTime(ts) { try { return (typeof dmTime === 'function') ? dmTime(ts) : new Date(ts).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } }
     function sortedKeys() { return Array.from(mc.msgs.keys()).sort(); }
     function canGroup(prev, m) {
         if (!prev || m.replyTo) return false;

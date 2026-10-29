@@ -31,7 +31,7 @@
     const state = { zen: false, float: false, opacity: 85, fps: 0 };
     window.uiModes = state;
 
-    state.float = read(KEY.float) === '1';
+    state.float = read(KEY.float) !== '0';          // (de fábrica: flotantes; solo quien lo apagó lo tiene apagado)
     const savedOpacity = parseInt(read(KEY.opacity), 10);
     if (savedOpacity >= 20 && savedOpacity <= 100) state.opacity = savedOpacity;
     const savedFps = parseInt(read(KEY.fps), 10);

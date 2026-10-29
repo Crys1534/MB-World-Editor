@@ -397,7 +397,7 @@ function dmBuildRow(entry, prev) {
         const author = dmEl('span', 'dc-msg-author', isMe ? (localStorage.getItem('mbw_username') || msg.senderName || 'Player') : (currentChatPartner ? currentChatPartner.name : (msg.senderName || '?')));
         author.style.color = dmNameColor(authorUid);
         head.appendChild(author);
-        const time = dmEl('span', 'dc-msg-time', dmStamp(ts));
+        const time = dmEl('span', 'dc-msg-time', dmTime(ts));   // solo la hora: el día ya lo dice el separador ("Hoy", "Ayer"...)
         time.title = new Date(ts).toLocaleString(dmLocale());
         head.appendChild(time);
         body.appendChild(head);
@@ -1536,3 +1536,190 @@ if (document.readyState === 'loading') {
 } else {
     setTimeout(initDmComposer, 0);
 }
+
+// ==========================================
+// 📦 EXPORTAR / IMPORTAR CHATS (botón ⋮ abajo, junto a tu nombre)
+// Sirve para juntar los chats de dos lugares donde abres el editor (por ejemplo la copia de tu PC y la página de GitHub):
+// cada lugar tiene su propio "usuario" guardado en el navegador, así que sus chats están separados.
+// · Exportar: baja un archivo .json con todos tus chats (cada amigo con todos sus mensajes).
+// · Importar: lee ese archivo y FUSIONA cada chat con el chat que tienes aquí con el MISMO amigo:
+//   los mensajes que eran "tuyos" pasan a ser tuyos aquí, los que ya están no se repiten y todo queda en orden de fecha.
+// ==========================================
+const DM_PUSH_CHARS = '-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz';
+// Una clave como las de Firebase (push) pero para una hora dada: así los mensajes importados quedan en su lugar por fecha
+function dmPushKeyAt(ts) {
+    let n = Math.max(0, Math.floor(Number(ts) || Date.now()));
+    let key = '';
+    for (let i = 0; i < 8; i++) { key = DM_PUSH_CHARS.charAt(n % 64) + key; n = Math.floor(n / 64); }
+    for (let i = 0; i < 12; i++) key += DM_PUSH_CHARS.charAt(Math.floor(Math.random() * 64));
+    return key;
+}
+function dmChatIdOf(a, b) { return a < b ? a + '_' + b : b + '_' + a; }
+function dmToastMsg(title, body) { if (typeof window.mpToast === 'function') window.mpToast(title, body); }
+
+window.dmExportChats = async function () {
+    const me = dmMyUid();
+    if (!me || typeof database === 'undefined') return null;
+    const chatsSnap = await database.ref('user_chats/' + me).once('value');
+    const chats = chatsSnap.val() || {};
+    const out = { app: 'MB World Editor chats', version: 1, exportedAt: Date.now(), me: { uid: me, name: localStorage.getItem('mbw_username') || 'Player' }, chats: [] };
+    let total = 0;
+    for (const uid of Object.keys(chats)) {
+        const snap = await database.ref('private_chats/' + dmChatIdOf(me, uid)).once('value');
+        const msgs = [];
+        snap.forEach(c => { const v = c.val(); if (v && typeof v === 'object') msgs.push(Object.assign({ key: c.key }, v)); });
+        if (!msgs.length) continue;
+        const rec = chats[uid] || {};
+        out.chats.push({ uid: uid, name: rec.name || '', pfp: rec.pfp || '', messages: msgs });
+        total += msgs.length;
+    }
+    const d = new Date();
+    const stamp = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 1)], { type: 'application/json' }));
+    a.download = 'mbw_chats_' + stamp + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    dmToastMsg(dmT('dm_export_done_t', '📦 Chats exportados'), dmT('dm_export_done', '{c} chats, {m} mensajes').replace('{c}', out.chats.length).replace('{m}', total));
+    window.__dmLastExport = out;
+    return out;
+};
+
+// Fusiona los chats de un archivo exportado con los de aquí. Devuelve { chats, added, dup }.
+window.dmMergeChats = async function (data) {
+    const me = dmMyUid();
+    if (!me || typeof database === 'undefined') throw new Error('no user');
+    if (!data || typeof data !== 'object' || !Array.isArray(data.chats)) throw new Error('bad file');
+    const old = data.me && data.me.uid ? String(data.me.uid) : null;
+    const mapUid = (u) => (old && String(u) === old ? me : String(u));
+    const myName = localStorage.getItem('mbw_username') || 'Player';
+    const sigOf = (v) => String(v.sender) + '|' + String(v.timestamp) + '|' + String(v.isDeleted ? '' : (v.text || ''));
+    const res = { chats: 0, added: 0, dup: 0 };
+    for (const c of data.chats) {
+        if (!c || !Array.isArray(c.messages)) continue;
+        const pid = mapUid(c.uid);
+        if (!pid || pid === me || !/^[A-Za-z0-9_-]{1,80}$/.test(pid)) continue;
+        if (typeof window.isBlocked === 'function' && window.isBlocked(pid)) continue;
+        const cid = dmChatIdOf(me, pid);
+        const snap = await database.ref('private_chats/' + cid).once('value');
+        const keys = {}, sigs = new Map();                 // firma del mensaje -> su clave aquí
+        let newest = null;
+        snap.forEach(ch => { const v = ch.val() || {}; keys[ch.key] = 1; sigs.set(sigOf(v), ch.key); if (!newest || (Number(v.timestamp) || 0) > (Number(newest.timestamp) || 0)) newest = v; });
+        const keyMap = {}, updates = {}, reacts = {};
+        let last = null, n = 0;
+        const list = c.messages.slice().sort((a, b) => (Number(a.timestamp) || 0) - (Number(b.timestamp) || 0));
+        for (const m of list) {
+            if (!m || typeof m !== 'object') continue;
+            const v = JSON.parse(JSON.stringify(m));
+            const oldKey = v.key; delete v.key;
+            v.sender = mapUid(v.sender);
+            if (v.sender === me) v.senderName = myName;
+            if (typeof v.timestamp !== 'number') v.timestamp = Number(v.timestamp) || 0;
+            if (v.reactions && typeof v.reactions === 'object') {
+                const r = {};
+                Object.keys(v.reactions).forEach(u => { r[mapUid(u)] = v.reactions[u]; });
+                v.reactions = r;
+            }
+            const sg = sigOf(v);
+            if (sigs.has(sg)) {
+                // ya estaba: no se repite, pero se le agregan las reacciones que traía
+                const have = sigs.get(sg);
+                res.dup++;
+                if (oldKey) keyMap[oldKey] = have;
+                if (v.reactions && !updates[have]) Object.keys(v.reactions).forEach(u => { const r = v.reactions[u]; if (r && typeof r === 'object') Object.keys(r).forEach(e => { reacts[have + '/reactions/' + u + '/' + e] = r[e]; }); });
+                continue;
+            }
+            // la clave nueva se arma con la HORA del mensaje: así queda en su lugar entre los mensajes de aquí
+            let key = dmPushKeyAt(v.timestamp);
+            while (keys[key]) key = dmPushKeyAt(v.timestamp);
+            if (oldKey) keyMap[oldKey] = key;
+            keys[key] = 1; sigs.set(sg, key);
+            updates[key] = v; n++;
+            if (!last || v.timestamp >= last.timestamp) last = v;
+        }
+        // las respuestas apuntan al mensaje que responden: si su clave cambió, se corrige
+        Object.keys(updates).forEach(k => { const rt = updates[k].replyTo; if (rt && typeof rt === 'object' && rt.msgId && keyMap[rt.msgId]) rt.msgId = keyMap[rt.msgId]; });
+        if (Object.keys(reacts).length) { await database.ref('private_chats/' + cid).update(reacts); res.reacts = (res.reacts || 0) + Object.keys(reacts).length; }
+        if (!n) continue;
+        const ks = Object.keys(updates);
+        for (let i = 0; i < ks.length; i += 300) {
+            const part = {}; ks.slice(i, i + 300).forEach(k => { part[k] = updates[k]; });
+            await database.ref('private_chats/' + cid).update(part);
+        }
+        res.added += n; res.chats++;
+        // la lista de chats: la mía (con el nombre / foto del amigo si aquí no los tenía) y la del amigo (sin "no leídos")
+        const lastOverall = (newest && (Number(newest.timestamp) || 0) > last.timestamp) ? newest : last;
+        const lastText = lastOverall.isDeleted ? dmT('dm_deleted', 'Mensaje eliminado') : String(lastOverall.text || '');
+        const mineSnap = await database.ref('user_chats/' + me + '/' + pid).once('value');
+        const mine = mineSnap.val() || {};
+        const myRec = {};
+        const realName = (x) => (typeof window.isRealName === 'function' ? window.isRealName(x) : !!x);
+        if (c.name && realName(c.name) && !realName(mine.name)) myRec.name = c.name;
+        if (c.pfp && !mine.pfp) myRec.pfp = c.pfp;
+        if (!mine.timestamp || (Number(mine.timestamp) || 0) < lastOverall.timestamp) { myRec.lastMsg = lastText; myRec.timestamp = lastOverall.timestamp; }
+        if (mine.unreadCount === undefined) myRec.unreadCount = 0;
+        if (Object.keys(myRec).length) await database.ref('user_chats/' + me + '/' + pid).update(myRec);
+        const theirsSnap = await database.ref('user_chats/' + pid + '/' + me).once('value');
+        const theirs = theirsSnap.val();
+        if (!theirs) await database.ref('user_chats/' + pid + '/' + me).update({ name: myName, lastMsg: lastText, timestamp: lastOverall.timestamp, unreadCount: 0 });
+        else if ((Number(theirs.timestamp) || 0) < lastOverall.timestamp) await database.ref('user_chats/' + pid + '/' + me).update({ lastMsg: lastText, timestamp: lastOverall.timestamp });
+    }
+    const list = $dm('full-chat-list-container');
+    if (list && typeof window.renderChatList === 'function') window.renderChatList(list);
+    return res;
+};
+
+window.dmImportChats = function () {
+    let inp = $dm('dm-import-input');
+    if (!inp) {
+        inp = document.createElement('input');
+        inp.type = 'file'; inp.accept = '.json,application/json'; inp.id = 'dm-import-input'; inp.style.display = 'none';
+        document.body.appendChild(inp);
+        inp.addEventListener('change', () => {
+            const f = inp.files && inp.files[0];
+            inp.value = '';
+            if (!f) return;
+            const rd = new FileReader();
+            rd.onload = async () => {
+                let data;
+                try { data = JSON.parse(String(rd.result)); } catch (e) { dmToastMsg(dmT('dm_import_bad_t', '⚠️ No se pudo importar'), dmT('dm_import_bad', 'Ese archivo no es una exportación de chats.')); return; }
+                try {
+                    const r = await window.dmMergeChats(data);
+                    dmToastMsg(dmT('dm_import_done_t', '📥 Chats importados'), dmT('dm_import_done', '{m} mensajes nuevos en {c} chats ({d} ya estaban)').replace('{m}', r.added).replace('{c}', r.chats).replace('{d}', r.dup));
+                } catch (e) {
+                    console.error('import chats:', e);
+                    dmToastMsg(dmT('dm_import_bad_t', '⚠️ No se pudo importar'), dmT('dm_import_bad', 'Ese archivo no es una exportación de chats.'));
+                }
+            };
+            rd.readAsText(f);
+        });
+    }
+    inp.click();
+};
+
+// El botón ⋮ del panel de abajo (tu nombre): Exportar / Importar
+(function () {
+    function addBtn() {
+        const panel = document.querySelector('#mp-full-chat-view .dc-userpanel');
+        if (!panel || panel.querySelector('.dc-userpanel-more')) return !!panel;
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'dc-icon-btn dc-userpanel-more'; b.id = 'dc-chats-menu-btn';
+        b.title = dmT('dm_chats_menu', 'Exportar / importar chats');
+        b.innerHTML = DM_ICONS.kebab;
+        b.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const r = b.getBoundingClientRect();
+            dmOpenMenu(r.left, r.bottom + 4, (menu) => {
+                dmMenuItem(menu, dmT('dm_export_chats', 'Exportar chats'), DM_ICONS.archive, () => { window.dmExportChats(); });
+                dmMenuItem(menu, dmT('dm_import_chats', 'Importar y fusionar chats'), DM_ICONS.unarchive, () => { window.dmImportChats(); });
+            }, null, r.top);
+        });
+        panel.appendChild(b);
+        return true;
+    }
+    if (!addBtn()) {
+        const obs = new MutationObserver(() => { if (addBtn()) obs.disconnect(); });
+        obs.observe(document.documentElement, { childList: true, subtree: true });
+        setTimeout(() => obs.disconnect(), 60000);
+    }
+})();
