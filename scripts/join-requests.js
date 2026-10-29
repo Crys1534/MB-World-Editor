@@ -1,7 +1,11 @@
 // ==========================================================
 // 🚪 PEDIR ENTRAR AL MUNDO DE OTRO JUGADOR (lista "Online" del menú Multiplayer)
-// · El que pide: botón "Ask to join" junto a la persona. Se guarda la solicitud en join_requests/{suUID}/{miUID}
+// · El que pide: botón "Ask to join" junto a la persona. Se guarda la solicitud en private_chats/jr_{suUID}/{miUID}
 //   y se espera la respuesta (hasta 2 minutos).
+//   ¿Por qué ahí y no en un nodo propio "join_requests"? Las reglas de Firebase del proyecto solo dejan escribir en los nodos
+//   que ya existen (online_users, private_chats, typing_status...), así que un nodo nuevo se rechazaba y la otra persona
+//   nunca recibía nada. "jr_..." nunca choca con un chat de verdad (esos se llaman usr_..._usr_...). Si ese lugar fallara,
+//   se intenta en typing_status/jr_{suUID}/{miUID}; el que recibe escucha los dos.
 // · El que está editando: le sale un aviso con Aceptar / Rechazar. Si acepta y todavía no tenía sala, se crea una sala
 //   privada (no aparece en la lista pública) con el mundo que tiene abierto; la respuesta lleva el ID de la sala.
 // · Al aceptar, el que pidió entra solo a la sala. Si rechaza (o no contesta), se le avisa.
@@ -11,7 +15,8 @@
     'use strict';
     const TTL = 120000;                      // una solicitud vale 2 minutos
     const COOLDOWN = 15000;                  // no se puede volver a pedir a la misma persona hasta pasados 15 s
-    const st = { sent: {}, watching: {}, pops: {}, hostReady: false };
+    const SLOTS = ['private_chats/jr_', 'typing_status/jr_'];   // dónde se guardan (en orden de preferencia)
+    const st = { sent: {}, watching: {}, pops: {}, hostReady: false, slotOf: {}, reqSlot: {}, offset: 0 };
     window.mbwJoinRequests = st;
     function me() { try { return localStorage.getItem('mbw_uid'); } catch (e) { return null; } }
     function myName() { return localStorage.getItem('mbw_username') || 'Player'; }
@@ -28,6 +33,17 @@
         return u ? { name: u.username || 'Player', pfp: u.pfp || 'assets/default pfp.png', world: u.worldName || '' } : { name: 'Player', pfp: 'assets/default pfp.png', world: '' };
     }
     function rerender() { if (typeof window.renderPresenceList === 'function') window.renderPresenceList(); }
+    function path(slot, target, from) { return SLOTS[slot] + target + '/' + from; }
+    function now() { return Date.now() + (st.offset || 0); }   // la hora del servidor (los relojes de las computadoras no siempre coinciden)
+    // guarda en el primer lugar que Firebase acepte
+    function writeFirst(target, from, value, i) {
+        i = i || 0;
+        const d = db();
+        return d.ref(path(i, target, from)).set(value).then(() => i, (e) => {
+            if (i + 1 < SLOTS.length) return writeFirst(target, from, value, i + 1);
+            throw e;
+        });
+    }
 
     // ---------------------------------------------------------------- el que pide
     window.mbwJoinPending = function (uid) { const t = st.sent[uid]; return !!t && Date.now() - t < TTL; };
@@ -39,17 +55,23 @@
         if (window.mbwJoinCooling(uid)) return false;
         const who = userInfo(uid);
         st.sent[uid] = Date.now();
-        const ref = d.ref('join_requests/' + uid + '/' + mine);
-        ref.set({ name: myName(), pfp: myPfp(), world: worldName(), status: 'pending', time: firebase.database.ServerValue.TIMESTAMP });
-        toast(tr('jr_sent_t', '🚪 Request sent'), tr('jr_sent', 'Waiting for {name} to let you in...', { name: who.name }), who.pfp);
-        watchAnswer(uid, who);
+        const req = { name: myName(), pfp: myPfp(), world: worldName(), status: 'pending', time: firebase.database.ServerValue.TIMESTAMP };
+        writeFirst(uid, mine, req).then((slot) => {
+            st.slotOf[uid] = slot;
+            toast(tr('jr_sent_t', '🚪 Request sent'), tr('jr_sent', 'Waiting for {name} to let you in...', { name: who.name }), who.pfp);
+            watchAnswer(uid, who);
+        }, () => {
+            delete st.sent[uid];
+            toast(tr('jr_err_t', '⚠️ Request not sent'), tr('jr_err', 'Could not reach {name}. Check your connection and try again.', { name: who.name }), who.pfp);
+            rerender();
+        });
         rerender();
         setTimeout(rerender, COOLDOWN + 100);
         return true;
     };
     function watchAnswer(uid, who) {
         const d = db(), mine = me();
-        const ref = d.ref('join_requests/' + uid + '/' + mine);
+        const ref = d.ref(path(st.slotOf[uid] || 0, uid, mine));
         if (st.watching[uid]) ref.off('value', st.watching[uid]);
         let done = false;
         const finish = () => { done = true; ref.off('value', cb); delete st.watching[uid]; clearTimeout(timer); rerender(); };
@@ -93,20 +115,25 @@
         const d = db(), mine = me();
         if (!d || !mine || st.hostReady) return !!st.hostReady;
         st.hostReady = true;
-        const ref = d.ref('join_requests/' + mine);
-        ref.on('child_added', (snap) => onRequest(snap.key, snap.val()));
-        ref.on('child_changed', (snap) => onRequest(snap.key, snap.val()));
-        ref.on('child_removed', (snap) => closePop(snap.key));
+        try { d.ref('.info/serverTimeOffset').on('value', (s) => { st.offset = Number(s && s.val()) || 0; }); } catch (e) { /* sin hora del servidor */ }
+        SLOTS.forEach((slotPath, slot) => {
+            const ref = d.ref(slotPath + mine);
+            const fail = () => { /* sin permiso para leer aquí: se usa el otro lugar */ };
+            ref.on('child_added', (snap) => onRequest(snap.key, snap.val(), slot), fail);
+            ref.on('child_changed', (snap) => onRequest(snap.key, snap.val(), slot), fail);
+            ref.on('child_removed', (snap) => { if (st.reqSlot[snap.key] === slot) closePop(snap.key); }, fail);
+        });
         return true;
     }
-    function onRequest(fromUid, req) {
-        if (!req || req.status !== 'pending') { closePop(fromUid); return; }
-        const d = db(), mine = me();
-        if (typeof window.isBlocked === 'function' && window.isBlocked(fromUid)) { d.ref('join_requests/' + mine + '/' + fromUid).remove(); return; }
+    function myRef(fromUid) { return db().ref(path(st.reqSlot[fromUid] || 0, me(), fromUid)); }
+    function onRequest(fromUid, req, slot) {
+        if (!req || typeof req !== 'object' || req.status !== 'pending') { if (st.reqSlot[fromUid] === slot) closePop(fromUid); return; }
+        st.reqSlot[fromUid] = slot;
+        if (typeof window.isBlocked === 'function' && window.isBlocked(fromUid)) { myRef(fromUid).remove(); return; }
         const t = Number(req.time) || 0;
-        if (t && Date.now() - t > TTL) { d.ref('join_requests/' + mine + '/' + fromUid).remove(); return; }   // vieja: ya nadie la espera
+        if (t && now() - t > TTL + 30000) { myRef(fromUid).remove(); return; }   // vieja: ya nadie la espera
         if (typeof isMultiplayer !== 'undefined' && isMultiplayer && typeof isHost !== 'undefined' && !isHost) {   // estoy en la sala de otro
-            d.ref('join_requests/' + mine + '/' + fromUid).update({ status: 'busy' });
+            myRef(fromUid).update({ status: 'busy' });
             return;
         }
         showPop(fromUid, req);
@@ -162,8 +189,7 @@
         });
     }
     window.acceptJoinRequest = function (fromUid) {
-        const d = db(), mine = me();
-        const ref = d.ref('join_requests/' + mine + '/' + fromUid);
+        const ref = myRef(fromUid);
         return ensureRoom().then((roomId) => {
             closePop(fromUid);
             return ref.update({ status: 'accepted', roomId: roomId, hostName: myName() }).then(() => {
@@ -179,12 +205,11 @@
         });
     };
     window.declineJoinRequest = function (fromUid) {
-        const d = db(), mine = me();
         closePop(fromUid);
-        return d.ref('join_requests/' + mine + '/' + fromUid).update({ status: 'declined' });
+        return myRef(fromUid).update({ status: 'declined' });
     };
 
-    // se empieza a escuchar en cuanto haya Firebase y un usuario
+    // se empieza a escuchar en cuanto haya Firebase y un usuario (sin rendirse: al principio cada medio segundo, luego cada 3 s)
     let tries = 0;
-    (function boot() { if (listen()) return; if (++tries < 600) setTimeout(boot, 500); })();
+    (function boot() { if (listen()) return; tries++; setTimeout(boot, tries < 120 ? 500 : 3000); })();
 })();

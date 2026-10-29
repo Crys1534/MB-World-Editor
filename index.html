@@ -147,9 +147,10 @@
 
 #structures-grid {
         display: grid; 
-        grid-template-columns: repeat(4, 1fr); 
+        grid-template-columns: repeat(4, minmax(0, 1fr));   /* minmax(0, ...): las 4 columnas caben siempre (sin barra de lado a lado) */
         gap: 0px; 
         overflow-y: auto;
+        overflow-x: hidden;
         background: #252525; 
         padding: 0px; 
         border: 2px solid #373737; 
@@ -161,8 +162,10 @@
     
     .struct-item {
         background: #555; border: 2px solid #272727; aspect-ratio: 1; display: flex; flex-direction: column;
-        align-items: center; justify-content: center; cursor: pointer;
+        align-items: center; justify-content: center; cursor: pointer; min-width: 0; overflow: hidden;
     }
+    /* la miniatura se ajusta al ancho de la tarjeta (cuadrada) y el nombre va abajo */
+    #structures-grid .struct-item canvas { width: 100%; height: auto; aspect-ratio: 1; min-height: 0; flex: 1 1 auto; object-fit: contain; }
     .struct-item:hover { background: #666; border-color: #FFF; }
 .struct-name { 
         font-size: 14px; 
@@ -349,7 +352,7 @@
   <div class="left-group">
    <img src="favicon.ico" class="app-icon" alt="App Icon">
    <button class="icon-btn" onclick="openFileMenu()" data-i18n="btn_file">File</button>
-   <button class="icon-btn" onclick="document.getElementById('file-input').click()"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-folder"></use></svg></button>
+   <button class="icon-btn icon-only btn-load-quick" onclick="document.getElementById('file-input').click()" data-i18n-title="tooltip_load_world" title="Load World"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-folder"></use></svg></button>
    
    <div class="ms-switch-container">
     <button class="menu-btn btn-save-quick" onclick="fileManager.saveLocal()" data-i18n-title="tooltip_save_now" title="Save Now"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-save"></use></svg></button>
@@ -734,12 +737,12 @@
         <div class="ribbon-group">
             <div class="ribbon-group-content rg-col-start gap-4 view-toggles">
                 <label class="rg-row-center gap-5 lbl-small pointer" data-i18n-title="dark_toggle_tip" title="Below Y 90 the world gets darker the deeper you go. Torches, lamps and the player light it up.">
-                    <svg class="vt-ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 1.5a6.5 6.5 0 1 0 4 11.6A6 6 0 0 1 10.5 1.5z" fill="#3a3f5c" stroke="#111" stroke-width="1"/><circle cx="12.5" cy="4" r="1" fill="#ffd54a"/></svg>
+                    <svg class="mbw-ic vt-ic" aria-hidden="true" focusable="false"><use href="#ic-moon"></use></svg>
                     <input type="checkbox" id="darkness-toggle" checked onchange="setDarkness(this.checked)">
                     <span data-i18n="lbl_darkness_toggle">Darkness</span>
                 </label>
                 <label class="rg-row-center gap-5 lbl-small pointer" data-i18n-title="biomes_toggle_tip" title="Shows a colored band on top of the world with the biome of each column.">
-                    <svg class="vt-ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="5" width="4" height="6" fill="#2f8f3a"/><rect x="5" y="5" width="3" height="6" fill="#e3cf7a"/><rect x="8" y="5" width="4" height="6" fill="#3b6fe0"/><rect x="12" y="5" width="3" height="6" fill="#8d8d8d"/><rect x="1" y="5" width="14" height="6" fill="none" stroke="#111" stroke-width="1"/></svg>
+                    <svg class="mbw-ic vt-ic" aria-hidden="true" focusable="false"><use href="#ic-map"></use></svg>
                     <input type="checkbox" id="biomes-toggle" onchange="setShowBiomes(this.checked)">
                     <span data-i18n="lbl_biomes_toggle">Biomes</span>
                 </label>

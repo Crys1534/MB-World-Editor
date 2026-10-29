@@ -112,6 +112,8 @@
         const im = img(), cv = $('ae-sheet-cv');
         if (!im || !im.complete || !im.naturalWidth) { setTimeout(drawSheet, 300); return; }
         cv.width = im.naturalWidth * SHEET_SCALE; cv.height = im.naturalHeight * SHEET_SCALE;
+        // su tamaño en pantalla = su tamaño real (si no, la regla general "canvas { width: 100%; height: 100% }" la aplasta)
+        cv.style.width = cv.width + 'px'; cv.style.height = cv.height + 'px';
         const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
         g.drawImage(im, 0, 0, cv.width, cv.height);
         g.strokeStyle = 'rgba(0,0,0,0.18)'; g.lineWidth = 1;
@@ -182,6 +184,7 @@
         $('ae-hint').textContent = st.draft.blend ? tr('ae_hint_blend', 'Each frame fades smoothly into the next one, and the last one fades into the first.') : tr('ae_hint', 'All blocks of this kind change frame at the same time.');
         $('ae-saved').textContent = readLS()[n] ? tr('ae_custom', 'Using your frames') : tr('ae_default', 'Using the default frames');
         $('ae-saved').className = 'ae-saved';
+        $('ae-reset').disabled = !readLS()[n];   // ya está como de fábrica: no hay nada que regresar
         renderList(); renderFrames();
         const first = st.draft.frames[0];
         if (first) { $('ae-goto').value = first[1]; $('ae-sheet').scrollTop = Math.max(0, first[1] * 16 * SHEET_SCALE - 40); }
@@ -216,6 +219,7 @@
         st.dirty = false;
         window.mbwAnimReload();
         $('ae-saved').textContent = tr('ae_saved', '✔ Saved in this browser'); $('ae-saved').className = 'ae-saved ok';
+        $('ae-reset').disabled = false;
         renderList();
     }
     function resetSel() {

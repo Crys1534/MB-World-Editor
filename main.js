@@ -995,7 +995,9 @@ function drawMobs() {
                 ctx.font = "bold 10px Arial";
                 ctx.textAlign = "center";
                 ctx.shadowColor = "black"; ctx.shadowBlur = 3;
-                ctx.fillText("🔒 " + mob.lockedBy, screenX, screenY - mobHeight - 22);
+                const lockY = screenY - mobHeight - 22, lockW = ctx.measureText(mob.lockedBy).width;
+                if (window.mbwDrawIcon && window.mbwDrawIcon(ctx, 'lock', screenX - lockW / 2 - 4, lockY - 4, 11, '#FF5555')) ctx.fillText(mob.lockedBy, screenX + 4, lockY);   // (candado dibujado, sin emoji)
+                else ctx.fillText(mob.lockedBy, screenX, lockY);
                 ctx.shadowBlur = 0;
             }
         } catch (e) {
@@ -1388,12 +1390,13 @@ function drawUI() {
     if (typeof window.mySpectators !== 'undefined' && window.mySpectators.size > 0) {
         ctx.save();
         
-        const text = "👁️ " + Array.from(window.mySpectators).join(", ");
+        const text = Array.from(window.mySpectators).join(", ");
         ctx.font = "bold 16px Arial";
         
         const paddingX = 15;
         const paddingY = 8;
-        const textWidth = ctx.measureText(text).width;
+        const eyeW = 24;                                  // el ojo (ícono dibujado) va a la izquierda del texto
+        const textWidth = ctx.measureText(text).width + eyeW;
         const boxWidth = textWidth + (paddingX * 2);
         const boxHeight = 34;
         
@@ -1410,7 +1413,8 @@ function drawUI() {
         ctx.fillStyle = "#ff7675";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(text, startX + (boxWidth / 2), startY + (boxHeight / 2));
+        if (window.mbwDrawIcon) window.mbwDrawIcon(ctx, 'eye', startX + paddingX + 9, startY + (boxHeight / 2), 18, '#ff7675');
+        ctx.fillText(text, startX + (boxWidth / 2) + eyeW / 2, startY + (boxHeight / 2));
         
         ctx.restore();
     }

@@ -125,7 +125,7 @@ function initBackstageMenu() {
         <div class="backstage-sidebar">
             <button class="backstage-back-btn" onclick="closeFileMenu()"><span>⬅️</span> <span data-i18n="menu_back">Back</span></button>
             <button id="nav-btn-my-worlds" class="backstage-nav-btn active" onclick="switchBackstageTab('my-worlds')">🌍 <span data-i18n="menu_my_worlds">My Worlds</span></button>
-            <button id="nav-btn-templates" class="backstage-nav-btn" onclick="switchBackstageTab('templates')">🌍 <span data-i18n="menu_templates">Templates</span></button>
+            <button id="nav-btn-templates" class="backstage-nav-btn" onclick="switchBackstageTab('templates')"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-layout"></use></svg> <span data-i18n="menu_templates">Templates</span></button>
             
             <div style="height: 1px; background: var(--border); margin: 1px 25px; opacity: 0.5;"></div>
             <button id="nav-btn-multiplayer" class="backstage-nav-btn" onclick="switchBackstageTab('multiplayer')">🌐 <span data-i18n="menu_multiplayer">Multiplayer</span></button>

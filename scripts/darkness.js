@@ -7,6 +7,7 @@
 // · Auras: alrededor del jugador y de algunas luces la oscuridad no llega (un círculo con borde suave):
 //     antorcha = radio grande · antorcha de redstone = radio chico · lámpara de redstone encendida y jack o'lantern = radio grande
 //     coral lantern = radio grande y además un brillo magenta · odd torch = al revés: hace un círculo de OSCURIDAD mediano.
+//     glowstone, lava y ácido = la misma luz que la antorcha (radio grande, sin color).
 // · Biomas: una franja de colores arriba del mundo con el bioma de cada columna (biomeList del mundo). Pestaña View, grupo "Biomes".
 //
 // Cómo se dibuja (rápido): se arma una imagen chiquita con UN píxel por cuadro del mundo (negro con más o menos transparencia)
@@ -36,7 +37,10 @@
         redstone: { r: 3.5 },
         lamp: { r: 6.5 },
         jack: { r: 6.5 },
-        coral: { r: 6, color: [255, 70, 225] },
+        coral: { r: 6, color: [255, 70, 225], glow: 0.6 },
+        glowstone: { r: 6.5 },                 // glowstone, lava y ácido: la misma luz que la antorcha
+        lava: { r: 6.5, group: 3 },            // group: en lagos grandes, una luz por cada cuadro de 3 x 3 (rápido)
+        acid: { r: 6.5, group: 3 },
         odd: { r: 4.5, dark: 0.75 },
         player: { r: 3.5 }
     };
@@ -53,6 +57,10 @@
         add(['light_true'], 'lamp');
         add(['jl'], 'jack');
         add(['lant_1', 'lant_2', 'lant_3', 'lant'], 'coral');
+        add(['glow'], 'glowstone');
+        const liquid = (base, kind) => Object.keys(TM).forEach(k => { if (k === base || new RegExp('^' + base + '_[0-9]+n?$').test(k)) m.set(TM[k], kind); });
+        liquid('la', 'lava');
+        liquid('ad', 'acid');
         return m;
     }
     D.lightKindAt = function (x, y) {
@@ -105,7 +113,7 @@
         // luces cercanas (también las que están un poco fuera de la pantalla: su círculo se alcanza a ver)
         const R = 7;
         const wc = window.worldCache || [];
-        const glows = [], found = [];
+        const found = [], groups = new Set();
         const xa = Math.max(0, X0 - R), xb = Math.min(wc.length - 1, X0 + w - 1 + R);
         const ya = Math.max(0, Y0 - R), yb = Y1 + R;
         if (lightOf && lightOf.size) {
@@ -117,7 +125,14 @@
                     const o = col[y];
                     if (o === undefined || o === null) continue;
                     const k = lightOf.get(o);
-                    if (k) found.push({ x: x + 0.5, y: y + 0.5, kind: k });
+                    if (!k) continue;
+                    const g = LIGHTS[k].group;
+                    if (g) {                                       // lava / ácido: una luz por grupo de g x g cuadros
+                        const gk = k + ':' + Math.floor(x / g) + ':' + Math.floor(y / g);
+                        if (groups.has(gk)) continue;
+                        groups.add(gk);
+                    }
+                    found.push({ x: x + 0.5, y: y + 0.5, kind: k });
                 }
             }
         }
@@ -126,6 +141,8 @@
         D.stats.lights = found.length;
         // primero las que quitan oscuridad, después las odd torch (su oscuridad gana)
         found.sort((p, q) => (LIGHTS[p.kind].dark ? 1 : 0) - (LIGHTS[q.kind].dark ? 1 : 0));
+        const base = A.slice();                             // la oscuridad sin luces (el brillo de color se nota más donde está oscuro)
+        let G = null;                                       // brillo de color (lava, ácido, glowstone, coral lantern): R, G, B por cuadro
         for (let n = 0; n < found.length; n++) {
             const L = found[n], def = LIGHTS[L.kind];
             const r = def.r, core = r * 0.4;
@@ -141,9 +158,25 @@
                     const k = j * w + i;
                     if (def.dark) { const v = def.dark * s; if (v > A[k]) { A[k] = v; any = true; } }
                     else A[k] = A[k] * (1 - s);
+                    if (def.color) {
+                        if (!G) G = new Float32Array(w * h * 3);
+                        const wgt = s * def.glow * (0.3 + 0.7 * base[k] / D.MAX);
+                        G[k * 3] += def.color[0] * wgt; G[k * 3 + 1] += def.color[1] * wgt; G[k * 3 + 2] += def.color[2] * wgt;
+                    }
                 }
             }
-            if (def.color) glows.push({ x: L.x, y: L.y, r: r, color: def.color, k: 0.18 + 0.4 * (D.darkAt(Math.floor(L.y)) / D.MAX) });
+        }
+        // el brillo de color también se arma una sola vez (1 píxel por cuadro, estirado con suavizado)
+        let glowOk = false;
+        if (G) {
+            if (gmask.width !== w || gmask.height !== h) { gmask.width = w; gmask.height = h; }
+            const gi = gctx.createImageData(w, h), gp = gi.data;
+            for (let k = 0; k < w * h; k++) {
+                const p = k * 4;
+                gp[p] = Math.min(255, G[k * 3]); gp[p + 1] = Math.min(255, G[k * 3 + 1]); gp[p + 2] = Math.min(255, G[k * 3 + 2]); gp[p + 3] = 255;
+            }
+            gctx.putImageData(gi, 0, 0);
+            glowOk = true;
         }
         if (mask.width !== w || mask.height !== h) { mask.width = w; mask.height = h; }
         let maxA = 0, firstRow = h;
@@ -163,13 +196,23 @@
             if (big.width !== bw || big.height !== bh) { big.width = bw; big.height = bh; } else bctx.clearRect(0, 0, bw, bh);
             bctx.imageSmoothingEnabled = true;
             bctx.drawImage(mask, 0, 0, w, h, 0, 0, w * ts, h * ts);
+            if (glowOk) {
+                if (bigGlow.width !== bw || bigGlow.height !== bh) { bigGlow.width = bw; bigGlow.height = bh; }
+                bgctx.imageSmoothingEnabled = true;
+                bgctx.drawImage(gmask, 0, 0, w, h, 0, 0, w * ts, h * ts);
+            }
         }
         D.stats.builds++;
         D.stats.maxAlpha = maxA;
-        return { X0: X0, Y0: Y0, w: w, h: h, ts: ts, top: top, bw: bw, bh: bh, empty: !any || maxA < 0.004, glows: glows, maxA: maxA, bigOk: bw * bh <= 16000000 };
+        D.stats.glow = glowOk;
+        return { X0: X0, Y0: Y0, w: w, h: h, ts: ts, top: top, bw: bw, bh: bh, empty: !any || maxA < 0.004, glow: glowOk, maxA: maxA, bigOk: bw * bh <= 16000000 };
     }
     const big = document.createElement('canvas');
     const bctx = big.getContext('2d');
+    const gmask = document.createElement('canvas');
+    const gctx = gmask.getContext('2d');
+    const bigGlow = document.createElement('canvas');
+    const bgctx = bigGlow.getContext('2d');
 
     function drawDarkness(c) {
         if (!D.on || scene() !== 1) { D.stats.drawn = false; return; }
@@ -196,19 +239,11 @@
             c.imageSmoothingEnabled = true;
             c.drawImage(mask, 0, 0, M.w, M.h, dx, dy, M.w * ts, M.h * ts);
         }
-        // brillo de color (coral lantern)
-        if (M.glows.length) {
+        // brillo de color (lava, ácido, glowstone, coral lantern): se "suma" a lo que hay debajo
+        if (M.glow) {
             c.globalCompositeOperation = 'screen';
-            M.glows.forEach(function (g) {
-                const sx = (g.x - camera.x) * ts, sy = canvas.height - (g.y - camera.y) * ts, rr = g.r * ts;
-                const grad = c.createRadialGradient(sx, sy, 0, sx, sy, rr);
-                const col = g.color.join(',');
-                grad.addColorStop(0, 'rgba(' + col + ',' + g.k.toFixed(3) + ')');
-                grad.addColorStop(0.45, 'rgba(' + col + ',' + (g.k * 0.55).toFixed(3) + ')');
-                grad.addColorStop(1, 'rgba(' + col + ',0)');
-                c.fillStyle = grad;
-                c.fillRect(sx - rr, sy - rr, rr * 2, rr * 2);
-            });
+            if (M.bigOk) c.drawImage(bigGlow, 0, 0, M.bw, M.bh, Math.round(dx), Math.round(dy), M.bw, M.bh);
+            else { c.imageSmoothingEnabled = true; c.drawImage(gmask, 0, 0, M.w, M.h, dx, dy, M.w * ts, M.h * ts); }
         }
         c.restore();
         if (M.maxA >= 0.3) maybeNotice();

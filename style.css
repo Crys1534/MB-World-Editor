@@ -2716,16 +2716,19 @@ body.ex-picking canvas, body.pf-picking canvas { cursor: crosshair !important; }
 .ae-frame canvas { image-rendering: pixelated; background: #7385b9; }
 .ae-frame small { font-size: 10px; color: #fff; }
 .ae-ftools { display: flex; gap: 2px; }
-.ae-ftools button { width: 22px; height: 20px; padding: 0; font-size: 11px; cursor: pointer; border: 1px solid #444; background: #ddd; border-radius: 3px; }
+.ae-ftools button { width: 22px; height: 20px; padding: 0; font-size: 11px; cursor: pointer; border: 1px solid #444; background: #ddd; color: #222; border-radius: 3px; display: flex; align-items: center; justify-content: center; }
+.ae-ftools button .mbw-ic { width: 14px; height: 14px; vertical-align: middle; }
+.ae-ftools button:not(:disabled):hover { background: #fff; }
 .ae-ftools button.on { background: #ffd54a; }
 .ae-ftools button:disabled { opacity: 0.4; cursor: default; }
 .ae-sheet { position: relative; flex: 1 1 auto; min-height: 120px; overflow: auto; background: #7385b9 repeating-conic-gradient(#6a7cb0 0 25%, #7385b9 0 50%) 0 0 / 32px 32px; border: 2px inset #fff; }
-.ae-sheet canvas { display: block; image-rendering: pixelated; cursor: crosshair; }
+.ae-sheet canvas { display: block; image-rendering: pixelated; cursor: crosshair; max-width: none; flex: none; }
 .ae-hover { position: absolute; display: none; width: 32px; height: 32px; box-sizing: border-box; border: 2px solid #ffeb3b; pointer-events: none; box-shadow: 0 0 0 1px #000; }
 .ae-actions { display: flex; align-items: center; gap: 8px; }
-.ae-btn { padding: 6px 12px; border: 2px solid #555; background: #ddd; font-weight: bold; cursor: pointer; border-radius: 4px; }
+.ae-btn { padding: 6px 12px; border: 2px solid #555; background: #ddd; color: #222; font-weight: bold; cursor: pointer; border-radius: 4px; }
 .ae-btn:hover { filter: brightness(1.08); }
-.ae-primary { background: #2d7d46; color: #fff; border-color: #1f5a31; margin-left: auto; }
+.ae-btn:disabled { opacity: 0.45; cursor: default; filter: none; }
+.ae-btn.ae-primary { background: #2d7d46; color: #fff; border-color: #1f5a31; margin-left: auto; }
 .ae-saved { font-size: 12px; color: #333; }
 .ae-saved.warn { color: #b04500; font-weight: bold; }
 .ae-saved.ok { color: #1f6b35; font-weight: bold; }
@@ -2754,19 +2757,30 @@ body.ex-picking canvas, body.pf-picking canvas { cursor: crosshair !important; }
 .jr-no { background: #7f8c8d; } .jr-no:hover { background: #95a5a6; }
 .jr-btns button:disabled { opacity: .6; cursor: default; }
 
-/* 🎨 Íconos propios (pixel art 16 x 16, scripts/ui-icons.js): siempre nítidos */
-.mbw-ic { display: inline-block; width: 1em; height: 1em; flex: 0 0 auto; vertical-align: -0.15em; shape-rendering: crispEdges; image-rendering: pixelated; pointer-events: none; }
-.tool-btn .mbw-ic { width: 32px; height: 32px; }
-.ribbon-btn-large .icon .mbw-ic { width: 32px; height: 32px; vertical-align: middle; }
-.ribbon-btn-small .mbw-ic { width: 16px; height: 16px; vertical-align: middle; }
+/* 🎨 Íconos propios (dibujos de líneas, scripts/ui-icons.js): toman el color del texto, así se ven bien en todos los temas */
+.mbw-ic { display: inline-block; width: 1.15em; height: 1.15em; flex: 0 0 auto; vertical-align: -0.2em; overflow: visible; pointer-events: none; }
+.mbw-ic.c-warn { color: #f0b429; }
+.mbw-ic.c-ok { color: #2ecc71; }
+.mbw-ic.c-bad { color: #e74c3c; }
+.mbw-ic.c-gold { color: #f5c518; }
+.mbw-ic.c-fire { color: #ff7a1a; }
+.mbw-ic.c-blue { color: #4da6ff; }
+.tool-btn .mbw-ic { width: 24px; height: 24px; }
+.ribbon-btn-large .icon .mbw-ic { width: 28px; height: 28px; vertical-align: middle; }
+.ribbon-btn-small .mbw-ic { width: 17px; height: 17px; vertical-align: middle; }
 .ribbon-btn-small.ribbon-btn-icon .mbw-ic { width: 16px; height: 16px; }
-.btn-ribbon-save-struct .icon-text .mbw-ic { width: 32px; height: 32px; }
-.icon-18 .mbw-ic, .icon-24 .mbw-ic { width: 32px; height: 32px; display: block; margin: 0 auto; }
+.btn-ribbon-save-struct .icon-text .mbw-ic { width: 26px; height: 26px; }
+.icon-18 .mbw-ic, .icon-24 .mbw-ic { width: 26px; height: 26px; display: block; margin: 0 auto; }
 .icon-btn .mbw-ic { width: 16px; height: 16px; }
 .btn-save-quick .mbw-ic { width: 16px; height: 16px; }
-#btn-publish-map .mbw-ic { width: 16px; height: 16px; }
+/* File, Load y Save Now (arriba a la izquierda): los tres del mismo alto y con el mismo borde; los dos de ícono, del mismo ancho */
+.top-bar .left-group > .icon-btn, .top-bar .btn-save-quick { height: 26px; box-sizing: border-box; }
+.top-bar .btn-load-quick, .top-bar .btn-save-quick { width: 34px; padding: 0; margin-left: 3px; display: flex; align-items: center; justify-content: center; }
+.top-bar .btn-save-quick { background: transparent; color: var(--text); cursor: pointer; border: 1px solid var(--input-bg); border-radius: 3px; font-size: 14px; }
+.top-bar .btn-save-quick:hover { background-color: rgba(128, 128, 128, 0.2); }
+#btn-publish-map .mbw-ic { width: 16px; height: 16px; vertical-align: middle; }
 .mbw-ic.mbw-ic-sm { width: 16px; height: 16px; }
-#help-menu .mbw-ic, .dropdown-content .mbw-ic { width: 16px; height: 16px; vertical-align: -3px; }
+.settings-tab .mbw-ic { width: 18px; height: 18px; }
 
 /* Sin paneles flotantes la hotbar vive en la pestaña Insert: los atajos de Structures / Mobs / Skins se achican un poco
    para que todo quepa (también el grupo Skins, que volvió a Insert) */
