@@ -189,7 +189,11 @@ window.toggleMpAccess = function(checkbox) {
 };
 
 window.setMpView = function(viewId) {
-    const views = ['home', 'create-1', 'create-map', 'create-2', 'join'];
+    // (ronda 52: el asistente nuevo de "Create Server" está en scripts/server-wizard.js; los nombres viejos llevan a sus pasos nuevos)
+    const ALIAS = { 'create-1': 'create-world', 'create-map': 'create-world', 'create-2': 'create-setup' };
+    const wasOld = !!ALIAS[viewId];
+    viewId = ALIAS[viewId] || viewId;
+    const views = ['home', 'join', 'create-world', 'create-setup'];
     views.forEach(v => {
         const el = document.getElementById('mp-view-' + v);
         if (el) el.style.display = 'none';
@@ -199,9 +203,10 @@ window.setMpView = function(viewId) {
     if (target) target.style.display = 'block';
     
     if (viewId === 'join') window.loadPublicServers();
-    if (viewId === 'create-map') window.renderMpMapSelection();
+    if (window.mbwServerWizard) window.mbwServerWizard.onView(viewId);
 
-    if ((viewId === 'home' || viewId === 'create-1' || viewId === 'create-map') && isHost) {
+    // volver al principio del asistente (o a "home") con una sala abierta = se cierra la sala
+    if ((viewId === 'home' || viewId === 'create-world' || (wasOld && viewId !== 'create-setup')) && isHost) {
         if (peer) { peer.destroy(); peer = null; }
         if (window.myRoomRef) { window.myRoomRef.remove(); window.myRoomRef = null; }
         isHost = false;

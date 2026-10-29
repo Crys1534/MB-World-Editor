@@ -618,6 +618,7 @@
   // Si antes esta misma imagen mostraba una spawnskin que todavía se estaba cargando, ese "pintor" sigue trabajando en segundo plano
   // (se repite cada 150 ms o cada 4 s) y unos segundos después borraba o pisaba el mob nuevo. Subir el número lo cancela.
   img._skTok = (img._skTok || 0) + 1;
+  if (img.style.objectViewBox) img.style.objectViewBox = '';
   img.onerror = function () { this.onerror = null; this.src = 'assets/mobs/' + k + '.png'; };
   img.src = imgSrc(k);
  }
@@ -659,8 +660,19 @@
  const PLAYER_IMG = 'assets/Player.png';
  function setPlayerImg(img) {
   img._skTok = (img._skTok || 0) + 1;      // (cancela cualquier pintado de skin pendiente sobre esta imagen)
+  if (img.style.objectViewBox) img.style.objectViewBox = '';
   img.onerror = null;
   img.src = PLAYER_IMG;
+ }
+ // Recorta lo que se ve de la imagen a su primer cuadro (16 x 22) sin leer sus píxeles (object-view-box). sk = null: quita el recorte.
+ function cropFirst(img, sk) {
+  try {
+   if (!sk) { if (img.style.objectViewBox) img.style.objectViewBox = ''; return false; }
+   const w = sk.naturalWidth || sk.width, h = sk.naturalHeight || sk.height;
+   if (!w || !h || !('objectViewBox' in img.style)) return false;
+   img.style.objectViewBox = 'inset(0px ' + Math.max(0, w - SKIN_W) + 'px ' + Math.max(0, h - SKIN_H) + 'px 0px)';
+   return true;
+  } catch (e) { return false; }
  }
  function paintSkinImg(img, id) {
   const tok = (img._skTok = (img._skTok || 0) + 1);
@@ -668,7 +680,7 @@
   let tries = 0;
   (function step() {
    if (img._skTok !== tok || (tries > 0 && !document.body.contains(img))) return;   // (la imagen aún no está en la página en el primer intento)
-   let state = 'none', url = null;
+   let state = 'none', url = null, raw = null;
    if (sid && typeof window.getSpawnskinImage === 'function') {
     const sk = window.getSpawnskinImage(sid);
     if (!sk) state = 'loading';
@@ -676,10 +688,14 @@
     else {
      const f = frameOf(sk);
      if (f) url = f;
+     else if (f === null && sk.src) raw = sk;                           // llegó "sin permiso": no se pueden leer sus píxeles
      else state = f === undefined ? 'loading' : 'failed';
     }
    }
-   if (url) { img.src = url; return; }                                   // la skin pedida
+   if (url) { cropFirst(img, null); img.src = url; return; }             // la skin pedida
+   // sin permiso: se muestra igual la imagen de la skin, recortada en pantalla a su primer cuadro
+   if (raw && cropFirst(img, raw)) { if (img.src !== raw.src) img.src = raw.src; return; }
+   cropFirst(img, null);
    if (state === 'loading') {                                           // llegando: el recuadro queda vacío hasta que llegue
     if (tries === 0 || img.src !== BLANK_IMG) img.src = BLANK_IMG;
     if (++tries < 400) setTimeout(step, 150);                           // (hasta ~1 minuto)

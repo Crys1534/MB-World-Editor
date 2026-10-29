@@ -1715,9 +1715,11 @@ window.skinFetchInProgress = window.skinFetchInProgress || {};
 //   Luego, de internet, en este orden (la primera fuente que funciona se recuerda y las siguientes skins van directo a ella):
 //   1) el "puente" propio (Cloudflare Worker, versión 2):  <puente>/skin/{id}.png  — trae el permiso CORS, así la imagen
 //      NO "ensucia" el lienzo: se le quita el fondo blanco y las capturas de pantalla la incluyen
-//   2) mineblocks.com pidiendo ese permiso (COMPROBADO 28 oct: mineblocks.com NO lo da; queda por si algún día lo activa)
+//   2) "espejo" público de imágenes (wsrv.nl, gratis): la MISMA imagen de mineblocks.com, idéntica píxel por píxel
+//      (comprobado 29 oct), pero con el permiso CORS. Sirve mientras el puente siga en la versión 1 (que solo da la lista)
 //   3) mineblocks.com sin pedir permiso: la skin SE VE, pero el navegador no deja leer sus píxeles (no se le quita el fondo
-//      y las capturas la dibujan como la spawnskin genérica). Es lo que pasa mientras el puente no tenga la versión 2.
+//      y las capturas la dibujan como la spawnskin genérica). Solo si las dos de arriba fallan.
+//   (mineblocks.com pidiendo el permiso no se intenta: COMPROBADO 28 oct, no lo da y llena la consola de errores)
 // Algunas skins de la web traen el fondo en un color sólido (blanco) en vez de transparente: ese fondo se vuelve
 // transparente (solo la parte que toca el borde, así los ojos blancos de la skin se quedan).
 // Prioridad: window.mbwSkinPrefetch(ids, true) pone esas skins al frente de la fila (la galería lo usa con la página que
@@ -1737,7 +1739,8 @@ const SKIN_REMOTE_RETRY_MS = 60000;              // si falló (sin internet...),
 let skinRemoteActive = 0;
 const skinRemoteQueue = [];
 const skinRemoteLoading = {};                    // las que se están bajando en este momento (no se vuelven a pedir)
-const SKIN_SOURCES = ['bridge', 'plain'];      // (mineblocks.com no da permiso CORS: pedirla "con permiso" siempre falla y llena la consola de errores)
+const SKIN_SOURCES = ['bridge', 'mirror', 'plain'];   // (mineblocks.com no da permiso CORS: pedirla "con permiso" siempre falla y llena la consola de errores)
+window.SKIN_MIRROR_URL = 'https://wsrv.nl/?url=mineblocks.com/1/skins/images/';
 const skinSource = { ok: null, dead: {} };       // la fuente que ya funcionó · las que no sirven (no se vuelven a probar)
 window.mbwSkinSourceState = function () { return { ok: skinSource.ok, dead: Object.keys(skinSource.dead) }; };
 
@@ -1777,6 +1780,7 @@ function skinBridgeBase() {
 }
 function skinSourceUrl(src, id) {
     if (src === 'bridge') { const b = skinBridgeBase(); return b ? b.replace(/\/+$/, '') + '/skin/' + id + '.png' : null; }
+    if (src === 'mirror') return window.SKIN_MIRROR_URL ? window.SKIN_MIRROR_URL + id + '.png' : null;
     return window.SKIN_REMOTE_URL + id + '.png';
 }
 function skinLoadImg(url, cors) {

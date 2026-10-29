@@ -148,6 +148,7 @@
 #structures-grid {
         display: grid; 
         grid-template-columns: repeat(4, minmax(0, 1fr));   /* minmax(0, ...): las 4 columnas caben siempre (sin barra de lado a lado) */
+        grid-auto-rows: max-content;                          /* cada fila mide lo que su tarjeta (cuadrada): con muchas no se aplastan */
         gap: 0px; 
         overflow-y: auto;
         overflow-x: hidden;
@@ -1762,6 +1763,7 @@
  <script src="scripts/skin-gallery.js"></script> <!-- 🖼️ galería de spawnskins -->
  <script src="scripts/world-extras.js"></script> <!-- ⭐ marcadores, 🪧 editor de letreros, 🚃 vagonetas y balsas, 🌈 lana arcoíris animada -->
  <script src="scripts/darkness.js"></script> <!-- 🌑 oscuridad bajo tierra, auras de luz y franja de biomas -->
+ <script src="scripts/far-view.js"></script> <!-- 🔭 vista de lejos (zoom 3 % a 10 %): el mundo desde un mapa de 1 píxel por bloque, sin trabarse -->
  <script src="scripts/anim-editor.js"></script> <!-- 🎞️ editor secreto de animaciones (Ctrl + Shift + Alt + A) -->
  <script src="scripts/audio-manager.js"></script>
  <script src="scripts/file-menu.js"></script>
@@ -1770,7 +1772,8 @@
  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
  <script src="scripts/multiplayer.js"></script>
  <script src="scripts/multiplayer-ui.js"></script>
- <script src="scripts/join-requests.js"></script> <!-- 🚪 pedir entrar al mundo de otro jugador (lista Online) -->
+ <script src="scripts/join-requests.js"></script>
+ <script src="scripts/server-wizard.js"></script> <!-- 🖥️ "Create Server": elegir mundo, vista previa y opciones, invitar (sin códigos) --> <!-- 🚪 pedir entrar al mundo de otro jugador (lista Online) -->
  <script src="scripts/chat-dm.js"></script>
  <script src="scripts/mini-chat.js"></script> <!-- 💬 mini ventana de chat de las burbujas (como Messenger) -->
  

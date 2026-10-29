@@ -99,7 +99,7 @@
     const cacheIds = new WeakMap(); let cacheSeq = 0;
     function cacheId(o) { if (!o) return 0; let id = cacheIds.get(o); if (!id) { id = ++cacheSeq; cacheIds.set(o, id); } return id; }
 
-    function build(X0, Y0, w, h) {
+    function build(X0, Y0, w, h, far) {
         if (!lightOf) lightOf = buildLightMap();
         const A = new Float32Array(w * h);
         const Y1 = Y0 + h - 1;
@@ -158,7 +158,7 @@
                     const k = j * w + i;
                     if (def.dark) { const v = def.dark * s; if (v > A[k]) { A[k] = v; any = true; } }
                     else A[k] = A[k] * (1 - s);
-                    if (def.color) {
+                    if (def.color && !far) {
                         if (!G) G = new Float32Array(w * h * 3);
                         const wgt = s * def.glow * (0.3 + 0.7 * base[k] / D.MAX);
                         G[k * 3] += def.color[0] * wgt; G[k * 3 + 1] += def.color[1] * wgt; G[k * 3 + 2] += def.color[2] * wgt;
@@ -178,9 +178,10 @@
             gctx.putImageData(gi, 0, 0);
             glowOk = true;
         }
-        if (mask.width !== w || mask.height !== h) { mask.width = w; mask.height = h; }
+        const MK = far ? fmask : mask, MC = far ? fmctx : mctx;
+        if (MK.width !== w || MK.height !== h) { MK.width = w; MK.height = h; }
         let maxA = 0, firstRow = h;
-        const img = mctx.createImageData(w, h), px = img.data;
+        const img = MC.createImageData(w, h), px = img.data;
         for (let k = 0; k < A.length; k++) {
             const a = A[k];
             if (a > maxA) maxA = a;
@@ -188,7 +189,11 @@
             const p = k * 4;
             px[p] = 4; px[p + 1] = 4; px[p + 2] = 14; px[p + 3] = Math.round(a * 255);
         }
-        mctx.putImageData(img, 0, 0);
+        MC.putImageData(img, 0, 0);
+        if (far) {                                          // vista de lejos: se dibuja directo desde la imagen chiquita (cada fotograma)
+            D.stats.builds++; D.stats.farBuilds = (D.stats.farBuilds || 0) + 1; D.stats.maxAlpha = maxA;
+            return { X0: X0, Y0: Y0, w: w, h: h, empty: !any || maxA < 0.004, maxA: maxA, far: true };
+        }
         // Se estira UNA vez a tamaño de pantalla (con suavizado = degradado) y en cada cuadro solo se copia (rápido)
         const ts = tileSize, bw = Math.ceil(w * ts), bh = Math.ceil(h * ts);
         const top = Math.max(0, Math.floor((firstRow - 1) * ts));        // (las filas de arriba sin oscuridad no se copian)
@@ -207,6 +212,9 @@
         D.stats.glow = glowOk;
         return { X0: X0, Y0: Y0, w: w, h: h, ts: ts, top: top, bw: bw, bh: bh, empty: !any || maxA < 0.004, glow: glowOk, maxA: maxA, bigOk: bw * bh <= 16000000 };
     }
+    const fmask = document.createElement('canvas');      // vista de lejos: la oscuridad del mundo ENTERO (1 píxel = 1 cuadro)
+    const fmctx = fmask.getContext('2d');
+    let farKey = '', farInfo = null;
     const big = document.createElement('canvas');
     const bctx = big.getContext('2d');
     const gmask = document.createElement('canvas');
@@ -217,6 +225,7 @@
     function drawDarkness(c) {
         if (!D.on || scene() !== 1) { D.stats.drawn = false; return; }
         const ts = tileSize;
+        if (ts < 4) { drawFar(c, ts); return; }          // zoom de lejos (3 % a 10 %): la oscuridad del mundo entero, hecha una sola vez
         const X0 = Math.floor(camera.x) - 1, Y0 = Math.floor(camera.y) - 1;
         const w = Math.ceil(canvas.width / ts) + 3, h = Math.ceil(canvas.height / ts) + 3;
         if (w * h > 1200000) { D.stats.drawn = false; return; }            // zoom tan alejado que no vale la pena
@@ -245,6 +254,31 @@
             if (M.bigOk) c.drawImage(bigGlow, 0, 0, M.bw, M.bh, Math.round(dx), Math.round(dy), M.bw, M.bh);
             else { c.imageSmoothingEnabled = true; c.drawImage(gmask, 0, 0, M.w, M.h, dx, dy, M.w * ts, M.h * ts); }
         }
+        c.restore();
+        if (M.maxA >= 0.3) maybeNotice();
+    }
+
+    // Vista de lejos: en vez de rehacer la oscuridad cada vez que la cámara pasa a otro cuadro (al moverse, en cada fotograma),
+    // se hace UNA vez para todo el mundo y solo se rehace si se edita algo o se mueve el jugador. Cada fotograma solo la copia.
+    function drawFar(c, ts) {
+        const wc = window.worldCache || [];
+        let H = 0;
+        const sc = (typeof mbwom !== 'undefined' && Array.isArray(mbwom.scene)) ? mbwom.scene : [];
+        for (let x = 0; x < sc.length; x++) { const col = sc[x]; if (col && col.length > H) H = col.length; }
+        const Wd = Math.max(1, wc.length, sc.length);
+        H = Math.max(H, D.TOP + 2);
+        if (Wd * H > 6000000) { D.stats.drawn = false; return; }
+        const pt = playerTile();
+        const key = ['far', Wd, H, D.rev, cacheId(window.worldCache), pt ? Math.floor(pt.x * 2) + ',' + Math.floor(pt.y * 2) : '-'].join('|');
+        if (key !== farKey || !farInfo) { farInfo = build(0, 0, Wd, H, true); farKey = key; }
+        const M = farInfo;
+        D.stats.drawn = !M.empty;
+        if (M.empty) return;
+        // el mapa va de Y = H - 1 (arriba) a Y = 0 (abajo); fuera del mundo (a los lados / abajo) sigue la oscuridad de esa altura
+        const dx = (0 - camera.x) * ts, dy = canvas.height - (H - camera.y) * ts;
+        c.save();
+        c.imageSmoothingEnabled = true;
+        c.drawImage(fmask, 0, 0, M.w, M.h, dx, dy, M.w * ts, M.h * ts);
         c.restore();
         if (M.maxA >= 0.3) maybeNotice();
     }

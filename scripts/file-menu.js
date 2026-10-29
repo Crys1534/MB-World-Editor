@@ -195,53 +195,31 @@ function initBackstageMenu() {
                                     <p style="text-align: center; color: #bdc3c7; font-size: 24px;" data-i18n="mp_searching_worlds">Searching for worlds...</p>
                                 </div>
 
-                                <p style="margin-bottom: 5px; color: #bdc3c7; font-size: 22px; text-align: center;" data-i18n="mp_join_or_create">Join by ID or Create your own:</p>
-                                
-                                <div style="display: flex; gap: 10px; margin-bottom: 15px; align-items: center;">
-                                    <button class="menu-btn" style="background: #2ecc71; border: 2px solid #27ae60; font-size: 22px; padding: 8px 15px; color: white; cursor: pointer; border-radius: 5px; min-width: 169px;" onclick="setMpView('create-1')" data-i18n="mp_create_server">Create Server</button>
-                                    
-                                    <input type="text" id="join-peer-id" data-i18n-placeholder="mp_paste_id" placeholder="Paste ID here..." style="flex: 1; width: 0px; font-size: 24px; padding: 8px; box-sizing: border-box; background: #ecf0f1; border: none; border-radius: 4px; outline: none; color: #333;">
-                                    
-                                    <button class="menu-btn" style="background: #3498db; border: 2px solid #2980b9; font-size: 22px; padding: 8px 15px; color: white; cursor: pointer; border-radius: 5px;" onclick="joinMultiplayerSession()" data-i18n="mp_connect">Connect</button>
-                                </div>
+                                <p class="sw-join-hint" data-i18n="sw_join_hint">To join: pick a public server above, accept an invitation (🔔), or press Join next to a player in the Online list.</p>
+                                <button type="button" id="mp-create-btn" class="sw-create-btn" onclick="mbwServerWizard.openCreate()"><span data-i18n="mp_create_server">Create Server</span></button>
+                                <!-- (sin códigos: estos dos quedan escondidos solo para el código que todavía los usa por dentro) -->
+                                <input type="hidden" id="join-peer-id"><input type="hidden" id="my-peer-id">
                             </div>
 
-                            <div id="mp-view-create-1" style="display: none; width: 100%; max-width: 450px; margin-top: 20px;">
-                                <h3 style="margin-bottom: 10px; color: #bdc3c7; font-size: 28px;" data-i18n="mp_players_limit">Players Limit:</h3>
-                                <div id="mp-player-buttons" style="display: flex; justify-content: center; margin-bottom: 20px; gap: 16px;">
-                                    <button class="mp-limit-btn selected-limit" onclick="setMpLimit(2)">2</button>
-                                    <button class="mp-limit-btn" onclick="setMpLimit(3)">3</button>
-                                    <button class="mp-limit-btn" onclick="setMpLimit(4)">4</button>
-                                    <button class="mp-limit-btn" onclick="setMpLimit(5)">5</button>
-                                    <button class="mp-limit-btn" onclick="setMpLimit(6)">6</button>
-                                </div>
-                                
-                                <div style="margin-bottom: 25px; display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.2); padding: 10px 15px; border-radius: 6px; border: 1px solid #34495e;">
-                                    <div style="color: #bdc3c7; font-size: 26px;"><span data-i18n="mp_access">Access: </span><span id="mp-access-label" style="color: #2ecc71; font-weight: bold;" data-i18n="mp_public">Public</span></div>
-                                    <label class="ms-switch">
-                                        <input type="checkbox" id="mp-access-toggle" onchange="toggleMpAccess(this)">
-                                        <span class="ms-slider"></span>
-                                    </label>
-                                </div>
-
-                                <button class="menu-btn" style="background: #2ecc71; border: 2px solid #27ae60; width: 100%; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px; margin-bottom: 10px;" onclick="setMpView('create-map')"><span data-i18n="mp_next">Next</span> ➡️</button>
-                                <button class="menu-btn" style="background: #7f8c8d; border: 2px solid #95a5a6; width: 100%; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px;" onclick="setMpView('join')">⬅️ <span data-i18n="mp_cancel">Cancel</span></button>
+                            <!-- 🖥️ Crear servidor · paso 1: elegir el mundo (los abiertos arriba) — scripts/server-wizard.js -->
+                            <div id="mp-view-create-world" class="sw-view" style="display: none;">
+                                <h2 class="sw-title" data-i18n="sw_title">Create a server</h2>
+                                <p class="sw-sub" data-i18n="sw_pick">Choose the world you want to play with others</p>
+                                <div id="sw-world-list" class="sw-world-list"></div>
+                                <button type="button" class="sw-btn sw-btn-gray" onclick="setMpView('join')">⬅ <span data-i18n="sw_back">Back</span></button>
                             </div>
 
-                            <div id="mp-view-create-map" style="display: none; width: 100%; max-width: 450px; margin-top: 0px; text-align: left;">
-                                <h3 style="margin-bottom: 10px; color: #bdc3c7; font-size: 28px; text-align: center;" data-i18n="mp_select_map">Select Map:</h3>
-                                <div id="mp-map-list" style="height: 190px; overflow-y: auto; background: rgba(0,0,0,0.3); border-radius: 5px; padding: 10px; margin-bottom: 15px; display: flex; flex-direction: column; gap: 8px; border: 2px solid #34495e;">
+                            <!-- 🖥️ paso 2: vista previa a la izquierda, opciones a la derecha (y, ya iniciado, a quién invitar) -->
+                            <div id="mp-view-create-setup" class="sw-view sw-view-wide" style="display: none;">
+                                <div class="sw-setup">
+                                    <div class="sw-left">
+                                        <div id="sw-preview" class="sw-preview"></div>
+                                        <div id="sw-world-name" class="sw-world-name"></div>
+                                        <div id="sw-world-meta" class="sw-world-meta"></div>
+                                        <button type="button" id="sw-change" class="sw-btn sw-btn-gray sw-btn-small" onclick="mbwServerWizard.openCreate()">↩ <span data-i18n="sw_change_world">Change world</span></button>
                                     </div>
-                                <button id="btn-next-to-id" class="menu-btn" style="background: #2ecc71; border: 2px solid #27ae60; width: 100%; font-size: 26px; color: white; padding: 10px; cursor: not-allowed; border-radius: 5px; margin-bottom: 10px; opacity: 0.5;" disabled onclick="prepareServerMap()"><span data-i18n="mp_next">Next</span> ➡️</button>
-                                <button class="menu-btn" style="background: #7f8c8d; border: 2px solid #95a5a6; width: 100%; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px;" onclick="setMpView('create-1')">⬅️ <span data-i18n="menu_back">Back</span></button>
-                            </div>
-
-                            <div id="mp-view-create-2" style="display: none; width: 100%; max-width: 450px; margin-top: 20px;">
-                                <button class="menu-btn" style="background: #e67e22; border: 2px solid #d35400; width: 100%; margin-bottom: 15px; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px;" onclick="hostMultiplayerSession()" data-i18n="mp_generate_start">Generate ID & Start</button>
-                                <p style="margin-bottom: 5px; color: #bdc3c7; font-size: 22px; text-align: center;" data-i18n="mp_room_id">Your Room ID (Share this):</p>
-                                <input type="text" id="my-peer-id" readonly onclick="copyRoomId()" data-i18n-title="mp_click_copy" title="Click to copy!" data-i18n-placeholder="mp_id_placeholder" placeholder="ID will appear here..." style="width: 100%; text-align: center; font-size: 26px; cursor: pointer; background: #ecf0f1; border: none; padding: 10px; border-radius: 4px; box-sizing: border-box; outline: none; color: #333;">
-                                <p id="copy-hint" style="color: #2ecc71; font-size: 18px; margin-top: 5px; height: 16px; visibility: hidden; text-align: center;" data-i18n="mp_copied">Copied to clipboard!</p>
-                                <button class="menu-btn" style="background: #7f8c8d; border: 2px solid #95a5a6; width: 100%; font-size: 26px; color: white; padding: 10px; cursor: pointer; border-radius: 5px; margin-top: 15px;" onclick="setMpView('create-map')">⬅️ <span data-i18n="mp_close_server">Close Server & Back</span></button>
+                                    <div class="sw-right" id="sw-right"></div>
+                                </div>
                             </div>
 
                             <p id="multiplayer-status" style="display: none; margin-top: 25px; font-weight: bold; font-size: 28px; color: #bdc3c7;" data-i18n="mp_status_not_connected">Status: Not Connected</p>
