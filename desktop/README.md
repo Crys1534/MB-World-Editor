@@ -9,6 +9,6 @@ Programa de Windows que abre el editor en su propia ventana.
 ## Cómo se fabrica
 GitHub lo fabrica solo (ver `.github/workflows/desktop.yml`):
 - Cada cambio en esta carpeta → instalador de prueba en la pestaña **Actions**.
-- Subir una etiqueta `desktop-vX.Y.Z` (igual a `version` en `package.json`) → se publica en **Releases**.
+- Publicar un Release en GitHub con la etiqueta `desktop-vX.Y.Z` → GitHub fabrica esa versión y le pega el instalador solo.
 
 A mano (en una PC con Windows): `npm ci` y luego `npm run dist` → el instalador queda en `dist/`.
