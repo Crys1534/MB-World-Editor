@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="exit_title">¿Salir de MB World Editor?</string>
+    <string name="exit_yes">Salir</string>
+    <string name="cancel">Cancelar</string>
+    <string name="saved">Guardado: %1$s</string>
+    <string name="save_error">No se pudo guardar el archivo.</string>
+    <string name="no_internet_title">Sin internet</string>
+    <string name="no_internet_text">La primera vez, la app necesita internet para descargar el editor. Conéctate y vuelve a intentarlo.</string>
+    <string name="retry">Reintentar</string>
+    <string name="update_title">¡Hay una versión nueva de la app!</string>
+    <string name="update_text">Ya salió la versión %1$s de MB World Editor para Android. El editor ya se actualiza solo; esta versión nueva mejora la app en sí.</string>
+    <string name="download">Descargar</string>
+    <string name="later">Más tarde</string>
+    <string name="skip">Saltar esta versión</string>
+</resources>

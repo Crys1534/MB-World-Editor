@@ -1,0 +1,85 @@
+// MB World Editor para Android
+//  • La versión sale de -PappVersion=X.Y.Z (GitHub la toma de la etiqueta android-vX.Y.Z del Release)
+//  • La firma sale de las variables MBWE_KEYSTORE (archivo), MBWE_KEYSTORE_PASSWORD (si no están, el APK de
+//    "release" queda sin firmar; el de prueba "debug" se firma solo)
+plugins {
+    id 'com.android.application'
+}
+
+def appVersion = (project.findProperty('appVersion') ?: '1.0.0').toString().replaceFirst(/^android-v/, '')
+def vParts = appVersion.tokenize('.').collect { (it.isInteger() ? it.toInteger() : 0) } + [0, 0, 0]
+def appVersionCode = vParts[0] * 10000 + vParts[1] * 100 + vParts[2]
+
+def ksFile = System.getenv('MBWE_KEYSTORE')
+def ksPass = System.getenv('MBWE_KEYSTORE_PASSWORD')
+def hasKey = ksFile && ksPass && file(ksFile).exists()
+
+android {
+    namespace 'io.github.crys1534.mbworldeditor'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'io.github.crys1534.mbworldeditor'
+        minSdk 24
+        targetSdk 35
+        versionCode appVersionCode
+        versionName appVersion
+    }
+
+    signingConfigs {
+        if (hasKey) {
+            release {
+                storeFile file(ksFile)
+                storePassword ksPass
+                keyAlias 'mbwe'
+                keyPassword ksPass
+                enableV1Signing true
+                enableV2Signing true
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (hasKey) signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // copia de la página para usarla sin internet (la prepara desktop/scripts/prepare.js en ../../desktop/build)
+    sourceSets {
+        main {
+            assets.srcDirs += ['../../desktop/build']
+        }
+    }
+
+    androidResources {
+        ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
+    }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all {
+            outputFileName = "MB-World-Editor-${variant.versionName}${variant.buildType.name == 'debug' ? '-test' : ''}.apk"
+        }
+    }
+}
+
+dependencies {
+    implementation platform('org.jetbrains.kotlin:kotlin-bom:1.8.22')   // (evita dos copias de la librería de Kotlin)
+    implementation 'androidx.core:core:1.13.1'
+    implementation 'androidx.activity:activity:1.9.3'
+    implementation 'androidx.webkit:webkit:1.12.1'
+}
+
+// Antes de armar la app: preparar la copia de la página (si se puede; sin ella la app igual funciona con internet)
+tasks.register('prepareSite', Exec) {
+    workingDir rootProject.file('..')
+    commandLine 'node', 'desktop/scripts/prepare.js'
+    ignoreExitValue true
+}
+preBuild.dependsOn prepareSite

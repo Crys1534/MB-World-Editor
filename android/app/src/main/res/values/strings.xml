@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MB World Editor</string>
+    <string name="exit_title">Exit MB World Editor?</string>
+    <string name="exit_yes">Exit</string>
+    <string name="cancel">Cancel</string>
+    <string name="saved">Saved: %1$s</string>
+    <string name="save_error">The file could not be saved.</string>
+    <string name="no_internet_title">No internet</string>
+    <string name="no_internet_text">The first time, the app needs internet to download the editor. Connect and try again.</string>
+    <string name="retry">Try again</string>
+    <string name="update_title">A new version of the app is available!</string>
+    <string name="update_text">MB World Editor for Android %1$s is out. The editor already updates by itself; this new version improves the app itself.</string>
+    <string name="download">Download</string>
+    <string name="later">Later</string>
+    <string name="skip">Skip this version</string>
+</resources>

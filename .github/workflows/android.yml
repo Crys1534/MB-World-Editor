@@ -1,0 +1,106 @@
+# Fabrica la app de Android (APK).
+#  • Cada cambio en la carpeta "android": fabrica el APK de prueba y lo prueba en un celular virtual
+#    (con y sin internet). Las fotos y el APK quedan en la pestaña Actions.
+#  • Al publicar un Release con etiqueta "android-vX.Y.Z": fabrica el APK con ese número de versión,
+#    lo firma con la llave de la app (secretos ANDROID_KEYSTORE_B64 y ANDROID_KEYSTORE_PASSWORD) y lo pega al Release.
+name: Android app (APK)
+
+on:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/android.yml']
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    if: github.event_name != 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.14.3
+
+      - name: Build the test APK
+        working-directory: android
+        run: gradle --no-daemon assembleDebug
+
+      - name: Turn on the virtual phone support (KVM)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Test the app on a virtual phone
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash android/ci/smoke.sh
+
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: android-test
+          path: |
+            android/app/build/outputs/apk/debug/*.apk
+            android/ci-out/
+
+  release:
+    if: github.event_name == 'release' && startsWith(github.event.release.tag_name, 'android-v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.14.3
+
+      - name: Build and sign the APK, attach it to the Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          TAG='${{ github.event.release.tag_name }}'
+          if [ -z "$KS_B64" ] || [ -z "$KS_PASS" ]; then
+            echo "::warning::No app signing key in the repository secrets. Attach the APK to the Release by hand (or add the secrets ANDROID_KEYSTORE_B64 and ANDROID_KEYSTORE_PASSWORD)."
+            exit 0
+          fi
+          echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/mbwe.jks"
+          export MBWE_KEYSTORE="$RUNNER_TEMP/mbwe.jks" MBWE_KEYSTORE_PASSWORD="$KS_PASS"
+          cd android
+          gradle --no-daemon assembleRelease -PappVersion="$TAG"
+          rm -f "$RUNNER_TEMP/mbwe.jks"
+          APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
+          gh release upload "$TAG" "$APK" --clobber
+          BODY=$(gh release view "$TAG" --json body --jq .body)
+          if [ -z "$BODY" ]; then gh release edit "$TAG" --notes-file RELEASE_NOTES.md; fi
