@@ -207,15 +207,17 @@ window.renderPresenceList = function() {
         // ✨ Obtenemos el nombre del mundo, si no tiene, dice Unknown
         const safeWorld = window.escapeHTML ? window.escapeHTML(u.worldName || "Unknown") : (u.worldName || "Unknown");
 
-        // ✨ Botones de la derecha según la relación con esta persona
-        let rightSide = '';
+        // ✨ Botones según la relación con esta persona. Van en una fila DEBAJO de la foto y el nombre
+        // (antes iban a la derecha y, con varios botones, se aplastaba todo).
+        let topRight = '', buttons = '';
         if (isMe) {
-            rightSide = '<span style="color: #2ecc71; font-size: 16px; margin-left: auto; font-weight: bold;">(You)</span>';
+            topRight = '<span class="mp-user-tag" style="color: #2ecc71;">(You)</span>';
         } else if (isBlockedUser) {
-            rightSide = `<div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">${isInMyRoom ? actionBtn : ''}<span title="Bloqueado" style="color: #e74c3c; font-size: 16px; font-weight: bold;">🚫 Bloqueado</span></div>`;
+            topRight = '<span class="mp-user-tag" title="Bloqueado" style="color: #e74c3c;">🚫 Bloqueado</span>';
+            if (isInMyRoom) buttons = actionBtn;
         } else {
             const addBtn = isFriend
-                ? `<span title="Ya son amigos" style="color: #2ecc71; font-size: 16px; font-weight: bold; padding: 6px 4px;">✔ Amigos</span>`
+                ? `<span class="mp-user-friend" title="Ya son amigos">✔ Amigos</span>`
                 : `<button onclick="sendFriendRequest('${u.uid}', '${safeName}')" style="background: #2ecc71; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#27ae60'" onmouseout="this.style.background='#2ecc71'" title="Añadir amigo">➕ Add</button>`;
             // 🚪 Pedir entrar a su mundo (si no estoy ya en su sala y no soy yo el que tiene la sala)
             let joinBtn = '';
@@ -225,24 +227,21 @@ window.renderPresenceList = function() {
                     ? `<button class="mp-join-req is-waiting" disabled style="background: #7f8c8d; border: none; padding: 6px 10px; border-radius: 4px; cursor: not-allowed; color: white; font-size: 16px;">⏳ ${window.tmsg ? window.tmsg('jr_waiting_btn', 'Asked') : 'Asked'}</button>`
                     : `<button class="mp-join-req" data-uid="${u.uid}" onclick="requestJoinWorld(this.dataset.uid)" style="background: #3498db; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#2980b9'" onmouseout="this.style.background='#3498db'" title="${window.tmsg ? window.tmsg('jr_btn_tip', 'Ask to join the world they are editing') : 'Ask to join'}">🚪 ${window.tmsg ? window.tmsg('jr_btn', 'Join') : 'Join'}</button>`;
             }
-            rightSide = `<div style="margin-left: auto; display: flex; gap: 8px;">
-                        ${actionBtn}
-                        ${joinBtn}
-                        ${addBtn}
-                        <button onclick="openDirectMessage('${u.uid}', '${safeName}')" style="background: transparent; border: 1px solid #7f8c8d; padding: 4px 8px; border-radius: 4px; cursor: pointer; color: white; font-size: 14px;" title="Enviar mensaje">💬</button>
-                    </div>`;
+            const msgLabel = window.tmsg ? window.tmsg('mp_msg_btn', 'Message') : 'Message';
+            buttons = `${actionBtn}${joinBtn}${addBtn}<button class="mp-user-msg" onclick="openDirectMessage('${u.uid}', '${safeName}')" title="Enviar mensaje">💬 ${msgLabel}</button>`;
         }
 
         htmlBuilder += `
-            <div style="background: rgba(0,0,0,0.4); border: 2px solid ${borderColor}; padding: 10px; display: flex; align-items: center; gap: 12px; border-radius: 6px;">
-                <div style="width: 40px; height: 40px; border-radius: 50%; background-image: url('${u.pfp}'); background-size: cover; background-position: center; border: 2px solid #bdc3c7; image-rendering: auto;"></div>
-                
-                <div style="display: flex; flex-direction: column; justify-content: center;">
-                    <span style="color: white; font-family: 'Pixeltype', sans-serif; font-size: 26px; line-height: 1;">${safeName}</span>
-                    <span style="color: #a0a0a0; font-family: 'Pixeltype', sans-serif; font-size: 16px; line-height: 1;">Editing: ${safeWorld}</span>
+            <div class="mp-user-card" style="border-color: ${borderColor};">
+                <div class="mp-user-top">
+                    <div class="mp-user-pfp" style="background-image: url('${u.pfp}');"></div>
+                    <div class="mp-user-info">
+                        <span class="mp-user-name">${safeName}</span>
+                        <span class="mp-user-world">Editing: ${safeWorld}</span>
+                    </div>
+                    ${topRight}
                 </div>
-
-                ${rightSide}
+                ${buttons ? `<div class="mp-user-actions">${buttons}</div>` : ''}
             </div>
         `;
     }

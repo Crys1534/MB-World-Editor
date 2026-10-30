@@ -2426,14 +2426,12 @@ window.addEventListener('DOMContentLoaded', () => {
     const startupSelect = document.getElementById('startup-screen-select');
     if (startupSelect) startupSelect.value = startupPreference;
     
-    // 🌱 Persona completamente nueva (todavía sin nombre de usuario): se le abre al instante el mundo
-    // "Superflat World" de las plantillas, en vez del menú File
+    // 🌱 Al abrir el editor, TODOS empiezan en el mundo "Superflat World" de las plantillas.
+    // A quien es completamente nuevo (todavía sin nombre de usuario) no se le pone encima el menú File.
     let isNewUser = false;
     try { isNewUser = typeof window.isDefaultUsername === 'function' && window.isDefaultUsername(localStorage.getItem('mbw_username')); } catch (e) { isNewUser = false; }
-    if (isNewUser && typeof window.openStarterWorld === 'function') {
-        window.openStarterWorld();
-        return;
-    }
+    if (typeof window.openStarterWorld === 'function') window.openStarterWorld();
+    if (isNewUser) return;
 
     // Si eligió (o tiene por defecto) el File Menu, lo abrimos automáticamente
     if (startupPreference === 'filemenu' && typeof openFileMenu === 'function') {

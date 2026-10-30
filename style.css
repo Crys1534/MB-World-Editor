@@ -2991,3 +2991,18 @@ body.is-phone .sg-results { max-height: calc(100vh - 150px); min-height: 100px; 
     body.is-touch #btn-world-info { display: none; }
     body.is-touch #btn-publish-map > span { display: none; }
 }
+
+/* 👥 Lista "Online" del multijugador: foto + nombre arriba, y los botones (Entrar, Invitar, Kick, Mensaje...) en su propia fila debajo */
+.mp-user-card { background: rgba(0, 0, 0, 0.4); border: 2px solid #34495e; padding: 10px; border-radius: 6px; display: flex; flex-direction: column; gap: 8px; }
+.mp-user-top { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.mp-user-pfp { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%; background-size: cover; background-position: center; border: 2px solid #bdc3c7; image-rendering: auto; }
+.mp-user-info { display: flex; flex-direction: column; justify-content: center; min-width: 0; flex: 1 1 auto; }
+.mp-user-name { color: #fff; font-family: 'Pixeltype', sans-serif; font-size: 26px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mp-user-world { color: #a0a0a0; font-family: 'Pixeltype', sans-serif; font-size: 16px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mp-user-tag { margin-left: auto; flex: 0 0 auto; font-size: 16px; font-weight: bold; }
+.mp-user-actions { display: flex; flex-wrap: wrap; gap: 6px; padding-left: 52px; }
+.mp-user-actions > button { font-size: 15px !important; line-height: 1.1; white-space: nowrap; }
+.mp-user-friend { color: #2ecc71; font-size: 15px; font-weight: bold; padding: 6px 4px; white-space: nowrap; }
+.mp-user-msg { background: #34495e; border: 1px solid #7f8c8d; padding: 5px 10px; border-radius: 4px; cursor: pointer; color: #fff; transition: 0.2s; }
+.mp-user-msg:hover { background: #46607a; }
+body.is-phone .mp-user-actions { padding-left: 0; }

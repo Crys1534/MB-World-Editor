@@ -45,6 +45,13 @@ window.nextPaint = function () {
     });
 };
 
+// Abre un mundo que ya viene como texto JSON (el que manda el anfitrión de un servidor),
+// igual que si se abriera su archivo: misma barra de carga, cámara en el jugador, pestaña, etc.
+window.loadWorldFromJson = function (json, filename) {
+    fileManager.file = new File([], filename || 'Multiplayer World.mbw', { type: 'text/plain' });
+    return fileManager.load({ json: json });
+};
+
 // Lee un archivo .mbw mostrando el avance REAL de la lectura (0 a 20 %) y luego lo carga
 function readWorldFile(file) {
     updateLoadingBar(0, "Reading file...");
@@ -69,7 +76,8 @@ const fileManager = {
    updateLoadingBar(25, "Decoding world...");
    await nextPaint();
    if (superseded()) return;
-   const jsonString = mbwAlgorithm.decode(event.target.result);
+   // (un mundo que llega por multijugador ya viene como texto JSON: no hay que descifrarlo)
+   const jsonString = (event && typeof event.json === 'string') ? event.json : mbwAlgorithm.decode(event.target.result);
    updateLoadingBar(40, "Analyzing terrain...");
    await nextPaint();
    if (superseded()) return;
@@ -390,7 +398,7 @@ prepareData: function() {
     const jsonString = JSON.stringify(mbwom.world);
     const text = mbwAlgorithm.encode(jsonString);
     
-    return { name: baseName, textData: text };
+    return { name: baseName, textData: text, json: jsonString };
  },
  
  export: function () {

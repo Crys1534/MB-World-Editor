@@ -572,13 +572,18 @@ function setupHostConnection(conn) {
         if (statusText) { statusText.innerText = `Status: ${misClientes.length + 1}/${window.multiplayerPlayerLimit} Players 🟢`; statusText.style.color = "#4CAF50"; }
         if (window.myRoomRef) window.myRoomRef.update({ currentPlayers: misClientes.length + 1 });
         
-        if (typeof mbwom !== 'undefined' && mbwom.world) {
-            conn.send({ tipo: "sync_mundo", mundo: mbwom.world });
-        }
+        // El mapa se manda cuando el jugador dice quién es (player_info): así sabemos si lo puede recibir
+        // comprimido y por partes (versión nueva). Si en unos segundos no dice nada, se manda como antes.
+        conn.__mapSent = false;
+        setTimeout(function () { if (!conn.__mapSent && conn.open) { conn.__mapSent = true; mpSendWorldLegacy(conn); } }, 6000);
         avisarEnChatDeSala("Un jugador se ha unido y está descargando el mapa.");
     });
 
     conn.on('data', function(data) {
+        if (data && data.tipo === "player_info" && !conn.__mapSent) {
+            conn.__mapSent = true;
+            if (data.mapV >= 2) mpSendWorld(conn, !!data.gz); else mpSendWorldLegacy(conn);
+        }
         recibirMensajeDeRed(data);
         if (!data.retransmitido) {
             data.retransmitido = true;
@@ -606,6 +611,104 @@ function setupHostConnection(conn) {
     });
 }
 
+// ==========================================
+// 🗺️ MANDAR EL MAPA A UN JUGADOR QUE ENTRA
+// Antes el mundo se mandaba de un jalón como objeto, y con mapas grandes la librería de conexión
+// se rompía ("Maximum call stack size exceeded") y el jugador se quedaba sin mapa.
+// Ahora: el mundo va como texto, comprimido (gzip, unas 6 veces más chico) y en pedacitos de 16 KB,
+// sin llenar de más la conexión, y el jugador ve una barra con el avance.
+// ==========================================
+const MP_CHUNK = 16000;
+const mpSleep = (ms) => new Promise(r => setTimeout(r, ms));
+async function mpGzip(bytes) {
+    const out = new Response(new Blob([bytes]).stream().pipeThrough(new CompressionStream('gzip')));
+    return new Uint8Array(await out.arrayBuffer());
+}
+async function mpGunzip(bytes) {
+    const out = new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip')));
+    return new Uint8Array(await out.arrayBuffer());
+}
+function mpSendWorldLegacy(conn) {
+    if (typeof mbwom !== 'undefined' && mbwom.world) conn.send({ tipo: "sync_mundo", mundo: mbwom.world });
+}
+async function mpSendWorld(conn, canGzip) {
+    try {
+        if (typeof mbwom === 'undefined' || !mbwom.world || typeof fileManager === 'undefined') return;
+        const prepared = fileManager.prepareData();          // lo mismo que se guardaría (con los últimos cambios y mobs)
+        if (!prepared || !prepared.json) { mpSendWorldLegacy(conn); return; }
+        let bytes = new TextEncoder().encode(prepared.json);
+        const raw = bytes.length;
+        let enc = 'none';
+        if (canGzip && typeof CompressionStream === 'function') {
+            try { bytes = await mpGzip(bytes); enc = 'gzip'; } catch (e) { enc = 'none'; bytes = new TextEncoder().encode(prepared.json); }
+        }
+        const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        const total = Math.ceil(bytes.length / MP_CHUNK);
+        if (!conn.open) return;
+        conn.send({ tipo: "map_start", id: id, name: prepared.name || "Multiplayer World", enc: enc, size: bytes.length, raw: raw, chunks: total });
+        for (let i = 0; i < total; i++) {
+            const dc = conn.dataChannel;
+            // sin llenar de más la conexión (y dejando respirar al editor del anfitrión)
+            while (conn.open && dc && dc.bufferedAmount > 1048576) await mpSleep(20);
+            if (!conn.open) return;
+            conn.send({ tipo: "map_chunk", id: id, i: i, data: bytes.subarray(i * MP_CHUNK, Math.min(bytes.length, (i + 1) * MP_CHUNK)) });
+            if (i % 24 === 23) await mpSleep(0);
+        }
+        conn.send({ tipo: "map_end", id: id });
+    } catch (e) {
+        console.error("No se pudo mandar el mapa:", e);
+    }
+}
+
+// Jugador: recibe el mapa por partes, con barra de avance
+const MP_LIVE_WHILE_LOADING = { chat: 1, sync_players: 1, kicked: 1, error_conexion: 1 };
+function mpClientData(conn, data) {
+    if (!data || typeof data !== 'object') return false;
+    if (data.tipo === "map_start") {
+        window.mpMapDownload = { id: data.id, name: data.name, enc: data.enc, size: data.size, chunks: data.chunks, got: 0, parts: new Array(data.chunks), queue: [] };
+        if (typeof updateLoadingBar === 'function') updateLoadingBar(0, "Downloading map... 0%");
+        return true;
+    }
+    const dl = window.mpMapDownload;
+    if (data.tipo === "map_chunk") {
+        if (!dl || dl.id !== data.id) return true;
+        if (!dl.parts[data.i]) { dl.parts[data.i] = new Uint8Array(data.data); dl.got++; }
+        const pct = Math.floor(dl.got / dl.chunks * 100);
+        if (typeof updateLoadingBar === 'function' && (dl.got % 4 === 0 || dl.got === dl.chunks)) updateLoadingBar(Math.round(pct * 0.2), "Downloading map... " + pct + "%");
+        return true;
+    }
+    if (data.tipo === "map_end") {
+        if (!dl || dl.id !== data.id) return true;
+        mpFinishMap(dl);
+        return true;
+    }
+    // mientras baja y se arma el mapa, los cambios que llegan se guardan y se aplican al final (para no perder ninguno)
+    if (dl && !MP_LIVE_WHILE_LOADING[data.tipo]) { dl.queue.push(data); return true; }
+    return false;
+}
+async function mpFinishMap(dl) {
+    try {
+        if (dl.got !== dl.chunks) throw new Error('faltan ' + (dl.chunks - dl.got) + ' partes');
+        const all = new Uint8Array(dl.size);
+        let off = 0;
+        for (const p of dl.parts) { all.set(p, off); off += p.length; }
+        dl.parts = null;
+        const bytes = dl.enc === 'gzip' ? await mpGunzip(all) : all;
+        const json = new TextDecoder().decode(bytes);
+        await window.loadWorldFromJson(json, (dl.name || 'Multiplayer World') + '.mbw');
+        window.mpMapDownload = null;
+        dl.queue.forEach(d => { try { recibirMensajeDeRed(d); } catch (e) { /* nada */ } });
+        if (typeof closeFileMenu === 'function') closeFileMenu();
+        alert(tmsg('msg_map_downloaded', "Map downloaded successfully! Welcome to the server."));
+    } catch (e) {
+        window.mpMapDownload = null;
+        console.error("No se pudo abrir el mapa del servidor:", e);
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) overlay.style.display = 'none';
+        alert(tmsg('msg_file_load_error', "Error al cargar el archivo."));
+    }
+}
+
 // Aviso del sistema en el chat de la sala ("se unió", "se desconectó"): lo reciben todos los jugadores Y TAMBIÉN el anfitrión.
 // enviarMensajeEnRed() solo manda a los clientes (el anfitrión no se manda mensajes a sí mismo), y por eso antes el
 // anfitrión era el único que no veía estos avisos. El anfitrión lo recibe por la misma vía que los demás (aviso + sonido).
@@ -625,7 +728,7 @@ function setupClientConnection(conn) {
         const myUID = localStorage.getItem('mbw_uid');
         const myName = localStorage.getItem('mbw_username') || "Player";
         const myPfp = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
-        conn.send({ tipo: "player_info", uid: myUID, name: myName, pfp: myPfp, peerId: peer.id });
+        conn.send({ tipo: "player_info", uid: myUID, name: myName, pfp: myPfp, peerId: peer.id, mapV: 2, gz: typeof DecompressionStream === 'function' });
     });
 
     conn.on('data', function(data) {
@@ -638,6 +741,7 @@ function setupClientConnection(conn) {
             return; 
         }
         
+        if (mpClientData(conn, data)) return;   // el mapa por partes (y lo que llega mientras se arma)
         recibirMensajeDeRed(data);
     });
 
