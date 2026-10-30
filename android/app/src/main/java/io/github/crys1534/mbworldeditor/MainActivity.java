@@ -153,6 +153,18 @@ public class MainActivity extends ComponentActivity {
                 }
             }
 
+            // si el motor de la página se cae (poca memoria, etc.), la app NO se cierra: vuelve a abrir el editor
+            @Override
+            public boolean onRenderProcessGone(WebView view, android.webkit.RenderProcessGoneDetail detail) {
+                Log.e(TAG, "renderer-gone crash=" + detail.didCrash() + " prio=" + detail.rendererPriorityAtExit());
+                ViewGroup parent = (ViewGroup) view.getParent();
+                if (parent != null) parent.removeView(view);
+                view.destroy();
+                if (view == web) web = null;
+                recreate();
+                return true;
+            }
+
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request.isForMainFrame()) {
@@ -221,7 +233,7 @@ public class MainActivity extends ComponentActivity {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                if (!loadedOnce) { askExit(); return; }
+                if (!loadedOnce || web == null) { askExit(); return; }
                 web.evaluateJavascript("(window.mbwAppBack && window.mbwAppBack()) ? 'yes' : 'no'", value -> {
                     if (value == null || !value.contains("yes")) askExit();
                 });
@@ -330,14 +342,14 @@ public class MainActivity extends ComponentActivity {
     @Override
     protected void onSaveInstanceState(Bundle out) {
         super.onSaveInstanceState(out);
-        web.saveState(out);
+        if (web != null) web.saveState(out);
     }
 
     @Override
-    protected void onResume() { super.onResume(); web.onResume(); }
+    protected void onResume() { super.onResume(); if (web != null) web.onResume(); }
 
     @Override
-    protected void onPause() { web.onPause(); super.onPause(); }
+    protected void onPause() { if (web != null) web.onPause(); super.onPause(); }
 
     @Override
     protected void onDestroy() {

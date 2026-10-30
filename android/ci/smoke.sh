@@ -30,7 +30,7 @@ CHECK='(async () => { await new Promise(r => { const t = () => (typeof readWorld
 # ---------- 1) con internet, primera vez
 adb logcat -c
 adb shell am start -n $PKG/.MainActivity >/dev/null
-if wait_loaded; then ok "the app opens the editor page"; else bad "the app opens the editor page"; fi
+if wait_loaded; then ok "the app opens the editor page"; else bad "the app opens the editor page"; adb logcat -d -b main,system,crash > $OUT/full-logcat-online.txt 2>/dev/null; adb shell dumpsys activity activities | grep -E "mResumedActivity|topResumedActivity" ; fi
 sleep 3; connect
 R1=$(ask "$CHECK"); echo "online: $R1"
 adb exec-out screencap -p > $OUT/1-online.png
@@ -70,5 +70,6 @@ echo "$R4" | grep -q '"editor":true' && echo "$R4" | grep -q '"src":"bundled"' &
 adb shell svc wifi enable; adb shell svc data enable
 
 adb logcat -d -s MBWE:* > $OUT/logcat.txt
+adb logcat -d -b main,system,crash > $OUT/full-logcat.txt 2>/dev/null
 grep -E "console (ERROR|error)" $OUT/logcat.txt | head -20
 exit $fail
