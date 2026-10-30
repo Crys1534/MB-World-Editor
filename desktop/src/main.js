@@ -17,7 +17,7 @@ const SITE_ORIGIN = 'https://crys1534.github.io';
 const SITE_PATH = '/MB-World-Editor/';
 const SITE = SITE_ORIGIN + SITE_PATH;
 const START_URL = SITE + 'index.html';
-const RELEASES_API = 'https://api.github.com/repos/Crys1534/MB-World-Editor/releases/latest';
+const RELEASES_API = 'https://api.github.com/repos/Crys1534/MB-World-Editor/releases?per_page=20';
 const RELEASES_PAGE = 'https://github.com/Crys1534/MB-World-Editor/releases/latest';
 
 // Servidores cuyos archivos se guardan para usarlos sin internet (la página y sus librerías)
@@ -331,9 +331,12 @@ async function checkForUpdate() {
     try {
         const r = await net.fetch(RELEASES_API, { headers: { 'accept': 'application/vnd.github+json', 'user-agent': 'MB-World-Editor-Desktop' }, bypassCustomProtocolHandlers: true });
         if (!r.ok) return;
-        const rel = await r.json();
+        // (en Releases también están las versiones de Android: se busca la más nueva de PC)
+        const list = await r.json();
+        const rel = (Array.isArray(list) ? list : [list]).find(x => x && !x.draft && !x.prerelease && /^desktop-v/i.test(x.tag_name || ''));
+        if (!rel) return;
         const tag = rel.tag_name || '';
-        if (!/^desktop-v/i.test(tag) || !newer(tag, app.getVersion())) return;
+        if (!newer(tag, app.getVersion())) return;
         const skipFile = path.join(app.getPath('userData'), 'skip-version.txt');
         let skipped = ''; try { skipped = fs.readFileSync(skipFile, 'utf8').trim(); } catch (e) { /* nada */ }
         if (skipped === tag) return;
