@@ -91,6 +91,9 @@ jobs:
           KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           TAG='${{ github.event.release.tag_name }}'
+          # si el Release quedó sin descripción, se le ponen las instrucciones de instalación
+          BODY=$(gh release view "$TAG" --json body --jq .body)
+          if [ -z "$BODY" ]; then gh release edit "$TAG" --notes-file android/RELEASE_NOTES.md; fi
           if [ -z "$KS_B64" ] || [ -z "$KS_PASS" ]; then
             echo "::warning::No app signing key in the repository secrets. Attach the APK to the Release by hand (or add the secrets ANDROID_KEYSTORE_B64 and ANDROID_KEYSTORE_PASSWORD)."
             exit 0
@@ -102,5 +105,3 @@ jobs:
           rm -f "$RUNNER_TEMP/mbwe.jks"
           APK=$(ls app/build/outputs/apk/release/*.apk | head -1)
           gh release upload "$TAG" "$APK" --clobber
-          BODY=$(gh release view "$TAG" --json body --jq .body)
-          if [ -z "$BODY" ]; then gh release edit "$TAG" --notes-file RELEASE_NOTES.md; fi
