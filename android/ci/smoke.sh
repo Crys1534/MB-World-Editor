@@ -6,6 +6,8 @@ OUT=android/ci-out
 mkdir -p $OUT
 APK=$(ls android/app/build/outputs/apk/debug/*.apk | head -1)
 adb install -r "$APK" || exit 1
+# (el aviso "Viendo en pantalla completa" de Android sale la primera vez y se queda con el botón Atrás: aquí ya se da por visto)
+adb shell settings put secure immersive_mode_confirmations confirmed
 fail=0
 ok() { echo "PASS $1"; }
 bad() { echo "FAIL $1"; fail=1; }
