@@ -1,0 +1,90 @@
+{
+  "name": "mb-world-editor-desktop",
+  "productName": "MB World Editor",
+  "version": "1.0.0",
+  "description": "MB World Editor para PC",
+  "author": "Crys1534",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "src/main.js",
+  "scripts": {
+    "prepare-site": "node scripts/prepare.js",
+    "start": "node scripts/prepare.js && electron .",
+    "dist": "node scripts/prepare.js && electron-builder --win --x64 --publish never"
+  },
+  "devDependencies": {
+    "electron": "44.7.2",
+    "electron-builder": "26.17.0",
+    "resedit": "3.1.0"
+  },
+  "build": {
+    "appId": "io.github.crys1534.mbworldeditor",
+    "productName": "MB World Editor",
+    "copyright": "MB World Editor",
+    "directories": {
+      "output": "dist",
+      "buildResources": "resources"
+    },
+    "files": [
+      "src/**/*",
+      "resources/icon.ico",
+      "resources/icon.png",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/site",
+        "to": "site"
+      },
+      {
+        "from": "build/vendor",
+        "to": "vendor"
+      }
+    ],
+    "afterPack": "scripts/after-pack.js",
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "resources/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "MB World Editor",
+      "installerIcon": "resources/icon.ico",
+      "uninstallerIcon": "resources/icon.ico",
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "MB-World-Editor-Setup-${version}.${ext}"
+    },
+    "fileAssociations": [
+      {
+        "ext": "mbw",
+        "name": "Mine Blocks World",
+        "description": "Mine Blocks World",
+        "icon": "resources/icon.ico",
+        "role": "Editor"
+      }
+    ],
+    "electronLanguages": [
+      "en-US",
+      "es",
+      "es-419",
+      "pt-BR",
+      "pt-PT"
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Crys1534/MB-World-Editor.git"
+  }
+}
