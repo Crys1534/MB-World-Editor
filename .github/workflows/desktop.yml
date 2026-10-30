@@ -51,6 +51,40 @@ jobs:
           $r = Get-Content $smoke | ConvertFrom-Json
           if (-not $r.ok) { throw 'The program opened but the editor or the world did not load' }
 
+      - name: Test the installer (install, open a .mbw with double-click, uninstall)
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem dist\*.exe | Select-Object -First 1
+          Start-Process -FilePath $setup.FullName -ArgumentList '/S' -Wait
+          $exe = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs') -Recurse -Filter 'MB World Editor.exe' | Select-Object -First 1
+          if (-not $exe) { throw 'The installer did not install the program' }
+          Write-Host "Installed in: $($exe.DirectoryName)"
+          $assoc = (Get-ItemProperty 'HKCU:\Software\Classes\.mbw' -ErrorAction SilentlyContinue).'(default)'
+          Write-Host ".mbw is opened by: $assoc"
+          if (-not $assoc) { throw '.mbw files are not linked to the program' }
+          $lnk = Join-Path ([Environment]::GetFolderPath('Desktop')) 'MB World Editor.lnk'
+          Write-Host "Desktop shortcut: $(Test-Path $lnk)"
+          # doble clic en un .mbw (lo abre Windows con el programa que le toca)
+          $smoke = Join-Path $env:RUNNER_TEMP 'smoke2.json'
+          $env:MBW_SMOKE = $smoke
+          $env:MBW_USER_DATA = Join-Path $env:RUNNER_TEMP 'userdata2'
+          $env:MBW_NO_UPDATE_CHECK = '1'
+          $world = Join-Path $env:RUNNER_TEMP 'Mundo de prueba.mbw'
+          Copy-Item '..\dev-maps\Empty World.mbw' $world
+          Start-Process -FilePath $world
+          $t = 0
+          while (-not (Test-Path $smoke) -and $t -lt 240) { Start-Sleep -Seconds 2; $t += 2 }
+          Start-Sleep -Seconds 3
+          Get-Process 'MB World Editor' -ErrorAction SilentlyContinue | Stop-Process -Force
+          if (-not (Test-Path $smoke)) { throw 'Double-clicking a .mbw did not open the program' }
+          Get-Content $smoke
+          $r = Get-Content $smoke | ConvertFrom-Json
+          if (-not $r.ok) { throw 'The program opened from the .mbw but the world did not load' }
+          $un = Get-ChildItem $exe.DirectoryName -Filter 'Uninstall*.exe' | Select-Object -First 1
+          Start-Process -FilePath $un.FullName -ArgumentList '/S' -Wait
+          Start-Sleep -Seconds 5
+          Write-Host "Still installed after uninstall: $(Test-Path $exe.FullName)"
+
       - uses: actions/upload-artifact@v6
         with:
           name: MB-World-Editor-Setup
