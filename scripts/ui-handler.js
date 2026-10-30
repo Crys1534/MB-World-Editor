@@ -149,14 +149,84 @@ function toggleInventory() {
         const searchInput = document.getElementById('inventory-search');
         if(searchInput) {
             searchInput.value = ''; 
-            searchInput.focus();
+            // en celular / tablet NO: el teclado taparía media pantalla (se abre solo si tocan el buscador)
+            if (!invIsTouch()) searchInput.focus();
         }
 
         renderInventoryTabs(); 
         populateInventory();   
         renderModalHotbar(); 
+        invSetupTouchPlace();
     }
 }
+
+// ==========================================
+// 📱 INVENTARIO CON LOS DEDOS
+//  • tocar un objeto lo pone directo en la casilla elegida de la hotbar (no se queda "en la mano")
+//  • tocar una casilla de la hotbar de abajo la elige
+//  • el bote de basura vacía la casilla elegida
+// ==========================================
+function invIsTouch() { return !!(document.body && document.body.classList.contains('is-touch')); }
+function invAutoPlaceActive() {
+    if (!invIsTouch()) return false;
+    if (typeof isBuildingChest !== 'undefined' && isBuildingChest) return false;
+    if (typeof isCreatingCustomItem !== 'undefined' && isCreatingCustomItem) return false;
+    if (window.mobInvPick) return false;
+    const pp = document.getElementById('player-inv-panel');
+    if (pp && pp.style.display !== 'none') return false;
+    const hb = document.getElementById('modal-hotbar-container');
+    return !!hb && hb.style.display !== 'none';
+}
+function invFlashSlot(i) {
+    const hb = document.getElementById('modal-hotbar-container');
+    const cell = hb && hb.querySelectorAll('.mhb-slot')[i];
+    const ed = document.querySelectorAll('#hotbar-container .hotbar-slot')[i];
+    [cell, ed].forEach(el => { if (!el) return; el.classList.remove('slot-flash'); void el.offsetWidth; el.classList.add('slot-flash'); });
+}
+function invPlaceHeldInSelectedSlot() {
+    if (!heldItem || typeof hotbar === 'undefined' || !hotbar.slots) return false;
+    const s = { type: heldItem.type };
+    if (heldItem.states1 !== undefined) s.states1 = heldItem.states1;
+    if (heldItem.count > 1) s.count = heldItem.count;
+    if (heldItem.nbt !== undefined) s.nbt = heldItem.nbt;
+    hotbar.slots[slotIndex] = s;
+    heldItem = null;
+    updateFloatingItem();
+    renderModalHotbar();
+    if (typeof renderHotbarUI === 'function') renderHotbarUI();
+    invFlashSlot(slotIndex);
+    return true;
+}
+function invSetupTouchPlace() {
+    const grid = document.getElementById('inventory-grid');
+    if (!grid || grid.dataset.touchPlace) return;
+    grid.dataset.touchPlace = '1';
+    // (va después del clic del objeto, que ya lo dejó en la mano)
+    grid.addEventListener('click', function () {
+        if (heldItem && invAutoPlaceActive()) invPlaceHeldInSelectedSlot();
+    });
+}
+// Bote de basura (al lado de la última casilla): lo que llevas en la mano se borra;
+// con los dedos (sin nada en la mano) vacía la casilla elegida.
+function invTrashClick(e) {
+    if (e) e.preventDefault();
+    if (heldItem) { heldItem = null; updateFloatingItem(); }
+    else if (invIsTouch() && typeof hotbar !== 'undefined' && hotbar.slots && hotbar.slots[slotIndex] && hotbar.slots[slotIndex].type) {
+        hotbar.slots[slotIndex] = { type: null };
+        renderModalHotbar();
+        if (typeof renderHotbarUI === 'function') renderHotbarUI();
+        invFlashSlot(slotIndex);
+        return;
+    } else return;
+    const t = document.getElementById('mhb-trash');
+    if (t) { t.classList.remove('slot-flash'); void t.offsetWidth; t.classList.add('slot-flash'); }
+}
+const INV_TRASH_SVG = '<svg viewBox="0 0 16 16" width="34" height="34" shape-rendering="crispEdges" aria-hidden="true">'
+    + '<rect x="6" y="1" width="4" height="1" fill="#2b2b2b"/><rect x="5" y="2" width="1" height="1" fill="#2b2b2b"/><rect x="10" y="2" width="1" height="1" fill="#2b2b2b"/>'
+    + '<rect x="2" y="3" width="12" height="2" fill="#2b2b2b"/><rect x="3" y="3" width="10" height="1" fill="#d9dee4"/><rect x="3" y="4" width="10" height="1" fill="#9aa5b1"/>'
+    + '<rect x="3" y="5" width="10" height="10" fill="#2b2b2b"/><rect x="4" y="5" width="8" height="9" fill="#b7c0ca"/>'
+    + '<rect x="5" y="6" width="1" height="7" fill="#7b8794"/><rect x="7" y="6" width="1" height="7" fill="#7b8794"/><rect x="9" y="6" width="1" height="7" fill="#7b8794"/>'
+    + '<rect x="4" y="5" width="8" height="1" fill="#e6eaee"/><rect x="11" y="6" width="1" height="8" fill="#8a96a3"/></svg>';
 
 function renderInventoryTabs() {
     const container = document.getElementById('inventory-tabs-sidebar');
@@ -785,18 +855,20 @@ function renderModalHotbar() {
     
     container.innerHTML = '';
     container.style.display = 'grid';
-    container.style.gridTemplateColumns = 'repeat(9, 64px)'; // Cambiado a 64px
+    // 9 casillas + el bote de basura (un poquito separado), sin salirse de la ventana
+    container.style.gridTemplateColumns = 'repeat(9, 56px) 62px';
     container.style.gap = '0px';
-    container.style.padding = '10px 10px 10px 10px';
+    container.style.padding = '14px 6px 14px 6px';   // (la ventana queda del mismo alto que antes)
     container.style.justifyContent = 'center';
 
     if (typeof hotbar === 'undefined' || !hotbar.slots) return;
 
     hotbar.slots.forEach((slot, index) => {
         const slotDiv = document.createElement('div');
-        // --- TAMAÑO DEL SLOT: 64px ---
-        slotDiv.style.width = '64px';
-        slotDiv.style.height = '64px';
+        slotDiv.className = 'mhb-slot' + (index === slotIndex ? ' mhb-selected' : '');
+        // --- TAMAÑO DEL SLOT: 56px (cabe también el bote de basura) ---
+        slotDiv.style.width = '56px';
+        slotDiv.style.height = '56px';
         slotDiv.style.background = '#8B8B8B';
         slotDiv.style.border = '4px inset #FFF';
         slotDiv.style.display = 'flex';
@@ -807,10 +879,18 @@ function renderModalHotbar() {
         slotDiv.style.cursor = 'pointer';
 
         slotDiv.onclick = () => {
+            // con los dedos: tocar una casilla la elige (ahí caen los objetos que se toquen arriba)
+            if (!heldItem && invAutoPlaceActive()) {
+                slotIndex = index;
+                if (typeof updateHotbarSelection === 'function') updateHotbarSelection();
+                renderModalHotbar();
+                return;
+            }
             if (heldItem) {
                 let newState = { type: heldItem.type };
                 if (heldItem.states1 !== undefined) newState.states1 = heldItem.states1;
                 if (heldItem.count > 1) newState.count = heldItem.count;
+                if (heldItem.nbt !== undefined) newState.nbt = heldItem.nbt;
 
                 hotbar.slots[index] = newState;
                 heldItem = null; 
@@ -820,7 +900,7 @@ function renderModalHotbar() {
                 if(typeof renderHotbarUI === 'function') renderHotbarUI(); 
             } else {
                 if (slot && slot.type) {
-                    heldItem = { type: slot.type, states1: slot.states1, count: slot.count || 1 };
+                    heldItem = { type: slot.type, states1: slot.states1, count: slot.count || 1, nbt: slot.nbt };
                     hotbar.slots[index] = { type: null }; 
                     
                     updateFloatingItem();
@@ -836,9 +916,9 @@ function renderModalHotbar() {
         if (slot && slot.type) {
             const cvs = document.createElement('canvas');
             cvs.width = 16; cvs.height = 16;
-            // --- TAMAÑO DEL ÍTEM (CANVAS): 48px ---
-            cvs.style.width = '48px'; 
-            cvs.style.height = '48px';
+            // --- TAMAÑO DEL ÍTEM (CANVAS): 44px ---
+            cvs.style.width = '44px'; 
+            cvs.style.height = '44px';
             cvs.style.imageRendering = 'pixelated';
             const ctx = cvs.getContext('2d');
             ctx.imageSmoothingEnabled = false;
@@ -865,6 +945,16 @@ function renderModalHotbar() {
 
         container.appendChild(slotDiv);
     });
+
+    // 🗑️ Bote de basura, al lado de la última casilla
+    const trash = document.createElement('div');
+    trash.id = 'mhb-trash';
+    trash.className = 'mhb-trash';
+    trash.title = (typeof tmsg === 'function') ? tmsg('pinv_trash', 'Trash') : 'Trash';
+    trash.innerHTML = INV_TRASH_SVG;
+    trash.onclick = invTrashClick;
+    trash.oncontextmenu = invTrashClick;
+    container.appendChild(trash);
 }
 
 function renderHotbarUI() {
@@ -889,17 +979,46 @@ function renderHotbarUI() {
         ctx.imageSmoothingEnabled = false;
         
         let renderObj = null;
-        if (typeof getBlockObject === 'function') {
+        if (slot && slot.type && typeof getBlockObject === 'function') {
              renderObj = getBlockObject(slot);
         }
         
         if (renderObj && window.images && window.images.blocks && window.images.blocks.complete) {
             drawItemIcon(ctx, renderObj, slot.type, slot.nbt, 0, 0, 24, 24);
         }
+        if (!slot || !slot.type) slotDiv.classList.add('empty');
         
         slotDiv.appendChild(cvs);
         container.appendChild(slotDiv);
     });
+    renderInvButton();
+}
+
+// 🎒 Botón para abrir el inventario (al final de la hotbar flotante): un cofre, como en el juego
+function renderInvButton() {
+    const b = document.getElementById('float-inv-btn');
+    if (!b) return;
+    const ready = window.images && window.images.blocks && window.images.blocks.complete && typeof getBlockObject === 'function' && typeof drawItemIcon === 'function';
+    if (b.dataset.drawn === '1' || !ready) return;
+    let obj = null;
+    try { obj = getBlockObject({ type: 'chest' }); } catch (e) { obj = null; }
+    if (!obj) return;
+    const cvs = document.createElement('canvas');
+    cvs.width = 16; cvs.height = 16;
+    const ctx = cvs.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    let url = '';
+    try { drawItemIcon(ctx, obj, 'chest', null, 0, 0, 16, 16); url = cvs.toDataURL('image/png'); } catch (e) { return; }
+    const ic = document.createElement('span');
+    ic.className = 'inv-btn-icon';
+    ic.style.backgroundImage = 'url(' + url + ')';
+    b.textContent = '';
+    b.appendChild(ic);
+    const key = document.createElement('span');
+    key.className = 'inv-btn-key';
+    key.textContent = 'E';
+    b.appendChild(key);
+    b.dataset.drawn = '1';
 }
 
 function updateHotbarSelection() {
@@ -2307,6 +2426,15 @@ window.addEventListener('DOMContentLoaded', () => {
     const startupSelect = document.getElementById('startup-screen-select');
     if (startupSelect) startupSelect.value = startupPreference;
     
+    // 🌱 Persona completamente nueva (todavía sin nombre de usuario): se le abre al instante el mundo
+    // "Superflat World" de las plantillas, en vez del menú File
+    let isNewUser = false;
+    try { isNewUser = typeof window.isDefaultUsername === 'function' && window.isDefaultUsername(localStorage.getItem('mbw_username')); } catch (e) { isNewUser = false; }
+    if (isNewUser && typeof window.openStarterWorld === 'function') {
+        window.openStarterWorld();
+        return;
+    }
+
     // Si eligió (o tiene por defecto) el File Menu, lo abrimos automáticamente
     if (startupPreference === 'filemenu' && typeof openFileMenu === 'function') {
         // Le damos un pequeñísimo respiro de 300ms para que la UI termine de cargar los estilos

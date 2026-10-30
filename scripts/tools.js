@@ -1047,6 +1047,7 @@ function sameBlockKind(a, b) {
 // === HERRAMIENTA PINCEL ===
 function brush(cx, cy) {
     const target = hotbar.slots[slotIndex];
+    if (!target || target.type == null || target.type === '') return;   // casilla vacía: no hay nada que poner
     
     if (toolSize === 1) {
          const current = mbwom.getBlockState(cx, cy);
@@ -1213,6 +1214,7 @@ function magicWandSelect(startX, startY) {
 function bucketFill(startX, startY, isFromNetwork = false, networkState = null) {
     // Si viene de la red, usa la pintura del amigo, si no, usa nuestra hotbar
     const targetState = isFromNetwork ? networkState : hotbar.slots[slotIndex];
+    if (!isFromNetwork && (!targetState || targetState.type == null || targetState.type === '')) return;   // casilla vacía: nada
     
     // ✨ FIX: Función auxiliar para unificar todos los tipos de "vacío" o "aire"
     const isAir = (val) => val === undefined || val === null || val === "air" || val === 0 || val === "0" || val === "";

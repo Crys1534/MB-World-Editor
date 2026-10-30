@@ -79,10 +79,15 @@ const fileManager = {
    if (superseded()) return;
 
    if (typeof WorldTabsManager !== 'undefined' && fileManager.file) {
-       const isDefault = WorldTabsManager.openWorlds.length === 1 && WorldTabsManager.openWorlds[0].filename === "world.mbw";
+       const w0 = WorldTabsManager.openWorlds[0];
+       // el mundo de bienvenida (Superflat) sin tocar también se reemplaza, como el mundo vacío del inicio
+       const untouchedStarter = !!(w0 && w0.isStarter && typeof historyManager !== 'undefined' && historyManager.undoStack.length === 0);
+       const isDefault = WorldTabsManager.openWorlds.length === 1 && (w0.filename === "world.mbw" || untouchedStarter);
        
        if (isDefault) {
            WorldTabsManager.openWorlds[0].filename = fileManager.file.name;
+           WorldTabsManager.openWorlds[0].isStarter = !!window.mbwStarterPending && window.mbwStarterPending === fileManager.file;
+           if (window.mbwStarterPending === fileManager.file) window.mbwStarterPending = null;
            WorldTabsManager.renderTabs();
        } else {
            WorldTabsManager.addWorld(fileManager.file.name, true, false);

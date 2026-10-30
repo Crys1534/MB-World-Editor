@@ -60,7 +60,7 @@
             if (h > 0 && h !== lastTop) { lastTop = h; root.style.setProperty('--m-top', h + 'px'); }
         }
         const T = (typeof WorldTabsManager !== 'undefined' && WorldTabsManager.openWorlds) ? WorldTabsManager.openWorlds.length : 1;
-        body.classList.toggle('single-tab', T <= 1);
+        body.classList.toggle('single-tab', M.touch && T <= 1);   // (solo hace falta en celular / tablet)
         relayout();
     }
     function relayout() {
@@ -189,6 +189,45 @@
         fire('mouseup', T.start.x, T.start.y, 2);
         M.stats.longs++;
     }
+    // Mover (Move) con UN dedo: si el dedo empieza sobre un mob, lo agarra (como siempre);
+    // si empieza en un lugar vacío, arrastra el mapa. Tocar un cofre o un letrero lo abre.
+    function worldAt(x, y) {
+        const r = canvas.getBoundingClientRect();
+        const sx = (x - r.left) * (canvas.width / r.width);
+        const cy = canvas.height - (y - r.top) * (canvas.height / r.height);
+        return { wx: camera.x + sx / tileSize, wy: camera.y + cy / tileSize };
+    }
+    function mobUnder(x, y) {
+        try {
+            fire('mousemove', x, y);
+            if (typeof findMobAt !== 'function' || typeof mouse === 'undefined') return false;
+            return !!findMobAt(camera.x + mouse.canvasX / tileSize, camera.y + mouse.canvasY / tileSize);
+        } catch (e) { return false; }
+    }
+    function openableUnder(x, y) {
+        try {
+            fire('mousemove', x, y);
+            const bs = mbwom.getBlockState(mouse.worldX, mouse.worldY);
+            return !!bs && (bs.type === 'chest' || bs.type === 'sign');
+        } catch (e) { return false; }
+    }
+    function startPan() {
+        clearTimeout(T.timer); clearTimeout(T.longTimer);
+        T.mode = 'pan';
+        const w = worldAt(T.start.x, T.start.y);
+        T.pan = { wx: w.wx, wy: w.wy };
+        panTo(T.last);
+    }
+    function panTo(p) {
+        const g = T.pan; if (!g || !p) return;
+        const r = canvas.getBoundingClientRect();
+        const sx = (p.x - r.left) * (canvas.width / r.width);
+        const cy = canvas.height - (p.y - r.top) * (canvas.height / r.height);
+        let nx = g.wx - sx / tileSize, ny = g.wy - cy / tileSize;
+        if (!window.smoothScroll) { nx = Math.round(nx); ny = Math.round(ny); }
+        if (nx !== camera.x || ny !== camera.y) { camera.x = nx; camera.y = ny; camera._tx = nx; camera._ty = ny; camera.velX = 0; camera.velY = 0; M.stats.pans++; }
+        if (typeof worldDirty !== 'undefined') worldDirty = true;
+    }
     function mid() {
         const a = Array.from(T.pts.values());
         return { x: (a[0].x + a[1].x) / 2, y: (a[0].y + a[1].y) / 2, d: Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y) || 1 };
@@ -233,7 +272,10 @@
             const t = e.changedTouches[0];
             T.mode = 'pending'; T.moved = false;
             T.start = { x: t.clientX, y: t.clientY }; T.last = T.start; T.startT = performance.now();
-            T.timer = setTimeout(beginOne, HOLD_MS);
+            T.moveTool = tool() === 'move';
+            T.onMob = T.moveTool ? mobUnder(T.start.x, T.start.y) : false;
+            // con Move sobre un lugar vacío no se "aprieta" nada: o es un toque, o es arrastrar el mapa
+            if (!T.moveTool || T.onMob) T.timer = setTimeout(beginOne, HOLD_MS);
             T.longTimer = setTimeout(longPress, LONG_MS);
         } else if (T.pts.size === 2 && T.mode !== 'two') {
             startGesture();
@@ -243,10 +285,12 @@
         e.preventDefault();
         for (const t of e.changedTouches) if (T.pts.has(t.identifier)) T.pts.set(t.identifier, { x: t.clientX, y: t.clientY });
         if (T.mode === 'two' && T.pts.size >= 2) { moveGesture(); return; }
+        if (T.mode === 'pan') { const t = e.changedTouches[0]; T.last = { x: t.clientX, y: t.clientY }; panTo(T.last); return; }
         if (T.mode !== 'pending' && T.mode !== 'one') return;
         const t = e.changedTouches[0];
         T.last = { x: t.clientX, y: t.clientY };
         if (Math.hypot(T.last.x - T.start.x, T.last.y - T.start.y) > TAP_MOVE) { T.moved = true; clearTimeout(T.longTimer); }
+        if (T.mode === 'pending' && T.moved && T.moveTool && !T.onMob) { startPan(); return; }
         if (T.mode === 'pending' && T.moved) {
             // empieza a pintar: el primer fotograma pinta donde se apoyó el dedo; el movimiento llega un fotograma después
             // (así el Lápiz rellena la línea desde ahí y no se salta la primera casilla)
@@ -272,6 +316,16 @@
         }
         if (T.pts.size > 0) return;
         const now = performance.now();
+        if (T.mode === 'pan') { T.mode = null; T.pan = null; T.lastTap = null; return; }
+        if (T.mode === 'pending' && T.moveTool && !T.onMob && openableUnder(T.start.x, T.start.y)) {
+            // Move: tocar un cofre o un letrero lo abre (igual que el clic derecho en la computadora)
+            clearTimeout(T.timer);
+            fire('mousedown', T.start.x, T.start.y, 2);
+            fire('mouseup', T.start.x, T.start.y, 2);
+            M.stats.taps++; M.stats.opens = (M.stats.opens || 0) + 1;
+            T.mode = null; T.lastTap = null;
+            return;
+        }
         if (T.mode === 'pending') {                     // un toque rápido: clic
             beginOne();
             endOne(true);
@@ -315,7 +369,8 @@
     (function addFullscreen() {
         const rg = document.querySelector('#top-bar .right-group');
         const can = document.fullscreenEnabled || document.webkitFullscreenEnabled;
-        if (!rg || !can || $('m-fullscreen-btn')) return;
+        const inApp = /MBWEApp\//.test(navigator.userAgent);   // la app de Android ya es pantalla completa
+        if (!rg || !can || inApp || $('m-fullscreen-btn')) return;
         const b = document.createElement('button');
         b.id = 'm-fullscreen-btn'; b.type = 'button'; b.className = 'icon-btn icon-only';
         b.setAttribute('data-i18n-title', 'tooltip_fullscreen'); b.title = 'Fullscreen';

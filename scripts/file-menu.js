@@ -449,6 +449,25 @@ window.loadTemplate = function(filename) {
     });
 };
 
+// 🌱 Mundo de bienvenida para quien abre el editor por primera vez (sin nombre de usuario): "Superflat World".
+// Si mientras tanto se abre otro mundo (doble clic en un .mbw en la versión de PC, soltar un archivo...), no se pone.
+window.openStarterWorld = function () {
+    const tpl = projectTemplates.find(t => /superflat/i.test(t.filename)) || projectTemplates[0];
+    if (!tpl || typeof fileManager === 'undefined') return;
+    const startLoad = fileManager._loadId || 0;
+    window.mbwStarterLoading = true;
+    fetch('dev-maps/' + encodeURIComponent(tpl.filename)).then(r => r.ok ? r.blob() : null).then(blob => {
+        window.mbwStarterLoading = false;
+        if (!blob) return;
+        if ((fileManager._loadId || 0) !== startLoad) return;   // ya se está abriendo otro mundo
+        if (typeof WorldTabsManager !== 'undefined' && !(WorldTabsManager.openWorlds.length === 1 && WorldTabsManager.openWorlds[0].filename === 'world.mbw')) return;
+        const file = new File([blob], tpl.filename, { type: 'application/octet-stream' });
+        fileManager.file = file;
+        window.mbwStarterPending = file;
+        readWorldFile(file);
+    }).catch(() => { window.mbwStarterLoading = false; });
+};
+
 // ✨ NUEVO: Función unificada para formatear el peso de los archivos
 window.formatBytes = function(bytes) {
     if (bytes === 0) return '0 KB';
