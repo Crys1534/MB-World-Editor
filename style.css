@@ -2856,3 +2856,105 @@ body:not(.float-panels) #tab-insert .sg-recent { gap: 2px; margin-left: 4px; }
 .sw-inv-sent { color: #2ecc71; }
 .sw-row { display: flex; gap: 8px; margin-top: 6px; }
 @media (max-width: 900px) { .sw-setup { flex-direction: column; } .sw-left, .sw-right { width: 100%; } }
+
+/* ===================================================================
+   📱 CELULAR Y TABLET (scripts/mobile.js pone en <body>: is-touch · is-phone (celular) · is-tablet · ribbon-open · single-tab)
+   =================================================================== */
+#canvas { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+body.is-touch { -webkit-tap-highlight-color: transparent; }
+body.is-touch button, body.is-touch .tab-btn, body.is-touch .hotbar-slot, body.is-touch .tool-btn { touch-action: manipulation; }
+/* una ventana que, aun achicada, no cabe: se desplaza */
+.modal.m-fit-scroll, .mbw-modal-overlay.m-fit-scroll { overflow: auto; -webkit-overflow-scrolling: touch; }
+#m-fullscreen-btn { display: none; }
+
+/* ---------------- celular acostado ---------------- */
+body.is-phone { --ws-top: var(--m-top, 66px); --ws-bottom: 0px; }
+body.is-phone.zen-mode { --ws-top: 0px; }
+body.is-phone #status-bar { display: none; }
+/* barra de arriba: solo íconos */
+body.is-phone #top-bar { height: 32px; padding: 0 4px; }
+body.is-phone .app-icon, body.is-phone .ms-switch-label, body.is-phone .btn-multiplayer > span:not(.badge-global-mp),
+body.is-phone #news-btn > span, body.is-phone .filename-wrapper .extension, body.is-phone #mp-live-players { display: none; }
+body.is-phone .top-bar .left-group > .icon-btn, body.is-phone .top-bar .btn-save-quick { height: 28px; }
+body.is-phone .top-bar .icon-btn { padding: 2px 7px; font-size: 13px; }
+body.is-phone .left-group > .separator { margin: 0 2px; }
+body.is-phone #filename-display { width: 92px; font-size: 13px; }
+body.is-phone .btn-profile-top, body.is-phone .img-profile-top { width: 26px; height: 26px; }
+body.is-phone #m-fullscreen-btn { display: flex; }
+/* pestañas de mundos: solo si hay más de una */
+body.is-phone.single-tab #world-tabs { display: none; }
+body.is-phone #world-tabs { padding: 2px 6px 0; }
+body.is-phone .world-tab { padding-top: 2px; padding-bottom: 2px; font-size: 12px; }
+/* cinta de opciones: la fila de pestañas se ve; lo de adentro sale como un cajón al tocar una pestaña */
+body.is-touch .ribbon-tabs-container { box-sizing: border-box; }
+body.is-phone .ribbon-tabs-container { padding-top: 2px; padding-left: 4px; }
+body.is-phone .ribbon-tabs-container .tab-btn { padding: 6px 6px 5px; font-size: 12px; letter-spacing: 0; }
+body.is-phone #export-dropdown-container { margin-bottom: 2px !important; }
+body.is-phone #btn-publish-map { margin-bottom: 2px !important; margin-right: 4px; }
+body.is-phone #btn-world-info { display: none; }
+body.is-phone .btn-ribbon-export { font-size: 12px !important; padding: 3px 8px !important; }
+body.is-phone #btn-publish-map { font-size: 12px; padding: 3px 8px; margin-left: 4px; }
+body.is-phone #btn-publish-map > span { display: none; }
+body.is-phone #ribbon .tab-content { display: none; position: absolute; left: 0; right: 0; top: 100%; height: auto; min-height: 86px; max-height: 60vh;
+    overflow-x: auto; overflow-y: hidden; z-index: 5; box-shadow: 0 10px 22px rgba(0, 0, 0, 0.55); border-bottom: 2px solid var(--border); -webkit-overflow-scrolling: touch; }
+body.is-phone.ribbon-open #ribbon { z-index: 99; }
+body.is-phone.ribbon-open #ribbon .tab-content { display: flex; }
+body.is-phone #ribbon .tab-pane.active { width: max-content; min-width: 100%; }
+body.is-phone.ribbon-open .ribbon-tabs-container .tab-btn.active { box-shadow: inset 0 -3px 0 var(--accent, #4DA6FF); }
+/* barra de herramientas y hotbar */
+body.is-phone .tool-btn { width: 36px; height: 36px; font-size: 20px; }
+body.is-phone .tool-btn .mbw-ic { width: 21px; height: 21px; }
+body.is-phone.panels-floating #toolbar-sidebar { top: calc(var(--ws-top) + 6px); left: 6px; max-height: calc(100vh - var(--ws-top) - 12px); }
+body.is-phone #float-hotbar { bottom: 6px; }
+body.is-phone #coords-overlay { font-size: 14px; }
+body.is-phone.panels-floating #coords-overlay { left: 52px; }
+/* menú File (pantalla completa): menú de la izquierda solo con íconos */
+body.is-phone .backstage-sidebar { width: 58px; }
+body.is-phone .backstage-sidebar span[data-i18n] { display: none; }
+body.is-phone .backstage-back-btn { padding: 10px 0; justify-content: center; margin-bottom: 6px; font-size: 20px; }
+body.is-phone .backstage-nav-btn { padding: 12px 0; justify-content: center; border-left-width: 4px; }
+body.is-phone .backstage-nav-btn .mbw-ic { width: 22px; height: 22px; }
+body.is-phone #panel-my-worlds, body.is-phone #panel-templates { padding: 10px 14px; }
+body.is-phone #mp-servers-view { gap: 8px !important; }
+body.is-phone #mp-servers-view > div:last-child { width: 250px !important; padding: 8px !important; }
+body.is-phone #mp-servers-view > div:last-child h2 { font-size: 30px !important; margin-bottom: 6px !important; }
+body.is-phone #mp-view-join { margin-top: 6px !important; padding: 0 8px; box-sizing: border-box; }
+body.is-phone #mp-view-join h2 { font-size: 32px !important; margin-bottom: 8px !important; }
+body.is-phone #public-servers-list { height: 130px !important; }
+body.is-phone .sw-title { font-size: 32px; }
+body.is-phone .sw-sub { font-size: 20px; margin-bottom: 6px; }
+body.is-phone .sw-world-list { max-height: calc(100vh - 190px); min-height: 120px; }
+body.is-phone .sw-setup { flex-direction: row; gap: 10px; }
+body.is-phone .sw-world-name { font-size: 26px; }
+
+/* ventanas cuya altura depende de la pantalla: en el celular se dibujan a su tamaño de diseño y se achican (zoom) para caber */
+body.is-phone .mobs-modal-window { height: 640px; }
+/* galería de skins en el celular acostado: resultados a la izquierda y vista previa angosta a la derecha (no una encima de la otra) */
+body.is-phone .sg-layout { flex-direction: row; }
+body.is-phone .sg-preview { flex: 0 0 190px; border-left: 2px solid #555; border-top: 0; padding: 8px; }
+body.is-phone .sg-pv-stage { height: 150px; }
+body.is-phone .sg-pv-cv { width: 80px; height: 110px; margin-bottom: 8px; }
+body.is-phone .sg-main { padding: 8px; gap: 6px; }
+body.is-phone .sg-results { max-height: calc(100vh - 150px); min-height: 100px; }
+
+/* ---------------- tablet (y celular) con poco ancho ---------------- */
+@media (max-width: 1100px) {
+    body.is-touch .ms-switch-label, body.is-touch #news-btn > span { display: none; }
+    body.is-touch #ribbon .tab-content { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; }
+    body.is-touch #ribbon .tab-pane.active { width: max-content; min-width: 100%; }
+}
+@media (max-width: 900px) {
+    body.is-touch .backstage-sidebar { width: 58px; }
+    body.is-touch .backstage-sidebar span[data-i18n] { display: none; }
+    body.is-touch .backstage-back-btn { padding: 10px 0; justify-content: center; margin-bottom: 6px; font-size: 20px; }
+    body.is-touch .backstage-nav-btn { padding: 12px 0; justify-content: center; border-left-width: 4px; }
+    body.is-touch #panel-my-worlds, body.is-touch #panel-templates { padding: 12px 18px; }
+    body.is-touch #mp-servers-view { gap: 8px !important; }
+    body.is-touch #mp-servers-view > div:last-child { width: 270px !important; padding: 10px !important; }
+    body.is-touch .app-icon, body.is-touch .filename-wrapper .extension, body.is-touch .btn-multiplayer > span:not(.badge-global-mp) { display: none; }
+    body.is-touch #filename-display { width: 110px; }
+    body.is-touch .ribbon-tabs-container { padding-left: 4px; min-width: 0; }
+    body.is-touch .ribbon-tabs-container .tab-btn { padding-left: 6px; padding-right: 6px; letter-spacing: 0; font-size: 12.5px; }
+    body.is-touch #btn-world-info { display: none; }
+    body.is-touch #btn-publish-map > span { display: none; }
+}
