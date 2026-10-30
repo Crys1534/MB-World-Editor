@@ -31,7 +31,10 @@
     const state = { zen: false, float: false, opacity: 85, fps: 0 };
     window.uiModes = state;
 
-    state.float = read(KEY.float) !== '0';          // (de fábrica: flotantes; solo quien lo apagó lo tiene apagado)
+    // la barra de herramientas y la hotbar SIEMPRE flotan (ya no hay otra opción).
+    // (MBW_LEGACY_LAYOUT solo lo usan las pruebas automáticas viejas, que revisan la pantalla de antes)
+    const legacyLayout = !!window.MBW_LEGACY_LAYOUT;
+    state.float = legacyLayout ? read(KEY.float) !== '0' : true;
     const savedOpacity = parseInt(read(KEY.opacity), 10);
     if (savedOpacity >= 20 && savedOpacity <= 100) state.opacity = savedOpacity;
     const savedFps = parseInt(read(KEY.fps), 10);
@@ -116,7 +119,7 @@
     };
 
     window.setFloatPanels = function (on) {
-        state.float = !!on;
+        state.float = legacyLayout ? !!on : true;   // (siempre flotantes; se deja la función por si algo la llama)
         write(KEY.float, state.float ? '1' : '0');
         sync();
     };
@@ -448,8 +451,62 @@
     document.addEventListener('fullscreenchange', function () { renderHead(); });
 
     // ─────────────────────────────────────────────
+    // ⬆️ Botón para esconder / mostrar las barras de arriba (top-area), en todos lados.
+    // En la computadora solo aparece con el mouse dentro de las barras de arriba (o pegado al borde de arriba
+    // cuando están escondidas); con los dedos se ve siempre.
+    // ─────────────────────────────────────────────
+    const TOP_KEY = 'mbw_top_hidden';
+    state.topHidden = read(TOP_KEY) === '1';
+    const CHEV_UP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    const CHEV_DOWN = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    let topBtn = null, topHideTimer = 0;
+    function ttx(k, fb) { const v = (typeof window.tmsg === 'function') ? window.tmsg(k, fb) : fb; return v || fb; }
+    function topBottom() {
+        const t = $('top-area');
+        return (!state.topHidden && t && t.offsetHeight > 0) ? Math.round(t.getBoundingClientRect().bottom) : 0;
+    }
+    function topBtnUpdate() {
+        if (!topBtn) return;
+        topBtn.innerHTML = state.topHidden ? CHEV_DOWN : CHEV_UP;
+        topBtn.title = state.topHidden ? ttx('top_show', 'Show the top bars') : ttx('top_hide', 'Hide the top bars');
+        topBtn.setAttribute('aria-label', topBtn.title);
+        topBtn.style.top = Math.max(0, topBottom()) + 'px';
+    }
+    window.setTopAreaHidden = function (on) {
+        state.topHidden = !!on;
+        write(TOP_KEY, state.topHidden ? '1' : '0');
+        if (state.topHidden && window.mbwMobile && typeof window.mbwMobile.closeDrawer === 'function') window.mbwMobile.closeDrawer();
+        body.classList.toggle('top-hidden', state.topHidden);
+        measureTopArea();
+        relayout();
+        topBtnUpdate();
+        requestAnimationFrame(function () { relayout(); topBtnUpdate(); });
+    };
+    window.toggleTopArea = function () { window.setTopAreaHidden(!state.topHidden); };
+    window.topAreaOnLanguageChanged = topBtnUpdate;
+    (function makeTopBtn() {
+        topBtn = document.createElement('button');
+        topBtn.id = 'top-toggle';
+        topBtn.type = 'button';
+        topBtn.addEventListener('click', function (e) { e.stopPropagation(); window.toggleTopArea(); });
+        document.body.appendChild(topBtn);
+        body.classList.toggle('top-hidden', state.topHidden);
+        topBtnUpdate();
+        document.addEventListener('mousemove', function (e) {
+            if (body.classList.contains('is-touch')) return;
+            const near = e.clientY <= topBottom() + 24;   // (incluye el propio botón, que cuelga justo debajo)
+            if (near) { clearTimeout(topHideTimer); topBtn.classList.add('show'); }
+            else if (topBtn.classList.contains('show')) { clearTimeout(topHideTimer); topHideTimer = setTimeout(function () { topBtn.classList.remove('show'); }, 350); }
+        }, { passive: true });
+        document.documentElement.addEventListener('mouseleave', function () { clearTimeout(topHideTimer); topHideTimer = setTimeout(function () { topBtn.classList.remove('show'); }, 350); });
+        window.addEventListener('resize', topBtnUpdate);
+        if (window.ResizeObserver && $('top-area')) new ResizeObserver(topBtnUpdate).observe($('top-area'));
+    })();
+
+    // ─────────────────────────────────────────────
     // Arranque
     // ─────────────────────────────────────────────
     sync();
     onFullscreenChange();
+    if (state.topHidden) window.setTopAreaHidden(true);
 })();

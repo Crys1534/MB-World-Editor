@@ -50,6 +50,8 @@ const i18n = {
         "lbl_structures_tab": "Structures (Y)",
         "tooltip_mobs": "Open Mob Browser",
         "lbl_mobs_tab": "Mobs (M)",
+        "top_hide": "Hide the top bars",
+        "top_show": "Show the top bars",
         "mp_msg_btn": "Message",
         "sw_join_hint": "To join: pick a public server above, accept an invitation (🔔), or press Join next to a player in the Online list.",
         "sw_title": "Create a server",
@@ -1007,6 +1009,8 @@ const i18n = {
         "lbl_structures_tab": "Estructuras (Y)",
         "tooltip_mobs": "Abrir Mobs",
         "lbl_mobs_tab": "Mobs (M)",
+        "top_hide": "Ocultar las barras de arriba",
+        "top_show": "Mostrar las barras de arriba",
         "mp_msg_btn": "Mensaje",
         "sw_join_hint": "Para entrar: elige un servidor público de arriba, acepta una invitación (🔔) o toca Entrar junto a un jugador en la lista En línea.",
         "sw_title": "Crear un servidor",
@@ -1964,6 +1968,8 @@ const i18n = {
         "lbl_structures_tab": "Estruturas (Y)",
         "tooltip_mobs": "Abrir Navegador de Mobs",
         "lbl_mobs_tab": "Mobs (M)",
+        "top_hide": "Ocultar as barras de cima",
+        "top_show": "Mostrar as barras de cima",
         "mp_msg_btn": "Mensagem",
         "sw_join_hint": "Para entrar: escolha um servidor público acima, aceite um convite (🔔) ou toque em Entrar ao lado de um jogador na lista Online.",
         "sw_title": "Criar um servidor",
@@ -2940,6 +2946,7 @@ window.setLanguage = function(langCode) {
     if (typeof window.uiOnLanguageChanged === 'function') window.uiOnLanguageChanged();
     // El asistente "Create Server" (scripts/server-wizard.js)
     if (typeof window.serverWizardOnLanguageChanged === 'function') window.serverWizardOnLanguageChanged();
+    if (typeof window.topAreaOnLanguageChanged === 'function') window.topAreaOnLanguageChanged();
 };
 
 // Ejecutar la traducción automáticamente apenas carga la página

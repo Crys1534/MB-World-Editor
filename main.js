@@ -42,6 +42,8 @@ window.images.names.forEach((name) => {
     
     window.images[name].onload = () => {
         worldDirty = true;
+        // la hotbar se dibuja con los bloques de esta imagen: si se dibujó antes de que llegara, quedaba VACÍA
+        if (name === 'blocks' && typeof renderHotbarUI === 'function') { try { renderHotbarUI(); } catch (e) { /* aún no hay barra */ } }
     };
 });
 
@@ -1072,14 +1074,22 @@ function drawPlayer() {
     ctx.shadowBlur = 0;
 }
 
+// 🌐 Multijugador: manda a los demás un montón de bloques cambiados de una vez (en tandas de 2000)
+window.mbwSendBlockBatch = function (cambios) {
+    if (!cambios || !cambios.length || typeof enviarMensajeEnRed !== 'function') return;
+    for (let i = 0; i < cambios.length; i += 2000) enviarMensajeEnRed({ tipo: "accion_lote", cambios: cambios.slice(i, i + 2000) });
+};
+
 window.fillSelectionWithBucket = function(blockState) {
     if (!window.selection || !window.selection.type) return false; 
     let blocksUpdated = 0;
 
+    const netChanges = [];
     if (window.selection.type === 'magic' && window.selection.points) {
         window.selection.points.forEach(p => {
             mbwom.setBlockState(p.x, p.y, blockState); 
             if (typeof renderBlock === 'function') renderBlock(p.x, p.y); 
+            netChanges.push([p.x, p.y, blockState]);
             blocksUpdated++;
         });
     } 
@@ -1097,6 +1107,7 @@ window.fillSelectionWithBucket = function(blockState) {
                 for (let y = minY; y <= maxY; y++) {
                     mbwom.setBlockState(x, y, blockState);
                     if (typeof renderBlock === 'function') renderBlock(x, y);
+                    netChanges.push([x, y, blockState]);
                     blocksUpdated++;
                 }
             }
@@ -1105,6 +1116,7 @@ window.fillSelectionWithBucket = function(blockState) {
     
     if (blocksUpdated > 0) {
         if (typeof worldDirty !== 'undefined') worldDirty = true;
+        window.mbwSendBlockBatch(netChanges);
         return true; 
     }
     return false;
@@ -2084,6 +2096,7 @@ window.buildPixelArtInWorld = function(pD, w, h, sX, sY, useDithering) {
         if (typeof historyManager !== 'undefined') historyManager.startAction();
         
         let floatData = new Float32Array(pD);
+        const netChanges = [];
         
         for (let y = 0; y < h; y++) {
             for (let x = 0; x < w; x++) {
@@ -2109,6 +2122,7 @@ window.buildPixelArtInWorld = function(pD, w, h, sX, sY, useDithering) {
                     if (typeof historyManager !== 'undefined') historyManager.recordChange(bX, bY, cS, nS);
                     mbwom.setBlockState(bX, bY, nS); 
                     if (typeof renderBlock === 'function') renderBlock(bX, bY);
+                    netChanges.push([bX, bY, nS]);
                 }
 
                 if (useDithering) {
@@ -2135,6 +2149,7 @@ window.buildPixelArtInWorld = function(pD, w, h, sX, sY, useDithering) {
         
         if (typeof worldDirty !== 'undefined') worldDirty = true;
         if (typeof historyManager !== 'undefined') historyManager.commitAction();
+        window.mbwSendBlockBatch(netChanges);
         
         return true;
     } catch(e) {

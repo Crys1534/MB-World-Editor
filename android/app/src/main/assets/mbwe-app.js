@@ -73,5 +73,6 @@
     };
 
     // 3) La página sabe que está dentro de la app (por ejemplo, para no mostrar el botón de pantalla completa)
-    document.documentElement.classList.add('is-app');
+    if (document.documentElement) document.documentElement.classList.add('is-app');
+    else document.addEventListener('DOMContentLoaded', function () { document.documentElement.classList.add('is-app'); });
 })();

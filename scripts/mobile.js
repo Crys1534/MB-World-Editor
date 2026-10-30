@@ -370,6 +370,7 @@
         const rg = document.querySelector('#top-bar .right-group');
         const can = document.fullscreenEnabled || document.webkitFullscreenEnabled;
         const inApp = /MBWEApp\//.test(navigator.userAgent);   // la app de Android ya es pantalla completa
+        if (inApp) document.documentElement.classList.add('is-app');
         if (!rg || !can || inApp || $('m-fullscreen-btn')) return;
         const b = document.createElement('button');
         b.id = 'm-fullscreen-btn'; b.type = 'button'; b.className = 'icon-btn icon-only';

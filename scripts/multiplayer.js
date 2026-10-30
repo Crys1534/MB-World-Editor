@@ -634,7 +634,7 @@ function mpSendWorldLegacy(conn) {
 async function mpSendWorld(conn, canGzip) {
     try {
         if (typeof mbwom === 'undefined' || !mbwom.world || typeof fileManager === 'undefined') return;
-        const prepared = fileManager.prepareData();          // lo mismo que se guardaría (con los últimos cambios y mobs)
+        const prepared = fileManager.prepareNetworkJson();   // el mundo de ahora (últimos cambios y ajustes; mobs con sus nombres de siempre)
         if (!prepared || !prepared.json) { mpSendWorldLegacy(conn); return; }
         let bytes = new TextEncoder().encode(prepared.json);
         const raw = bytes.length;
@@ -698,6 +698,7 @@ async function mpFinishMap(dl) {
         await window.loadWorldFromJson(json, (dl.name || 'Multiplayer World') + '.mbw');
         window.mpMapDownload = null;
         dl.queue.forEach(d => { try { recibirMensajeDeRed(d); } catch (e) { /* nada */ } });
+        if (typeof window.mpResetWorldWatch === 'function') window.mpResetWorldWatch();
         if (typeof closeFileMenu === 'function') closeFileMenu();
         alert(tmsg('msg_map_downloaded', "Map downloaded successfully! Welcome to the server."));
     } catch (e) {
@@ -708,6 +709,65 @@ async function mpFinishMap(dl) {
         alert(tmsg('msg_file_load_error', "Error al cargar el archivo."));
     }
 }
+
+// ==========================================
+// 🔄 AJUSTES DEL MUNDO EN MULTIJUGADOR
+// Lo que no son bloques ni mobs también es parte del mundo: modo de juego, hora, clima, reglas,
+// vida/hambre/XP y posición del Player, su inventario, los logros, autor/versión/semilla...
+// Cada pocos instantes se revisa si algo cambió y se manda a los demás (y lo que llega se aplica).
+// ==========================================
+const MP_CONTROLS = ['gamemode', 'gr-difficulty', 'cheats', 'hardcore', 'gr-day', 'gr-time', 'gr-weather', 'gr-keepinventory', 'gr-dodaylightcycle', 'gr-mobgriefing', 'gr-domobloot', 'gr-dofiretick', 'player-health', 'player-hunger', 'player-xp', 'sidebar-world-author', 'sidebar-world-version', 'sidebar-world-seed'];
+const MP_FIELDS = ['worldX', 'worldY', 'fly', 'inventoryList', 'armors', 'selectedInventoryItem', 'achieve', 'spawnPoint1', 'spawnPoint2', 'spawnPoint3', 'defeatedEnder'];
+let mpSnap = null;
+function mpControlValue(el) { return el.type === 'checkbox' ? !!el.checked : String(el.value); }
+function mpTakeSnap() {
+    const snap = { c: {}, f: {} };
+    MP_CONTROLS.forEach(id => { const el = document.getElementById(id); if (el) snap.c[id] = mpControlValue(el); });
+    if (typeof mbwom !== 'undefined' && mbwom.world) {
+        const cs = mbwom.currentScene || 1;
+        if (mbwom.spawnPoint !== undefined) mbwom.world['spawnPoint' + cs] = mbwom.spawnPoint;
+        MP_FIELDS.forEach(k => { try { snap.f[k] = JSON.stringify(mbwom.world[k] === undefined ? null : mbwom.world[k]); } catch (e) { /* nada */ } });
+    }
+    return snap;
+}
+window.mpResetWorldWatch = function () { mpSnap = mpTakeSnap(); };
+function mpApplyControl(id, value) {
+    const el = document.getElementById(id);
+    if (!el || MP_CONTROLS.indexOf(id) < 0) return;
+    if (el.type === 'checkbox') el.checked = !!value; else el.value = value;
+    if (mpSnap) mpSnap.c[id] = mpControlValue(el);
+    try { el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) { /* nada */ }
+    if (mpSnap) mpSnap.c[id] = mpControlValue(el);
+    if (typeof worldDirty !== 'undefined') worldDirty = true;
+}
+function mpApplyWorldFields(campos) {
+    if (typeof mbwom === 'undefined' || !mbwom.world) return;
+    const cs = mbwom.currentScene || 1;
+    Object.keys(campos).forEach(k => {
+        if (MP_FIELDS.indexOf(k) < 0) return;
+        mbwom.world[k] = campos[k];
+        if (k === 'spawnPoint' + cs) mbwom.spawnPoint = campos[k];
+        if (mpSnap) { try { mpSnap.f[k] = JSON.stringify(campos[k] === undefined ? null : campos[k]); } catch (e) { /* nada */ } }
+    });
+    if (campos.defeatedEnder !== undefined) window.defeatedEnder = campos.defeatedEnder;
+    try { if (typeof window.playerInvRefresh === 'function') window.playerInvRefresh(); } catch (e) { /* nada */ }
+    try { if (typeof window.populateLocationSettings === 'function') window.populateLocationSettings(); } catch (e) { /* nada */ }
+    try {
+        if (typeof checkboxes !== 'undefined' && campos.achieve !== undefined) checkboxes.forEach(cb => { const i = parseInt(cb.getAttribute('data-index')); if (!isNaN(i)) cb.checked = mbwom.getAchievement(i); });
+    } catch (e) { /* nada */ }
+    if (typeof worldDirty !== 'undefined') worldDirty = true;
+}
+setInterval(function () {
+    if (typeof isMultiplayer === 'undefined' || !isMultiplayer || window.mpMapDownload) { mpSnap = null; return; }
+    if (typeof mbwom === 'undefined' || !mbwom.world) return;
+    const now = mpTakeSnap();
+    if (!mpSnap) { mpSnap = now; return; }
+    Object.keys(now.c).forEach(id => { if (now.c[id] !== mpSnap.c[id]) enviarMensajeEnRed({ tipo: 'ajuste', id: id, valor: now.c[id] }); });
+    const campos = {}; let any = false;
+    Object.keys(now.f).forEach(k => { if (now.f[k] !== mpSnap.f[k]) { campos[k] = JSON.parse(now.f[k]); any = true; } });
+    if (any) enviarMensajeEnRed({ tipo: 'mundo_campos', campos: campos });
+    mpSnap = now;
+}, 400);
 
 // Aviso del sistema en el chat de la sala ("se unió", "se desconectó"): lo reciben todos los jugadores Y TAMBIÉN el anfitrión.
 // enviarMensajeEnRed() solo manda a los clientes (el anfitrión no se manda mensajes a sí mismo), y por eso antes el
@@ -763,8 +823,11 @@ function setupClientConnection(conn) {
 
 
 // FUNCIONES DE RED INTERNAS
+const MP_WORLD_MSG = /^(actualizar_bloque|accion_(?!vehiculo))/;   // (las vagonetas/balsas ya mandan su dimensión)
 window.enviarMensajeEnRed = function(datos) {
     if (!isMultiplayer) return;
+    // cada cambio del mundo dice en qué dimensión se hizo (cada jugador puede estar viendo otra)
+    if (datos && MP_WORLD_MSG.test(datos.tipo) && datos.scene == null && typeof mbwom !== 'undefined') datos.scene = mbwom.currentScene || 1;
     if (isHost) {
         datos.retransmitido = true; 
         misClientes.forEach(cliente => { if (cliente.open) cliente.send(datos); });
@@ -773,7 +836,33 @@ window.enviarMensajeEnRed = function(datos) {
     }
 }
 
+// Hace algo en OTRA dimensión del mundo (la que no se está viendo): apunta el editor a esa dimensión un momento,
+// sin dibujar nada en pantalla, y luego lo deja como estaba.
+function mpInScene(scene, fn) {
+    const cur = mbwom.currentScene || 1;
+    const keys = mbwom.sceneList || [];
+    const saved = {};
+    keys.forEach(k => { saved[k] = mbwom[k]; if (mbwom[k] !== undefined) mbwom.world[k + cur] = mbwom[k]; });
+    const rb = window.renderBlock;
+    window.renderBlock = function () { /* otra dimensión: no se dibuja */ };
+    try {
+        mbwom.loadScene(scene);
+        fn();
+    } finally {
+        keys.forEach(k => { if (mbwom[k] !== undefined) mbwom.world[k + scene] = mbwom[k]; mbwom[k] = saved[k]; });
+        window.renderBlock = rb;
+    }
+}
+
 function recibirMensajeDeRed(datos) {
+    if (datos && datos.scene && MP_WORLD_MSG.test(datos.tipo) && typeof mbwom !== 'undefined' && mbwom.world && typeof mbwom.loadScene === 'function') {
+        const s = Number(datos.scene) || 1;
+        if (s !== (mbwom.currentScene || 1) && s >= 1 && s <= 3) {
+            const d = Object.assign({}, datos); delete d.scene;
+            mpInScene(s, () => recibirMensajeDeRed(d));
+            return;
+        }
+    }
     if (datos.tipo === "player_info" && isHost) {
         if (!window.roomPlayers.find(p => p.uid === datos.uid)) {
             window.roomPlayers.push({ uid: datos.uid, name: datos.name, pfp: datos.pfp, peerId: datos.peerId });
@@ -816,6 +905,19 @@ function recibirMensajeDeRed(datos) {
         if (typeof closeFileMenu === 'function') closeFileMenu();
         alert(tmsg('msg_map_downloaded', "Map downloaded successfully! Welcome to the server."));
     }
+    if (datos.tipo === "accion_lote" && Array.isArray(datos.cambios)) {
+        if (typeof mbwom !== 'undefined' && mbwom.scene) {
+            datos.cambios.forEach(c => {
+                const x = c[0], y = c[1], st = c[2];
+                if (st === null) { if (mbwom.scene[x]) delete mbwom.scene[x][y]; }
+                else mbwom.setBlockState(x, y, st);
+                if (typeof renderBlock === 'function') renderBlock(x, y);
+            });
+            if (typeof worldDirty !== 'undefined') worldDirty = true;
+        }
+    }
+    if (datos.tipo === "mundo_campos" && datos.campos) mpApplyWorldFields(datos.campos);
+    if (datos.tipo === "ajuste" && datos.id) mpApplyControl(datos.id, datos.valor);
     if (datos.tipo === "actualizar_bloque") {
         if (typeof mbwom !== 'undefined' && mbwom.scene) { 
             if (datos.estado === null) { if (mbwom.scene[datos.x]) delete mbwom.scene[datos.x][datos.y]; } 

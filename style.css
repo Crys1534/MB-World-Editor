@@ -3006,3 +3006,30 @@ body.is-phone .sg-results { max-height: calc(100vh - 150px); min-height: 100px; 
 .mp-user-msg { background: #34495e; border: 1px solid #7f8c8d; padding: 5px 10px; border-radius: 4px; cursor: pointer; color: #fff; transition: 0.2s; }
 .mp-user-msg:hover { background: #46607a; }
 body.is-phone .mp-user-actions { padding-left: 0; }
+
+/* 🏛️ Structures Browser → Saved: Import / Export / Reset / Select solo con su icono (el texto sigue para la ayuda al pasar el mouse) */
+#struct-saved-actions .mini-btn > span[data-i18n] { display: none; }
+#struct-saved-actions .mini-btn { gap: 0; min-width: 30px; height: 26px; justify-content: center; padding: 3px 7px; font-size: 14px; }
+#struct-saved-actions .mini-btn .mbw-ic { width: 16px; height: 16px; }
+
+/* 📱 En la app de Android sí se ve la palabra "Multiplayer" (ahí no está el botón de pantalla completa: hay lugar) */
+html.is-app body.is-touch .btn-multiplayer > span[data-i18n="btn_multiplayer"] { display: inline !important; }
+
+/* ⬆️ Esconder / mostrar las barras de arriba: una pestañita que cuelga en el centro, justo debajo de ellas */
+body.top-hidden { --ws-top: 0px !important; }
+body.top-hidden #top-area { display: none !important; }
+#top-toggle {
+    position: fixed; left: 50%; top: 0; transform: translateX(-50%); z-index: 97;
+    width: 48px; height: 17px; padding: 0; margin: 0; box-sizing: border-box;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(20, 28, 40, 0.9); color: #cfd8e3; cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.22); border-top: none; border-radius: 0 0 9px 9px;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.35);
+    opacity: 0; pointer-events: none; transition: opacity 0.15s ease, background-color 0.15s ease;
+}
+#top-toggle svg { width: 15px; height: 15px; pointer-events: none; }
+#top-toggle.show { opacity: 1; pointer-events: auto; }
+#top-toggle:hover { background: rgba(59, 130, 246, 0.95); color: #fff; }
+body.is-touch #top-toggle { opacity: 0.9; pointer-events: auto; width: 56px; height: 21px; }
+body.is-touch #top-toggle svg { width: 17px; height: 17px; }
+body.zen-mode #top-toggle, body.ribbon-open #top-toggle { display: none; }

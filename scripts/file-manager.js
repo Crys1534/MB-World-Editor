@@ -247,7 +247,17 @@ const fileManager = {
   }
  },
 
-prepareData: function() {
+// El mundo tal como está AHORA, para mandarlo a los jugadores de un servidor: igual que lo que se guardaría
+// (con los últimos cambios y ajustes), pero con los mobs tal cual (mismos nombres internos que usa el anfitrión,
+// así un "mover el mob X" llega al mismo mob en todos los editores; y también van los mobs "custom_").
+prepareNetworkJson: function() {
+    if (typeof mbwom === 'undefined' || !mbwom.world) return null;
+    const d = this.prepareData({ forNetwork: true });
+    return d;
+},
+
+prepareData: function(opts) {
+    const forNetwork = !!(opts && opts.forNetwork);
     // ✨ FIX 1: Si empezamos un mundo de cero, creamos el contenedor para evitar bloqueos
     if (!mbwom.world) mbwom.world = {};
 
@@ -355,27 +365,37 @@ prepareData: function() {
         "spawnskin", "squid",   // (los contadores spawnskinNum / squidNum se ponen a 0 cuando ya no queda ninguno)
     ];
 
+    // Para un servidor: el mundo tal cual (los mobs con sus nombres de siempre)
+    if (forNetwork) return { name: baseName, json: JSON.stringify(mbwom.world) };
+
     // ✨ FIX CRÍTICO: Recolectar todos los mobs de TODAS las dimensiones antes de limpiar
+    // OJO: el archivo lleva los mobs renombrados (mob1, mob2...) como los quiere el juego, pero en COPIAS:
+    // los mobs con los que trabaja el editor NO se tocan. Antes se cambiaban los cajones del editor por otros
+    // nuevos, y lo que se hacía después de guardar (un mob nuevo, uno borrado) se perdía o reaparecía al
+    // cambiar de dimensión, y en multijugador los mobs dejaban de tener el mismo nombre en todos los editores.
+    const liveMobs = { 1: mbwom.world.mobs1, 2: mbwom.world.mobs2, 3: mbwom.world.mobs3 };
     let allMobs = [];
     for(let s=1; s<=3; s++) {
-        let dimensionMobs = mbwom.world["mobs" + s];
+        let dimensionMobs = liveMobs[s];
         if (dimensionMobs) {
             for (let key in dimensionMobs) {
-                allMobs.push(dimensionMobs[key]);
+                allMobs.push({ m: dimensionMobs[key], s: s });
             }
         }
     }
 
-    // AHORA SÍ limpiamos las dimensiones de forma segura
-    mbwom.world.mobs1 = {}; mbwom.world.mobs2 = {}; mbwom.world.mobs3 = {};
+    const savedMobs = { 1: {}, 2: {}, 3: {} };
     let mobCounts = {}; let globalMobCount = { 1: 0, 2: 0, 3: 0 };
     for(let s=1; s<=3; s++) knownMobs.forEach(t => { mobCounts[t + "Num" + s] = 0; });
 
-    // Volvemos a colocar todos los mobs recopilados en sus respectivos cajones
-    allMobs.forEach(m => {
-        if (!m || !m.type || String(m.type).startsWith('custom_')) return; 
+    // Volvemos a colocar todos los mobs recopilados en sus respectivos cajones (copias)
+    allMobs.forEach(entry => {
+        const orig = entry.m;
+        if (!orig || !orig.type || String(orig.type).startsWith('custom_')) return; 
+        const m = Object.assign({}, orig);
         
-        let s = m.scene || 1; 
+        let s = m.scene || entry.s || 1; 
+        if (!savedMobs[s]) s = 1;
         globalMobCount[s]++;
         let internalId = "mob" + globalMobCount[s];
         m.id = internalId; 
@@ -383,7 +403,7 @@ prepareData: function() {
         m.x = isNaN(Number(m.x)) ? 0 : Number(m.x);
         m.y = isNaN(Number(m.y)) ? 0 : Number(m.y);
         
-        mbwom.world["mobs" + s][internalId] = m;
+        savedMobs[s][internalId] = m;
         mobCounts[m.type + "Num" + s] = (mobCounts[m.type + "Num" + s] || 0) + 1;
     });
 
@@ -395,7 +415,13 @@ prepareData: function() {
 
     if (typeof limpiarMundoParaGuardar === 'function') limpiarMundoParaGuardar();
 
-    const jsonString = JSON.stringify(mbwom.world);
+    // el archivo se arma con las copias y luego el editor sigue con sus mobs de siempre
+    mbwom.world.mobs1 = savedMobs[1]; mbwom.world.mobs2 = savedMobs[2]; mbwom.world.mobs3 = savedMobs[3];
+    let jsonString;
+    try { jsonString = JSON.stringify(mbwom.world); }
+    finally {
+        mbwom.world.mobs1 = liveMobs[1] || {}; mbwom.world.mobs2 = liveMobs[2] || {}; mbwom.world.mobs3 = liveMobs[3] || {};
+    }
     const text = mbwAlgorithm.encode(jsonString);
     
     return { name: baseName, textData: text, json: jsonString };
