@@ -109,18 +109,21 @@ loadScene: function (index) {
 		if (x > -1 && y > -1) {
 			const id = `blockX${x}Y${y}`;
 			this.setBlock(x, y, newState.type);
-			this.states[id] = newState.states1;
-			this.states[id + "_2"] = newState.states2;
-			this.states[id + "_3"] = newState.states3;
-			this.firstTimes[id] = newState.firstTimes;
-			this.chests[id] = newState.chests;
-			this.toSmelt[id] = newState.toSmelt;
-			this.toGrow[id] = newState.toGrow;
-			this.water[id] = newState.water;
-			this.wheat[id] = newState.wheat;
-			this.toBrew[id] = newState.toBrew;
-			this.signs[id] = newState.signs;
-			this.hasSignal[id] = newState.hasSignal;
+			// Lo que el bloque NO tiene se quita (no se guarda "vacío"). En multijugador los datos vacíos llegaban
+			// convertidos en null y el mundo se llenaba de miles de entradas null que el juego no espera.
+			const put = (obj, key, v) => { if (!obj) return; if (v === undefined || v === null) delete obj[key]; else obj[key] = v; };
+			put(this.states, id, newState.states1);
+			put(this.states, id + "_2", newState.states2);
+			put(this.states, id + "_3", newState.states3);
+			put(this.firstTimes, id, newState.firstTimes);
+			put(this.chests, id, newState.chests);
+			put(this.toSmelt, id, newState.toSmelt);
+			put(this.toGrow, id, newState.toGrow);
+			put(this.water, id, newState.water);
+			put(this.wheat, id, newState.wheat);
+			put(this.toBrew, id, newState.toBrew);
+			put(this.signs, id, newState.signs);
+			put(this.hasSignal, id, newState.hasSignal);
 		}
 	},
 	isEmptyItem: function (item) {

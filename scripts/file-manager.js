@@ -77,7 +77,10 @@ const fileManager = {
    await nextPaint();
    if (superseded()) return;
    // (un mundo que llega por multijugador ya viene como texto JSON: no hay que descifrarlo)
-   const jsonString = (event && typeof event.json === 'string') ? event.json : mbwAlgorithm.decode(event.target.result);
+   // (un .mbw que alguien guardó SIN cifrar —texto JSON normal, empieza con "{"— también se abre tal cual)
+   const rawText = (event && typeof event.json === 'string') ? null : event.target.result;
+   const jsonString = (event && typeof event.json === 'string') ? event.json
+       : (typeof rawText === 'string' && /^\s*\{"/.test(rawText.slice(0, 20)) ? rawText : mbwAlgorithm.decode(rawText));
    updateLoadingBar(40, "Analyzing terrain...");
    await nextPaint();
    if (superseded()) return;
@@ -550,6 +553,17 @@ function limpiarMundoParaGuardar() {
                 }
             }
         }
+    }
+
+    // 1b. Datos de bloques "vacíos" (null): el juego nunca los escribe. Llegaban por multijugador (ver mbwom.setBlockState)
+    //     y un mundo podía terminar con miles. Al guardar se quitan (no cambia nada del mundo: vacío = no tiene).
+    const BLOCK_DATA = ['states', 'firstTimes', 'chests', 'toSmelt', 'water', 'wheat', 'toBrew', 'signs', 'hasSignal'];
+    for (let s = 1; s <= 3; s++) {
+        BLOCK_DATA.forEach(k => {
+            const d = mbwom.world[k + s];
+            if (!d || typeof d !== 'object' || Array.isArray(d)) return;
+            for (const key in d) if (d[key] === null) { delete d[key]; eliminados++; }
+        });
     }
 
     // 2. Limpieza de toGrow
