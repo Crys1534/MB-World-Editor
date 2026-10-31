@@ -112,11 +112,20 @@
         return { x: fx, y: fy, w: fw, h: fh };
     }
     A.frame = frameRect;
+    // Dónde se dibuja el área en la pantalla: lo más grande que cabe SIN deformar los bloques (siguen cuadrados), centrada.
+    function screenRect() {
+        const f = frameRect(), W = canvas.width, H = canvas.height;
+        const k = Math.min(W / f.w, H / f.h);
+        const w = Math.round(f.w * k), h = Math.round(f.h * k);
+        return { x: Math.floor((W - w) / 2), y: Math.floor((H - h) / 2), w: w, h: h, f: f };
+    }
+    A.screen = screenRect;
     // Un punto de la pantalla (estirada) -> el punto del lienzo sin estirar (para que el mouse caiga en el bloque correcto)
     A.mapOffset = function (ox, oy) {
         if (!A.active) return { x: ox, y: oy };
-        const f = frameRect();
-        return { x: f.x + ox * f.w / canvas.width, y: f.y + oy * f.h / canvas.height };
+        const r = screenRect(), f = r.f;
+        const px = Math.max(0, Math.min(r.w - 0.01, ox - r.x)), py = Math.max(0, Math.min(r.h - 0.01, oy - r.y));   // (en el borde negro cuenta como la orilla del área)
+        return { x: f.x + px * f.w / r.w, y: f.y + py * f.h / r.h };
     };
     A.mapClient = function (cx, cy) {
         if (!A.active) return { x: cx, y: cy };
@@ -225,8 +234,8 @@
             label(ctx, tr('aspect_pick', 'Click to place the {w} × {h} view, or drag to choose another size. Esc cancels.', { w: DEF_W, h: DEF_H }), canvas.width / 2, 10, 'center');
         }
         if (A.active) {
-            // se copia solo el área y se estira hasta llenar TODO el lienzo (los bloques sin suavizar, como en el juego)
-            const f = frameRect();
+            // se copia solo el área y se agranda lo más que cabe sin deformar los bloques (sin suavizar, como en el juego)
+            const sr = screenRect(), f = sr.f;
             if (f.w > 0 && f.h > 0) {
                 if (!A.buf) A.buf = document.createElement('canvas');
                 if (A.buf.width !== f.w || A.buf.height !== f.h) { A.buf.width = f.w; A.buf.height = f.h; }
@@ -238,10 +247,10 @@
                 ctx.imageSmoothingEnabled = false;
                 ctx.fillStyle = '#000';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(A.buf, 0, 0, f.w, f.h, 0, 0, canvas.width, canvas.height);
+                ctx.drawImage(A.buf, 0, 0, f.w, f.h, sr.x, sr.y, sr.w, sr.h);
                 ctx.restore();
             }
-            label(ctx, A.w + ' × ' + A.h, 8, canvas.height - 30);
+            label(ctx, A.w + ' × ' + A.h, sr.x + 8, sr.y + sr.h - 30);
         }
         if (A.flash) {
             if (Date.now() > A.flash.until) A.flash = null;
