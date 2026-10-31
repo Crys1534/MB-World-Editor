@@ -109,7 +109,15 @@
         paintStatus(); paintTyping(); paintNote(); paintBar(); paintMuted();
         if (mc.uid) renderMsgs({ keep: true });
     }
-    function autoSize() { const i = mc.input; i.style.height = 'auto'; i.style.height = Math.min(i.scrollHeight, 110) + 'px'; }
+    // Alto de la caja de escribir según lo escrito. Si la ventanita todavía no se ve (recién abierta), el navegador dice
+    // que el texto mide 0: antes la caja se quedaba "aplastada" con ese 0; ahora se deja con su alto normal.
+    function autoSize() {
+        const i = mc.input;
+        i.style.height = 'auto';
+        const h = i.scrollHeight;
+        if (!h || !i.offsetParent) { i.style.height = ''; return; }
+        i.style.height = Math.min(Math.max(h + 2, 36), 110) + 'px';
+    }
     function updateSendBtn() { mc.send.disabled = !mc.input.value.trim() || isBlockedNow(); }
     function isBlockedNow() { return !!(mc.uid && typeof window.isBlocked === 'function' && window.isBlocked(mc.uid)); }
     function paintNote() {
@@ -220,7 +228,13 @@
         }
         if (isLastMine) {
             const read = m.status === 'read';
-            row.appendChild(el('div', read ? 'mc-seen' : 'mc-sent', read ? '✓✓ ' + T('mc_seen', 'Seen') : '✓ ' + dmt('dm_sent', 'Sent')));
+            // las palomitas se dibujan aquí mismo (juntas, en una línea con el texto); el texto "✓✓" lo cambiaba
+            // el sistema de íconos por dos dibujos que la ventanita ponía uno ENCIMA del otro
+            const st = el('div', read ? 'mc-seen' : 'mc-sent');
+            st.setAttribute('data-no-icons', '');
+            st.innerHTML = window.mbwTicksSVG(read);
+            st.appendChild(document.createTextNode(read ? T('mc_seen', 'Seen') : dmt('dm_sent', 'Sent')));
+            row.appendChild(st);
         }
         row.addEventListener('contextmenu', function (e) { e.preventDefault(); e.stopPropagation(); openMsgMenu(e.clientX, e.clientY, k); });
         return row;
@@ -547,6 +561,7 @@
         texts();
         autoSize();
         paintVisibility();
+        requestAnimationFrame(autoSize);
         if (window.mbwChatHead) { window.mbwChatHead.pin(uid, mc.who, inf.pfp); window.mbwChatHead.setActive(uid); }
         setTimeout(function () { toBottom(); try { mc.input.focus(); } catch (e) { /* sin foco */ } }, 0);
         scheduleRead();

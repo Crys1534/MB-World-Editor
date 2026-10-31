@@ -49,25 +49,9 @@ function frameScale() {
 }
 
 function cameraMovement() {
-    // ✨ LÓGICA DE MODO ESPECTADOR
-    if (typeof isMultiplayer !== 'undefined' && isMultiplayer && window.spectatingTargetId) {
-        let targetPlayer = window.roomPlayers ? window.roomPlayers.find(p => p.peerId === window.spectatingTargetId) : null;
-        
-        if (targetPlayer && window.networkCursors && window.networkCursors[targetPlayer.name]) {
-            let targetData = window.networkCursors[targetPlayer.name];
-            
-            // Movemos la cámara suavemente hacia él
-            // (con límite de FPS cada cuadro dibujado vale por varios: se compensa para que siga igual de rápido)
-            const follow = 1 - Math.pow(0.9, frameScale());
-            camera.x += (targetData.x - (grid.width / 2) - camera.x) * follow;
-            camera.y += (targetData.y - (grid.height / 2) - camera.y) * follow;
-            
-            worldDirty = true;
-            return; // ⛔ SALIMOS de la función aquí para que tu teclado no pueda mover la cámara
-        } else {
-            window.spectatingTargetId = null; // Si se desconecta, cancelamos
-        }
-    }
+    // ✨ MODO ESPECTADOR: la cámara sigue la CÁMARA del jugador que se está viendo (scripts/mp-live.js), no su cursor.
+    // Mientras tanto el teclado no mueve la cámara.
+    if (window.spectatingTargetId && typeof window.mpSpectateStep === 'function' && window.mpSpectateStep(frameScale())) return;
     
     if (typeof camera.accX === 'undefined') { camera.accX = 0; camera.accY = 0; }
     let moveX = 0; let moveY = 0;

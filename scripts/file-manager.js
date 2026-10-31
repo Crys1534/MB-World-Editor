@@ -90,7 +90,9 @@ const fileManager = {
        const w0 = WorldTabsManager.openWorlds[0];
        // el mundo de bienvenida (Superflat) sin tocar también se reemplaza, como el mundo vacío del inicio
        const untouchedStarter = !!(w0 && w0.isStarter && typeof historyManager !== 'undefined' && historyManager.undoStack.length === 0);
-       const isDefault = WorldTabsManager.openWorlds.length === 1 && (w0.filename === "world.mbw" || untouchedStarter);
+       // (la pestaña del mundo de un servidor abierto nunca se reemplaza: abrir otro archivo abre otra pestaña)
+       const isServerTab = typeof isMultiplayer !== 'undefined' && isMultiplayer && window.mpWorldTabId && w0 && w0.id === window.mpWorldTabId;
+       const isDefault = WorldTabsManager.openWorlds.length === 1 && (w0.filename === "world.mbw" || untouchedStarter) && !isServerTab;
        
        if (isDefault) {
            WorldTabsManager.openWorlds[0].filename = fileManager.file.name;

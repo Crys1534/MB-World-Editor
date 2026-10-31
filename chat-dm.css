@@ -604,7 +604,8 @@ body.theme-win7 {
     color: var(--dc-text-muted);
     user-select: none;
 }
-.dc-seen-ticks { font-size: 12px; letter-spacing: -2px; font-weight: 700; }
+.dc-seen-ticks { display: inline-flex; align-items: center; }
+.dc-seen-ticks svg.mbw-ticks { display: block; width: 16px; height: 11px; }
 .dc-seen.is-read { color: var(--dc-link); }
 
 /* Barra de acciones al pasar el mouse */

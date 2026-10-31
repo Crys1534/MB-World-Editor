@@ -2630,6 +2630,7 @@ const availableTools = [
     { id: 'tool-select', icon: '🔳', name: 'Select', key: 'tooltip_tool_select' },
     { id: 'tool-magic', icon: '🪄', name: 'Magic Wand', key: 'tooltip_tool_magic' },
     { id: 'tool-lasso', icon: '➰', name: 'Lasso / Free Form', key: 'tb_tool_lasso' },
+    { id: 'tool-aspect', icon: '👁', name: 'Aspect ratio', key: 'tooltip_tool_aspect' },
     { id: 'tool-screenshot', icon: '📷', name: 'Screenshot', key: 'tooltip_screenshot' },
 ];
 
@@ -2658,7 +2659,7 @@ function applyToolbarVisibility() {
     availableTools.forEach(t => {
         let btn = document.getElementById(t.id);
         if (btn) {
-            btn.style.display = window.toolbarConfig[t.id] ? 'inline-block' : 'none';
+            btn.style.display = window.toolbarConfig[t.id] !== false ? 'inline-block' : 'none';   // (una herramienta nueva se ve aunque la configuración guardada sea de antes)
         }
     });
 }
@@ -2670,7 +2671,7 @@ function renderToolbarSettingsList() {
     list.innerHTML = '';
     
     availableTools.forEach(t => {
-        let isChecked = window.toolbarConfig[t.id];
+        let isChecked = window.toolbarConfig[t.id] !== false;
         
         let row = document.createElement('div');
         row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.5); padding: 8px; border-radius: 4px; border: 1px solid #999;';

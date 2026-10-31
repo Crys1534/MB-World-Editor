@@ -889,6 +889,7 @@
     <button class="tool-btn" id="tool-select" onclick="selectTool('select')" data-i18n-title="tooltip_tool_select" title="Select"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-select"></use></svg></button>
     <button class="tool-btn" id="tool-magic" onclick="selectTool('magic')" data-i18n-title="tooltip_tool_magic" title="Magic Wand"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-magic"></use></svg></button>
     <button class="tool-btn" id="tool-lasso" onclick="selectTool('lasso')" data-i18n-title="tooltip_tool_lasso" title="Free form"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-lasso"></use></svg></button>
+    <button class="tool-btn" id="tool-aspect" onclick="mbwAspect.button()" data-i18n-title="tooltip_tool_aspect" title="Aspect ratio"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-eye"></use></svg></button>
     
     <div class="toolbar-separator"></div>
     
@@ -1769,6 +1770,8 @@
  <script src="scripts/multiplayer-ui.js"></script>
  <script src="scripts/join-requests.js"></script> <!-- 🚪 pedir entrar al mundo de otro jugador (lista Online) -->
  <script src="scripts/server-wizard.js"></script> <!-- 🖥️ "Create Server": elegir mundo, vista previa y opciones, invitar (sin códigos) -->
+ <script src="scripts/mp-live.js"></script> <!-- 👥 pestaña del servidor, permisos (ver / editar), cámaras, espectear y selecciones de los demás -->
+ <script src="scripts/aspect-view.js"></script> <!-- 👁 relación de aspecto: ver solo un área, como en el juego -->
  <script src="scripts/mobile.js"></script> <!-- 📱 celular y tablet: dedos sobre el mundo (1 dedo = herramienta, 2 = mover / zoom) y pantalla compacta -->
  <script src="scripts/chat-dm.js"></script>
  <script src="scripts/mini-chat.js"></script> <!-- 💬 mini ventana de chat de las burbujas (como Messenger) -->

@@ -1,0 +1,183 @@
+// ==========================================================
+// 👁 RELACIÓN DE ASPECTO (botón con un ojo en la barra de herramientas)
+//
+//  Sirve para ver cómo se ve el mapa dentro del juego: solo se ve un área del tamaño elegido y lo demás queda oscuro.
+//  1) Clic en el ojo: aparece un rectángulo de 18 x 14 bloques (el tamaño de fábrica) que sigue al mouse.
+//     Un clic lo pone ahí; arrastrando se elige otro tamaño. Esc cancela.
+//  2) Ya puesto: la vista queda en el centro de la pantalla, el zoom se bloquea (se queda el que estaba)
+//     y se puede seguir editando y moviendo la cámara (W A S D) como siempre.
+//  3) El ojo cambia a un ojo tachado en rojo: clic ahí y se quita.
+// ==========================================================
+(function () {
+    'use strict';
+    const DEF_W = 18, DEF_H = 14;
+    const A = window.mbwAspect = { active: false, picking: false, w: DEF_W, h: DEF_H, prevTool: 'pencil', drag: null, zoomNoticeAt: 0 };
+
+    function tr(k, fb, vars) { return typeof window.tmsg === 'function' ? window.tmsg(k, fb, vars) : String(fb).replace(/\{(\w+)\}/g, (m, v) => (vars && vars[v] !== undefined ? vars[v] : m)); }
+    function $(id) { return document.getElementById(id); }
+    function dirty() { /* lo de encima del mundo (el marco, los letreros) se pinta solo en cada cuadro */ }
+    function tool() { return typeof currentTool !== 'undefined' ? currentTool : ''; }
+    function setTool(t) { if (typeof selectTool === 'function') selectTool(t); else window.currentTool = t; }
+    function hasWorld() { return typeof mbwom !== 'undefined' && !!mbwom.scene; }
+
+    // ------------------------------------------------------------------ el botón
+    function paintButton() {
+        const b = $('tool-aspect');
+        if (!b) return;
+        const use = b.querySelector('use');
+        if (use) use.setAttribute('href', A.active ? '#ic-eye-off' : '#ic-eye');
+        const key = A.active ? 'tooltip_tool_aspect_off' : 'tooltip_tool_aspect';
+        b.setAttribute('data-i18n-title', key);
+        b.title = A.active ? tr(key, 'Turn off the aspect ratio view') : tr(key, 'Aspect ratio: see only an area, like in the game');
+        b.classList.toggle('aspect-on', A.active);
+        const zs = $('zoom-slider');
+        if (zs) zs.disabled = A.active;
+        document.body.classList.toggle('aspect-view-on', A.active);
+    }
+    A.button = function () {
+        if (A.active) { A.off(); return; }
+        if (A.picking || tool() === 'aspect') { cancelPick(); return; }
+        A.prevTool = tool() && tool() !== 'aspect' ? tool() : 'pencil';
+        A.picking = true;
+        A.drag = null;
+        setTool('aspect');
+        dirty();
+    };
+    function cancelPick() {
+        A.picking = false; A.drag = null;
+        if (tool() === 'aspect') setTool(A.prevTool || 'pencil');
+        dirty();
+    }
+    A.off = function () {
+        A.active = false;
+        paintButton();
+        dirty();
+    };
+    A.zoomBlocked = function () {
+        const now = Date.now();
+        if (now - A.zoomNoticeAt < 2500) return;
+        A.zoomNoticeAt = now;
+        A.flash = { text: tr('aspect_zoom_locked', 'Zoom is locked while the aspect ratio view is on.'), until: now + 1800 };
+        dirty();
+    };
+
+    // ------------------------------------------------------------------ elegir el área
+    function cellUnderMouse() {
+        if (typeof mouse === 'undefined' || mouse.worldX == null || mouse.worldY == null) return null;
+        return { x: mouse.worldX, y: mouse.worldY };
+    }
+    // el rectángulo que se ve ahora: el de fábrica centrado en el mouse, o el que se está arrastrando
+    function pickRect() {
+        const c = cellUnderMouse();
+        if (!c) return null;
+        if (A.drag && (A.drag.x !== c.x || A.drag.y !== c.y)) {
+            const x1 = Math.min(A.drag.x, c.x), x2 = Math.max(A.drag.x, c.x), y1 = Math.min(A.drag.y, c.y), y2 = Math.max(A.drag.y, c.y);
+            return { x1: x1, y1: y1, w: Math.max(2, x2 - x1 + 1), h: Math.max(2, y2 - y1 + 1), custom: true };
+        }
+        const o = A.drag || c;
+        return { x1: o.x - Math.floor(DEF_W / 2), y1: o.y - Math.floor(DEF_H / 2), w: DEF_W, h: DEF_H };
+    }
+    function frameOffsets() {
+        const cols = canvas.width / tileSize, rows = canvas.height / tileSize;
+        return { offX: Math.floor((cols - A.w) / 2), offY: Math.floor((rows - A.h) / 2) };
+    }
+    function activate(r) {
+        A.picking = false; A.drag = null;
+        A.w = r.w; A.h = r.h;
+        A.active = true;
+        // la cámara se acomoda para que esa área quede justo en el centro de la pantalla
+        const o = frameOffsets();
+        camera.x = r.x1 - o.offX; camera.y = r.y1 - o.offY;
+        camera._tx = camera.x; camera._ty = camera.y; camera.velX = 0; camera.velY = 0;
+        setTool(A.prevTool && A.prevTool !== 'aspect' ? A.prevTool : 'pencil');
+        paintButton();
+        A.flash = { text: tr('aspect_on', 'Aspect ratio view: {w} × {h} blocks. Zoom is locked.', { w: A.w, h: A.h }), until: Date.now() + 2600 };
+        dirty();
+    }
+    function attach() {
+        const cv = $('canvas');
+        if (!cv || cv.__aspect) return;
+        cv.__aspect = true;
+        cv.addEventListener('mousedown', function (e) {
+            if (tool() !== 'aspect' || e.button !== 0 || !hasWorld()) return;
+            A.picking = true;
+            A.drag = cellUnderMouse();
+        });
+        window.addEventListener('mouseup', function (e) {
+            if (tool() !== 'aspect' || !A.drag || e.button !== 0) return;
+            const r = pickRect();
+            A.drag = null;
+            if (r) activate(r);
+        });
+        window.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape') return;
+            if (tool() === 'aspect') { cancelPick(); e.preventDefault(); }
+        });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', attach); else attach();
+
+    // si se cambia a otra herramienta a mitad de elegir, se deja de elegir
+    setInterval(function () { if (A.picking && tool() !== 'aspect') { A.picking = false; A.drag = null; dirty(); } }, 300);
+
+    // ------------------------------------------------------------------ dibujar (lo llama main.js al final de cada cuadro)
+    function label(ctx, text, x, y, align) {
+        ctx.save();
+        ctx.font = "600 13px 'Segoe UI', Arial, sans-serif";
+        ctx.textBaseline = 'middle';
+        const w = ctx.measureText(text).width + 16;
+        let lx = align === 'center' ? x - w / 2 : x;
+        lx = Math.max(4, Math.min(canvas.width - w - 4, lx));
+        const ly = Math.max(4, Math.min(canvas.height - 26, y));
+        ctx.fillStyle = 'rgba(16, 19, 26, 0.88)';
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(lx, ly, w, 22, 11); else ctx.rect(lx, ly, w, 22);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(text, lx + 8, ly + 11.5);
+        ctx.restore();
+    }
+    A.draw = function (ctx) {
+        if (!hasWorld()) return;
+        const ts = tileSize;
+        if (tool() === 'aspect') {
+            const r = pickRect();
+            if (r) {
+                const sx = (r.x1 - camera.x) * ts, sy = canvas.height - (r.y1 + r.h - camera.y) * ts;
+                ctx.save();
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+                ctx.fillRect(sx, sy, r.w * ts, r.h * ts);
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([8, 5]);
+                ctx.lineDashOffset = -(Date.now() / 50);
+                ctx.strokeRect(sx, sy, r.w * ts, r.h * ts);
+                ctx.restore();
+                label(ctx, r.w + ' × ' + r.h, sx, sy - 27);
+            }
+            label(ctx, tr('aspect_pick', 'Click to place the {w} × {h} view, or drag to choose another size. Esc cancels.', { w: DEF_W, h: DEF_H }), canvas.width / 2, 10, 'center');
+        }
+        if (A.active) {
+            const o = frameOffsets();
+            const fx = o.offX * ts, fw = A.w * ts, fh = A.h * ts;
+            const fy = canvas.height - (o.offY + A.h) * ts;
+            ctx.save();
+            ctx.fillStyle = 'rgba(8, 10, 16, 0.9)';
+            ctx.beginPath();
+            ctx.rect(0, 0, canvas.width, canvas.height);
+            ctx.rect(fx, fy, fw, fh);
+            ctx.fill('evenodd');                    // todo oscuro menos el área
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(fx - 1, fy - 1, fw + 2, fh + 2);
+            ctx.restore();
+            label(ctx, A.w + ' × ' + A.h, fx, fy - 28);
+        }
+        if (A.flash) {
+            if (Date.now() > A.flash.until) A.flash = null;
+            else label(ctx, A.flash.text, canvas.width / 2, 10, 'center');
+        }
+    };
+
+    window.aspectOnLanguageChanged = paintButton;
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', paintButton); else paintButton();
+})();

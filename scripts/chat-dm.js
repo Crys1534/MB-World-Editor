@@ -546,7 +546,10 @@ function dmUpdateSeen() {
     if (!row || !row.isConnected) return;
     const read = last.msg.status === 'read';
     const el = dmEl('div', 'dc-seen' + (read ? ' is-read' : ''));
-    el.appendChild(dmEl('span', 'dc-seen-ticks', read ? '✓✓' : '✓'));
+    const ticks = dmEl('span', 'dc-seen-ticks');
+    ticks.innerHTML = window.mbwTicksSVG(read);
+    el.setAttribute('data-no-icons', '');
+    el.appendChild(ticks);
     let label = read ? dmT('dm_seen', 'Visto') : dmT('dm_sent', 'Enviado');
     if (read && Number(last.msg.readAt) > 0) label += ' · ' + dmTime(Number(last.msg.readAt));
     el.appendChild(dmEl('span', null, label));
@@ -1723,3 +1726,11 @@ window.dmImportChats = function () {
         setTimeout(() => obs.disconnect(), 60000);
     }
 })();
+
+// Palomitas de "Enviado" (una) y "Visto" (dos, juntas y una encima de la otra un poco corrida, como en WhatsApp)
+window.mbwTicksSVG = function (double) {
+    return '<svg class="mbw-ticks" viewBox="0 0 18 12" width="16" height="11" aria-hidden="true">' +
+        '<path d="M1.5 6.5 4.6 9.6 11 2.6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>' +
+        (double ? '<path d="M8.2 8 9.8 9.6 16.2 2.6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>' : '') +
+        '</svg>';
+};

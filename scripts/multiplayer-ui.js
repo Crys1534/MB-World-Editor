@@ -79,14 +79,23 @@ window.renderLivePlayers = function() {
         let scale = isSpectating ? 'scale(1.15)' : 'scale(1)';
 
         // Añadimos al buffer, NO al DOM
+        // Clic = espectear (seguir su cámara) · clic derecho = ir a donde está mirando (scripts/mp-live.js)
+        const esc = window.escapeHTML || function (x) { return String(x); };
+        const tipTr = (k, fb, v) => (typeof window.tmsg === 'function' ? window.tmsg(k, fb, v) : fb.replace('{name}', v && v.name));
+        let tip = tipTr('mp_avatar_tip', 'Click: spectate {name} · Right-click: go to {name}', { name: p.name });
+        const isRoomHost = window.roomPlayers[0] && window.roomPlayers[0].uid === p.uid;
+        if (!isRoomHost) tip += ' · ' + (p.canEdit ? tipTr('mp_avatar_edit', 'can edit') : tipTr('mp_avatar_view', 'view only'));
+        const pid = String(p.peerId || '').replace(/'/g, '');
+        const pname = String(p.name || '').replace(/\\/g, '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
         htmlBuilder += `
-            <div title="Click to spectate ${p.name}" 
-                 onclick="toggleSpectatorMode('${p.peerId}', '${p.name.replace(/'/g, "\\'")}')"
+            <div class="mp-live-av${p.canEdit && !isRoomHost ? ' can-edit' : ''}${isRoomHost ? ' is-host' : ''}" title="${esc(tip)}" 
+                 onclick="toggleSpectatorMode('${pid}', '${pname}')"
+                 oncontextmenu="event.preventDefault(); mpGoToPlayer('${pid}'); return false;"
                  style="
                 width: 28px; height: 28px; border-radius: 50%; border: ${borderWidth} solid ${borderColor};
                 background-color: #34495e; background-image: url('${p.pfp}'); background-size: cover; background-position: center; 
                 margin-left: ${marginLeft}; z-index: ${zIndex}; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.3); 
-                transform: ${scale}; transition: 0.2s;" 
+                transform: ${scale}; transition: 0.2s; position: relative; flex: none;" 
                  onmouseover="this.style.transform='translateY(-2px) ${scale}'" 
                  onmouseout="this.style.transform='translateY(0) ${scale}'">
             </div>

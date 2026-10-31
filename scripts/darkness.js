@@ -7,7 +7,7 @@
 // · Auras: alrededor del jugador y de algunas luces la oscuridad no llega (un círculo con borde suave):
 //     antorcha = radio grande · antorcha de redstone = radio chico · lámpara de redstone encendida y jack o'lantern = radio grande
 //     coral lantern = radio grande y además un brillo magenta · odd torch = al revés: hace un círculo de OSCURIDAD mediano.
-//     glowstone, lava y ácido = la misma luz que la antorcha (radio grande, sin color).
+//     glowstone, fuego, lava y ácido = la misma luz que la antorcha (radio grande, sin color).
 // · Biomas: una franja de colores arriba del mundo con el bioma de cada columna (biomeList del mundo). Pestaña View, grupo "Biomes".
 //
 // Cómo se dibuja (rápido): se arma una imagen chiquita con UN píxel por cuadro del mundo (negro con más o menos transparencia)
@@ -39,6 +39,7 @@
         jack: { r: 6.5 },
         coral: { r: 6, color: [255, 70, 225], glow: 0.6 },
         glowstone: { r: 6.5 },                 // glowstone, lava y ácido: la misma luz que la antorcha
+        fire: { r: 6.5 },                      // el fuego también: como una antorcha
         lava: { r: 6.5, group: 3 },            // group: en lagos grandes, una luz por cada cuadro de 3 x 3 (rápido)
         acid: { r: 6.5, group: 3 },
         odd: { r: 4.5, dark: 0.75 },
@@ -58,6 +59,9 @@
         add(['jl'], 'jack');
         add(['lant_1', 'lant_2', 'lant_3', 'lant'], 'coral');
         add(['glow'], 'glowstone');
+        add(['fire'], 'fire');
+        // el fuego es animado: en el mundo cada bloque de fuego guarda la "señal" de su animación (scripts/rendering.js)
+        if (window.blockAnim && window.blockAnim.live && window.blockAnim.live.fire) m.set(window.blockAnim.live.fire, 'fire');
         const liquid = (base, kind) => Object.keys(TM).forEach(k => { if (k === base || new RegExp('^' + base + '_[0-9]+n?$').test(k)) m.set(TM[k], kind); });
         liquid('la', 'lava');
         liquid('ad', 'acid');

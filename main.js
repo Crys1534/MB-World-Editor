@@ -115,6 +115,15 @@ window.onload = resizeCanvas;
 
 function updateZoomSlider(value) {
     const index = parseInt(value);
+    // 👁 con la relación de aspecto puesta el zoom no cambia (scripts/aspect-view.js)
+    if (window.mbwAspect && window.mbwAspect.active && ZOOM_LEVELS[index] !== currentZoom) {
+        const back = ZOOM_LEVELS.indexOf(currentZoom);
+        if (back >= 0) currentZoomIndex = back;      // (algunos botones ya habían movido el número antes de llamar aquí)
+        const sl = document.getElementById('zoom-slider');
+        if (sl) sl.value = currentZoomIndex;
+        window.mbwAspect.zoomBlocked();
+        return;
+    }
     if (ZOOM_LEVELS[index] !== undefined) {
         currentZoom = ZOOM_LEVELS[index];
         currentZoomIndex = index;
@@ -1141,7 +1150,7 @@ function drawUI() {
         }
     }
     
-    if (typeof currentTool !== 'undefined' && currentTool !== 'paste' && currentTool !== 'select' && currentTool !== 'lasso') {
+    if (typeof currentTool !== 'undefined' && currentTool !== 'paste' && currentTool !== 'select' && currentTool !== 'lasso' && currentTool !== 'aspect') {
         // Solo el Lápiz y el Borrador usan el tamaño del pincel; Move, Cubeta y Varita actúan sobre 1 sola casilla
         const size = ((currentTool === 'pencil' || currentTool === 'eraser') && typeof toolSize !== 'undefined') ? toolSize : 1;
         
@@ -1543,18 +1552,27 @@ function mainLoop(ts) {
     
     if (typeof drawUI === 'function') drawUI();
     
+    // 👥 lo que seleccionan los demás jugadores (scripts/mp-live.js)
+    if (typeof isMultiplayer !== 'undefined' && isMultiplayer && typeof window.mpDrawRemoteSelections === 'function') {
+        try { window.mpDrawRemoteSelections(ctx); } catch (e) { /* nada */ }
+    }
+
     if (typeof isMultiplayer !== 'undefined' && isMultiplayer && window.networkCursors) {
         let ahora = Date.now();
-        for (let autor in window.networkCursors) {
-            let cursor = window.networkCursors[autor];
+        for (let key in window.networkCursors) {
+            let cursor = window.networkCursors[key];
             if (ahora - cursor.lastUpdate > 60000) continue; 
+            if (typeof window.mpCursorVisible === 'function' && !window.mpCursorVisible(key, cursor)) continue;   // otra dimensión u otro mundo
+            const autor = cursor.name || key;
+            const pc = typeof window.mpPlayerColor === 'function' ? window.mpPlayerColor(autor) : "#4DA6FF";
+            const pcA = typeof window.mpPlayerColor === 'function' ? window.mpPlayerColor(autor, 0.35) : "rgba(77, 166, 255, 0.4)";
 
             let screenX = (cursor.x - camera.x) * tileSize;
             let screenY = canvas.height - ((cursor.y - camera.y) * tileSize) - tileSize;
 
-            ctx.fillStyle = "rgba(77, 166, 255, 0.4)";
+            ctx.fillStyle = pcA;
             ctx.fillRect(screenX, screenY, tileSize, tileSize);
-            ctx.strokeStyle = "#4DA6FF";
+            ctx.strokeStyle = pc;
             ctx.strokeRect(screenX, screenY, tileSize, tileSize);
 
             ctx.fillStyle = "white";
@@ -1587,6 +1605,9 @@ function mainLoop(ts) {
             ctx.restore();
         }
     }
+
+    // 👁 Relación de aspecto: solo se ve el área elegida (scripts/aspect-view.js)
+    if (window.mbwAspect) { try { window.mbwAspect.draw(ctx); } catch (e) { /* nada */ } }
     
     requestAnimationFrame(mainLoop);
 }
@@ -1661,6 +1682,7 @@ const canvasElement = document.getElementById('canvas');
 if (canvasElement) {
     canvasElement.addEventListener('wheel', function(e) {
         e.preventDefault(); 
+        if (window.mbwAspect && window.mbwAspect.active) { window.mbwAspect.zoomBlocked(); return; }   // 👁 zoom bloqueado
 
         let mX = (typeof mouse !== 'undefined' && mouse.canvasX !== null) ? mouse.canvasX : canvasElement.width / 2;
         let mY = (typeof mouse !== 'undefined' && mouse.canvasY !== null) ? mouse.canvasY : canvasElement.height / 2;

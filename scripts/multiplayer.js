@@ -1,4 +1,5 @@
 window.spectatingTargetId = null; // Rastrea a quién vemos
+window.mpWithServerTab = window.mpWithServerTab || function (fn) { return fn(); };   // (la de verdad está en scripts/mp-live.js)
 window.mySpectators = new Set(); // Rastrea quién NOS está viendo a nosotros
 
 // Función para activar/desactivar el espectador
@@ -400,6 +401,8 @@ window.hostMultiplayerSession = function() {
 
     isHost = true;
     misClientes = []; 
+    window.mpEditPerms = {};      // quién puede editar el mundo (por defecto nadie: solo ver)
+    if (typeof window.mpMarkServerTab === 'function') window.mpMarkServerTab();   // la pestaña de este mundo es la del servidor
     
     // ✨ MAGIA: Generamos una ID de exactamente 8 caracteres (mayúsculas, minúsculas y números)
     const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -517,18 +520,22 @@ window.disconnectFromMultiplayer = function(silent) {
 
     // 1. Apagar conexiones P2P (PeerJS)
     if (miConexionAlHost) {
+        miConexionAlHost.__byMe = true;   // (al cerrarla yo, no sale el aviso de "Desconectado del servidor")
         miConexionAlHost.close();
         miConexionAlHost = null;
     }
     
     if (misClientes && misClientes.length > 0) {
-        misClientes.forEach(c => c.close());
+        misClientes.forEach(c => { try { c.send({ tipo: "servidor_cerrado" }); } catch (e) { /* nada */ } });
+        const cs = misClientes;
+        setTimeout(() => cs.forEach(c => { try { c.close(); } catch (e) { /* nada */ } }), 150);
         misClientes = [];
     }
 
     if (peer) {
-        peer.destroy();
+        const old = peer;
         peer = null;
+        setTimeout(() => { try { old.destroy(); } catch (e) { /* nada */ } }, 200);
     }
 
     // 2. Borrar mi sala de Firebase si yo era el Host
@@ -545,6 +552,7 @@ window.disconnectFromMultiplayer = function(silent) {
     window.networkCursors = {}; // ¡Matamos los cursores fantasmas!
     window.spectatingTargetId = null;
     window.mySpectators.clear();
+    if (typeof window.mpLiveReset === 'function') window.mpLiveReset();   // cámaras, selecciones y pestaña del servidor (scripts/mp-live.js)
 
     // 4. Limpiar la Interfaz Visual
     window.renderLivePlayers(); 
@@ -580,9 +588,17 @@ function setupHostConnection(conn) {
     });
 
     conn.on('data', function(data) {
-        if (data && data.tipo === "player_info" && !conn.__mapSent) {
+        if (!data || typeof data !== 'object') return;
+        if (data.tipo === "player_info" && !conn.__mapSent) {
             conn.__mapSent = true;
+            conn.__gz = !!data.gz;
             if (data.mapV >= 2) mpSendWorld(conn, !!data.gz); else mpSendWorldLegacy(conn);
+        }
+        // 🔒 Permisos: un jugador que solo puede VER no cambia el mundo. Si de todos modos llega un cambio suyo,
+        // no se aplica ni se pasa a los demás, y a él se le regresa cómo está de verdad (su editor queda igual que el del anfitrión).
+        if (mpIsWorldChange(data) && !mpPeerCanEdit(conn.peer)) {
+            mpCorrectGuest(conn, data);
+            return;
         }
         recibirMensajeDeRed(data);
         if (!data.retransmitido) {
@@ -596,10 +612,11 @@ function setupHostConnection(conn) {
         misClientes = misClientes.filter(c => c.peer !== conn.peer);
         window.roomPlayers = window.roomPlayers.filter(p => p.peerId !== conn.peer);
         
-        // 🗑️ ¡Eliminar el cursor fantasma!
+        // 🗑️ ¡Eliminar el cursor fantasma! (y su cámara y su selección)
         if (window.networkCursors && window.networkCursors[conn.peer]) {
             delete window.networkCursors[conn.peer];
         }
+        if (typeof window.mpForgetPeer === 'function') window.mpForgetPeer(conn.peer);
 
         renderLivePlayers();
         enviarMensajeEnRed({ tipo: "sync_players", players: window.roomPlayers });
@@ -629,12 +646,15 @@ async function mpGunzip(bytes) {
     return new Uint8Array(await out.arrayBuffer());
 }
 function mpSendWorldLegacy(conn) {
-    if (typeof mbwom !== 'undefined' && mbwom.world) conn.send({ tipo: "sync_mundo", mundo: mbwom.world });
+    window.mpWithServerTab(function () {
+        if (typeof mbwom !== 'undefined' && mbwom.world) conn.send({ tipo: "sync_mundo", mundo: mbwom.world });
+    });
 }
 async function mpSendWorld(conn, canGzip) {
     try {
         if (typeof mbwom === 'undefined' || !mbwom.world || typeof fileManager === 'undefined') return;
-        const prepared = fileManager.prepareNetworkJson();   // el mundo de ahora (últimos cambios y ajustes; mobs con sus nombres de siempre)
+        // (si el anfitrión está viendo otro mundo en otra pestaña, se manda el del servidor, no ese)
+        const prepared = window.mpWithServerTab(() => fileManager.prepareNetworkJson());   // el mundo de ahora (últimos cambios y ajustes; mobs con sus nombres de siempre)
         if (!prepared || !prepared.json) { mpSendWorldLegacy(conn); return; }
         let bytes = new TextEncoder().encode(prepared.json);
         const raw = bytes.length;
@@ -696,6 +716,7 @@ async function mpFinishMap(dl) {
         const bytes = dl.enc === 'gzip' ? await mpGunzip(all) : all;
         const json = new TextDecoder().decode(bytes);
         await window.loadWorldFromJson(json, (dl.name || 'Multiplayer World') + '.mbw');
+        if (typeof window.mpMarkServerTab === 'function') window.mpMarkServerTab();   // esta pestaña es la del servidor
         window.mpMapDownload = null;
         dl.queue.forEach(d => { try { recibirMensajeDeRed(d); } catch (e) { /* nada */ } });
         if (typeof window.mpResetWorldWatch === 'function') window.mpResetWorldWatch();
@@ -760,8 +781,19 @@ function mpApplyWorldFields(campos) {
 setInterval(function () {
     if (typeof isMultiplayer === 'undefined' || !isMultiplayer || window.mpMapDownload) { mpSnap = null; return; }
     if (typeof mbwom === 'undefined' || !mbwom.world) return;
+    if (typeof window.mpOnServerTab === 'function' && !window.mpOnServerTab()) { mpSnap = null; return; }   // viendo otro mundo
     const now = mpTakeSnap();
     if (!mpSnap) { mpSnap = now; return; }
+    // Solo puedo ver: lo que cambié a mano (ajustes, Player, inventario...) regresa a como está en el servidor
+    if (!isHost && typeof window.mpCanEdit === 'function' && !window.mpCanEdit()) {
+        let reverted = false;
+        Object.keys(now.c).forEach(id => { if (now.c[id] !== mpSnap.c[id]) { mpApplyControl(id, mpSnap.c[id]); reverted = true; } });
+        const campos = {}; let any = false;
+        Object.keys(now.f).forEach(k => { if (now.f[k] !== mpSnap.f[k]) { campos[k] = JSON.parse(mpSnap.f[k]); any = true; } });
+        if (any) { mpApplyWorldFields(campos); reverted = true; }
+        if (reverted && typeof window.mpViewOnlyNotice === 'function') window.mpViewOnlyNotice();
+        return;
+    }
     Object.keys(now.c).forEach(id => { if (now.c[id] !== mpSnap.c[id]) enviarMensajeEnRed({ tipo: 'ajuste', id: id, valor: now.c[id] }); });
     const campos = {}; let any = false;
     Object.keys(now.f).forEach(k => { if (now.f[k] !== mpSnap.f[k]) { campos[k] = JSON.parse(now.f[k]); any = true; } });
@@ -792,10 +824,12 @@ function setupClientConnection(conn) {
     });
 
     conn.on('data', function(data) {
-        if (data.tipo === "error_conexion") { alert(data.mensaje); conn.close(); return; }
+        if (data.tipo === "error_conexion") { conn.__byMe = true; alert(data.mensaje); conn.close(); return; }
+        if (data.tipo === "servidor_cerrado") { conn.__hostClosed = true; return; }
         
         // ✨ NUEVO: Si recibimos la señal de expulsión, nos desconectamos
         if (data.tipo === "kicked") { 
+            conn.__kicked = true;
             alert(data.mensaje); 
             if (peer) peer.destroy(); // Esto rompe la conexión totalmente
             return; 
@@ -806,17 +840,21 @@ function setupClientConnection(conn) {
     });
 
     conn.on('close', function() {
+        if (conn.__byMe) return;          // la cerré yo (Salir, o cerré la pestaña del mundo): ya se limpió todo
+        if (miConexionAlHost && miConexionAlHost !== conn) return;   // (es una conexión vieja: ya estoy en otro servidor)
         // ✨ FIX FASE 5: Limpieza total al perder conexión con el Host
         isMultiplayer = false; 
         miConexionAlHost = null;
         window.roomPlayers = []; 
         window.networkCursors = {}; // Borramos todos los cursores porque el server cerró
         window.spectatingTargetId = null;
+        if (typeof window.mpLiveReset === 'function') window.mpLiveReset();
 
         renderLivePlayers();
         const statusText = document.getElementById('multiplayer-status');
         if (statusText) { statusText.innerText = "Status: Disconnected 🔴"; statusText.style.color = "#e74c3c"; }
-        alert(tmsg('msg_disconnected', "Disconnected from Server."));
+        if (conn.__kicked) return;
+        alert(conn.__hostClosed ? tmsg('msg_host_closed', "The host closed the server.") : tmsg('msg_disconnected', "Disconnected from Server."));
     });
 }
 
@@ -824,8 +862,53 @@ function setupClientConnection(conn) {
 
 // FUNCIONES DE RED INTERNAS
 const MP_WORLD_MSG = /^(actualizar_bloque|accion_(?!vehiculo))/;   // (las vagonetas/balsas ya mandan su dimensión)
+
+// ¿Este mensaje cambia el mundo? (bloques, mobs, vagonetas, ajustes del mundo, Player...)
+function mpIsWorldChange(d) {
+    if (!d || typeof d.tipo !== 'string') return false;
+    return d.tipo === 'actualizar_bloque' || d.tipo.indexOf('accion_') === 0 || d.tipo === 'mundo_campos' || d.tipo === 'ajuste';
+}
+// (anfitrión) ¿ese jugador tiene permiso de editar?
+function mpPeerCanEdit(peerId) {
+    const p = (window.roomPlayers || []).find(x => x.peerId === peerId);
+    return !!(p && p.canEdit);
+}
+// (anfitrión) Un jugador sin permiso mandó un cambio: se le regresa cómo está eso en el mundo de verdad,
+// para que su editor no se quede distinto al de los demás.
+function mpCorrectGuest(conn, d) {
+    if (!conn || !conn.open) return;
+    const scene = Number(d.scene) || (typeof mbwom !== 'undefined' && mbwom.currentScene) || 1;
+    const out = [];
+    try {
+        window.mpWithServerTab(function () {
+            const run = (fn) => (scene === (mbwom.currentScene || 1)) ? fn() : mpInScene(scene, fn);
+            run(function () {
+                const st = (x, y) => { const v = mbwom.getBlockState(x, y); return v ? JSON.parse(JSON.stringify(v)) : null; };
+                if (d.tipo === 'actualizar_bloque') out.push({ tipo: 'actualizar_bloque', x: d.x, y: d.y, estado: st(d.x, d.y), scene: scene });
+                else if (d.tipo === 'accion_lote' && Array.isArray(d.cambios)) out.push({ tipo: 'accion_lote', cambios: d.cambios.map(c => [c[0], c[1], st(c[0], c[1])]), scene: scene });
+                else if (d.tipo === 'accion_spawn_mob') { if (!(mbwom.mobs && mbwom.mobs[d.id])) out.push({ tipo: 'accion_eliminar_mob', id: d.id, scene: scene }); }
+                else if (d.tipo === 'accion_eliminar_mob') { const m = mbwom.mobs && mbwom.mobs[d.id]; if (m) out.push({ tipo: 'accion_spawn_mob', id: d.id, mob: JSON.parse(JSON.stringify(m)), scene: scene }); }
+                else if (d.tipo === 'accion_mover_mob' || d.tipo === 'accion_mover_mob_live') { const m = mbwom.mobs && mbwom.mobs[d.id]; if (m) out.push({ tipo: 'accion_mover_mob', id: d.id, x: m.x, y: m.y, scene: scene }); }
+                else if (d.tipo === 'ajuste') { const el = document.getElementById(d.id); if (el) out.push({ tipo: 'ajuste', id: d.id, valor: mpControlValue(el) }); }
+                else if (d.tipo === 'mundo_campos' && d.campos) {
+                    const campos = {};
+                    Object.keys(d.campos).forEach(k => { campos[k] = mbwom.world[k] === undefined ? null : JSON.parse(JSON.stringify(mbwom.world[k])); });
+                    out.push({ tipo: 'mundo_campos', campos: campos });
+                }
+            });
+        });
+    } catch (e) { /* nada */ }
+    out.forEach(m => { m.retransmitido = true; try { conn.send(m); } catch (e) { /* nada */ } });
+    try { conn.send({ tipo: 'solo_ver' }); } catch (e) { /* nada */ }
+}
 window.enviarMensajeEnRed = function(datos) {
     if (!isMultiplayer) return;
+    if (datos && mpIsWorldChange(datos)) {
+        // lo que se hace en OTRO mundo (otra pestaña) no es del servidor: no se manda
+        if (typeof window.mpOnServerTab === 'function' && !window.mpOnServerTab()) return;
+        // un jugador que solo puede ver no manda cambios (por si alguno se escapó de los bloqueos)
+        if (!isHost && typeof window.mpCanEdit === 'function' && !window.mpCanEdit()) return;
+    }
     // cada cambio del mundo dice en qué dimensión se hizo (cada jugador puede estar viendo otra)
     if (datos && MP_WORLD_MSG.test(datos.tipo) && datos.scene == null && typeof mbwom !== 'undefined') datos.scene = mbwom.currentScene || 1;
     if (isHost) {
@@ -855,6 +938,9 @@ function mpInScene(scene, fn) {
 }
 
 function recibirMensajeDeRed(datos) {
+    if (!datos || typeof datos !== 'object') return;
+    // ¿el mundo del servidor está en otra pestaña (estoy viendo otro mundo)? Sus cambios se guardan y se aplican al volver.
+    if (mpIsWorldChange(datos) && typeof window.mpQueueIfAway === 'function' && window.mpQueueIfAway(datos)) return;
     if (datos && datos.scene && MP_WORLD_MSG.test(datos.tipo) && typeof mbwom !== 'undefined' && mbwom.world && typeof mbwom.loadScene === 'function') {
         const s = Number(datos.scene) || 1;
         if (s !== (mbwom.currentScene || 1) && s >= 1 && s <= 3) {
@@ -864,9 +950,10 @@ function recibirMensajeDeRed(datos) {
         }
     }
     if (datos.tipo === "player_info" && isHost) {
-        if (!window.roomPlayers.find(p => p.uid === datos.uid)) {
-            window.roomPlayers.push({ uid: datos.uid, name: datos.name, pfp: datos.pfp, peerId: datos.peerId });
-        }
+        const known = window.roomPlayers.find(p => p.uid === datos.uid);
+        if (!known) {
+            window.roomPlayers.push({ uid: datos.uid, name: datos.name, pfp: datos.pfp, peerId: datos.peerId, canEdit: !!(window.mpEditPerms && window.mpEditPerms[datos.uid]) });
+        } else { known.peerId = datos.peerId; known.name = datos.name; known.pfp = datos.pfp; }
         renderLivePlayers(); 
         enviarMensajeEnRed({ tipo: "sync_players", players: window.roomPlayers }); 
         if (typeof window.renderPresenceList === 'function') window.renderPresenceList(); // ✨ FIX: Refrescar botones
@@ -874,6 +961,7 @@ function recibirMensajeDeRed(datos) {
     
     if (datos.tipo === "sync_players") {
         window.roomPlayers = datos.players;
+        if (typeof window.mpAfterPlayersSync === 'function') window.mpAfterPlayersSync();   // ¿cambió mi permiso? ¿se fue a quien veía?
         renderLivePlayers();
         if (typeof window.renderPresenceList === 'function') window.renderPresenceList(); // ✨ FIX: Refrescar botones
     }
@@ -902,6 +990,7 @@ function recibirMensajeDeRed(datos) {
         if (!window.isMainLoopRunning && typeof mainLoop === 'function') { mainLoop(); window.isMainLoopRunning = true; }
         const filenameDisplay = document.getElementById("filename-display"); 
         if (filenameDisplay && mbwom.world.fileInfo) filenameDisplay.value = mbwom.world.fileInfo.name || "Multiplayer World";
+        if (typeof window.mpMarkServerTab === 'function') window.mpMarkServerTab();
         if (typeof closeFileMenu === 'function') closeFileMenu();
         alert(tmsg('msg_map_downloaded', "Map downloaded successfully! Welcome to the server."));
     }
@@ -948,9 +1037,13 @@ function recibirMensajeDeRed(datos) {
     }
 
     if (datos.tipo === "cursor") {
-        window.networkCursors[datos.autor] = { x: datos.x, y: datos.y, lastUpdate: Date.now() };
+        const key = datos.peerId || datos.autor;
+        window.networkCursors[key] = { x: datos.x, y: datos.y, name: datos.autor, scene: datos.s || 0, lastUpdate: Date.now() };
         if (typeof worldDirty !== 'undefined') worldDirty = true;
     }
+    if (datos.tipo === "camara" && typeof window.mpOnCamera === 'function') window.mpOnCamera(datos);
+    if (datos.tipo === "solo_ver" && typeof window.mpViewOnlyNotice === 'function') window.mpViewOnlyNotice();
+    if (datos.tipo === "seleccion" && typeof window.mpOnSelection === 'function') window.mpOnSelection(datos);
 	
 	// ✨ RECIBIR ALERTA DE ESPECTADOR
     if (datos.tipo === "spectator_update") {
@@ -1817,9 +1910,12 @@ window.sendNetworkCursorOptimized = function(exactWorldX, exactWorldY) {
     // Solo enviamos datos si han pasado al menos 50 milisegundos (aprox 20 FPS para el cursor)
     if (now - window.lastCursorSendTime > 50) { 
         const myName = localStorage.getItem('mbw_username') || "Player";
+        if (typeof window.mpOnServerTab === 'function' && !window.mpOnServerTab()) return;   // viendo otro mundo: el cursor no es de aquí
         enviarMensajeEnRed({
             tipo: "cursor",
             autor: myName,
+            peerId: peer ? peer.id : null,
+            s: (typeof mbwom !== 'undefined' && mbwom.currentScene) || 1,
             x: exactWorldX,
             y: exactWorldY
         });

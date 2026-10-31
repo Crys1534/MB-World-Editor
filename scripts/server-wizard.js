@@ -130,6 +130,9 @@
             h += '<div class="sw-live-head"><span class="sw-dot' + (hosting() ? '' : ' sw-dot-wait') + '"></span>' + esc(hosting() ? tr('sw_running', 'Server running') : tr('sw_starting', 'Starting...')) + '</div>';
             h += '<div class="sw-live-stats" id="sw-live-stats">' + esc(tr('sw_players_now', 'Players: {n}/{max}', { n: n, max: max })) + '</div>';
             h += optionsHTML();
+            h += '<div class="sw-label">' + esc(tr('sw_in_server', 'Players in your world')) + '</div>';
+            h += '<div id="sw-perm-list" class="sw-invite-list sw-perm-list">' + permRows() + '</div>';
+            h += '<p class="sw-info">' + esc(tr('sw_perm_hint', 'New players can only watch. Choose Edit to let someone change the world.')) + '</p>';
             h += '<div class="sw-label">' + esc(tr('sw_invite_players', 'Invite players')) + '</div>';
             h += '<div id="sw-invite-list" class="sw-invite-list">' + inviteRows() + '</div>';
             h += '<p class="sw-info">' + esc(tr('sw_ask_hint', 'Players can also press Join next to your name in the Online list to ask to come in.')) + '</p>';
@@ -144,6 +147,9 @@
         const cl = $('sw-close'); if (cl) cl.onclick = () => SW.close();
         const ts = $('sw-to-servers'); if (ts) ts.onclick = () => setMpView('join');
         R.querySelectorAll('.sw-inv-btn').forEach(b => { b.onclick = (e) => SW.invite(b.dataset.uid, b.dataset.name, e); });
+        R.querySelectorAll('.sw-perm-seg .sw-seg-btn').forEach(b => {
+            b.onclick = () => { if (typeof window.mpSetCanEdit === 'function') window.mpSetCanEdit(b.dataset.uid, b.dataset.can === '1'); renderRight(); };
+        });
         const ch = $('sw-change'); if (ch) ch.style.display = live ? 'none' : '';
     }
     function renderLeft() {
@@ -172,6 +178,23 @@
         if (hosting() && window.myRoomRef) window.myRoomRef.update({ access: a });
         renderRight();
     };
+
+    // ------------------------------------------------------------------ los que ya están: ¿solo ven o pueden editar?
+    function permRows() {
+        const me = localStorage.getItem('mbw_uid');
+        const list = (window.roomPlayers || []).filter(p => p && p.uid && p.uid !== me);
+        if (!list.length) return '<p class="sw-empty">' + esc(tr('sw_no_players_yet', 'Nobody has joined yet.')) + '</p>';
+        return list.map(p => {
+            const pfp = (window.isRealPfp && window.isRealPfp(p.pfp)) ? p.pfp : 'assets/default pfp.png';
+            const can = !!p.canEdit;
+            return '<div class="sw-inv-row"><span class="sw-inv-av" style="background-image:url(&quot;' + esc(pfp) + '&quot;)"></span>' +
+                '<span class="sw-inv-name">' + esc(p.name || 'Player') + '</span>' +
+                '<span class="sw-seg sw-perm-seg">' +
+                '<button type="button" class="sw-seg-btn' + (can ? '' : ' on') + '" data-uid="' + esc(p.uid) + '" data-can="0">👁 ' + esc(tr('sw_perm_view', 'View')) + '</button>' +
+                '<button type="button" class="sw-seg-btn' + (can ? ' on' : '') + '" data-uid="' + esc(p.uid) + '" data-can="1">✏️ ' + esc(tr('sw_perm_edit', 'Edit')) + '</button>' +
+                '</span></div>';
+        }).join('');
+    }
 
     // ------------------------------------------------------------------ a quién invitar (ya iniciado)
     function inviteRows() {
@@ -291,7 +314,7 @@
             let last = '';
             SW.timer = setInterval(() => {
                 if (!isVisible()) { clearInterval(SW.timer); SW.timer = null; return; }
-                const key = [hosting(), starting(), (window.roomPlayers || []).length, window.multiplayerPlayerLimit, window.multiplayerAccess, Object.keys(window.lastKnownUsers || {}).join(',')].join('|');
+                const key = [hosting(), starting(), (window.roomPlayers || []).map(p => p.uid + (p.canEdit ? '+' : '-')).join(','), window.multiplayerPlayerLimit, window.multiplayerAccess, Object.keys(window.lastKnownUsers || {}).join(',')].join('|');
                 if (key !== last) { last = key; renderRight(); }
             }, 700);
         }
