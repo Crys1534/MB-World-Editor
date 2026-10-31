@@ -225,7 +225,7 @@ body.theme-win7 .tool-btn.active {
    ========================================= */
 
 body {
- /* Medidas del lienzo: de fábrica son las de siempre; el Modo Zen y los paneles flotantes las cambian (ver "MODO ZEN" al final) */
+ /* Medidas del lienzo: de fábrica son las de siempre; los paneles flotantes las cambian (ver "PANELES FLOTANTES" al final) */
  --ws-top: 202px;
  --ws-left: 41px;
  --ws-bottom: 22px;
@@ -1605,44 +1605,15 @@ button:hover {
 }
 
 /* =========================================
-   MODO ZEN · PANELES FLOTANTES · AUTO-OCULTAR (Ronda 13)
+   PANELES FLOTANTES (Ronda 13; el Modo Zen se quitó en la ronda 58)
    Clases que pone scripts/ui-modes.js en <body>:
-     zen-mode         -> pantalla completa para trabajar: el mundo ocupa toda la ventana y las barras (arriba, izquierda, abajo)
-                         se esconden y salen solas al acercar el mouse a su borde
-     float-panels     -> la barra lateral y la hotbar flotan sobre el mundo (lo elige la persona, también fuera del Zen)
-     panels-floating  -> lo mismo, pero también se pone sola en Zen
-     ui-autohide      -> lo pone el Zen: las barras están escondidas y salen con reveal-*
-     reveal-top / reveal-left / reveal-bottom -> qué borde está enseñando su barra ahora mismo
+     float-panels / panels-floating -> la barra lateral y la hotbar flotan sobre el mundo
      is-fullscreen    -> el editor está en pantalla completa
    ========================================= */
 :root { --panel-opacity: 0.85; }
 
 /* El lienzo ocupa el espacio que dejan libre las barras */
-body.zen-mode { --ws-top: 0px; --ws-bottom: 0px; }
 body.panels-floating { --ws-left: 0px; }
-
-/* --- Zen: la barra de arriba, las pestañas, la cinta y la barra de estado no ocupan lugar (ver "Auto-ocultar" más abajo) --- */
-
-#zen-exit-btn {
-    display: none;
-    position: fixed;
-    top: 6px;
-    right: 10px;
-    z-index: 99;   /* por debajo de las ventanas (modal = 100) */
-    background: rgba(20, 20, 20, 0.55);
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    border-radius: 14px;
-    padding: 2px 10px;
-    font-size: 13px;
-    cursor: pointer;
-    opacity: 0.3;
-    transition: opacity 0.2s;
-}
-#zen-exit-btn:hover, #zen-exit-btn:focus-visible { opacity: 1; }
-body.zen-mode #zen-exit-btn { display: block; }
-/* con la barra de arriba a la vista el botoncito taparía el botón News: se esconde mientras tanto */
-body.reveal-top #zen-exit-btn { opacity: 0; pointer-events: none; }
 
 .status-btn.active { background: rgba(255, 255, 255, 0.28); }
 
@@ -1743,30 +1714,6 @@ body.is-touch #float-inv-btn .inv-btn-key { display: none; }   /* en el celular 
 #modal-hotbar-container .mhb-trash.slot-flash { animation: trashFlash 0.4s ease; }
 @keyframes trashFlash { 0% { background: #8B8B8B; } 35% { background: #D9534F; } 100% { background: #8B8B8B; } }
 
-/* --- Auto-ocultar (dentro del Zen): las barras salen al acercar el mouse al borde --- */
-body.ui-autohide #top-area {
-    position: fixed;
-    top: calc(-8px - var(--top-area-h, 210px));
-    left: 0;
-    right: 0;
-    z-index: 99;   /* encima de la barra lateral (98), debajo de las ventanas (modal = 100) */
-    transition: top 0.18s ease;
-}
-body.ui-autohide.reveal-top #top-area {
-    top: 0;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
-}
-body.ui-autohide #toolbar-sidebar {
-    left: -70px;
-    transition: left 0.18s ease;
-}
-body.ui-autohide.reveal-left #toolbar-sidebar { left: 8px; }
-body.ui-autohide #status-bar {
-    bottom: -30px;
-    transition: bottom 0.18s ease;
-}
-body.ui-autohide.reveal-bottom #status-bar { bottom: 0; }
-
 /* --- Globito discreto de mensajes nuevos --- */
 #msg-bubble {
     display: none;
@@ -1792,7 +1739,6 @@ body.ui-autohide.reveal-bottom #status-bar { bottom: 0; }
 }
 #msg-bubble.show { display: flex; }
 #msg-bubble.in { opacity: 1; transform: translateY(0); }
-body.zen-mode #msg-bubble { bottom: 14px; }
 #msg-bubble .mb-pfp {
     width: 26px; height: 26px; flex: 0 0 26px;
     border-radius: 50%;
@@ -2896,7 +2842,6 @@ body.is-touch button, body.is-touch .tab-btn, body.is-touch .hotbar-slot, body.i
 
 /* ---------------- celular acostado ---------------- */
 body.is-phone { --ws-top: var(--m-top, 66px); --ws-bottom: 0px; }
-body.is-phone.zen-mode { --ws-top: 0px; }
 body.is-phone #status-bar { display: none; }
 /* barra de arriba: solo íconos */
 body.is-phone #top-bar { height: 32px; padding: 0 4px; }
@@ -3027,7 +2972,7 @@ body.top-hidden #top-area { display: none !important; }
 #top-toggle:hover { background: rgba(59, 130, 246, 0.95); color: #fff; }
 body.is-touch #top-toggle { opacity: 0.9; pointer-events: auto; width: 56px; height: 21px; }
 body.is-touch #top-toggle svg { width: 17px; height: 17px; }
-body.zen-mode #top-toggle, body.ribbon-open #top-toggle { display: none; }
+body.ribbon-open #top-toggle { display: none; }
 
 /* ============ 👥 Multijugador en vivo (scripts/mp-live.js) ============ */
 /* avisos arriba del mundo: "Viendo a ..." y "Solo ver" */

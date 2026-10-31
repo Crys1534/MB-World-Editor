@@ -789,7 +789,7 @@ const i18n = {
         "tooltip_zoom_out": "Zoom Out",
         "tooltip_zoom_in": "Zoom In",
         "tooltip_zoom_reset": "Click to Reset",
-        "tooltip_fullscreen": "Fullscreen + Zen mode",
+        "tooltip_fullscreen": "Fullscreen",
 
         // --- PROFILE ---
         "profile_title": "My Profile",
@@ -1783,7 +1783,7 @@ const i18n = {
         "tooltip_zoom_out": "Alejar",
         "tooltip_zoom_in": "Acercar",
         "tooltip_zoom_reset": "Restablecer",
-        "tooltip_fullscreen": "Pantalla Completa + Modo Zen",
+        "tooltip_fullscreen": "Pantalla completa",
 
         // --- PROFILE ---
         "profile_title": "Mi Perfil",
@@ -2779,7 +2779,7 @@ const i18n = {
         "tooltip_zoom_out": "Menos Zoom",
         "tooltip_zoom_in": "Mais Zoom",
         "tooltip_zoom_reset": "Clique para Restaurar",
-        "tooltip_fullscreen": "Tela Cheia + Modo Zen",
+        "tooltip_fullscreen": "Tela cheia",
 
         // --- PROFILE ---
         "profile_title": "Meu Perfil",

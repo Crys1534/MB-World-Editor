@@ -164,8 +164,8 @@ window.addEventListener("keydown", function (event) {
     if (keys.hasOwnProperty(event.code)) keys[event.code] = true;
 
     if (event.code === 'Tab') {
-        // Tab es el teletransporte de la cámara; si la persona le puso Tab al Modo Zen (Settings > Controls), manda el Zen
-        if (!keybindMatches(event, 'zen', 'h')) teleportSwitch();
+        // Tab es el teletransporte de la cámara
+        teleportSwitch();
         event.preventDefault();
     }
 
@@ -238,8 +238,6 @@ window.addEventListener("keydown", function (event) {
     if (keybindMatches(event, 'mobs', 'm')) { event.preventDefault(); try { openMobModal(); } catch(e) { } }
     // R: gira el bloque de la barra rápida (el mismo trabajo que el botón Rotate); si el bloque no se puede girar, no pasa nada
     if (keybindMatches(event, 'rotate', 'r')) { event.preventDefault(); try { rotateHeldBlock(); } catch(e) { } }
-    // H (de fábrica): Modo Zen. Si se deja la tecla apretada no parpadea (solo cuenta la primera vez)
-    if (keybindMatches(event, 'zen', 'h')) { event.preventDefault(); if (!event.repeat) { try { toggleZenMode(); } catch(e) { } } }
 
     if (event.code.startsWith('Digit')) {
         let num = parseInt(event.code.charAt(5));

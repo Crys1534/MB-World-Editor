@@ -2501,7 +2501,6 @@ const DEFAULT_KEYBINDS = {
     structures: { key: 'y', label: '🏘️ Open Structures' },
     mobs: { key: 'm', label: '🐷 Open Mobs Browser' },
     rotate: { key: 'r', label: '🔄 Rotate Block' },
-    zen: { key: 'h', label: '🧘 Zen Mode' },
     brush_up: { key: '+', label: '🖌️ Brush Size +' },
     brush_down: { key: '-', label: '🖌️ Brush Size -' },
     delete: { key: 'delete', label: '💥 Delete Selection' },
@@ -2526,6 +2525,7 @@ window.userKeybinds = (function() {
     for (const action in DEFAULT_KEYBINDS) {
         if (!saved[action]) { saved[action] = JSON.parse(JSON.stringify(DEFAULT_KEYBINDS[action])); changed = true; }
     }
+    if (saved.zen) { delete saved.zen; changed = true; }   // (el Modo Zen se quitó: su tecla también)
     try {
         localStorage.setItem('mbw_keybinds_v9', '1');
         if (changed) localStorage.setItem('mbw_keybinds', JSON.stringify(saved));

@@ -2,17 +2,14 @@
 // 🧘 MODOS DE PANTALLA (Ronda 13)
 // ----------------------------------------------------------
 // Aquí viven:
-//   · Modo Zen            (botón ⛶ de la barra de estado, que lo activa junto con la pantalla completa, + tecla H, que se puede cambiar en Ajustes > Controls).
-//                         Es el modo para trabajar en pantalla completa: el mundo ocupa toda la ventana, la barra lateral y la hotbar
-//                         flotan (semitransparentes) y las barras de arriba, de la izquierda y de abajo se ESCONDEN y salen solas
-//                         al acercar el mouse a su borde (antes esto eran dos cosas separadas: Zen y "auto-ocultar"; ahora es una).
-//   · Paneles flotantes   (la barra lateral y la hotbar flotan sobre el mundo, semitransparentes, también fuera del Zen)
+//   (El Modo Zen se quitó en la ronda 58: el botón ⛶ de la barra de estado es solo pantalla completa.)
+//   · Paneles flotantes   (la barra lateral y la hotbar flotan sobre el mundo, semitransparentes)
 //   · Opacidad de los paneles flotantes
 //   · Límite de FPS       (sin límite, 60 o 30; el que dibuja es mainLoop en main.js)
 //   · El globito discreto de mensajes nuevos
 //   · El aviso de "pantalla completa" (para marcar el botón ⛶)
 //
-// El tamaño del lienzo sale de las variables CSS --ws-top / --ws-left / --ws-bottom (ver style.css, "MODO ZEN"):
+// El tamaño del lienzo sale de las variables CSS --ws-top / --ws-left / --ws-bottom (ver style.css, "PANELES FLOTANTES"):
 // cada modo solo pone una clase en <body> y el CSS hace el resto. Después se llama a resizeCanvas() (main.js), que
 // mantiene la cámara centrada, así que el mundo no salta al esconder o mostrar barras.
 // ==========================================================
@@ -27,8 +24,7 @@
     function read(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
     function write(k, v) { try { localStorage.setItem(k, String(v)); } catch (e) { /* almacenamiento bloqueado: simplemente no se recuerda */ } }
 
-    // El Zen NO se recuerda al recargar (así nadie se encuentra con el editor "vacío" sin saber por qué); lo demás sí.
-    const state = { zen: false, float: false, opacity: 85, fps: 0 };
+    const state = { float: false, opacity: 85, fps: 0 };
     window.uiModes = state;
 
     // la barra de herramientas y la hotbar SIEMPRE flotan (ya no hay otra opción).
@@ -48,7 +44,7 @@
     function placeHotbar() {
         const hb = $('hotbar-container'), floatBox = $('float-hotbar'), ribbonBox = $('ribbon-hotbar-content');
         if (!hb || !floatBox || !ribbonBox) return;
-        const floating = state.zen || state.float;
+        const floating = state.float;
         // La hotbar se MUDA de sitio (no se copia): sigue siendo la misma, con sus casillas y su selección
         if (floating && hb.parentNode !== floatBox) floatBox.insertBefore(hb, floatBox.firstChild);
         else if (!floating && hb.parentNode !== ribbonBox) ribbonBox.insertBefore(hb, ribbonBox.firstChild);
@@ -77,13 +73,9 @@
     }
 
     function sync() {
-        const floating = state.zen || state.float;
-        const hide = state.zen;   // en Zen las barras se esconden y salen al acercar el mouse al borde
-        body.classList.toggle('zen-mode', state.zen);
+        const floating = state.float;
         body.classList.toggle('float-panels', state.float);
         body.classList.toggle('panels-floating', floating);
-        body.classList.toggle('ui-autohide', hide);
-        if (!hide) { clearReveal(); }
         root.style.setProperty('--panel-opacity', (state.opacity / 100).toFixed(2));
         placeHotbar();
         measureTopArea();
@@ -94,30 +86,6 @@
     // ─────────────────────────────────────────────
     // Lo que usa el resto del editor (botones, atajos, Ajustes)
     // ─────────────────────────────────────────────
-    window.toggleZenMode = function (force) {
-        const on = (typeof force === 'boolean') ? force : !state.zen;
-        if (on === state.zen) return;
-        zenByFullscreen = false;   // si la persona lo cambia a mano, ya no es "cosa de la pantalla completa"
-        state.zen = on;
-        sync();
-    };
-
-    // Ronda 16: el botón ⛶ también activa el Zen. Se recuerda si FUE la pantalla completa la que lo encendió, para apagarlo
-    // al salir de ella (con ⛶, con Esc o como sea). Si el Zen ya estaba encendido de antes, o la persona lo cambia a mano
-    // mientras tanto, la pantalla completa no lo toca.
-    let zenByFullscreen = false;
-    window.zenForFullscreen = function (on) {
-        if (on) {
-            if (state.zen) return;
-            zenByFullscreen = true;
-            state.zen = true;
-            sync();
-        } else if (zenByFullscreen) {
-            zenByFullscreen = false;
-            if (state.zen) { state.zen = false; sync(); }
-        }
-    };
-
     window.setFloatPanels = function (on) {
         state.float = legacyLayout ? !!on : true;   // (siempre flotantes; se deja la función por si algo la llama)
         write(KEY.float, state.float ? '1' : '0');
@@ -142,77 +110,10 @@
         syncControls();
     };
 
-    // ¿Está la persona en un modo "sin distracciones"? (Zen o pantalla completa)
+    // ¿Está la persona en pantalla completa? (las burbujas y el mini chat se esconden)
     window.mbwFocusModeActive = function () {
-        return !!(state.zen || document.fullscreenElement || document.webkitFullscreenElement);
+        return !!(document.fullscreenElement || document.webkitFullscreenElement);
     };
-
-    // ─────────────────────────────────────────────
-    // Auto-ocultar: las barras salen al acercar el mouse al borde
-    // ─────────────────────────────────────────────
-    const EDGE = 7;              // píxeles del borde que "llaman" a la barra
-    const HIDE_DELAY = 350;      // espera antes de esconderla (para no parpadear)
-    const timers = { top: null, left: null, bottom: null };
-    let last = { x: -1, y: -1, t: null, b: 0 };
-
-    function panelEl(name) { return $(name === 'top' ? 'top-area' : name === 'left' ? 'toolbar-sidebar' : 'status-bar'); }
-    function inside(el, target) { return !!(el && target && el.contains(target)); }
-    // "Foco que cuenta": una casilla de texto (o algo al que se llegó con la tecla Tab). Un botón en el que solo se hizo clic con el
-    // mouse conserva el foco, pero eso NO debe dejar la barra abierta para siempre.
-    function focusIn(el) {
-        const a = document.activeElement;
-        if (!el || !a || a === document.body || !el.contains(a)) return false;
-        try { return a.matches(':focus-visible'); } catch (e) { return false; }
-    }
-
-    function wantedNow(name) {
-        const free = !last.b;   // con un botón del mouse apretado (pintando, arrastrando) el borde no abre nada
-        const el = panelEl(name);
-        if (name === 'top') return (free && last.y >= 0 && last.y <= EDGE) || inside(el, last.t) || focusIn(el);
-        if (name === 'left') return (free && last.x >= 0 && last.x <= EDGE) || inside(el, last.t) || focusIn(el);
-        return (free && last.y >= 0 && last.y >= window.innerHeight - EDGE) || inside(el, last.t) || focusIn(el);
-    }
-
-    function reveal(name) {
-        if (timers[name]) { clearTimeout(timers[name]); timers[name] = null; }
-        body.classList.add('reveal-' + name);
-    }
-
-    function scheduleHide(name) {
-        if (timers[name]) return;
-        timers[name] = setTimeout(function () {
-            timers[name] = null;
-            if (!state.zen || wantedNow(name)) return;
-            body.classList.remove('reveal-' + name);
-        }, HIDE_DELAY);
-    }
-
-    function clearReveal() {
-        ['top', 'left', 'bottom'].forEach(function (n) {
-            if (timers[n]) { clearTimeout(timers[n]); timers[n] = null; }
-            body.classList.remove('reveal-' + n);
-        });
-    }
-
-    function evaluate() {
-        if (!state.zen) return;
-        ['top', 'left', 'bottom'].forEach(function (n) {
-            if (wantedNow(n)) reveal(n);
-            else if (body.classList.contains('reveal-' + n)) scheduleHide(n);
-        });
-    }
-
-    document.addEventListener('mousemove', function (e) {
-        last = { x: e.clientX, y: e.clientY, t: e.target, b: e.buttons };
-        evaluate();
-    }, true);
-    root.addEventListener('mouseleave', function () {
-        last = { x: -1, y: -1, t: null, b: 0 };
-        evaluate();
-    });
-    // Con el teclado (Tab) también se puede llegar a la barra de arriba: mientras tenga el foco se queda a la vista
-    document.addEventListener('focusin', function () { if (state.zen && focusIn(panelEl('top'))) reveal('top'); });
-    document.addEventListener('focusout', function () { setTimeout(evaluate, 0); });
 
     if (typeof ResizeObserver === 'function' && $('top-area')) {
         try { new ResizeObserver(measureTopArea).observe($('top-area')); } catch (e) { /* sin ResizeObserver: queda la medida de fábrica */ }
@@ -226,7 +127,6 @@
         body.classList.toggle('is-fullscreen', fs);
         const b = $('fullscreen-btn');
         if (b) b.classList.toggle('active', fs);
-        if (!fs) window.zenForFullscreen(false);   // al salir de la pantalla completa se apaga el Zen que ella encendió
         relayout();
     }
     document.addEventListener('fullscreenchange', onFullscreenChange);
@@ -446,7 +346,7 @@
             return { total: head.total, shown: shown, heads: head.list.map(function (i) { return i.uid; }), active: head.active, pinned: head.pinned.map(function (p) { return p.uid; }), chats: head.items.length };
         }
     };
-    // Al entrar o salir del Zen / pantalla completa las burbujas se esconden o vuelven
+    // Al entrar o salir de la pantalla completa las burbujas se esconden o vuelven
     try { headObs = new MutationObserver(function () { renderHead(); }); headObs.observe(document.body, { attributes: true, attributeFilter: ['class'] }); } catch (e) { /* sin observador: se actualiza con el próximo mensaje */ }
     document.addEventListener('fullscreenchange', function () { renderHead(); });
 
