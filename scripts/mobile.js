@@ -191,7 +191,10 @@
     }
     // Mover (Move) con UN dedo: si el dedo empieza sobre un mob, lo agarra (como siempre);
     // si empieza en un lugar vacío, arrastra el mapa. Tocar un cofre o un letrero lo abre.
+    // con la relación de aspecto puesta, la imagen está estirada: el dedo se "des-estira" (scripts/aspect-view.js)
+    function unstretch(x, y) { return (window.mbwAspect && window.mbwAspect.active) ? window.mbwAspect.mapClient(x, y) : { x: x, y: y }; }
     function worldAt(x, y) {
+        const u = unstretch(x, y); x = u.x; y = u.y;
         const r = canvas.getBoundingClientRect();
         const sx = (x - r.left) * (canvas.width / r.width);
         const cy = canvas.height - (y - r.top) * (canvas.height / r.height);
@@ -220,6 +223,7 @@
     }
     function panTo(p) {
         const g = T.pan; if (!g || !p) return;
+        p = unstretch(p.x, p.y);
         const r = canvas.getBoundingClientRect();
         const sx = (p.x - r.left) * (canvas.width / r.width);
         const cy = canvas.height - (p.y - r.top) * (canvas.height / r.height);

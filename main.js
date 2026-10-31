@@ -116,7 +116,7 @@ window.onload = resizeCanvas;
 function updateZoomSlider(value) {
     const index = parseInt(value);
     // 👁 con la relación de aspecto puesta el zoom no cambia (scripts/aspect-view.js)
-    if (window.mbwAspect && window.mbwAspect.active && ZOOM_LEVELS[index] !== currentZoom) {
+    if (window.mbwAspect && window.mbwAspect.active && !window.mbwAspect.allowZoom && ZOOM_LEVELS[index] !== currentZoom) {
         const back = ZOOM_LEVELS.indexOf(currentZoom);
         if (back >= 0) currentZoomIndex = back;      // (algunos botones ya habían movido el número antes de llamar aquí)
         const sl = document.getElementById('zoom-slider');

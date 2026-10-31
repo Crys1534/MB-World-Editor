@@ -3054,3 +3054,5 @@ body.zen-mode #top-toggle, body.ribbon-open #top-toggle { display: none; }
 /* ============ 👁 Relación de aspecto (scripts/aspect-view.js) ============ */
 #tool-aspect.aspect-on { background: rgba(231, 76, 60, 0.22); box-shadow: inset 0 0 0 2px #e74c3c; }
 body.aspect-view-on #zoom-slider { opacity: 0.45; cursor: not-allowed; }
+/* con la vista estirada, los cuadritos flotantes (cofres, drops, letreros) quedarían fuera de lugar: no se muestran */
+body.aspect-view-on #chest-tooltip-overlay, body.aspect-view-on #ex-sign-tip { display: none !important; }

@@ -49,7 +49,14 @@
         dirty();
     }
     A.off = function () {
+        if (!A.active) return;
+        // que el centro de la vista siga en el mismo lugar al volver al zoom de antes
+        const cx = camera.x + canvas.width / tileSize / 2, cy = camera.y + canvas.height / tileSize / 2;
         A.active = false;
+        if (A.prevZoomIndex !== undefined) setZoomIndex(A.prevZoomIndex);
+        let nx = cx - canvas.width / tileSize / 2, ny = cy - canvas.height / tileSize / 2;
+        if (!window.smoothScroll) { nx = Math.round(nx); ny = Math.round(ny); }
+        camera.x = nx; camera.y = ny; camera._tx = nx; camera._ty = ny; camera.velX = 0; camera.velY = 0;
         paintButton();
         dirty();
     };
@@ -81,10 +88,49 @@
         const cols = canvas.width / tileSize, rows = canvas.height / tileSize;
         return { offX: Math.floor((cols - A.w) / 2), offY: Math.floor((rows - A.h) / 2) };
     }
+    // El área se dibuja con el zoom más grande en el que cabe completa (así se ve nítida) y luego se ESTIRA
+    // hasta llenar todo el lienzo (sin margen negro). Al quitar la vista vuelve el zoom de antes.
+    function setZoomIndex(i) {
+        if (typeof updateZoomSlider !== 'function' || i === currentZoomIndex) return;
+        A.allowZoom = true;
+        try { updateZoomSlider(i); } finally { A.allowZoom = false; }
+    }
+    function fitZoom() {
+        if (typeof ZOOM_LEVELS === 'undefined' || typeof BASE_TILE_SIZE === 'undefined') return;
+        let best = 0;
+        for (let i = 0; i < ZOOM_LEVELS.length; i++) {
+            const ts = BASE_TILE_SIZE * ZOOM_LEVELS[i] / 100;
+            if (A.w * ts <= canvas.width && A.h * ts <= canvas.height) best = i;
+        }
+        setZoomIndex(best);
+    }
+    // dónde queda el área en el lienzo (antes de estirarla), en píxeles enteros
+    function frameRect() {
+        const o = frameOffsets(), ts = tileSize;
+        const fx = Math.round(o.offX * ts), fw = Math.round(A.w * ts), fh = Math.round(A.h * ts);
+        const fy = Math.round(canvas.height - (o.offY + A.h) * ts);
+        return { x: fx, y: fy, w: fw, h: fh };
+    }
+    A.frame = frameRect;
+    // Un punto de la pantalla (estirada) -> el punto del lienzo sin estirar (para que el mouse caiga en el bloque correcto)
+    A.mapOffset = function (ox, oy) {
+        if (!A.active) return { x: ox, y: oy };
+        const f = frameRect();
+        return { x: f.x + ox * f.w / canvas.width, y: f.y + oy * f.h / canvas.height };
+    };
+    A.mapClient = function (cx, cy) {
+        if (!A.active) return { x: cx, y: cy };
+        const r = canvas.getBoundingClientRect();
+        const sx = canvas.width / (r.width || 1), sy = canvas.height / (r.height || 1);
+        const m = A.mapOffset((cx - r.left) * sx, (cy - r.top) * sy);
+        return { x: r.left + m.x / sx, y: r.top + m.y / sy };
+    };
     function activate(r) {
         A.picking = false; A.drag = null;
         A.w = r.w; A.h = r.h;
         A.active = true;
+        A.prevZoomIndex = currentZoomIndex;
+        fitZoom();
         // la cámara se acomoda para que esa área quede justo en el centro de la pantalla
         const o = frameOffsets();
         camera.x = r.x1 - o.offX; camera.y = r.y1 - o.offY;
@@ -109,6 +155,27 @@
             A.drag = null;
             if (r) activate(r);
         });
+        // El mouse sobre la vista estirada: cada evento del lienzo se "des-estira" antes de que lo use el editor
+        ['mousemove', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu', 'wheel'].forEach(function (type) {
+            window.addEventListener(type, function (e) {
+                if (!A.active || e.target !== cv) return;
+                const r = cv.getBoundingClientRect();
+                const m = A.mapClient(e.clientX, e.clientY);
+                const ox = m.x - r.left, oy = m.y - r.top;
+                try {
+                    Object.defineProperty(e, 'offsetX', { value: ox, configurable: true });
+                    Object.defineProperty(e, 'offsetY', { value: oy, configurable: true });
+                    Object.defineProperty(e, 'clientX', { value: m.x, configurable: true });
+                    Object.defineProperty(e, 'clientY', { value: m.y, configurable: true });
+                    Object.defineProperty(e, 'pageX', { value: m.x + window.scrollX, configurable: true });
+                    Object.defineProperty(e, 'pageY', { value: m.y + window.scrollY, configurable: true });
+                    Object.defineProperty(e, 'x', { value: m.x, configurable: true });
+                    Object.defineProperty(e, 'y', { value: m.y, configurable: true });
+                } catch (err) { /* nada */ }
+            }, true);
+        });
+        // si el lienzo cambia de tamaño (pantalla completa, ventana...), se vuelve a buscar el zoom que mejor queda
+        window.addEventListener('resize', function () { if (A.active) setTimeout(fitZoom, 0); });
         window.addEventListener('keydown', function (e) {
             if (e.key !== 'Escape') return;
             if (tool() === 'aspect') { cancelPick(); e.preventDefault(); }
@@ -124,6 +191,7 @@
         ctx.save();
         ctx.font = "600 13px 'Segoe UI', Arial, sans-serif";
         ctx.textBaseline = 'middle';
+        ctx.textAlign = 'left';            // (el dibujo de los nombres de los jugadores deja el texto centrado)
         const w = ctx.measureText(text).width + 16;
         let lx = align === 'center' ? x - w / 2 : x;
         lx = Math.max(4, Math.min(canvas.width - w - 4, lx));
@@ -157,20 +225,23 @@
             label(ctx, tr('aspect_pick', 'Click to place the {w} × {h} view, or drag to choose another size. Esc cancels.', { w: DEF_W, h: DEF_H }), canvas.width / 2, 10, 'center');
         }
         if (A.active) {
-            const o = frameOffsets();
-            const fx = o.offX * ts, fw = A.w * ts, fh = A.h * ts;
-            const fy = canvas.height - (o.offY + A.h) * ts;
-            ctx.save();
-            ctx.fillStyle = 'rgba(8, 10, 16, 0.9)';
-            ctx.beginPath();
-            ctx.rect(0, 0, canvas.width, canvas.height);
-            ctx.rect(fx, fy, fw, fh);
-            ctx.fill('evenodd');                    // todo oscuro menos el área
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(fx - 1, fy - 1, fw + 2, fh + 2);
-            ctx.restore();
-            label(ctx, A.w + ' × ' + A.h, fx, fy - 28);
+            // se copia solo el área y se estira hasta llenar TODO el lienzo (los bloques sin suavizar, como en el juego)
+            const f = frameRect();
+            if (f.w > 0 && f.h > 0) {
+                if (!A.buf) A.buf = document.createElement('canvas');
+                if (A.buf.width !== f.w || A.buf.height !== f.h) { A.buf.width = f.w; A.buf.height = f.h; }
+                const g = A.buf.getContext('2d');
+                g.clearRect(0, 0, f.w, f.h);
+                g.drawImage(canvas, f.x, f.y, f.w, f.h, 0, 0, f.w, f.h);
+                ctx.save();
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.imageSmoothingEnabled = false;
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(A.buf, 0, 0, f.w, f.h, 0, 0, canvas.width, canvas.height);
+                ctx.restore();
+            }
+            label(ctx, A.w + ' × ' + A.h, 8, canvas.height - 30);
         }
         if (A.flash) {
             if (Date.now() > A.flash.until) A.flash = null;
