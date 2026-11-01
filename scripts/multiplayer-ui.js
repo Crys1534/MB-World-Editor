@@ -383,7 +383,10 @@ window.renderFriendRequests = function(container) {
 
 // 1. TUS EMOTES INTERNOS (Cambia las URLs por tus imágenes reales)
 window.customEmotes = {
-    "minifrank": "assets/emote_minifrank.png",
+    "heart": "assets/UI/emotes/heart.png",
+    "flushed": "assets/UI/emotes/flushed.png",
+    "air": "assets/UI/emotes/air.png",
+    "minifrank": "assets/UI/emotes/minifrank.png",
 };
 
 // 2. CATEGORÍAS DE EMOJIS ESTÁNDAR (ARSENAL COMPLETO)

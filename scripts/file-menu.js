@@ -26,7 +26,15 @@ const projectTemplates = [
         seed: '150167',
         author: 'WSDguy2014',
         image: 'assets/All block tiles test.png'
-    }
+    },
+    {
+        filename: 'empty world.mbw',
+        name: 'Empty World',
+        version: '1.29.2',
+        seed: '0',
+        author: '',
+        image: ''
+    },
 ];
 
 function initBackstageMenu() {
