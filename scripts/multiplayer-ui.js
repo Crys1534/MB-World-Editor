@@ -385,6 +385,8 @@ window.renderFriendRequests = function(container) {
 window.customEmotes = {
     "heart": "assets/UI/emotes/heart.png",
     "flushed": "assets/UI/emotes/flushed.png",
+	"laughing": "assets/UI/emotes/laughing.png",
+	"rage": "assets/UI/emotes/rage.png",
     "air": "assets/UI/emotes/air.png",
     "minifrank": "assets/UI/emotes/minifrank.png",
 };
