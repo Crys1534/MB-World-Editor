@@ -258,7 +258,7 @@
         const want = g.z0 * (m.d / g.d0);
         let best = currentZoomIndex, bestD = Infinity;
         for (let i = 0; i < ZOOM_LEVELS.length; i++) { const dd = Math.abs(Math.log(ZOOM_LEVELS[i] / want)); if (dd < bestD) { bestD = dd; best = i; } }
-        if (best !== currentZoomIndex && g.moved > 6) { updateZoomSlider(best); M.stats.pinches++; }
+        if (best !== currentZoomIndex && g.moved > 6) { window.mbwZoomInstant = true; try { updateZoomSlider(best); } finally { window.mbwZoomInstant = false; } M.stats.pinches++; }
         // el punto del mundo que estaba entre los dedos se queda entre los dedos (eso también mueve el mundo)
         const sx = (m.x - r.left) * (canvas.width / r.width);
         const cy = canvas.height - (m.y - r.top) * (canvas.height / r.height);

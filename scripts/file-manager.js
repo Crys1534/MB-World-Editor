@@ -110,6 +110,8 @@ const fileManager = {
    mbwom.world = parsedWorld;
    // Creepers de mundos viejos sin el dato "fuse" (explotan al instante en el juego real): se les completa al abrir el mundo
    try { if (typeof window.mbwFixWorldMobs === 'function') { const fixedC = window.mbwFixWorldMobs(mbwom.world); if (fixedC) console.log('🔧 ' + fixedC + ' creeper(s) sin "fuse" arreglados al abrir el mundo'); } } catch (e) { /* no es grave */ }
+   // 🩺 Reglas del juego original (scripts/world-validator.js): se arregla lo seguro al abrir y se avisa si queda algo raro
+   try { if (typeof window.mbwCheckWorld === 'function') { const chk = window.mbwCheckWorld(mbwom.world, { repair: true, safeOnly: true }); if (chk.fixed) console.log('🩺 ' + chk.fixed + ' cosa(s) del mundo reparadas al abrir (reglas del juego)'); if (typeof window.mbwWorldCheckNotice === 'function') window.mbwWorldCheckNotice(chk); } } catch (e) { console.warn('world check', e); }
    if (typeof window.playerInvRefresh === 'function') window.playerInvRefresh();   // mini hotbar del jugador (pestaña Player)
 
    mbwom.mobs = {};
@@ -165,6 +167,13 @@ const fileManager = {
        if (fireTickEl) fireTickEl.checked = mbwom.world.gameRules.dofiretick !== false;
        if (mobLootEl) mobLootEl.checked = mbwom.world.gameRules.domobloot !== false;
        if (mobGriefingEl) mobGriefingEl.checked = mbwom.world.gameRules.mobgriefing !== false;
+   }
+   {
+       // (reglas que el editor no mostraba: si el mundo no las trae, valen lo mismo que en el juego: sí)
+       const gr = mbwom.world.gameRules || {};
+       const pmEl = document.getElementById("gr-passivemobs"), cfEl = document.getElementById("gr-sendcommandfeedback");
+       if (pmEl) pmEl.checked = gr.passivemobs !== false;
+       if (cfEl) cfEl.checked = gr.sendcommandfeedback !== false;
    }
    
    const healthEl = document.getElementById("player-health");
@@ -305,6 +314,9 @@ prepareData: function(opts) {
     if (fireTickEl) mbwom.world.gameRules.dofiretick = fireTickEl.checked;
     if (mobLootEl) mbwom.world.gameRules.domobloot = mobLootEl.checked;
     if (mobGriefingEl) mbwom.world.gameRules.mobgriefing = mobGriefingEl.checked;
+    const pmEl = document.getElementById("gr-passivemobs"), cfEl = document.getElementById("gr-sendcommandfeedback");
+    if (pmEl) mbwom.world.gameRules.passivemobs = pmEl.checked;
+    if (cfEl) mbwom.world.gameRules.sendcommandfeedback = cfEl.checked;
     
     const healthEl = document.getElementById("player-health");
     const hungerEl = document.getElementById("player-hunger"); 
@@ -423,7 +435,19 @@ prepareData: function(opts) {
     // el archivo se arma con las copias y luego el editor sigue con sus mobs de siempre
     mbwom.world.mobs1 = savedMobs[1]; mbwom.world.mobs2 = savedMobs[2]; mbwom.world.mobs3 = savedMobs[3];
     let jsonString;
-    try { jsonString = JSON.stringify(mbwom.world); }
+    try {
+        // 🩺 antes de escribir el archivo se reparan las cosas seguras (versión, variantes "dt_1", cofres incompletos...)
+        try {
+            if (typeof window.mbwCheckWorld === 'function') {
+                const chk = window.mbwCheckWorld(mbwom.world, { repair: true, safeOnly: true });
+                if (chk.fixed) {
+                    console.log('🩺 ' + chk.fixed + ' cosa(s) reparadas al guardar (reglas del juego)');
+                    if (chk.issues.some(i => (i.code === 'variantId' || i.code === 'alias') && i.fixed) && typeof initializeWorldCache === 'function') { try { initializeWorldCache(); worldDirty = true; } catch (e) { /* nada */ } }
+                }
+            }
+        } catch (e) { console.warn('world check', e); }
+        jsonString = JSON.stringify(mbwom.world);
+    }
     finally {
         mbwom.world.mobs1 = liveMobs[1] || {}; mbwom.world.mobs2 = liveMobs[2] || {}; mbwom.world.mobs3 = liveMobs[3] || {};
     }

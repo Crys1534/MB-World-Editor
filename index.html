@@ -672,6 +672,20 @@
             <label class="lbl-tiny" data-i18n="lbl_fire_tick" style="text-align: left;">Fire<br>Tick</label>
         </div>
     </div>
+    <div class="gamerule-item">
+        <span class="icon-18"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-pig"></use></svg></span>
+        <div style="display: flex; align-items: flex-start; gap: 4px; margin-top: 4px;">
+            <input type="checkbox" id="gr-passivemobs" checked style="margin: 0; margin-top: 2px;">
+            <label class="lbl-tiny" data-i18n="lbl_passive_mobs" style="text-align: left;">Passive<br>Mobs</label>
+        </div>
+    </div>
+    <div class="gamerule-item">
+        <span class="icon-18"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-chat"></use></svg></span>
+        <div style="display: flex; align-items: flex-start; gap: 4px; margin-top: 4px;">
+            <input type="checkbox" id="gr-sendcommandfeedback" checked style="margin: 0; margin-top: 2px;">
+            <label class="lbl-tiny" data-i18n="lbl_cmd_feedback" style="text-align: left;">Command<br>Feedback</label>
+        </div>
+    </div>
 </div>
             <div class="ribbon-group-label" data-i18n="lbl_gamerules">Game Rules</div>
         </div>
@@ -963,6 +977,7 @@
              <span id="sidebar-world-ender" style="font-weight: bold;">-</span>
          </div>
          <p style="margin-top: 2px;"><b data-i18n="side_info_size">File Size: </b><span id="world-info-size" style="font-weight: normal;">-</span></p>
+         <button type="button" class="mbw-check-btn" onclick="openWorldCheck()"><span data-i18n="val_btn">🩺 Check world</span></button>
      </div>
  </div>
 
@@ -1741,6 +1756,8 @@
  <script src="scripts/news-data.js"></script> <!-- 📰 las notas de actualización (el único archivo que hay que editar para agregar una) -->
  <script src="scripts/news.js"></script>      <!-- 📰 el código que las lee y las muestra -->
  <script src="scripts/mbwom.js"></script>
+ <script src="scripts/game-data.js"></script> <!-- 🎮 bloques, mobs y reglas del juego original (sacados de su código) -->
+ <script src="scripts/world-validator.js"></script> <!-- 🩺 revisar y reparar mundos con las reglas del juego -->
  <script src="scripts/textures.js"></script>
  <script src="scripts/tools.js"></script>
  <script src="scripts/clipboard.js"></script>

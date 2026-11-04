@@ -917,7 +917,7 @@ function deleteSelection(isFromNetwork = false, networkDeletedBlocks = [], netwo
 
 // 📋 activatePasteMode() y performPaste() ahora viven en scripts/clipboard.js
 
-const hotbar = { offset: { x: 0, y: 0 }, slots: [{ type: "dt" }, { type: "dt_1" }, { type: "ib" }, { type: "clb" }, { type: "tob" }, { type: "lapb" }, { type: "wp" }, { type: "fire" }, { type: "b" }] }
+const hotbar = { offset: { x: 0, y: 0 }, slots: [{ type: "dt" }, { type: "dt", states1: 1 }, { type: "ib" }, { type: "clb" }, { type: "tob" }, { type: "lapb" }, { type: "wp" }, { type: "fire" }, { type: "b" }] }
 
 function eyedropper(x, y) {
  const states = mbwom.getBlockState(x, y);

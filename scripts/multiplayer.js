@@ -737,7 +737,7 @@ async function mpFinishMap(dl) {
 // vida/hambre/XP y posición del Player, su inventario, los logros, autor/versión/semilla...
 // Cada pocos instantes se revisa si algo cambió y se manda a los demás (y lo que llega se aplica).
 // ==========================================
-const MP_CONTROLS = ['gamemode', 'gr-difficulty', 'cheats', 'hardcore', 'gr-day', 'gr-time', 'gr-weather', 'gr-keepinventory', 'gr-dodaylightcycle', 'gr-mobgriefing', 'gr-domobloot', 'gr-dofiretick', 'player-health', 'player-hunger', 'player-xp', 'sidebar-world-author', 'sidebar-world-version', 'sidebar-world-seed'];
+const MP_CONTROLS = ['gamemode', 'gr-difficulty', 'cheats', 'hardcore', 'gr-day', 'gr-time', 'gr-weather', 'gr-keepinventory', 'gr-dodaylightcycle', 'gr-mobgriefing', 'gr-domobloot', 'gr-dofiretick', 'gr-passivemobs', 'gr-sendcommandfeedback', 'player-health', 'player-hunger', 'player-xp', 'sidebar-world-author', 'sidebar-world-version', 'sidebar-world-seed'];
 const MP_FIELDS = ['worldX', 'worldY', 'fly', 'inventoryList', 'armors', 'selectedInventoryItem', 'achieve', 'spawnPoint1', 'spawnPoint2', 'spawnPoint3', 'defeatedEnder'];
 let mpSnap = null;
 function mpControlValue(el) { return el.type === 'checkbox' ? !!el.checked : String(el.value); }

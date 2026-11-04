@@ -97,6 +97,9 @@ function resizeCanvas() {
 }
 
 function updateGridDimensions() {
+    // de dónde viene la vista (para el zoom suave): lo que se ve ahora en pantalla
+    const from = zoomAnim ? { x: zoomAnim.curX, y: zoomAnim.curY, ts: zoomAnim.curTs } : { x: zoomPrev.x, y: zoomPrev.y, ts: zoomPrev.ts };
+    zoomAnim = null;
     tileSize = BASE_TILE_SIZE * (currentZoom / 100);
     grid.width = Math.ceil(canvas.width / tileSize);
     grid.height = Math.ceil(canvas.height / tileSize);
@@ -108,7 +111,77 @@ function updateGridDimensions() {
     }
     sizeSmoothBuffers();
     worldDirty = true; 
+    zoomStartAnim(from);
 }
+
+// ==========================================================
+// 🔍 ZOOM SUAVE: los niveles de zoom son los mismos, pero el cambio se ve como una animación corta
+// (el punto que no se mueve en pantalla —donde está el mouse, o el centro— se queda quieto durante la animación).
+// Sin animación: con la relación de aspecto, al pellizcar en el celular, al espectear o si el sistema pide "menos movimiento".
+// ==========================================================
+window.zoomAnimMs = 150;
+let zoomAnim = null;
+const zoomPrev = { x: 0, y: 0, ts: BASE_TILE_SIZE, ok: false };
+function zoomInstant() {
+    if (window.mbwZoomInstant || !(window.zoomAnimMs > 0) || !zoomPrev.ok) return true;
+    if (window.mbwAspect && (window.mbwAspect.active || window.mbwAspect.allowZoom)) return true;
+    if (window.spectatingTargetId) return true;
+    try { if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return true; } catch (e) { /* nada */ }
+    return false;
+}
+function zoomStartAnim(from) {
+    if (zoomInstant() || !(from.ts > 0) || Math.abs(from.ts - tileSize) < 0.001) return;
+    const to = { x: camera.x, y: camera.y, ts: tileSize };
+    const k = 1 / from.ts - 1 / to.ts;
+    // punto fijo de la pantalla (en píxeles del lienzo) en cada eje; si sale raro se usa el centro
+    const fix = (c0, c1, size) => { let sp = (c1 - c0) / k; if (!isFinite(sp) || sp < -size || sp > size * 2) sp = size / 2; return { sp: sp, w: c0 + sp / from.ts }; };
+    const ax = fix(from.x, to.x, canvas.width), ay = fix(from.y, to.y, canvas.height);
+    zoomAnim = { t0: performance.now(), from: from, to: to, ax: ax, ay: ay, curX: from.x, curY: from.y, curTs: from.ts };
+    zoomApply(from.ts, from.x, from.y);
+}
+function zoomApply(ts, x, y) {
+    tileSize = ts;
+    grid.width = Math.ceil(canvas.width / tileSize);
+    grid.height = Math.ceil(canvas.height / tileSize);
+    camera.x = x; camera.y = y;
+    worldDirty = true;
+}
+function zoomStep() {
+    if (!zoomAnim) return;
+    const a = zoomAnim;
+    // ¿alguien movió la cámara mientras tanto (teletransporte, ir a un jugador, la relación de aspecto...)? se termina ya, sin pelear con él
+    const tol = 1.5 / Math.max(1e-6, a.curTs);
+    if (Math.abs(camera.x - a.curX) > tol || Math.abs(camera.y - a.curY) > tol) {
+        zoomAnim = null;
+        tileSize = a.to.ts;
+        grid.width = Math.ceil(canvas.width / tileSize);
+        grid.height = Math.ceil(canvas.height / tileSize);
+        if (!window.smoothScroll) { camera.x = Math.round(camera.x); camera.y = Math.round(camera.y); }
+        sizeSmoothBuffers();
+        worldDirty = true;
+        return;
+    }
+    let p = (performance.now() - a.t0) / window.zoomAnimMs;
+    if (!(p < 1)) {
+        zoomAnim = null;
+        zoomApply(a.to.ts, a.to.x, a.to.y);
+        sizeSmoothBuffers();
+        return;
+    }
+    p = 1 - Math.pow(1 - p, 3);   // empieza rápido y frena
+    const ts = a.from.ts * Math.pow(a.to.ts / a.from.ts, p);
+    // el punto fijo se queda en su lugar; al final se llega exacto a la cámara de destino
+    let x = a.ax.w - a.ax.sp / ts, y = a.ay.w - a.ay.sp / ts;
+    const ex = a.to.x - (a.ax.w - a.ax.sp / a.to.ts), ey = a.to.y - (a.ay.w - a.ay.sp / a.to.ts);   // (redondeos del destino)
+    x += ex * p; y += ey * p;
+    a.curX = x; a.curY = y; a.curTs = ts;
+    zoomApply(ts, x, y);
+}
+function zoomTrackPrev() {
+    if (zoomAnim) return;
+    zoomPrev.x = camera.x; zoomPrev.y = camera.y; zoomPrev.ts = tileSize; zoomPrev.ok = true;
+}
+window.mbwZoomAnimating = function () { return !!zoomAnim; };
 
 window.addEventListener('resize', resizeCanvas);
 window.onload = resizeCanvas;
@@ -1498,6 +1571,7 @@ function mainLoop(ts) {
         return;
     }
     cameraMovement();
+    zoomStep();          // 🔍 zoom suave (si hay una animación en curso)
     snapSmoothCamera();
     mouse.calculateCoordinates();
     
@@ -1611,6 +1685,7 @@ function mainLoop(ts) {
 
     // 👁 Relación de aspecto: solo se ve el área elegida (scripts/aspect-view.js)
     if (window.mbwAspect) { try { window.mbwAspect.draw(ctx); } catch (e) { /* nada */ } }
+    zoomTrackPrev();
     
     requestAnimationFrame(mainLoop);
 }
