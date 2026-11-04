@@ -401,6 +401,7 @@ window.hostMultiplayerSession = function() {
 
     isHost = true;
     misClientes = []; 
+    window.mpGen = 0;
     window.mpEditPerms = {};      // quién puede editar el mundo (por defecto nadie: solo ver)
     if (typeof window.mpMarkServerTab === 'function') window.mpMarkServerTab();   // la pestaña de este mundo es la del servidor
     
@@ -507,6 +508,7 @@ window.joinMultiplayerSession = function(directId = null, skipHostConfirm = fals
     });
 
     peer.on('error', function(err) {
+        if (window.mpMigrating) return;   // 👑 buscando al anfitrión nuevo: los intentos fallidos no son un error
         window.isConnecting = false; // 🔓 Quitamos el candado si hay error
         if (statusText) { statusText.innerText = "Status: Connection Error"; statusText.style.color = "#e74c3c"; }
         alert(tmsg('msg_could_not_connect', "Could not connect. The room might be closed or full."));
@@ -526,7 +528,9 @@ window.disconnectFromMultiplayer = function(silent) {
     }
     
     if (misClientes && misClientes.length > 0) {
-        misClientes.forEach(c => { try { c.send({ tipo: "servidor_cerrado" }); } catch (e) { /* nada */ } });
+        // 👑 si quedan jugadores, el servidor sigue con otro anfitrión (scripts/mp-host.js); si no, se cierra
+        const migra = isHost && typeof window.mpHostLeaving === 'function' && window.mpHostLeaving();
+        if (!migra) misClientes.forEach(c => { try { c.send({ tipo: "servidor_cerrado" }); } catch (e) { /* nada */ } });
         const cs = misClientes;
         setTimeout(() => cs.forEach(c => { try { c.close(); } catch (e) { /* nada */ } }), 150);
         misClientes = [];
@@ -589,10 +593,13 @@ function setupHostConnection(conn) {
 
     conn.on('data', function(data) {
         if (!data || typeof data !== 'object') return;
+        conn.__lastSeen = Date.now();
+        if (data.tipo === 'hb') { conn.__hb = true; return; }   // 💓 "sigo aquí" (scripts/mp-host.js): no se pasa a nadie
         if (data.tipo === "player_info" && !conn.__mapSent) {
             conn.__mapSent = true;
             conn.__gz = !!data.gz;
-            if (data.mapV >= 2) mpSendWorld(conn, !!data.gz); else mpSendWorldLegacy(conn);
+            if (data.migrated) { /* 👑 viene de otro anfitrión que se fue: ya tiene el mundo */ }
+            else if (data.mapV >= 2) mpSendWorld(conn, !!data.gz); else mpSendWorldLegacy(conn);
         }
         // 🔒 Permisos: un jugador que solo puede VER no cambia el mundo. Si de todos modos llega un cambio suyo,
         // no se aplica ni se pasa a los demás, y a él se le regresa cómo está de verdad (su editor queda igual que el del anfitrión).
@@ -820,12 +827,15 @@ function setupClientConnection(conn) {
         const myUID = localStorage.getItem('mbw_uid');
         const myName = localStorage.getItem('mbw_username') || "Player";
         const myPfp = localStorage.getItem('mbw_profile_pic') || "assets/default pfp.png";
-        conn.send({ tipo: "player_info", uid: myUID, name: myName, pfp: myPfp, peerId: peer.id, mapV: 2, gz: typeof DecompressionStream === 'function' });
+        conn.send({ tipo: "player_info", uid: myUID, name: myName, pfp: myPfp, peerId: peer.id, mapV: 2, gz: typeof DecompressionStream === 'function', migrated: !!(window.mpMigrating || conn.__migrated) });
     });
 
     conn.on('data', function(data) {
+        window.mpLastHostMsg = Date.now();
+        if (data && data.tipo === 'hb') return;   // 💓 el anfitrión sigue aquí
         if (data.tipo === "error_conexion") { conn.__byMe = true; alert(data.mensaje); conn.close(); return; }
         if (data.tipo === "servidor_cerrado") { conn.__hostClosed = true; return; }
+        if (data.tipo === "host_migra") { conn.__migrate = data.cfg; return; }   // 👑 el anfitrión se va: el servidor sigue con otro
         
         // ✨ NUEVO: Si recibimos la señal de expulsión, nos desconectamos
         if (data.tipo === "kicked") { 
@@ -842,6 +852,7 @@ function setupClientConnection(conn) {
     conn.on('close', function() {
         if (conn.__byMe) return;          // la cerré yo (Salir, o cerré la pestaña del mundo): ya se limpió todo
         if (miConexionAlHost && miConexionAlHost !== conn) return;   // (es una conexión vieja: ya estoy en otro servidor)
+        if (typeof window.mpMigrateOnHostLost === 'function' && window.mpMigrateOnHostLost(conn)) return;   // 👑 se fue el anfitrión: buscar al nuevo
         // ✨ FIX FASE 5: Limpieza total al perder conexión con el Host
         isMultiplayer = false; 
         miConexionAlHost = null;
