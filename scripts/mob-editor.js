@@ -1431,6 +1431,7 @@
       sp.health = SIZE_HP[Number(v)] || sp.health;
       const h = el('mobed-health'); if (h) h.value = sp.health;
      }
+     if (f.key === 'size') { const ob = document.querySelector('#mob-form .mob-official'); if (ob && ob._paint) ob._paint(); }
     }));
    }
    if (f.needs) for (let i = before; i < body.childNodes.length; i++) {
@@ -1454,6 +1455,7 @@
    const fn = fText(tr('mobed_name'), sp.name, function (v) { sp.name = v; renderTitle(); }, { placeholder: tr('mobed_name_ph'), maxLength: 64 });
    const fh = fNumber(tr('mobed_health'), sp.health, function (v) { if (Number.isFinite(v)) { sp.health = v; S.hpTouched = true; } }, { min: 1, max: 99999, id: 'mobed-health', title: tr('mobed_health_hint') });
    b.appendChild(fn); b.appendChild(fh);
+   const offBox = officialBox(sp, fh); if (offBox) b.appendChild(offBox);
    b.appendChild(renderTags(sp));
    if (sch.variant) {
     b.appendChild(fSelect(tr('mobed_variant'), [
@@ -1507,10 +1509,48 @@
   ['mob-preview-image', 'cm-preview-image'].forEach(function (id) { const img = el(id); if (img) setSpecImg(img, S.spec); });
  }
  const yesNo = function (v) { return v ? tr('mobed_true') : tr('mobed_false'); };
+
+ // ---------------------------------------------------------------- valores oficiales (sacados del código del juego, scripts/game-data.js)
+ // Vida, experiencia y si es hostil: lo que trae el juego de fábrica. La vida se puede cambiar (puede ser mayor),
+ // pero aquí se ve siempre cuál es la oficial y hay un botón para volver a ella.
+ function officialOf(sp) {
+  const g = window.MB_GAME && window.MB_GAME.mobs && window.MB_GAME.mobs[sp.base];
+  if (!g || typeof g.health !== 'number') return null;
+  let hp = g.health;
+  if ((sp.base === 'slime' || sp.base === 'magmacube') && sp.extra && SIZE_HP[Number(sp.extra.size)]) hp = SIZE_HP[Number(sp.extra.size)];
+  return { hp: hp, xp: g.xp, hostile: !!g.hostile };
+ }
+ function officialBox(sp, healthRow) {
+  const off = officialOf(sp);
+  if (!off) return null;
+  const box = mk('div', 'mob-official');
+  const txt = mk('span', 'mob-official-txt');
+  const btn = mk('button', 'mob-official-btn', tr('mobed_official_use')); btn.type = 'button';
+  const inp = healthRow && healthRow.querySelector ? healthRow.querySelector('input') : null;
+  const paint = function () {
+   const o = officialOf(sp) || off;
+   txt.textContent = tr('mobed_official') + ': ' + o.hp + ' ♥ · ' + o.xp + ' XP · ' + tr(o.hostile ? 'mobed_kind_hostile' : 'mobed_kind_passive');
+   const diff = Number(sp.health) !== o.hp;
+   btn.style.display = diff ? '' : 'none';
+   if (inp) inp.classList.toggle('mob-hp-custom', diff);
+   box.title = diff ? tr('mobed_official_custom') : '';
+  };
+  btn.addEventListener('click', function () {
+   const o = officialOf(sp) || off;
+   sp.health = o.hp; S.hpTouched = false;
+   if (inp) inp.value = o.hp;
+   paint();
+  });
+  if (inp) { inp.addEventListener('input', paint); inp.addEventListener('blur', function () { setTimeout(paint, 0); }); }
+  box.appendChild(txt); box.appendChild(btn);
+  paint();
+  box._paint = paint;
+  return box;
+ }
  // Los datos que muestra la barra lateral: [nombre, valor]. Salen del panel (ya limpios), así que siempre son valores válidos.
  function infoLines(spec) {
   const sch = SCHEMA[spec.base] || {}, L = [];
-  L.push([tr('mobed_health'), String(spec.health)]);
+  { const off = officialOf(spec); L.push([tr('mobed_health'), String(spec.health) + (off && Number(spec.health) !== off.hp ? ' (' + tr('mobed_official').toLowerCase() + ' ' + off.hp + ')' : '')]); }
   if (sch.variant) L.push([tr('mobed_variant'), tr('mobed_var_' + (spec.variant || 'normal'))]);
   if (sch.baby) L.push([tr('mobed_baby'), yesNo(spec.baby)]);
   (sch.fields || []).forEach(function (f) {

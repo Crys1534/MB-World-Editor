@@ -505,6 +505,7 @@ function populateInventory() {
             
             item.onclick = () => {
                 // Con el Creador de objetos abierto, el objeto guardado va a la mesa para EDITARLO (con sus magias y su nombre)
+                if (isCreatingCustomItem && itemID === 'cbook' && typeof openCommandBookModal === 'function') { openCommandBookModal(index); return; }   // un Command Book se edita en su propia ventana
                 if (isCreatingCustomItem && typeof selectCustomItem === 'function') {
                     selectCustomItem(itemID, enchantments, index);
                     return;

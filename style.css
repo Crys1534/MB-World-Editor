@@ -3086,3 +3086,30 @@ body.mbw-transforming #mbw-zoom-fab { opacity: .38; pointer-events: none; }
 
 /* 👁 con la relación de aspecto, la pestañita de las barras de arriba se ve siempre (si no, hay que acertar con el mouse al borde) */
 body.aspect-view-on #top-toggle { opacity: 0.9; pointer-events: auto; }
+
+/* ===== Editor de mobs: valores oficiales ===== */
+.mob-official { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 18px; color: #1d4d1d; line-height: 1.1; }
+.mob-official-btn { font-family: 'Pixeltype', sans-serif; font-size: 18px; padding: 1px 8px; cursor: pointer; color: #000; background: #c6c6c6; border: 2px solid; border-color: #fff #373737 #373737 #fff; }
+.mob-official-btn:hover { background: #d8d8d8; }
+.mob-form input.mob-hp-custom { background: #ffe9b0; }
+
+/* ===== 📕 Create Command Book (scripts/command-book.js) ===== */
+.cb-modal { position: fixed; inset: 0; z-index: 100001; background: rgba(0, 0, 0, 0.55); align-items: center; justify-content: center; padding: 12px; box-sizing: border-box; }
+.cb-box { width: 460px; max-width: 100%; max-height: 100%; overflow-y: auto; box-sizing: border-box; background: #c6c6c6; border: 4px solid; border-color: #fff #373737 #373737 #fff; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 8px; font-family: 'Pixeltype', sans-serif; color: #000; }
+.cb-head { display: flex; align-items: center; gap: 10px; }
+.cb-icon { width: 48px; height: 48px; image-rendering: pixelated; background: #8b8b8b; border: 3px inset #fff; box-sizing: border-box; flex: none; }
+.cb-title { flex: 1; font-size: 30px; }
+.cb-x { font-family: inherit; font-size: 22px; width: 32px; height: 32px; cursor: pointer; background: #8b8b8b; color: #fff; border: 2px solid; border-color: #fff #373737 #373737 #fff; }
+.cb-row { display: flex; flex-direction: column; gap: 2px; }
+.cb-label { font-size: 21px; }
+.cb-input { width: 100%; box-sizing: border-box; padding: 4px 6px; font-family: inherit; font-size: 23px; color: #000; background: #e6e6e6; border: 2px solid; border-color: #373737 #fff #fff #373737; border-radius: 0; }
+select.cb-input { height: 34px; padding-top: 0; padding-bottom: 2px; }
+.cb-input:focus { outline: 2px solid #f1c40f; outline-offset: 0; }
+.cb-hint { font-size: 17px; color: #2c2c2c; line-height: 1.1; }
+.cb-msg { min-height: 20px; font-size: 19px; color: #a00000; }
+.cb-msg.warn { color: #8a5a00; }
+.cb-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 2px; }
+.cb-btn { font-family: inherit; font-size: 23px; padding: 4px 14px; cursor: pointer; color: #000; background: #dcdcdc; border: 2px solid; border-color: #fff #373737 #373737 #fff; }
+.cb-btn:hover:not(:disabled) { background: #eee; }
+.cb-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.cb-save:not(:disabled) { background: #7fd37f; }
