@@ -182,7 +182,7 @@
     };
 
     // Bloqueos para quien solo puede ver (y mientras se espectea): el lienzo solo deja mirar, seleccionar y la vista de relación de aspecto
-    const VIEW_TOOLS = ['select', 'lasso', 'magic', 'aspect'];
+    const VIEW_TOOLS = ['select', 'lasso', 'magic', 'aspect', 'eyedropper'];
     function viewOnly() { return !window.mpCanEdit(); }
     function onCanvas(e) { return !!e.target && (e.target.id === 'canvas'); }
     function tool() { return typeof currentTool !== 'undefined' ? currentTool : ''; }

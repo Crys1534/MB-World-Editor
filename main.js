@@ -1150,7 +1150,7 @@ function drawUI() {
         }
     }
     
-    if (typeof currentTool !== 'undefined' && currentTool !== 'paste' && currentTool !== 'select' && currentTool !== 'lasso' && currentTool !== 'aspect') {
+    if (typeof currentTool !== 'undefined' && currentTool !== 'paste' && currentTool !== 'select' && currentTool !== 'lasso' && currentTool !== 'aspect' && currentTool !== 'transform') {
         // Solo el Lápiz y el Borrador usan el tamaño del pincel; Move, Cubeta y Varita actúan sobre 1 sola casilla
         const size = ((currentTool === 'pencil' || currentTool === 'eraser') && typeof toolSize !== 'undefined') ? toolSize : 1;
         
@@ -1605,6 +1605,9 @@ function mainLoop(ts) {
             ctx.restore();
         }
     }
+
+    // 🛠️ Mover selección y Formas: su vista previa (scripts/edit-tools.js)
+    if (typeof window.mbwEditToolsDraw === 'function') window.mbwEditToolsDraw(ctx);
 
     // 👁 Relación de aspecto: solo se ve el área elegida (scripts/aspect-view.js)
     if (window.mbwAspect) { try { window.mbwAspect.draw(ctx); } catch (e) { /* nada */ } }

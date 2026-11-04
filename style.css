@@ -3001,3 +3001,42 @@ body.ribbon-open #top-toggle { display: none; }
 body.aspect-view-on #zoom-slider { opacity: 0.45; cursor: not-allowed; }
 /* con la vista estirada, los cuadritos flotantes (cofres, drops, letreros) quedarían fuera de lugar: no se muestran */
 body.aspect-view-on #chest-tooltip-overlay, body.aspect-view-on #ex-sign-tip { display: none !important; }
+
+/* ===== 🛠️ Move + selección, Formas y Gotero (scripts/edit-tools.js) ===== */
+@keyframes mbwMoveGlow { 0%,100% { box-shadow: 0 0 0 2px rgba(255,210,74,.85), 0 0 8px 2px rgba(255,210,74,.55); } 50% { box-shadow: 0 0 0 2px rgba(255,210,74,.35), 0 0 14px 4px rgba(255,210,74,.85); } }
+#tool-move.mbw-glow { animation: mbwMoveGlow 1.4s ease-in-out infinite; }
+body.mbw-transforming #toolbar-sidebar > *:not(#tool-move),
+body.mbw-transforming #top-area,
+body.mbw-transforming #float-hotbar,
+body.mbw-transforming #hotbar-container,
+body.mbw-transforming #shapes-flyout { pointer-events: none !important; opacity: .38; filter: grayscale(.6); transition: opacity .15s; }
+body.mbw-transforming #tool-move { pointer-events: none; box-shadow: 0 0 0 2px #FFD24A, 0 0 12px 3px rgba(255,210,74,.7); }
+#mbw-move-confirm { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 100050; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;
+  padding: 8px 12px; border-radius: 10px; background: rgba(28,32,44,.94); color: #fff; font: 600 13px "Segoe UI", sans-serif; box-shadow: 0 6px 22px rgba(0,0,0,.45); border: 1px solid rgba(255,210,74,.6); max-width: calc(100vw - 24px); }
+#mbw-move-confirm button { border: 0; border-radius: 7px; padding: 7px 14px; font: 700 13px "Segoe UI", sans-serif; cursor: pointer; color: #fff; }
+#mbw-move-confirm .mmc-apply { background: #2FAE66; }
+#mbw-move-confirm .mmc-apply:hover { background: #33C272; }
+#mbw-move-confirm .mmc-cancel { background: #C9483B; }
+#mbw-move-confirm .mmc-cancel:hover { background: #DD5446; }
+#mbw-move-confirm .mmc-hint { font-weight: 400; opacity: .75; font-size: 12px; }
+body.is-touch #mbw-move-confirm .mmc-hint { display: none; }
+body.is-touch #mbw-move-confirm button { padding: 10px 18px; font-size: 15px; }
+.tool-has-flyout { position: relative; }
+.tool-has-flyout::after { content: ""; position: absolute; right: 3px; bottom: 3px; border-left: 5px solid transparent; border-bottom: 5px solid currentColor; opacity: .55; }
+#shapes-flyout { position: fixed; z-index: 100040; display: none; flex-direction: column; gap: 6px; padding: 8px; border-radius: 10px; background: var(--panel-bg, #2b2f3a); color: var(--text-color, #fff);
+  border: 1px solid rgba(255,255,255,.14); box-shadow: 0 8px 24px rgba(0,0,0,.4); font: 12px "Segoe UI", sans-serif; }
+#shapes-flyout.show { display: flex; }
+#shapes-flyout .sf-row { display: flex; gap: 4px; }
+#shapes-flyout .sf-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 62px; padding: 6px 6px 5px; border-radius: 7px; border: 1px solid transparent; background: rgba(255,255,255,.06); color: inherit; cursor: pointer; font: 11px "Segoe UI", sans-serif; }
+#shapes-flyout .sf-btn:hover { background: rgba(255,255,255,.14); }
+#shapes-flyout .sf-btn.on { border-color: #4DA6FF; background: rgba(77,166,255,.22); }
+#shapes-flyout .sf-btn .mbw-ic { width: 22px; height: 22px; }
+#shapes-flyout .sf-mode .sf-btn { flex-direction: row; flex: 1; justify-content: center; }
+#shapes-flyout .sf-hint { opacity: .7; font-size: 11px; max-width: 280px; }
+body.mbw-shapes-on .hotbar-slot:nth-child(n+3) { opacity: .25; pointer-events: none; filter: grayscale(1); }
+body.mbw-shapes-on .hotbar-slot:nth-child(1)::before, body.mbw-shapes-on .hotbar-slot:nth-child(2)::before { position: absolute; top: -2px; left: 2px; font: 700 9px "Segoe UI", sans-serif; color: #FFD24A; text-shadow: 0 1px 2px #000; pointer-events: none; }
+body.mbw-shapes-on .hotbar-slot:nth-child(1)::before { content: "1"; }
+body.mbw-shapes-on .hotbar-slot:nth-child(2)::before { content: "2"; }
+@keyframes mbwPicked { 0% { box-shadow: 0 0 0 3px #4DA6FF; } 100% { box-shadow: 0 0 0 0 rgba(77,166,255,0); } }
+.hotbar-slot.mbw-picked { animation: mbwPicked .5s ease-out; }
+body.mbw-shapes-on .hotbar-slot { position: relative; }
