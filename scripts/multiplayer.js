@@ -1128,6 +1128,7 @@ function initPresenceSystem(isReload = false) {
                         username: myName, 
                         pfp: myPfp,
                         worldName: myWorld,
+                        hasWorld: (typeof window.mbwHasWorldOpen === 'function') ? window.mbwHasWorldOpen() : true,
                         timestamp: firebase.database.ServerValue.TIMESTAMP 
                     });
                 });

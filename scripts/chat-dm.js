@@ -931,7 +931,7 @@ function dmGetMenu() {
         menu.id = 'chat-context-menu';
         menu.className = 'dc-menu';
         document.body.appendChild(menu);
-        document.addEventListener('mousedown', (e) => { if (!menu.contains(e.target)) menu.style.display = 'none'; });
+        document.addEventListener('mousedown', (e) => { if (!menu.contains(e.target)) menu.style.display = 'none'; }, true);   // (captura: el mini chat frena los clics, así que se escucha antes)
         document.addEventListener('keydown', (e) => { if (e.key === 'Escape') menu.style.display = 'none'; });
         window.addEventListener('resize', () => { menu.style.display = 'none'; });
     }
@@ -1030,7 +1030,7 @@ function dmBuildEmojiGrid(menu, opts) {
         t.title = cat.name;
         t.addEventListener('click', () => show(cat, t));
         tabs.appendChild(t);
-        if (!first || (first[0].id === 'custom' && cat.id !== 'custom')) first = [cat, t];   // se abre en la primera categoría de emojis (los emotes ya están arriba y en ⭐)
+        if (!first) first = [cat, t];   // se abre en la pestaña de emotes (⭐), que es la primera
     });
     menu.appendChild(tabs);
     menu.appendChild(content);
@@ -1191,7 +1191,7 @@ function dmBuildEmojiPanel(wrap, input) {
     panel.appendChild(tabs);
     panel.appendChild(content);
     wrap.appendChild(panel);
-    if (window.emojiCategories && window.emojiCategories.length) showCategory(window.emojiCategories[0].id, firstTab);
+    showCategory('custom', tabs.firstChild);   // abre en la pestaña de emotes
     return panel;
 }
 function dmToggleEmojiPanel() {
@@ -1204,10 +1204,81 @@ function dmToggleEmojiPanel() {
     panel.classList.toggle('is-open');
 }
 
+
+// ------------------------------------------
+// Sugerencias de emotes al escribir ":" (chat grande y mini chat)
+// ------------------------------------------
+// Al escribir ":" y unas letras aparece una lista con los emotes que coinciden. Flechas ↑↓ para elegir, Enter/Tab para poner, Esc cierra.
+window.dmAttachEmoteSuggest = function(input) {
+    if (!input || input.dataset.dcSuggest === '1') return;
+    input.dataset.dcSuggest = '1';
+    const box = dmEl('div', 'dc-emote-suggest');
+    box.style.display = 'none';
+    box.setAttribute('role', 'listbox');
+    document.body.appendChild(box);
+    let items = [], sel = 0, range = null;
+    const close = () => { box.style.display = 'none'; items = []; range = null; };
+    const pick = (i) => {
+        if (!range || !items[i]) return;
+        const code = ':' + items[i] + ': ';
+        const v = input.value;
+        input.value = v.slice(0, range[0]) + code + v.slice(range[1]);
+        const pos = range[0] + code.length;
+        close();
+        input.focus();
+        try { input.setSelectionRange(pos, pos); } catch (e) { /* nada */ }
+        input.dispatchEvent(new Event('input'));
+    };
+    const paint = () => {
+        box.textContent = '';
+        items.forEach((n, i) => {
+            const row = dmEl('div', 'dc-emote-suggest-item' + (i === sel ? ' on' : ''));
+            row.setAttribute('role', 'option');
+            const img = document.createElement('img');
+            img.src = (window.customEmotes || {})[n];
+            img.alt = '';
+            row.appendChild(img);
+            row.appendChild(dmEl('span', null, ':' + n + ':'));
+            row.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); pick(i); });
+            box.appendChild(row);
+        });
+        box.style.display = items.length ? 'flex' : 'none';
+        if (!items.length) return;
+        const r = input.getBoundingClientRect();
+        box.style.left = Math.max(8, Math.min(r.left, window.innerWidth - box.offsetWidth - 8)) + 'px';
+        box.style.top = Math.max(8, r.top - box.offsetHeight - 6) + 'px';
+    };
+    const update = () => {
+        const pos = typeof input.selectionStart === 'number' ? input.selectionStart : input.value.length;
+        const m = /(^|\s):([a-zA-Z0-9_]{0,32})$/.exec(input.value.slice(0, pos));
+        if (!m) { close(); return; }
+        const q = m[2].toLowerCase();
+        const names = Object.keys(window.customEmotes || {}).filter(n => /^[a-zA-Z0-9_]{1,32}$/.test(n) && n.toLowerCase().indexOf(q) >= 0)
+            .sort((a, b) => (a.toLowerCase().indexOf(q) === 0 ? 0 : 1) - (b.toLowerCase().indexOf(q) === 0 ? 0 : 1) || a.localeCompare(b)).slice(0, 6);
+        if (!names.length) { close(); return; }
+        range = [pos - m[2].length - 1, pos];
+        items = names;
+        if (sel >= items.length) sel = 0;
+        paint();
+    };
+    input.addEventListener('input', update);
+    input.addEventListener('click', update);
+    input.addEventListener('blur', () => setTimeout(close, 120));
+    // en captura y ANTES que los demás: si la lista está abierta, Enter/Tab/flechas/Esc son para ella
+    input.addEventListener('keydown', (e) => {
+        if (box.style.display === 'none' || !items.length) return;
+        if (e.key === 'ArrowDown') { e.preventDefault(); e.stopImmediatePropagation(); sel = (sel + 1) % items.length; paint(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); e.stopImmediatePropagation(); sel = (sel - 1 + items.length) % items.length; paint(); }
+        else if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); e.stopImmediatePropagation(); pick(sel); }
+        else if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); close(); }
+    }, true);
+};
+
 function initDmComposer() {
     const input = $dm('full-dm-input');
     if (!input || input.dataset.dcBound === '1') return;
     input.dataset.dcBound = '1';
+    window.dmAttachEmoteSuggest(input);
 
     input.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {

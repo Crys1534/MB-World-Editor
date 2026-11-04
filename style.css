@@ -1868,7 +1868,7 @@ body.has-mini-chat #msg-bubble { display: none !important; }      /* el globito 
 #mini-chat .dc-coord { text-decoration: underline dotted; cursor: pointer; }
 #mini-chat .mc-edited { font-size: 10px; opacity: 0.75; margin-left: 6px; }
 /* barrita al pasar el mouse: reaccionar, responder, editar, más */
-#mini-chat .mc-tools { display: flex; gap: 1px; flex: none; opacity: 0; pointer-events: none; transition: opacity 0.1s; background: var(--dc-menu-bg, #111); border: 1px solid var(--border, #444); border-radius: 6px; padding: 1px; }
+#mini-chat .mc-tools { display: flex; gap: 1px; flex: none; opacity: 0; pointer-events: none; transition: opacity 0.1s; background: transparent; border: none; border-radius: 6px; padding: 1px; }
 #mini-chat .mc-row:hover .mc-tools, #mini-chat .mc-tools:focus-within { opacity: 1; pointer-events: auto; }
 #mini-chat .mc-tool { width: 24px; height: 24px; padding: 0; border: none; border-radius: 4px; background: transparent; color: var(--dc-icon, #bbb); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; }
 #mini-chat .mc-tool svg { width: 15px; height: 15px; }
@@ -3064,3 +3064,25 @@ body.mbw-shapes-on .hotbar-slot { position: relative; }
 #mbw-check-toast { position: fixed; left: 70px; bottom: 44px; z-index: 100055; display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; background: rgba(28,32,44,.95); color: #fff; font: 13px "Segoe UI", sans-serif; box-shadow: 0 6px 20px rgba(0,0,0,.45); border: 1px solid rgba(241,196,15,.6); max-width: calc(100vw - 90px); }
 #mbw-check-toast button { border: 0; border-radius: 6px; padding: 5px 10px; background: #f1c40f; color: #222; font-weight: 700; cursor: pointer; }
 #mbw-check-toast .mct-x { cursor: pointer; opacity: .7; padding: 0 2px; }
+
+/* ===== 🔍 Zoom flotante en el celular (scripts/mobile-zoom.js) ===== */
+#mbw-zoom-fab { position: fixed; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); z-index: 96; display: none; align-items: center; justify-content: center; }
+body.has-zoom-fab #mbw-zoom-fab { display: flex; }
+#mbw-zoom-fab button { border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(20, 28, 40, 0.92); color: #fff; cursor: pointer; padding: 0; -webkit-tap-highlight-color: transparent; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4); }
+#mbw-zoom-fab { transition: transform 0.16s ease; }
+#mbw-zoom-fab.open { transform: translateX(-52px); }   /* al abrirse el botón se corre a la izquierda para que el + también quepa en la pantalla */
+#mbw-zoom-fab .zf-main { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; position: relative; z-index: 2; }
+#mbw-zoom-fab .zf-main svg { width: 24px; height: 24px; }
+#mbw-zoom-fab.open .zf-main { background: rgba(59, 130, 246, 0.95); }
+#mbw-zoom-fab .zf-side { position: absolute; top: 4px; width: 40px; height: 40px; border-radius: 50%; font: 700 24px/1 'Segoe UI', Arial, sans-serif; opacity: 0; pointer-events: none; transform: translateX(0) scale(0.6); transition: transform 0.16s ease, opacity 0.16s ease; z-index: 1; }
+#mbw-zoom-fab .zf-minus { right: 4px; }
+#mbw-zoom-fab .zf-plus { left: 4px; }
+#mbw-zoom-fab.open .zf-minus { opacity: 1; pointer-events: auto; transform: translateX(-52px) scale(1); }
+#mbw-zoom-fab.open .zf-plus { opacity: 1; pointer-events: auto; transform: translateX(52px) scale(1); }
+#mbw-zoom-fab .zf-side:disabled { opacity: 0.4; }
+#mbw-zoom-fab .zf-pct { position: absolute; bottom: 54px; left: 50%; transform: translateX(-50%); padding: 2px 8px; border-radius: 10px; background: rgba(20, 28, 40, 0.92); color: #fff; font: 600 12px/1.3 'Segoe UI', Arial, sans-serif; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.16s; }
+#mbw-zoom-fab.open .zf-pct { opacity: 1; }
+body.mbw-transforming #mbw-zoom-fab { opacity: .38; pointer-events: none; }
+
+/* 👁 con la relación de aspecto, la pestañita de las barras de arriba se ve siempre (si no, hay que acertar con el mouse al borde) */
+body.aspect-view-on #top-toggle { opacity: 0.9; pointer-events: auto; }

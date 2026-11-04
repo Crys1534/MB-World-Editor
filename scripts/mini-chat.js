@@ -84,6 +84,7 @@
         comp.appendChild(emoji); comp.appendChild(input); comp.appendChild(send);
         [head, msgs, typing, note, bar, comp].forEach(function (n) { r.appendChild(n); });
         document.body.appendChild(r);
+        if (window.dmAttachEmoteSuggest) window.dmAttachEmoteSuggest(input);   // sugerencias al escribir ":"
         input.addEventListener('keydown', onKey);
         input.addEventListener('keyup', function (e) { e.stopPropagation(); });
         input.addEventListener('input', function () { autoSize(); updateSendBtn(); if (input.value.trim()) typingPing(); else stopTyping(); });

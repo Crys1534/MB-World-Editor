@@ -230,7 +230,7 @@ window.renderPresenceList = function() {
                 : `<button onclick="sendFriendRequest('${u.uid}', '${safeName}')" style="background: #2ecc71; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#27ae60'" onmouseout="this.style.background='#2ecc71'" title="Añadir amigo">➕ Add</button>`;
             // 🚪 Pedir entrar a su mundo (si no estoy ya en su sala y no soy yo el que tiene la sala)
             let joinBtn = '';
-            if (!isInMyRoom && !(isHost && window.currentRoomId) && typeof window.requestJoinWorld === 'function') {
+            if (!isInMyRoom && !(isHost && window.currentRoomId) && u.hasWorld !== false && typeof window.requestJoinWorld === 'function') {   // (sin mundo abierto no se ofrece entrar)
                 const waiting = window.mbwJoinCooling && window.mbwJoinCooling(u.uid);
                 joinBtn = waiting
                     ? `<button class="mp-join-req is-waiting" disabled style="background: #7f8c8d; border: none; padding: 6px 10px; border-radius: 4px; cursor: not-allowed; color: white; font-size: 16px;">⏳ ${window.tmsg ? window.tmsg('jr_waiting_btn', 'Asked') : 'Asked'}</button>`
