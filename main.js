@@ -1208,7 +1208,7 @@ function drawUI() {
     if (typeof updateRotateButtonState === 'function') updateRotateButtonState();   // (apaga el botón Rotate si el bloque de la mano no se gira)
     const coordsDiv = document.getElementById('coords-overlay');
     if (coordsDiv) {
-        coordsDiv.innerText = `X: ${Math.floor(mouse.worldX)} Y: ${Math.floor(mouse.worldY)}` + (window.mbwBiomeLabel ? window.mbwBiomeLabel(Math.floor(mouse.worldX)) : '');
+        coordsDiv.innerText = `X: ${Math.floor(mouse.worldX)} Y: ${Math.floor(mouse.worldY)}` + (window.mbwBiomeLabel ? window.mbwBiomeLabel(Math.floor(mouse.worldX)) : '') + (window.mbwLightLabel ? window.mbwLightLabel(mouse.worldX, mouse.worldY) : '');
     }
     
     const selDiv = document.getElementById('selection-overlay');

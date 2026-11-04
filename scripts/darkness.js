@@ -17,7 +17,7 @@
 (function () {
     'use strict';
 
-    const KEY = { dark: 'mbw_darkness', biomes: 'mbw_show_biomes', notice: 'mbw_dark_notice_seen' };
+    const KEY = { dark: 'mbw_darkness', biomes: 'mbw_show_biomes', notice: 'mbw_dark_notice_seen', map: 'mbw_light_map' };
     function read(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
     function write(k, v) { try { localStorage.setItem(k, String(v)); } catch (e) { /* no se recuerda */ } }
     function tr(k, fb, vars) { return typeof window.tmsg === 'function' ? window.tmsg(k, fb, vars) : fb; }
@@ -25,6 +25,7 @@
     const D = window.mbwDarkness = {
         on: read(KEY.dark) !== '0',            // de fábrica: prendida
         biomes: read(KEY.biomes) === '1',
+        map: read(KEY.map) === '1',            // 🔆 Vista de luz: mapa de calor con cuánta luz recibe cada zona (apagada de fábrica)
         TOP: 90, BOTTOM: 66,                   // Y donde empieza (lo más leve) y donde ya es lo más oscuro
         MIN: 0.14, MAX: 0.86,                  // qué tan oscuro en Y 90 y en Y 66 (1 = negro)
         rev: 0,                                // sube cada vez que se edita el mundo (para rehacer la imagen)
@@ -107,7 +108,8 @@
         if (!lightOf) lightOf = buildLightMap();
         const A = new Float32Array(w * h);
         const Y1 = Y0 + h - 1;
-        let any = false;
+        const MAP = !!D.map;
+        let any = MAP;
         for (let j = 0; j < h; j++) {                      // fila j de la imagen = Y1 - j en el mundo (arriba en la pantalla = Y más alto)
             const a = D.darkAt(Y1 - j);
             if (a > 0) any = true;
@@ -142,6 +144,7 @@
         }
         const pt = playerTile();
         if (pt) found.push({ x: pt.x, y: pt.y, kind: 'player' });
+        if (!far) { D.lastA = A; D.lastX0 = X0; D.lastY1 = Y1; D.lastW = w; D.lastH = h; }   // (para decir el % de luz bajo el mouse)
         D.stats.lights = found.length;
         // primero las que quitan oscuridad, después las odd torch (su oscuridad gana)
         found.sort((p, q) => (LIGHTS[p.kind].dark ? 1 : 0) - (LIGHTS[q.kind].dark ? 1 : 0));
@@ -189,23 +192,24 @@
         for (let k = 0; k < A.length; k++) {
             const a = A[k];
             if (a > maxA) maxA = a;
-            if (a > 0.004 && firstRow === h) firstRow = Math.floor(k / w);
+            if ((MAP || a > 0.004) && firstRow === h) firstRow = Math.floor(k / w);
             const p = k * 4;
-            px[p] = 4; px[p + 1] = 4; px[p + 2] = 14; px[p + 3] = Math.round(a * 255);
+            if (MAP) { const c3 = D.heatColor(1 - a); px[p] = c3[0]; px[p + 1] = c3[1]; px[p + 2] = c3[2]; px[p + 3] = 125; }
+            else { px[p] = 4; px[p + 1] = 4; px[p + 2] = 14; px[p + 3] = Math.round(a * 255); }
         }
         MC.putImageData(img, 0, 0);
         if (far) {                                          // vista de lejos: se dibuja directo desde la imagen chiquita (cada fotograma)
             D.stats.builds++; D.stats.farBuilds = (D.stats.farBuilds || 0) + 1; D.stats.maxAlpha = maxA;
-            return { X0: X0, Y0: Y0, w: w, h: h, empty: !any || maxA < 0.004, maxA: maxA, far: true };
+            return { X0: X0, Y0: Y0, w: w, h: h, empty: !MAP && (!any || maxA < 0.004), maxA: maxA, far: true };
         }
         // Se estira UNA vez a tamaño de pantalla (con suavizado = degradado) y en cada cuadro solo se copia (rápido)
         const ts = tileSize, bw = Math.ceil(w * ts), bh = Math.ceil(h * ts);
         const top = Math.max(0, Math.floor((firstRow - 1) * ts));        // (las filas de arriba sin oscuridad no se copian)
-        if (maxA >= 0.004 && bw * bh <= 16000000) {
+        if ((MAP || maxA >= 0.004) && bw * bh <= 16000000) {
             if (big.width !== bw || big.height !== bh) { big.width = bw; big.height = bh; } else bctx.clearRect(0, 0, bw, bh);
             bctx.imageSmoothingEnabled = true;
             bctx.drawImage(mask, 0, 0, w, h, 0, 0, w * ts, h * ts);
-            if (glowOk) {
+            if (glowOk && !MAP) {
                 if (bigGlow.width !== bw || bigGlow.height !== bh) { bigGlow.width = bw; bigGlow.height = bh; }
                 bgctx.imageSmoothingEnabled = true;
                 bgctx.drawImage(gmask, 0, 0, w, h, 0, 0, w * ts, h * ts);
@@ -214,7 +218,7 @@
         D.stats.builds++;
         D.stats.maxAlpha = maxA;
         D.stats.glow = glowOk;
-        return { X0: X0, Y0: Y0, w: w, h: h, ts: ts, top: top, bw: bw, bh: bh, empty: !any || maxA < 0.004, glow: glowOk, maxA: maxA, bigOk: bw * bh <= 16000000 };
+        return { X0: X0, Y0: Y0, w: w, h: h, ts: ts, top: top, bw: bw, bh: bh, empty: !MAP && (!any || maxA < 0.004), glow: glowOk && !MAP, maxA: maxA, bigOk: bw * bh <= 16000000 };
     }
     const fmask = document.createElement('canvas');      // vista de lejos: la oscuridad del mundo ENTERO (1 píxel = 1 cuadro)
     const fmctx = fmask.getContext('2d');
@@ -227,14 +231,14 @@
     const bgctx = bigGlow.getContext('2d');
 
     function drawDarkness(c) {
-        if (!D.on || scene() !== 1) { D.stats.drawn = false; return; }
+        if ((!D.on && !D.map) || scene() !== 1) { D.stats.drawn = false; return; }
         const ts = tileSize;
         if (ts < 4) { drawFar(c, ts); return; }          // zoom de lejos (3 % a 10 %): la oscuridad del mundo entero, hecha una sola vez
         const X0 = Math.floor(camera.x) - 1, Y0 = Math.floor(camera.y) - 1;
         const w = Math.ceil(canvas.width / ts) + 3, h = Math.ceil(canvas.height / ts) + 3;
         if (w * h > 1200000) { D.stats.drawn = false; return; }            // zoom tan alejado que no vale la pena
         const pt = playerTile();
-        const key = [X0, Y0, w, h, ts, D.rev, cacheId(window.worldCache), pt ? Math.floor(pt.x * 2) + ',' + Math.floor(pt.y * 2) : '-'].join('|');
+        const key = [X0, Y0, w, h, ts, D.rev, D.map ? 'm' : '', cacheId(window.worldCache), pt ? Math.floor(pt.x * 2) + ',' + Math.floor(pt.y * 2) : '-'].join('|');
         const now = performance.now();
         if (key !== maskKey || !maskInfo || now - lastForce > 1500) {
             maskInfo = build(X0, Y0, w, h);
@@ -259,7 +263,7 @@
             else { c.imageSmoothingEnabled = true; c.drawImage(gmask, 0, 0, M.w, M.h, dx, dy, M.w * ts, M.h * ts); }
         }
         c.restore();
-        if (M.maxA >= 0.3) maybeNotice();
+        if (M.maxA >= 0.3 && !D.map) maybeNotice();
     }
 
     // Vista de lejos: en vez de rehacer la oscuridad cada vez que la cámara pasa a otro cuadro (al moverse, en cada fotograma),
@@ -273,7 +277,7 @@
         H = Math.max(H, D.TOP + 2);
         if (Wd * H > 6000000) { D.stats.drawn = false; return; }
         const pt = playerTile();
-        const key = ['far', Wd, H, D.rev, cacheId(window.worldCache), pt ? Math.floor(pt.x * 2) + ',' + Math.floor(pt.y * 2) : '-'].join('|');
+        const key = ['far', Wd, H, D.rev, D.map ? 'm' : '', cacheId(window.worldCache), pt ? Math.floor(pt.x * 2) + ',' + Math.floor(pt.y * 2) : '-'].join('|');
         if (key !== farKey || !farInfo) { farInfo = build(0, 0, Wd, H, true); farKey = key; }
         const M = farInfo;
         D.stats.drawn = !M.empty;
@@ -364,6 +368,34 @@
         c.fillRect(0, H, canvas.width, 1);
         c.restore();
     }
+
+    // 🔆 Vista de luz: color según cuánta luz hay (1 = toda la luz, 0 = nada): verde → amarillo → naranja → rojo → morado oscuro
+    const HEAT = [[0, [70, 20, 110]], [0.15, [200, 30, 40]], [0.4, [240, 130, 30]], [0.65, [240, 215, 50]], [0.85, [120, 215, 70]], [1, [60, 200, 90]]];
+    D.heatColor = function (v) {
+        v = Math.max(0, Math.min(1, v));
+        for (let i = 1; i < HEAT.length; i++) {
+            if (v <= HEAT[i][0]) {
+                const a = HEAT[i - 1], b = HEAT[i], t = (v - a[0]) / (b[0] - a[0]);
+                return [Math.round(a[1][0] + (b[1][0] - a[1][0]) * t), Math.round(a[1][1] + (b[1][1] - a[1][1]) * t), Math.round(a[1][2] + (b[1][2] - a[1][2]) * t)];
+            }
+        }
+        return HEAT[HEAT.length - 1][1].slice();
+    };
+    // % de luz en un cuadro (0 a 100) o null si ese cuadro no está en la última imagen armada
+    D.lightAt = function (x, y) {
+        if (scene() !== 1) return null;
+        const A = D.lastA;
+        if (A && D.lastW) {
+            const i = Math.floor(x) - D.lastX0, j = D.lastY1 - Math.floor(y);
+            if (i >= 0 && i < D.lastW && j >= 0 && j < D.lastH) return Math.round((1 - A[j * D.lastW + i]) * 100);
+        }
+        return Math.round((1 - D.darkAt(Math.floor(y))) * 100);
+    };
+    window.mbwLightLabel = function (x, y) {
+        if (!D.map || scene() !== 1) return '';
+        const v = D.lightAt(x, y);
+        return v === null ? '' : '  ·  ' + tr('lightmap_label', 'Light') + ' ' + v + '%';
+    };
     // El texto que se agrega a "X: .. Y: .." (abajo a la izquierda) con el bioma de la columna del mouse
     window.mbwBiomeLabel = function (x) {
         if (!D.biomes || scene() !== 1) return '';
@@ -396,6 +428,7 @@
     function sync() {
         const a = document.getElementById('darkness-toggle'); if (a) a.checked = D.on;
         const b = document.getElementById('biomes-toggle'); if (b) b.checked = D.biomes;
+        const m = document.getElementById('lightmap-toggle'); if (m) m.checked = D.map;
         const c = document.getElementById('animations-toggle'); if (c) c.checked = window.mbwAnimationsOn !== false;
     }
     window.setDarkness = function (on) {
@@ -404,11 +437,37 @@
         if (!on && D.noticeEl) { D.noticeEl.remove(); D.noticeEl = null; }
         sync();
     };
+    function ensureLegend() {
+        let lg = document.getElementById('lightmap-legend');
+        if (!lg) {
+            const ws = document.getElementById('workspace'); if (!ws) return null;
+            lg = document.createElement('div'); lg.id = 'lightmap-legend';
+            const a = document.createElement('span'); a.className = 'lml-lo';
+            const bar = document.createElement('span'); bar.className = 'lml-bar';
+            bar.style.background = 'linear-gradient(to right,' + HEAT.map(h => 'rgb(' + h[1].join(',') + ') ' + Math.round(h[0] * 100) + '%').join(',') + ')';
+            const b = document.createElement('span'); b.className = 'lml-hi';
+            lg.appendChild(a); lg.appendChild(bar); lg.appendChild(b); ws.appendChild(lg);
+        }
+        lg.querySelector('.lml-lo').textContent = tr('lightmap_dark', 'Dark') + ' 0%';
+        lg.querySelector('.lml-hi').textContent = '100% ' + tr('lightmap_bright', 'Light');
+        lg.title = tr('lightmap_note', 'Estimate: the game does not store light levels, it draws the darkness by depth and circles of light around torches, lamps, lava, etc.');
+        lg.style.display = D.map ? 'flex' : 'none';
+        return lg;
+    }
+    window.mbwLightLegend = ensureLegend;
+    window.addEventListener('mbw-lang-changed', function () { ensureLegend(); });
+    window.setLightMap = function (on) {
+        D.map = !!on;
+        write(KEY.map, on ? '1' : '0');
+        D.rev++;
+        sync();
+        ensureLegend();
+    };
     window.setShowBiomes = function (on) {
         D.biomes = !!on;
         write(KEY.biomes, on ? '1' : '0');
         sync();
     };
     window.mbwDarknessSync = sync;
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', sync); else sync();
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { sync(); ensureLegend(); }); else { sync(); ensureLegend(); }
 })();

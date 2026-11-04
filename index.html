@@ -706,6 +706,7 @@
         <div class="separator"></div>
         
         <div class="ribbon-group">
+            <div class="ribbon-group-content rg-row-center gap-5">
             <button class="ribbon-btn-large" onclick="openCustomItemsModal()">
                 <img src="assets/UI/Create Item.png" alt="Create Item" class="pixel-icon icon-32">
                 <span data-i18n="btn_create_item">Create<br>Item</span>
@@ -714,6 +715,7 @@
                 <canvas id="cb-btn-icon" width="32" height="32" class="pixel-icon icon-32"></canvas>
                 <span data-i18n="cb_btn">Create<br>Command Book</span>
             </button>
+            </div>
             <div class="ribbon-group-label" data-i18n="lbl_custom_items">Custom Items</div>
         </div>
         
@@ -764,6 +766,11 @@
                     <svg class="mbw-ic vt-ic" aria-hidden="true" focusable="false"><use href="#ic-map"></use></svg>
                     <input type="checkbox" id="biomes-toggle" onchange="setShowBiomes(this.checked)">
                     <span data-i18n="lbl_biomes_toggle">Biomes</span>
+                </label>
+                <label class="rg-row-center gap-5 lbl-small pointer" data-i18n-title="lightmap_toggle_tip" title="Light view: a heat map of how much light each zone gets (green = lots, red = little). Hover to see the %.">
+                    <svg class="mbw-ic vt-ic" aria-hidden="true" focusable="false"><use href="#ic-moon"></use></svg>
+                    <input type="checkbox" id="lightmap-toggle" onchange="setLightMap(this.checked)">
+                    <span data-i18n="lbl_lightmap_toggle">Light view</span>
                 </label>
             </div>
             <div class="ribbon-group-label" data-i18n="lbl_lighting_group">Darkness &amp; Biomes</div>
@@ -1801,6 +1808,7 @@
  <script src="scripts/mobile.js"></script> <!-- 📱 celular y tablet: dedos sobre el mundo (1 dedo = herramienta, 2 = mover / zoom) y pantalla compacta -->
  <script src="scripts/command-book.js"></script> <!-- 📕 Create Command Book -->
  <script src="scripts/world-presence.js"></script> <!-- 🌍 avisa si tengo un mundo abierto -->
+ <script src="scripts/mobile-block-fab.js"></script> <!-- 🪜 espejo y girar flotantes (celular) -->
  <script src="scripts/mobile-zoom.js"></script> <!-- 🔍 zoom flotante del celular -->
  <script src="scripts/chat-dm.js"></script>
  <script src="scripts/mini-chat.js"></script> <!-- 💬 mini ventana de chat de las burbujas (como Messenger) -->

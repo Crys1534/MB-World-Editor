@@ -3113,3 +3113,27 @@ select.cb-input { height: 34px; padding-top: 0; padding-bottom: 2px; }
 .cb-btn:hover:not(:disabled) { background: #eee; }
 .cb-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .cb-save:not(:disabled) { background: #7fd37f; }
+
+/* ===== 🔆 Vista de luz (scripts/darkness.js) ===== */
+#lightmap-legend { position: absolute; right: 12px; top: 8px; z-index: 30; display: none; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 999px; background: rgba(16, 19, 26, 0.82); color: #fff; font: 600 12px/1.2 'Segoe UI', Arial, sans-serif; pointer-events: auto; cursor: help; white-space: nowrap; }
+#lightmap-legend .lml-bar { width: 140px; height: 10px; border-radius: 5px; border: 1px solid rgba(255, 255, 255, 0.35); }
+
+.cb-usage { font-size: 18px; color: #1d3a6b; background: rgba(255, 255, 255, 0.35); padding: 2px 6px; font-family: Consolas, 'Courier New', monospace; word-break: break-word; }
+.cb-slots { display: flex; gap: 6px; flex-wrap: wrap; }
+.cb-pos { font-size: 20px; padding: 3px 10px; }
+.cb-sug { position: fixed; z-index: 100003; flex-direction: column; max-height: 260px; overflow-y: auto; background: #1e1f22; border: 1px solid #555; border-radius: 6px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45); padding: 3px; font-family: 'Segoe UI', Arial, sans-serif; }
+.cb-sug-item { display: flex; gap: 10px; align-items: baseline; padding: 4px 8px; border-radius: 4px; cursor: pointer; color: #ddd; font-size: 14px; }
+.cb-sug-item b { color: #fff; }
+.cb-sug-item span { color: #9aa; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cb-sug-item.on, .cb-sug-item:hover { background: #3a4a6a; }
+.cb-pick-banner { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 100002; display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-radius: 10px; background: rgba(16, 19, 26, 0.92); color: #fff; font: 600 14px/1.2 'Segoe UI', Arial, sans-serif; box-shadow: 0 3px 14px rgba(0, 0, 0, 0.5); border: 2px solid #3b82f6; max-width: calc(100vw - 16px); }
+.cb-pick-banner .cb-btn { font-size: 16px; padding: 2px 10px; }
+.cb-pick-pos { min-width: 120px; color: #ffd24a; }
+body.cb-picking #canvas, body.cb-picking #workspace { cursor: crosshair !important; }
+
+/* ===== 🪜 Espejo y Girar flotantes en el celular (scripts/mobile-block-fab.js) ===== */
+#mbw-block-fab { position: fixed; right: 14px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); z-index: 96; flex-direction: column; gap: 10px; }
+#mbw-block-fab .bf-btn { width: 44px; height: 44px; border-radius: 50%; padding: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #fff; background: rgba(20, 28, 40, 0.92); border: 1px solid rgba(255, 255, 255, 0.25); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4); -webkit-tap-highlight-color: transparent; }
+#mbw-block-fab .bf-btn:active { background: rgba(59, 130, 246, 0.95); }
+#mbw-block-fab .bf-btn svg { width: 24px; height: 24px; fill: currentColor; stroke: none; pointer-events: none; }
+body.mbw-transforming #mbw-block-fab { opacity: .38; pointer-events: none; }
