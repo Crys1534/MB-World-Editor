@@ -84,7 +84,7 @@ window.renderLivePlayers = function() {
         const tipTr = (k, fb, v) => (typeof window.tmsg === 'function' ? window.tmsg(k, fb, v) : fb.replace('{name}', v && v.name));
         let tip = tipTr('mp_avatar_tip', 'Click: spectate {name} · Right-click: go to {name}', { name: p.name });
         const isRoomHost = window.roomPlayers[0] && window.roomPlayers[0].uid === p.uid;
-        if (!isRoomHost) tip += ' · ' + (p.canEdit ? tipTr('mp_avatar_edit', 'can edit') : tipTr('mp_avatar_view', 'view only'));
+        if (!isRoomHost) tip += ' · ' + (!p.canEdit ? tipTr('mp_avatar_view', 'view only') : p.perm === 'editor' ? tipTr('mp_avatar_editor', 'Editor (can edit, remembered)') : p.perm === 'builder' ? tipTr('mp_avatar_builder', 'Builder (can edit until they leave)') : tipTr('mp_avatar_edit', 'can edit'));
         const pid = String(p.peerId || '').replace(/'/g, '');
         const pname = String(p.name || '').replace(/\\/g, '').replace(/'/g, "\\'").replace(/"/g, '&quot;');
         htmlBuilder += `

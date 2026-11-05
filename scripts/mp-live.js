@@ -140,18 +140,69 @@
         const me = players().find(p => p.uid === myUid());
         return !!(me && me.canEdit);
     };
-    // (anfitrión) dar o quitar el permiso de editar
-    window.mpSetCanEdit = function (uid, can) {
+    // (anfitrión) Permisos de cada jugador: 3 niveles
+    //   · 'view'    = solo ver (como siempre, lo de fábrica)
+    //   · 'editor'  = puede construir y SE RECUERDA en este mundo: cada vez que vuelva a entrar a un servidor de este mundo,
+    //                 entra ya con permiso (se guarda en este navegador del anfitrión: mbw_world_editors), hasta que se le cambie.
+    //   · 'builder' = puede construir solo mientras siga dentro: si sale y vuelve a entrar, regresa a 'view' solo.
+    // mpEditPerms[uid] (true / false) sigue siendo "puede editar AHORA" (lo usan el resto del editor y la migración de anfitrión).
+    const ED_KEY = 'mbw_world_editors';
+    function edAll() { try { const o = JSON.parse(localStorage.getItem(ED_KEY) || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch (e) { return {}; } }
+    function permWorld() { const n = window.mpPermWorldKey || window.mpSelectedMapName || (($('filename-display') || {}).value) || 'world'; return String(n).trim() || 'world'; }
+    window.mpPermWorld = permWorld;
+    window.mpSavedEditors = function () { const m = edAll()[permWorld()]; return m && typeof m === 'object' ? m : {}; };
+    function saveEditor(uid, name, on) {
+        const all = edAll(), k = permWorld();
+        const m = all[k] && typeof all[k] === 'object' ? all[k] : {};
+        if (on) m[uid] = String(name || 'Player').slice(0, 40); else delete m[uid];
+        if (Object.keys(m).length) all[k] = m; else delete all[k];
+        try { localStorage.setItem(ED_KEY, JSON.stringify(all)); } catch (e) { /* no se pudo recordar */ }
+    }
+    window.mpPermLevels = window.mpPermLevels || {};
+    window.mpPermLevel = function (uid) {
+        if (!uid) return 'view';
+        const lv = window.mpPermLevels && window.mpPermLevels[uid];
+        if (lv === 'editor' || (lv == null && window.mpSavedEditors()[uid])) return 'editor';
+        if (window.mpEditPerms && window.mpEditPerms[uid]) return 'builder';
+        return 'view';
+    };
+    window.mpSetPermLevel = function (uid, level) {
         if (!amHost() || !uid) return;
-        window.mpEditPerms = window.mpEditPerms || {};
-        window.mpEditPerms[uid] = !!can;
+        if (['view', 'editor', 'builder'].indexOf(level) < 0) level = 'view';
         const p = players().find(x => x.uid === uid);
-        if (p) p.canEdit = !!can;
+        window.mpEditPerms = window.mpEditPerms || {};
+        window.mpPermLevels = window.mpPermLevels || {};
+        const before = window.mpPermLevel(uid);
+        window.mpEditPerms[uid] = level !== 'view';
+        window.mpPermLevels[uid] = level;
+        saveEditor(uid, p ? p.name : '', level === 'editor');
+        if (p) { p.canEdit = level !== 'view'; p.perm = level; }
         if (typeof enviarMensajeEnRed === 'function') enviarMensajeEnRed({ tipo: 'sync_players', players: window.roomPlayers });
         if (typeof window.renderLivePlayers === 'function') window.renderLivePlayers();
+        if (before === level) return;
         const nm = p ? p.name : 'Player';
-        toast(can ? '✏️ ' + tr('mp_perm_title', 'Permissions') : '👁 ' + tr('mp_perm_title', 'Permissions'),
-            can ? tr('mp_perm_given', '{name} can now edit the world.', { name: nm }) : tr('mp_perm_removed', '{name} can now only watch.', { name: nm }));
+        const msg = level === 'editor' ? tr('mp_perm_editor_given', '{name} is an Editor: they can build, and it is remembered in this world.', { name: nm })
+            : level === 'builder' ? tr('mp_perm_builder_given', '{name} is a Builder: they can build until they leave (then back to View).', { name: nm })
+            : tr('mp_perm_removed', '{name} can now only watch.', { name: nm });
+        toast((level === 'view' ? '👁 ' : level === 'editor' ? '✏️ ' : '🧱 ') + tr('mp_perm_title', 'Permissions'), msg);
+    };
+    // (compatibilidad) dar / quitar el permiso de editar = Builder / View
+    window.mpSetCanEdit = function (uid, can) { window.mpSetPermLevel(uid, can ? 'builder' : 'view'); };
+    // (anfitrión) Alguien entra: ¿con qué permiso? Los Editor de este mundo entran ya con permiso.
+    window.mpPermOnJoin = function (uid) {
+        if (!uid) return false;
+        window.mpEditPerms = window.mpEditPerms || {};
+        window.mpPermLevels = window.mpPermLevels || {};
+        if (window.mpSavedEditors()[uid] && window.mpPermLevels[uid] !== 'view' && window.mpPermLevels[uid] !== 'builder') { window.mpEditPerms[uid] = true; window.mpPermLevels[uid] = 'editor'; }
+        return !!window.mpEditPerms[uid];
+    };
+    // (anfitrión) Alguien se fue: un Builder pierde el permiso (si vuelve, entra como View). Los Editor lo conservan.
+    window.mpPermOnLeave = function (uid) {
+        if (!uid) return;
+        if (window.mpPermLevel(uid) === 'builder') {
+            if (window.mpEditPerms) window.mpEditPerms[uid] = false;
+            if (window.mpPermLevels) window.mpPermLevels[uid] = 'view';
+        }
     };
     window.mpViewOnlyNotice = function () {
         const now = Date.now();
@@ -166,11 +217,14 @@
         if (inMp() && !amHost()) {
             const me = players().find(p => p.uid === myUid());
             const can = !!(me && me.canEdit);
-            if (L.lastCan !== null && can !== L.lastCan) {
-                toast(can ? '✏️ ' + tr('mp_perm_title', 'Permissions') : '👁 ' + tr('mp_perm_title', 'Permissions'),
-                    can ? tr('mp_can_edit_now', 'The host let you edit the world!') : tr('mp_view_now', 'Now you can only watch this world.'));
+            const lv = me && me.perm ? me.perm : (can ? 'builder' : 'view');
+            if (L.lastCan !== null && (can !== L.lastCan || lv !== L.lastLv)) {
+                toast((can ? (lv === 'editor' ? '✏️ ' : '🧱 ') : '👁 ') + tr('mp_perm_title', 'Permissions'),
+                    !can ? tr('mp_view_now', 'Now you can only watch this world.')
+                        : lv === 'editor' ? tr('mp_editor_now', 'You are an Editor of this world: you can build, and this world will remember it.')
+                            : tr('mp_builder_now', 'You are a Builder: you can build until you leave the world.'));
             }
-            L.lastCan = can;
+            L.lastCan = can; L.lastLv = lv;
         }
         // los que ya no están: fuera su cursor, su cámara y su selección
         const here = new Set(players().map(p => p.peerId));

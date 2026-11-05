@@ -402,7 +402,9 @@ window.hostMultiplayerSession = function() {
     isHost = true;
     misClientes = []; 
     window.mpGen = 0;
-    window.mpEditPerms = {};      // quién puede editar el mundo (por defecto nadie: solo ver)
+    window.mpEditPerms = {};      // quién puede editar el mundo (por defecto nadie: solo ver; los "Editor" guardados de este mundo, al entrar)
+    window.mpPermLevels = {};     // View / Editor / Builder de cada uno en esta sesión (scripts/mp-live.js)
+    window.mpPermWorldKey = window.mpSelectedMapName || ((document.getElementById('filename-display') || {}).value) || 'world';
     if (typeof window.mpMarkServerTab === 'function') window.mpMarkServerTab();   // la pestaña de este mundo es la del servidor
     
     // ✨ MAGIA: Generamos una ID de exactamente 8 caracteres (mayúsculas, minúsculas y números)
@@ -617,6 +619,9 @@ function setupHostConnection(conn) {
     conn.on('close', function() {
         // ✨ FIX FASE 5: Borrar de las listas y limpiar memoria del cursor
         misClientes = misClientes.filter(c => c.peer !== conn.peer);
+        // un "Builder" que se va pierde el permiso: si vuelve, entra como View (los "Editor" lo conservan)
+        const gone = window.roomPlayers.find(p => p.peerId === conn.peer);
+        if (gone && typeof window.mpPermOnLeave === 'function') window.mpPermOnLeave(gone.uid);
         window.roomPlayers = window.roomPlayers.filter(p => p.peerId !== conn.peer);
         
         // 🗑️ ¡Eliminar el cursor fantasma! (y su cámara y su selección)
@@ -963,7 +968,9 @@ function recibirMensajeDeRed(datos) {
     if (datos.tipo === "player_info" && isHost) {
         const known = window.roomPlayers.find(p => p.uid === datos.uid);
         if (!known) {
-            window.roomPlayers.push({ uid: datos.uid, name: datos.name, pfp: datos.pfp, peerId: datos.peerId, canEdit: !!(window.mpEditPerms && window.mpEditPerms[datos.uid]) });
+            // permiso con el que entra: los "Editor" de este mundo entran ya pudiendo construir (scripts/mp-live.js)
+            const can = typeof window.mpPermOnJoin === 'function' ? window.mpPermOnJoin(datos.uid) : !!(window.mpEditPerms && window.mpEditPerms[datos.uid]);
+            window.roomPlayers.push({ uid: datos.uid, name: datos.name, pfp: datos.pfp, peerId: datos.peerId, canEdit: can, perm: typeof window.mpPermLevel === 'function' ? window.mpPermLevel(datos.uid) : (can ? 'builder' : 'view') });
         } else { known.peerId = datos.peerId; known.name = datos.name; known.pfp = datos.pfp; }
         renderLivePlayers(); 
         enviarMensajeEnRed({ tipo: "sync_players", players: window.roomPlayers }); 

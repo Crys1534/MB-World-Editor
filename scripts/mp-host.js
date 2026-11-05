@@ -32,7 +32,9 @@
             base: baseId(window.currentRoomId), gen: window.mpGen || 0, hostUid: myUid(), hostName: myName(),
             access: window.multiplayerAccess || 'public', max: window.multiplayerPlayerLimit || 5,
             mapName: window.mpSelectedMapName || null, mapThumb: window.mpSelectedMapThumb || null,
-            perms: Object.assign({}, window.mpEditPerms || {})
+            perms: Object.assign({}, window.mpEditPerms || {}),
+            levels: Object.assign({}, window.mpPermLevels || {}),
+            permWorld: window.mpPermWorldKey || null
         };
     }
     window.mpHostCfg = hostCfg;
@@ -123,6 +125,8 @@
         isHost = true;
         misClientes = [];
         window.mpEditPerms = Object.assign({}, cfg.perms || {});
+        window.mpPermLevels = Object.assign({}, cfg.levels || {});
+        window.mpPermWorldKey = cfg.permWorld || cfg.mapName || window.mpPermWorldKey;
         window.multiplayerAccess = cfg.access || 'public';
         window.multiplayerPlayerLimit = cfg.max || 5;
         if (cfg.mapName) window.mpSelectedMapName = cfg.mapName;
