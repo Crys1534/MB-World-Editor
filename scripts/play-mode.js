@@ -1,0 +1,1371 @@
+// =====================================================================
+// ▶️ MODO JUGAR — probar el mapa dentro del editor
+// =====================================================================
+// Qué hace:
+//   • El botón ▶ Play (barra de arriba) toma una FOTO completa del mundo (bloques, mobs, Player, cofres, hornos...)
+//     y deja jugar el mapa con el Player del mundo: su posición, su inventario y su vida.
+//   • Al salir (botón ■ Stop o Esc) la foto se vuelve a poner TAL CUAL: los bloques, los mobs y el Player regresan a
+//     donde estaban antes de jugar. Nada de lo que pasa jugando se guarda ni entra al historial (Ctrl+Z).
+//   • Mientras se juega, guardar / descargar / autoguardar usan la foto (el mundo de antes de jugar), nunca el mundo jugado.
+//
+// De dónde salen las reglas: del código decompilado de Mine Blocks 2.0.0 (Game.js, World.js, entities/Entity_Mob.js,
+// entities/Entity_FallingBlock.js, blocks/Block_Sand.js). Las tablas de bloques y mobs están en scripts/play-data.js.
+//   - Player: Game.doPlayerLogic (caminar, correr con doble toque, saltar, agacharse, escaleras, losas, agua, telarañas,
+//     hielo, arena de almas, escalar escaleras de mano / cuerdas, caer y daño por caída, ahogarse, asfixia, lava, ácido,
+//     cactus, magma, vacío), Game.collision (choques), Game.ouch (daño y armadura), Game.inGame1 (morir y reaparecer),
+//     Game.onCertainInterval (hambre y curarse solo).
+//   - Picar / poner: Game.mineAndPlaceCode + startMiningBlock (tiempo de picado por herramienta, qué suelta cada bloque).
+//   - Mobs: Entity_Mob.run + mobCalculateTarget + mobAttack + hurtMob (caminar al azar, perseguir, saltar, no tirarse por
+//     barrancos, nadar, daño, empujón al pegarles, creeper que explota, esqueleto que dispara flechas).
+//   - Arena y grava que caen, TNT (con mechero), explosiones (Game.explode).
+// APROXIMADO / NO INCLUIDO (se dice para no engañar): el agua y la lava no fluyen, no hay día/noche ni clima, no aparecen
+// mobs nuevos solos, no hay redstone, ni crafteo, ni encantamientos, ni efectos de pociones. Los mobs que vuelan o nadan
+// (murciélago, ghast, calamar, blaze, ojo del Nether, dragón) usan una versión simple de su movimiento.
+// El alcance de las manos (5 bloques) no aparece en el código decompilado: es un valor estimado.
+// =====================================================================
+(function () {
+    'use strict';
+    const D = window.MB_PLAY_DATA || { blocks: {}, mobs: {} };
+    const FPS = 50;                                   // el juego corre a 50 pasos por segundo (Main.js: set_fps(50))
+    const migAcc = (b, a) => b / 2 / (1 + Math.sqrt(a));
+    const migDamp = (b) => Math.sqrt(b);
+    const migSpeed = (b) => b / 2;
+    const REACH = 5;                                  // (estimado)
+    const PLAYER_ID = '__player__';
+    const tr = (k, fb, p) => { try { const v = window.tmsg ? window.tmsg(k, fb, p) : fb; return v || fb; } catch (e) { return fb; } };
+    const bd = (id, p) => { const o = D.blocks[id]; return o ? o[p] : undefined; };
+    const modulus = (a, b) => { const r = a % b; return r < 0 ? r + b : r; };
+
+    // ------------------------------------------------------------------ estado
+    const S = {
+        playing: false, snapshot: null, scene: 1, old: null,
+        p: null, keys: {}, dbl: {}, mouse: { x: 0, y: 0, left: false, right: false, inside: false, leftEdge: false, rightEdge: false },
+        tmp: new Map(), drops: [], falling: [], arrows: [], sandCheck: new Map(),
+        tick: 0, acc: 0, last: 0, raf: 0, mine: null, placeDelay: 0, useTimer: -1, msg: '', msgT: 0,
+        touchMode: 'mine'
+    };
+    window.mbwPlay = { isPlaying: () => S.playing, state: S };
+
+    // ------------------------------------------------------------------ mundo
+    const W = () => mbwom.world;
+    function fg(x, y) {
+        x = Math.floor(x); y = Math.floor(y);
+        const sc = mbwom.scene;
+        if (!sc || x < 0 || y < 0) return 'air';
+        const col = sc[x];
+        if (!col) return 'air';
+        const v = col[y];
+        return (v === null || v === undefined || v === '' || v === 0) ? 'air' : String(v);
+    }
+    const key = (x, y) => 'blockX' + x + 'Y' + y;
+    const st = (x, y) => (mbwom.states ? mbwom.states[key(x, y)] : undefined);
+    function setBlock(x, y, type, st1) {
+        if (x < 0 || y < 0) return;
+        const s = { type: (type && type !== 'air') ? type : null };
+        if (st1 !== undefined && s.type) s.states1 = st1;
+        mbwom.setBlockState(x, y, s);
+        if (typeof window.renderBlock === 'function') window.renderBlock(x, y);
+        // lo que había encima puede caerse (Block_Sand.inter: se revisa 2 pasos después)
+        S.sandCheck.set(x + ',' + (y + 1), S.tick + 2);
+        S.sandCheck.set(x + ',' + y, S.tick + 2);
+    }
+    function getWater(x, y) { const w = mbwom.water && mbwom.water[key(x, y)]; return Array.isArray(w) ? w : [0, 0]; }
+    function gameRule(name) {
+        const w = W();
+        const gr = w && (w.gameRules || w.gamerules);
+        if (gr && typeof gr === 'object' && name in gr) return gr[name];
+        return undefined;
+    }
+
+    // Game.collision — ¿hay algo sólido en el rectángulo (x, y, ancho c, alto d), revisado cada "f"?
+    // (y del juego crece hacia ABAJO: el bloque es floor(-y))
+    function collision(b, a, c, d, f, l, g, k) {
+        if (k == null) k = false; if (g == null) g = true; if (l == null) l = true;
+        for (let n = b; n - (b + c) <= f / 2; n += f) {
+            for (let m = a; m - (a + d) <= f / 2; m += f) {
+                const p = Math.floor(n), Q = Math.floor(-m);
+                let h = fg(p, Q);
+                if (k && bd(h, 'liquidCollision') == 1) return true;
+                if (bd(h, g ? 'walkThroughBlockHit' : 'walkThroughBlock') != 1) {
+                    if (bd(h, 'halfBlock') == 1) {
+                        if (st(p, Q) == 2) { if (modulus(-m, 1) > .5) return true; }
+                        else if (modulus(-m, 1) < .5) return true;
+                    } else if (bd(h, 'stairBlock') == 1) {
+                        const s = st(p, Q);
+                        if (s == 4) { if (modulus(n, 1) < .5 || modulus(-m, 1) > .5) return true; }
+                        else if (s == 2) { if (modulus(n, 1) < .5 || modulus(-m, 1) < .5) return true; }
+                        else if (s == 3) { if (modulus(n, 1) > .5 || modulus(-m, 1) > .5) return true; }
+                        else if (modulus(n, 1) > .5 || modulus(-m, 1) < .5) return true;
+                    } else if (h.substr(0, 2) === 'lp') {
+                        if (modulus(-m, 1) < .5) return true;
+                    } else return true;
+                } else if (h.substr(-3) === 'fnc') {
+                    if ((fg(p - 1, Q).split('g')[0] !== h && bd(fg(p - 1, Q), 'walkThroughBlockHit') == 1 || fg(p + 1, Q).split('g')[0] !== h && bd(fg(p + 1, Q), 'walkThroughBlockHit') == 1) && modulus(n, 1) > 1 / 3 && modulus(n, 1) < 2 / 3) return true;
+                } else if (h.substr(-4) === 'fncg' && st(p, Q) != 1) {
+                    if (modulus(n, 1) > 1 / 3 && modulus(n, 1) < 2 / 3) return true;
+                } else if (h === 'ibar') {
+                    if ((fg(p - 1, Q) !== 'ibar' && bd(fg(p - 1, Q), 'walkThroughBlockHit') == 1 || fg(p + 1, Q) !== 'ibar' && bd(fg(p + 1, Q), 'walkThroughBlockHit') == 1) && modulus(n, 1) > 1 / 3 && modulus(n, 1) < 2 / 3) return true;
+                } else if (l) {
+                    h = fg(p, Q - 1);
+                    const x2 = fg(p, Q - 2);
+                    if (modulus(n, 1) > 1 / 3 && modulus(n, 1) < 2 / 3) {
+                        if (h.substr(-3) === 'fnc') {
+                            if (fg(p - 1, Q - 1).split('g')[0] !== h && bd(fg(p - 1, Q - 1), 'walkThroughBlockHit') == 1 || fg(p + 1, Q - 1).split('g')[0] !== h && bd(fg(p + 1, Q - 1), 'walkThroughBlockHit') == 1) return true;
+                        } else if (x2.substr(-3) === 'fnc' && bd(h, 'walkThroughBlockHit') == 1) {
+                            if (fg(p - 1, Q - 2).split('g')[0] !== x2 && bd(fg(p - 1, Q - 2), 'walkThroughBlockHit') == 1 || fg(p + 1, Q - 2).split('g')[0] !== x2 && bd(fg(p + 1, Q - 2), 'walkThroughBlockHit') == 1) return true;
+                        } else if (h.substr(-4) === 'fncg' && st(p, Q - 1) != 1 || x2.substr(-4) === 'fncg' && st(p, Q - 2) != 1 && bd(h, 'walkThroughBlockHit') == 1) return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    function collisionWithLiquid(b, a, c, d, f) {
+        for (let n = b; n - (b + c) <= f / 2; n += f) for (let m = a; m - (a + d) <= f / 2; m += f) if (bd(fg(Math.floor(n), Math.floor(-m)), 'liquidCollision') == 1) return true;
+        return false;
+    }
+
+    // ------------------------------------------------------------------ inventario
+    const empty = () => ['air', 0, 0, {}];
+    const isEmpty = (it) => !it || it[0] == null || it[0] === '' || it[0] === 'air' || it[0] === 'na' || !(Number(it[1]) >= 1);
+    function inv() {
+        const w = W();
+        if (!Array.isArray(w.inventoryList)) w.inventoryList = [];
+        while (w.inventoryList.length < 45) w.inventoryList.push(empty());
+        if (typeof w.selectedInventoryItem !== 'number') w.selectedInventoryItem = 0;
+        if (!Array.isArray(w.armors)) w.armors = [];
+        while (w.armors.length < 4) w.armors.push(['air', 0, {}]);
+        return w.inventoryList;
+    }
+    const selIndex = () => Math.max(0, Math.min(8, W().selectedInventoryItem | 0));
+    const selItem = () => { const it = inv()[selIndex()]; return isEmpty(it) ? null : it; };
+    const selType = () => { const it = selItem(); return it ? String(it[0]) : 'air'; };
+    const selExtra = () => { const it = selItem(); return (it && it[3] && typeof it[3] === 'object') ? it[3] : {}; };
+    const maxStack = (id) => bd(id, 'unstackable') == 1 ? 1 : 64;
+    function sameExtras(a, b) { try { return JSON.stringify(a || {}) === JSON.stringify(b || {}); } catch (e) { return false; } }
+    function addToInventory(id, count, dmg, extras) {
+        const list = inv();
+        const max = maxStack(id);
+        let left = count | 0;
+        for (let i = 0; i < 45 && left > 0; i++) {
+            const it = list[i];
+            if (!isEmpty(it) && it[0] === id && (Number(it[2]) || 0) === (Number(dmg) || 0) && sameExtras(it[3], extras) && it[1] < max) {
+                const m = Math.min(left, max - it[1]); it[1] += m; left -= m;
+            }
+        }
+        for (let i = 0; i < 45 && left > 0; i++) {
+            if (isEmpty(list[i])) { const m = Math.min(left, max); list[i] = [id, m, dmg || 0, JSON.parse(JSON.stringify(extras || {}))]; left -= m; }
+        }
+        hud.dirty = true;
+        return left;
+    }
+    function reduceSelected(n) {
+        if (W().gamemode == 1) return;
+        const list = inv(), i = selIndex();
+        const it = list[i];
+        if (isEmpty(it)) return;
+        it[1] -= n;
+        if (it[1] <= 0) list[i] = empty();
+        hud.dirty = true;
+    }
+    function damageTool() {
+        if (W().gamemode == 1) return;
+        const it = selItem();
+        if (!it || bd(it[0], 'tool') != 1) return;
+        const life = bd(it[0], 'life');
+        if (life == null) return;
+        it[2] = (Number(it[2]) || 0) + 1;
+        if (it[2] >= life) inv()[selIndex()] = empty();
+        hud.dirty = true;
+    }
+
+    // ------------------------------------------------------------------ objetos tirados en el suelo
+    function addDrop(id, x, y, count, dmg, extras) {
+        if (!id || id === 'air' || id === 'na' || !(count > 0)) return;
+        S.drops.push({ id: String(id), n: count | 0, dmg: dmg || 0, ex: extras || {}, x: x, y: y, vx: migSpeed(4 * Math.random() - 2), vy: migSpeed(-4), age: 0 });
+    }
+    function tickDrops() {
+        const w = W();
+        for (let i = S.drops.length - 1; i >= 0; i--) {
+            const d = S.drops[i];
+            d.age++;
+            d.vy = Math.min(migSpeed(14), d.vy + .5);
+            d.vx *= .9;
+            const nx = d.x + d.vx / 30, ny = d.y + d.vy / 30;
+            if (!collision(nx - .15, ny - .25, .3, 0, .1, true, false)) d.x = nx; else d.vx = 0;
+            if (collision(d.x - .15, ny, .3, 0, .1, true, false)) { d.vy = 0; } else d.y = ny;
+            if (d.age > 300 * FPS || d.y > 10) { S.drops.splice(i, 1); continue; }
+            if (d.age > 25 && !(w.dead > 0) && w.gamemode != 3 && Math.abs(d.x - w.worldX) < 1.5 && Math.abs(d.y - (w.worldY - 1)) < 1.5) {
+                const left = addToInventory(d.id, d.n, d.dmg, d.ex);
+                if (left <= 0) S.drops.splice(i, 1); else d.n = left;
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------ arena / grava / TNT que caen (Entity_FallingBlock)
+    function checkSand(x, y) {
+        const t = fg(x, y);
+        if (bd(t, 'falls') != 1) return;
+        const below = fg(x, y - 1);
+        if (below === 'la' || below === 'ad') { setBlock(x, y, null); return; }
+        if (below === 'air' || bd(below, 'replaceable') == 1) {
+            const s1 = st(x, y);
+            setBlock(x, y, null);
+            S.falling.push({ t: t, s: s1, x: x + .5, y: -y - .5, vx: 0, vy: 0, tnt: false, fuse: 0 });
+        }
+    }
+    function igniteTNT(x, y) {
+        setBlock(x, y, null);
+        S.falling.push({ t: 'TNT', x: x + .5, y: -y - .5, vx: migSpeed(2 * Math.random() - 1), vy: migSpeed(-5), tnt: true, fuse: 0 });
+    }
+    function tickFalling() {
+        for (let i = S.falling.length - 1; i >= 0; i--) {
+            const e = S.falling[i];
+            if (e.tnt) { e.fuse++; if (e.fuse >= 200) { S.falling.splice(i, 1); explode(e.x | 0, -e.y | 0, 6, PLAYER_ID); continue; } }
+            e.vy = Math.min(migSpeed(14), Math.max(migSpeed(-30), e.vy + .5));
+            e.vx = Math.min(migSpeed(50), Math.max(migSpeed(-50), e.vx * migDamp(.98)));
+            if (collision(e.x + (-14 + e.vx / migSpeed(1)) / 30, e.y - .4333, 1 / 30, .8667, 1 / 6, true, false)) { e.x = Math.round(e.x - .5) + .5; e.vx = Math.abs(e.vx) / 2; }
+            if (collision(e.x + (14 + e.vx / migSpeed(1)) / 30, e.y - .4333, 1 / 30, .8667, 1 / 6, true, false)) { e.x = Math.round(e.x - .5) + .5; e.vx = -Math.abs(e.vx) / 2; }
+            let landed = false;
+            if (collision(e.x + (-5 + e.vx / migSpeed(1)) / 30, e.y + (-15 + e.vy / migSpeed(1)) / 30, 1 / 3, 1 / 30, 1 / 6, true, false)) { e.vy = 0; e.vx *= .5; e.y = Math.ceil(2 * e.y) / 2; }
+            if (collision(e.x + (-5 + e.vx / migSpeed(1)) / 30, e.y + (15 + e.vy / migSpeed(1)) / 30, 1 / 30, 1 / 30, 1 / 6, true, false) || collision(e.x + (5 + e.vx / migSpeed(1)) / 30, e.y + (15 + e.vy / migSpeed(1)) / 30, 1 / 30, 1 / 30, 1 / 6, true, false)) { landed = true; e.vy = 0; e.vx *= .8; e.y = Math.ceil(2 * e.y) / 2; }
+            e.y += e.vy / 30; e.x += e.vx / 30;
+            if (e.y >= 1) { S.falling.splice(i, 1); continue; }
+            if (!e.tnt && Math.round(e.vx) === 0 && landed) {
+                const bx = Math.floor(e.x), by = Math.floor(-e.y);
+                const here = fg(bx, by);
+                if (here === 'air' || bd(here, 'replaceable') == 1) setBlock(bx, by, e.t, e.s);
+                else if (W().gamemode != 1) addDrop(e.t, e.x, e.y, 1);
+                S.falling.splice(i, 1);
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------ explosión (Game.explode)
+    function explode(b, a, c, byId) {
+        const w = W();
+        for (const id in mbwom.mobs) {
+            const m = mbwom.mobs[id];
+            if (!m || !(m.health > 0) || m.dead > 0) continue;
+            if (Math.abs(m.x - (b + .5)) < c && Math.abs(-m.y - (a + .5)) < c) hurtMob(id, 4 * Math.max(0, c - Math.hypot(m.x - (b + .5), -m.y - (a + .5))) | 0, 'explosion', byId);
+        }
+        if (Math.abs(w.worldX - (b + .5)) < c && Math.abs(-w.worldY - (a + .5)) < c) ouch(1, Math.max(0, 4 * (c - Math.hypot(w.worldX - (b + .5), -w.worldY - (a + .5)) | 0)), 'explosion');
+        if (fg(b, a + 1) === 'wr' || fg(b, a - 1) === 'wr' || fg(b + 1, a) === 'wr' || fg(b - 1, a) === 'wr') return;
+        const strong = ['b', 'br', 'stairbr', 'halfbr', 'ob', 'stairob', 'halfob', 'portalstone', 'pf', 'bdob'];
+        const r = Math.round(c / 2);
+        for (let T = (b - r) | 0; T < (b + r + 1 | 0); T++) for (let B = (a - r) | 0; B < (a + r + 1 | 0); B++) {
+            const t = fg(T, B);
+            if (t === 'air') continue;
+            const inside = (b === T && a === B) || ((T - b) * (T - b) + (B - a) * (B - a) <= c * c && (4 * Math.random() | 0) !== 0);
+            if (!inside) continue;
+            if (t === 'TNT') { igniteTNT(T, B); continue; }
+            if (strong.indexOf(t) >= 0 || bd(t, 'liquid') == 1) continue;
+            setBlock(T, B, null);
+        }
+        flashMsg('💥');
+    }
+
+    // ------------------------------------------------------------------ Player
+    function newPlayer() {
+        return {
+            falling: false, wasFalling: false, wasFallingSpeed: 0, wasFallingAndNotFalling: 0, suffocate: 0,
+            rightable: true, leftable: true, rightSprinting: 0, leftSprinting: 0, jumpTimer: 0, sneaking: false,
+            inWater: false, airTimer: 30, startUnderwaterTimer: 0, distanceX: 0, xScale: 1, hurt: 0, keysX: false
+        };
+    }
+    function sneakOrUse() { return S.p.sneaking || S.useTimer > -1; }
+    function ouch(b, a, c) {
+        const w = W();
+        if (w.dead > 0 || w.gamemode == 1 || w.gamemode == 3) return;
+        if (['anvil', 'fall', 'lava', 'acid', 'explosion', 'fire', 'lightning', 'attack', 'arrow', 'cactus'].indexOf(c) >= 0) {
+            let d = 1;
+            for (let p = 0; p < w.armors.length; p++) {
+                const ar = w.armors[p];
+                if (!ar || !ar[0] || ar[0] === 'air') continue;
+                const id = String(ar[0]);
+                let B = 1;
+                if (c === 'anvil' && p === 0) {
+                    a *= id.substr(0, 7) === 'Leather' ? .8 : id.substr(0, 4) === 'Gold' ? .6 : id.substr(0, 4) === 'Iron' ? .4 : id.substr(0, 7) === 'Diamond' ? .3 : id.substr(0, 6) === 'Dragon' ? .2 : 1;
+                    continue;
+                }
+                const life = bd(id, 'life');
+                if (life != null && (Number(ar[1]) || 0) <= life) {
+                    B = id.substr(0, 7) === 'Leather' ? .72 - Math.random() * .08 : id.substr(0, 4) === 'Gold' ? .6 - Math.random() * .16 : id.substr(0, 4) === 'Iron' ? .48 - Math.random() * .2 : id.substr(0, 7) === 'Diamond' ? .4 - Math.random() * .28 : id.substr(0, 6) === 'Dragon' ? .36 - Math.random() * .32 : 1;
+                    if (id.substr(0, 6) === 'Dragon' && (c === 'fire' || c === 'lightning' || c === 'lava')) B *= Math.pow(Math.random(), 3);
+                    ar[1] = (Number(ar[1]) || 0) + a * (1 - B) * .75;             // la armadura se gasta
+                    if (ar[1] >= life && bd(id, 'tool') == 1) w.armors[p] = ['air', 0, {}];
+                }
+                d -= .25 * (1 - B);
+            }
+            a *= Math.max(0, d);
+        }
+        if (a !== 0) { w.health -= Math.ceil(a); if (a > 0) S.p.hurt = 10; hud.dirty = true; }
+    }
+    const key2 = (n) => !!S.keys[n];
+    function doPlayerLogic() {
+        const w = W(), P = S.p;
+        P.blockX = Math.floor(w.worldX);
+        P.blockY = Math.floor(-w.worldY);
+        const bx = P.blockX, by = P.blockY;
+        P.standingOn1 = fg(w.worldX + .3, by);
+        P.standingOn2 = fg(w.worldX - .3, by);
+        const cantMove = w.dead > 0;
+        if (w.gamemode == 3) {                                  // espectador: vuela atravesando todo
+            P.keysX = false;
+            if (!cantMove) {
+                if (key2('left')) { w.xSpeed -= migAcc(1, .94); P.xScale = 1; P.keysX = true; }
+                if (key2('right')) { w.xSpeed += migAcc(1, .94); P.xScale = -1; P.keysX = true; }
+                if (key2('up')) w.ySpeed += migAcc(1, .94);
+                if (key2('down')) w.ySpeed -= migAcc(1, .94);
+            }
+            w.xSpeed *= migDamp(.94); w.ySpeed *= migDamp(.94);
+            w.worldX += w.xSpeed / 30; w.worldY -= w.ySpeed / 30;
+            return;
+        }
+        P.blockAtFeet = fg(bx, by); P.blockAtLegs = fg(bx, by + 1); P.blockAtHead = fg(bx, by + 2);
+        P.sneaking = !(!key2('down') || w.fly || cantMove);
+        let b = w.worldX, a = w.worldY;
+        if (!collision(b - .3, a + 1 / 30, .6, 0, .1, false)) {
+            const c0 = -modulus(-w.worldY, 1);
+            if (fg(bx, by) === 'st' && -.5 < c0 && !w.fly) {
+                if (P.sneaking && S.tick % 16 === 0) w.worldY += .6; else if (Math.abs(.5 + c0) > 1 / 15) w.worldY -= .5 + c0;
+                P.falling = false;
+            } else if (!P.wasFalling && w.ySpeed <= 0 && (bd(fg(bx, by), 'stairBlock') == 1 || bd(fg(bx, by - 1), 'stairBlock') == 1) && !w.fly) {
+                w.worldY += .5; P.falling = false;
+            } else P.falling = true;
+        }
+        if (!P.falling) { if (P.wasFalling) P.wasFallingSpeed = -w.ySpeed; w.ySpeed = 0; }
+        let c = true;
+        if (P.wasFalling && !P.falling) {
+            P.wasFallingAndNotFalling = 3;
+            if (P.blockAtFeet.substr(0, 3) === 'bed') P.wasFallingSpeed *= .6;
+            else if (P.blockAtFeet === 'slimeb' && !P.sneaking) {
+                if (P.wasFallingSpeed > migSpeed(6)) { w.ySpeed = .78 * Math.max(0, P.wasFallingSpeed - migSpeed(5)); P.wasFallingSpeed = 0; w.worldY -= w.ySpeed / 2 / 30; }
+                else w.ySpeed = 0;
+            }
+            if (P.wasFallingSpeed > migSpeed(23)) {                // daño por caída
+                P.wasFallingSpeed -= migSpeed(14);
+                let bb = 0, big = false, dmg = 0;
+                while (P.wasFallingSpeed >= 0) { bb += 2; if (bb > 10) big = true; ++dmg; P.wasFallingSpeed -= Math.max(migSpeed(11 - bb), migSpeed(1)); }
+                if (dmg > 0) ouch(1 + (big ? 1 : 0), dmg, 'fall');
+            }
+        } else P.wasFallingAndNotFalling--;
+        if (w.gamemode == 1 && w.fly) { w.ySpeed *= migDamp(.2); P.falling = false; }
+        // atrapado dentro de un bloque: se ahoga y lo empuja hacia afuera
+        if (bd(P.blockAtLegs, 'walkThroughBlockHit') == null && P.blockAtLegs.substr(-3, 2) !== 'dr' && P.blockAtLegs !== 'lp') {
+            if (P.suffocate === 0) { P.suffocate = 15; ouch(1, 1, 'suffocate'); }
+            P.suffocate--;
+            if (bd(fg(bx - 1, by + 1), 'walkThroughBlockHit') != null) w.worldX -= .5;
+            else if (bd(fg(bx + 1, by + 1), 'walkThroughBlockHit') != null) w.worldX += .5;
+            else if (bd(fg(bx, by + 2), 'walkThroughBlockHit') != null) w.worldY -= .5;
+            else if (bd(fg(bx, by), 'walkThroughBlockHit') != null) w.worldY += .5;
+            else if (bd(fg(bx, by - 1), 'walkThroughBlockHit') != null) w.worldY += .5;
+        } else P.suffocate = 0;
+        const dS = 0;                                              // (encantamiento Depth Strider: no incluido)
+        [1, 2].forEach(function (o) {                             // corriente del agua
+            const k = key(bx, by + o);
+            if (mbwom.water && mbwom.water[k] && !w.fly) {
+                const wa = getWater(bx, by + o);
+                if (wa[0] > wa[1]) w.xSpeed -= migAcc(1 - dS, .55); else if (wa[0] < wa[1]) w.xSpeed += migAcc(1 - dS, .55);
+                const s = mbwom.states ? mbwom.states[k] : undefined;
+                if (s == 1) w.ySpeed += migAcc(3, .42); else if (s == -1 && P.falling) w.ySpeed -= migAcc(2, .42);
+            }
+        });
+        b = w.worldX; a = w.worldY;
+        let f = b + 2 / 3, l = b - 2 / 3;
+        if (P.rightSprinting > 0 && bd(fg(Math.floor(b) + 1, Math.floor(-a) + 1), 'stairBlock') != 1) f += Math.floor(-w.xSpeed / 2) / 30;
+        if (P.leftSprinting > 0 && bd(fg(Math.floor(b) - 1, Math.floor(-a) + 1), 'stairBlock') != 1) l += Math.floor(-w.xSpeed / 2) / 30;
+        if (collision(f, a - 1.8333, 0, 1.1667, .1333)) { P.rightable = false; P.rightSprinting = 0; if (w.xSpeed < 0) w.xSpeed = 0; }
+        if (collision(l, a - 1.8333, 0, 1.1667, .1333)) { P.leftable = false; P.leftSprinting = 0; if (w.xSpeed > 0) w.xSpeed = 0; }
+        if (collision(b - 1 / 6, a - 2, 1 / 3, 0, .1333, false)) { c = false; if (w.ySpeed > 0) { w.ySpeed = -Math.abs(w.ySpeed / 2); w.worldY -= w.ySpeed / 30; } }
+        if (!w.fly) {
+            if (fg(bx, by + 1) === 'web' || fg(bx, by + 2) === 'web') { P.rightSprinting = P.leftSprinting = 0; w.xSpeed *= migDamp(.2); w.ySpeed *= migDamp(.2); }
+            if (fg(bx, by) === 'ssd' || fg(bx, by) === 'slimeb') w.xSpeed *= migDamp(.5);
+            if (fg(bx, by + 1) === 'wr' || fg(bx, by + 2) === 'wr') { P.rightSprinting = P.leftSprinting = 0; w.xSpeed *= migDamp(.7 + .3 * dS); w.ySpeed *= migDamp(.7 + .3 * dS); }
+        }
+        // mover (en pasitos, chocando)
+        if (Math.abs(w.xSpeed) < migSpeed(.25)) w.xSpeed = 0;
+        if (Math.abs(w.ySpeed) < migSpeed(.2)) {
+            w.ySpeed = 0; b = w.worldX; a = w.worldY;
+            if (!collision(b, a - 1 / 30, 0, 0, 1 / 30, false) && collision(b, a + 2 / 30, 0, 0, 1 / 30, false)) w.worldY += 1 / 30;
+        } else {
+            w.worldY -= w.ySpeed / 30;
+            b = w.worldX; a = w.worldY;
+            let dd = 0;
+            for (dd = 0; dd <= Math.floor(Math.abs(w.ySpeed / 2)) && collision(b - (9 + w.xSpeed) / 30, a + (w.ySpeed / Math.abs(w.ySpeed / 2) * dd - 4) / 30, .6, 0, 1 / 30, false);) ++dd;
+            w.worldY += w.ySpeed / Math.abs(w.ySpeed / 2) * dd / 30;
+            a = w.worldY;
+        }
+        for (let s = 0; s < 5; s++) {
+            if (sneakOrUse() && !P.falling && !w.fly) {               // agachado no se cae de las orillas
+                if (w.xSpeed > 0) { if (!collision(b - .3, w.worldY, .5333, .6667, 1 / 6)) { w.xSpeed = 0; break; } }
+                else if (w.xSpeed < 0 && !collision(b - .2333, w.worldY, .5333, .6667, 1 / 6)) { w.xSpeed = 0; break; }
+            }
+            w.worldX -= w.xSpeed / 5 / 30;
+            b = w.worldX;
+            for (let ff = 9; ff > 0 && collision(b - .3, a - .1333, .6, 1 / 30, .1, false) && !collision(b - .3, a - 1.8333, .6, 1 / 30, .1, false); ff--) { w.worldY -= 1 / 15; w.ySpeed = 0; a = w.worldY; }
+        }
+        // agua: aire y ahogarse
+        const head2 = fg(bx, by + 2);
+        if (head2 === 'sw' || head2 === 'wr' && (!(mbwom.water && mbwom.water[key(bx, by + 2)]) || getWater(bx, by + 2)[0] >= 9 || getWater(bx, by + 2)[1] >= 9)) {
+            P.startUnderwaterTimer = 5;
+            P.airTimer--;
+            if (P.airTimer <= 0) { P.airTimer = 60; if (!(w.air > 0)) ouch(1, 1, 'water'); else w.air--; hud.dirty = true; }
+            P.inWater = true;
+        } else {
+            if (w.air !== 11) hud.dirty = true;
+            w.air = 11; P.airTimer = 30;
+            if (P.startUnderwaterTimer <= 0) P.inWater = false; else P.startUnderwaterTimer--;
+        }
+        if (P.falling) {
+            w.xSpeed *= bd(fg(bx, by + 1), 'liquid') != null ? migDamp(.55) : migDamp(.6);
+            w.ySpeed -= migAcc(2, .94);
+        } else if (fg(bx, by) === 'ice' || fg(bx, by) === 'fice') w.xSpeed *= migDamp(.9);
+        else w.xSpeed *= migDamp(.7);
+        if (bd(fg(bx, by + 1), 'climbable') == 1 && !w.fly) {
+            w.ySpeed *= migDamp(.75);
+            if ((fg(bx, by + 1) === 'ladder' || fg(bx, by + 1) === 'rp') && P.sneaking && Math.abs(w.ySpeed) < 5) w.ySpeed = 0;
+        }
+        if (S.tick % (FPS / 25 * 15) === 0) {                     // daño por bloques (cada 0.6 s)
+            if ((P.blockAtFeet === 'ct' || P.blockAtLegs === 'ct' || P.blockAtHead === 'ct') && !P.sneaking) ouch(1, 1, 'cactus');
+            if (P.blockAtFeet === 'la' && P.falling || P.blockAtLegs === 'la' || P.blockAtHead === 'la') ouch(1, 5, 'lava');
+            else if (P.blockAtFeet === 'ad' && P.falling || P.blockAtLegs === 'ad' || P.blockAtHead === 'ad') ouch(1, 5, 'acid');
+            else if (P.blockAtFeet === 'magma' && !P.sneaking) ouch(1, 2, 'lava');
+        }
+        P.keysX = false;
+        if (!cantMove) {                                           // caminar y correr
+            const sp = 2.2, spr = sp + 2.2;
+            if (key2('right')) {
+                if (P.rightable) {
+                    P.xScale = -1;
+                    w.xSpeed -= sneakOrUse() ? migAcc(.5, .7) : P.rightSprinting !== 0 ? migAcc(spr, .7) : migAcc(sp, .7);
+                    P.keysX = true;
+                }
+            } else P.rightSprinting = 0;
+            if (key2('left')) {
+                if (P.leftable) {
+                    P.xScale = 1;
+                    w.xSpeed += sneakOrUse() ? migAcc(.5, .7) : P.leftSprinting !== 0 ? migAcc(spr, .7) : migAcc(sp, .7);
+                    P.keysX = true;
+                }
+            } else P.leftSprinting = 0;
+            // saltar / trepar
+            P.jumpTimer--;
+            if (key2('up')) {
+                let jb = 0;
+                const climbLow = bd(fg(bx, by), 'climbable') == 1 && bd(fg(bx, by + 1), 'climbable') != 1 && bd(fg(bx, by + 2), 'climbable') != 1 && bd(fg(bx, by + 3), 'climbable') != 1;
+                const climbHere = bd(fg(bx, by + 1), 'climbable') == 1 && bd(fg(bx, by + 2), 'walkThroughBlockHit') == 1;
+                if (climbLow || climbHere) {
+                    if (c) {
+                        if (w.fly) { w.ySpeed = migSpeed(7); w.worldY -= .1167; }
+                        else {
+                            jb = bd(fg(bx, by + 1), 'liquidCollision') == 1 ? 4.4 : 3;
+                            if (w.ySpeed < 10) w.ySpeed += migAcc(jb, .7);
+                            if (!P.falling) w.worldY -= jb / 2 / 30;
+                        }
+                    }
+                } else if (P.jumpTimer <= 0) {
+                    P.jumpTimer = (fg(bx, by) === 'st' && fg(bx, by + 1) !== 'st') ? Math.floor(12 * FPS / 25) : Math.floor(6 * FPS / 25);
+                    if (c) {
+                        if (fg(bx, by).substr(0, 3) === 'bed' && !P.falling) jb = 17;
+                        else if (fg(bx, by) === 'web' || fg(bx, by + 1) === 'web') jb = 2;
+                        else if (!P.falling) jb = 15;
+                    }
+                    if (jb > 0 && jb > w.ySpeed) { w.ySpeed = migSpeed(jb); w.worldY -= jb / 2 / 30; }
+                } else if (w.fly && c && !P.falling) { w.ySpeed = migSpeed(7); w.worldY -= .1167; }
+            }
+            if (w.gamemode == 1 && w.fly && key2('down')) w.ySpeed -= migAcc(30, .7);
+        }
+        P.wasFalling = P.falling;
+        P.falling = false;
+        P.rightable = P.leftable = true;
+        if (sneakOrUse()) P.rightSprinting = P.leftSprinting = 0;
+        if (P.leftSprinting > 0) P.leftSprinting++;
+        if (P.rightSprinting > 0) P.rightSprinting++;
+        if (P.leftSprinting >= 15 * FPS) P.leftSprinting = 0;
+        if (P.rightSprinting >= 15 * FPS) P.rightSprinting = 0;
+        if (w.food <= 300) P.leftSprinting = P.rightSprinting = 0;
+    }
+
+    // hambre, curarse, vacío (Game.onCertainInterval)
+    function intervals() {
+        const w = W(), P = S.p, t = S.tick;
+        if (t % (300 * FPS / 25 | 0) === 0) { if (w.food / 100 < 1 && w.health > 5 && w.difficulty !== 'peaceful') ouch(1, 1, 'hunger'); }
+        if (t % (156 * FPS / 25 | 0) === (45 * FPS / 25 | 0)) { w.food -= 3; if (w.food / 100 >= 6 && w.food / 100 <= 9) w.health += 1; hud.dirty = true; }
+        if (t % (63 * FPS / 25 | 0) === (33 * FPS / 25 | 0)) { if (w.food / 100 > 9 || w.difficulty === 'peaceful') { w.health += 1; hud.dirty = true; } }
+        if (t % (27 * FPS / 25 | 0) === (FPS / 25 | 0)) {
+            if (P.blockY < -5) ouch(1, 4, 'void');
+            if (w.gamemode == 1 && P.blockY < -40 && !(w.dead > 0)) w.dead = 1;
+            if (P.keysX) w.food -= 3;
+            if (P.leftSprinting > 0 || P.rightSprinting > 0) w.food -= 5;
+        }
+        if (w.food < 0) w.food = 0;
+        if (w.health > 20 || w.gamemode == 1) w.health = 20;
+        if (w.food > 1000 || w.gamemode == 1) w.food = 1000;
+        w.health = Math.floor(w.health); w.food = Math.floor(w.food);
+    }
+    function deathCheck() {
+        const w = W();
+        if (!(w.health <= 0 || (w.dead | 0) !== 0)) return;
+        w.dead = (w.dead | 0) + 1;
+        if (w.dead === 1) flashMsg(tr('play_dead', '💀 You died'));
+        if (w.dead <= 30) return;
+        if (gameRule('keepinventory') != true) {                      // suelta todo (como el juego)
+            const list = inv();
+            for (let i = 0; i < 45; i++) if (!isEmpty(list[i])) { addDrop(list[i][0], w.worldX, w.worldY, list[i][1], list[i][2], list[i][3]); list[i] = empty(); }
+            for (let i = 0; i < 4; i++) { const ar = w.armors[i]; if (ar && ar[0] && ar[0] !== 'air') addDrop(ar[0], w.worldX, w.worldY, 1, ar[1], ar[2]); w.armors[i] = ['air', 0, {}]; }
+        }
+        w.xSpeed = 0; w.ySpeed = 0; w.health = 20; w.food = 1000; w.dead = 0;
+        const sp = spawnPoint();
+        w.worldX = sp.x; w.worldY = sp.y;
+        S.p = newPlayer();
+        hud.dirty = true;
+        camSnap();
+    }
+    function spawnPoint() {
+        const s = mbwom.spawnPoint;
+        if (s && typeof s === 'object' && isFinite(Number(s.x)) && isFinite(Number(s.y))) return { x: Number(s.x), y: Number(s.y) };
+        return { x: S.start.x, y: S.start.y };
+    }
+
+    // ------------------------------------------------------------------ mobs (Entity_Mob.run)
+    function mobBounds(id) {
+        if (id === PLAYER_ID) { const w = W(); return { l: w.worldX - .4, r: w.worldX + .4, t: w.worldY - 1.9, b: w.worldY }; }
+        const m = mbwom.mobs[id]; if (!m) return null;
+        const a = D.mobs[m.type]; const cb = (a && a.collisionBounds) || { x: -.4, y: -1.8, w: .8, h: 1.8 };
+        let k = (m.babyTimer > 0) ? .7 : 1;
+        if ((m.type === 'slime' || m.type === 'magmacube') && m.size > 0) k *= m.size / 2 + .5;
+        return { l: m.x + cb.x * k, r: m.x + (cb.x + cb.w) * k, t: m.y + cb.y * k, b: m.y + (cb.y + cb.h) * k };
+    }
+    function cbounds(m) {
+        const a = D.mobs[m.type]; const cb = (a && a.collisionBounds) || { x: -.4, y: -1.8, w: .8, h: 1.8 };
+        let k = (m.babyTimer > 0) ? .7 : 1;
+        if ((m.type === 'slime' || m.type === 'magmacube') && m.size > 0) k *= m.size / 2 + .5;
+        return { left: cb.x * k, right: (cb.x + cb.w) * k, top: cb.y * k, bottom: (cb.y + cb.h) * k, width: cb.w * k, height: cb.h * k };
+    }
+    const intersects = (A, B) => !(B.r <= A.l || B.l >= A.r || B.t >= A.b || B.b <= A.t);
+    function tmpOf(id) {
+        let d = S.tmp.get(id);
+        if (!d) { d = { keys: { left: false, right: false, up: false }, leftable: true, rightable: true, wasFallingAndNotFalling: 0, following: false, isFrightened: false, followPoint: { x: 0, y: 0 }, followMin: .5, followMax: 12, hurt: 0 }; S.tmp.set(id, d); }
+        return d;
+    }
+    function alignment(m) { if (m.aggro != null) return m.aggro; const a = D.mobs[m.type] || {}; return a.hostile ? 'hostile' : a.neutral ? 'neutral' : 'passive'; }
+    function isAggro(m) { return alignment(m) === 'hostile' || m.aggressiveness > 0; }
+    function calcTarget(id, m, a, d) {
+        const w = W();
+        if (alignment(m) === 'passive' && !isAggro(m) && (a.doFrightenedRunning != 1 || Math.random() < 1 / (30 * FPS))) { m.target = null; m.focus = null; }
+        if (m.target === PLAYER_ID && w.dead > 0) { m.target = null; m.aggressiveness = 0; }
+        else if (m.target !== PLAYER_ID && m.target != null && !mbwom.mobs[m.target]) { m.target = null; m.aggressiveness = 0; }
+        if (w.gamemode == 3 || w.gamemode == 1) { if (m.target === PLAYER_ID) { m.target = null; m.aggressiveness = 0; } if (m.focus === PLAYER_ID) m.focus = null; }
+        d.isFrightened = a.doFrightenedRunning == 1 && m.target != null;
+        d.followMin = .5; d.followMax = 12; d.following = false;
+        if (isAggro(m)) {
+            if (m.target == null) { if (w.gamemode != 1 && w.gamemode != 3) m.focus = m.target = PLAYER_ID; }
+            else m.focus = m.target;
+        } else if (alignment(m) !== 'hostile' && !(m.aggressiveness > 0)) m.focus = null;
+        if (m.focus === PLAYER_ID) {
+            d.followPoint.x = w.worldX; d.followPoint.y = w.worldY - .95; d.following = true;
+        } else if (m.focus != null && mbwom.mobs[m.focus]) {
+            const o = mbwom.mobs[m.focus], ob = mobBounds(m.focus);
+            d.followPoint.x = (ob.l + ob.r) / 2; d.followPoint.y = (ob.t + ob.b) / 2; d.following = true;
+        }
+    }
+    function maxHealth(m) { const a = D.mobs[m.type] || {}; if ((m.type === 'slime' || m.type === 'magmacube') && m.size > 0) return Math.pow(2, m.size) * (a.health || 4) / 2; return a.health || 10; }
+    function hurtMob(id, amount, cause, by) {
+        const m = mbwom.mobs[id]; if (!m || m.dead > 0) return;
+        const a = D.mobs[m.type] || {};
+        if (!isFinite(Number(m.health))) m.health = maxHealth(m);
+        if (m.type === 'cow' && m.variant === 'cowctus' && cause === 'cactus') return;
+        m.health = Math.round(m.health - amount);
+        if ((cause === 'attack' || cause === 'projectile') && by && by !== id) {
+            m.target = by;
+            if (a.groupAttack && by === PLAYER_ID) {
+                for (const k in mbwom.mobs) { const o = mbwom.mobs[k]; if (o && o.type === m.type && !o.tamed && Math.abs(o.x - m.x) < 15 && Math.abs(o.y - m.y) < 9) { o.target = by; if (alignment(o) !== 'passive') o.aggressiveness = Math.random() * FPS * 50 + 100 * FPS; } }
+            }
+            if (alignment(m) !== 'passive') m.aggressiveness = Math.random() * FPS * 50 + 100 * FPS;
+        }
+        const d = tmpOf(id); d.hurt = 10;
+        if (Math.random() < 1 / 3) d.keys.up = true;
+    }
+    function killMob(id, m) {
+        const a = D.mobs[m.type] || {};
+        m.dead = 1;
+        if (W().gamemode != 1 || true) {
+            const r = Math.random();
+            (a.drops || []).forEach(function (dr) {
+                if (!dr || !dr.type) return;
+                if (dr.rare) { if (r >= dr.rare.lowerBound && r < dr.rare.upperBound) addDrop(dr.type, m.x, m.y - .5, 1); return; }
+                let q = (dr.quantity | 0) + Math.floor(Math.random() * ((dr.randomBonus | 0) + 1));
+                if (m.babyTimer > 0) q = 0;
+                if (q > 0) addDrop(dr.type, m.x, m.y - .5, q);
+            });
+        }
+        if ((m.type === 'slime' || m.type === 'magmacube') && m.size > 1) {   // los slimes grandes se parten en chicos
+            for (let i = 0; i < 2; i++) spawnMob(m.type, m.x + (i ? .3 : -.3), m.y, { size: m.size - 1 });
+        }
+    }
+    function spawnMob(type, x, y, extra) {
+        let n = 1, id;
+        do id = 'play_mob' + (n++) + '_' + S.tick; while (mbwom.mobs[id]);
+        const m = Object.assign({ type: type, x: x, y: y, speedX: 0, speedY: 0, direction: 0, falling: true, health: 0 }, extra || {});
+        m.health = maxHealth(m);
+        mbwom.mobs[id] = m;
+        return id;
+    }
+    function shootArrow(m, target) {
+        const t = Math.atan2(target.y - Math.abs(target.x - m.x) / 5 - (m.y - 1.5), target.x - m.x) + (2 * Math.random() - 1) / 20;
+        S.arrows.push({ x: m.x, y: m.y - 1.5, vx: migSpeed(20 * Math.cos(t)), vy: migSpeed(20 * Math.sin(t)), by: m, age: 0 });
+    }
+    function tickArrows() {
+        const w = W();
+        for (let i = S.arrows.length - 1; i >= 0; i--) {
+            const r = S.arrows[i];
+            r.age++;
+            r.vy += .25; r.vx *= .995;
+            r.x += r.vx / 30; r.y += r.vy / 30;
+            if (r.age > 400 || collision(r.x, r.y, 0, 0, .1, true, false)) { S.arrows.splice(i, 1); continue; }
+            const pb = mobBounds(PLAYER_ID);
+            if (r.x > pb.l && r.x < pb.r && r.y > pb.t && r.y < pb.b) { ouch(1, Math.max(1, Math.round(Math.hypot(r.vx, r.vy) / 4)), 'arrow'); S.arrows.splice(i, 1); }
+        }
+    }
+    function mobTick(id, c) {
+        const a = D.mobs[c.type];
+        if (!a) return;
+        const w = W(), d = tmpOf(id);
+        if (c.dead > 0) { c.dead++; c.speedX = 0; if (c.dead > 40) { delete mbwom.mobs[id]; S.tmp.delete(id); } return; }
+        if (!isFinite(Number(c.health))) c.health = maxHealth(c);
+        if (c.health <= 0) { killMob(id, c); return; }
+        c.x = Number(c.x) || 0; c.y = Number(c.y) || 0;
+        if (!isFinite(c.speedX)) c.speedX = 0; if (!isFinite(c.speedY)) c.speedY = 0;
+        const f = Math.floor(c.x), g = Math.floor(-c.y);
+        if (!(c.hitCooldown > 0)) {
+            c.hitCooldown = 40;
+            if (a.burnsInLava == 1 && (fg(f, g) === 'la' || fg(f, g + 1) === 'la')) hurtMob(id, 5, 'lava');
+            else if (a.burnsInAcid == 1 && (fg(f, g) === 'ad' || fg(f, g + 1) === 'ad')) hurtMob(id, 5, 'acid');
+            else if (fg(f, g) === 'magma' && bd(fg(f, g + 1), 'waterCollision') != 1) hurtMob(id, 2, 'lava');
+            else if (!(c.type === 'wolf' && c.tamed) && !(c.type === 'cow' && c.variant === 'cowctus') && a.cactusDamage !== false && a.cactusDamage !== 0 && (fg(f, g) === 'ct' || fg(f, g + 1) === 'ct')) hurtMob(id, 1, 'cactus');
+        } else c.hitCooldown--;
+        calcTarget(id, c, a, d);
+        const K = d.keys, fr = d.isFrightened, hops = a.hops == 1;
+        const flying = a.special && a.special.indexOf('specialGravityFunction') >= 0;
+        if (a.aiType !== 'custom') {
+            if (!hops || !c.falling) {
+                if (Math.random() < (a.percentageChanceToDoMovement || 0) * (fr ? 3 : 1)) {
+                    if (Math.random() < (a.percentageChanceToStopMoving || 0) * (fr ? .5 : 1)) { if (hops) K.up = false; K.left = false; K.right = false; }
+                    const p = Math.random(), pd = (a.percentageChanceToChangeDirection || 0) * (fr ? 4 : 1);
+                    if (p < pd) { if (hops) K.up = true; K.left = true; K.right = false; }
+                    else if (p < 2 * pd) { if (hops) K.up = true; K.left = false; K.right = true; }
+                    if (Math.random() < (a.percentageChanceToJump || 0) * (fr ? 3 : 1)) K.up = true; else if (!hops) K.up = false;
+                }
+                if (a.jumpAttack == 1 && d.following && Math.abs(c.x - d.followPoint.x) < 3 && d.followMax >= 3 && Math.random() < 2 / FPS) K.up = true;
+                if (d.following && !fr) {
+                    if (Math.abs(c.y - d.followPoint.y) < d.followMax / 2) {
+                        if (Math.abs(c.x - d.followPoint.x) <= d.followMax) {
+                            if (Math.abs(c.x - d.followPoint.x) >= d.followMin && Math.random() < (a.percentageChanceToUpdatePursuit != null ? a.percentageChanceToUpdatePursuit : .2)) {
+                                if (c.x - d.followPoint.x > 0) { if (hops) K.up = true; K.left = true; K.right = false; }
+                                else { if (hops) K.up = true; K.right = true; K.left = false; }
+                            }
+                        } else if (c.aggressiveness > 0) c.aggressiveness--;
+                        if (a.followVertically == 1) {
+                            if (c.y - d.followPoint.y < -d.followMax / 2 && c.y - d.followPoint.y > 0) K.up = true;
+                            else if (c.y - d.followPoint.y > -d.followMax / 2 && c.y - d.followPoint.y < 0) K.up = false;
+                        }
+                    } else if (c.aggressiveness > 0) c.aggressiveness--;
+                }
+            } else if (hops) K.up = false;
+            if (c.babyTimer > 0) c.babyTimer = Math.max(0, c.babyTimer - 1);
+            if (a.ignoreCliffs != 1 && !flying) {                  // no tirarse por un barranco
+                const p = (K.right ? .5 : 0) + (K.left ? -.5 : 0);
+                if (p !== 0 && !collision(c.x + p, c.y, 0, 3, .5, true, true, true)) { if (p > 0) K.right = false; else K.left = false; if (hops) K.up = true; }
+            }
+            [1, 2].forEach(function (o) {                           // corriente del agua
+                const k = key(f, g + o);
+                if (mbwom.water && mbwom.water[k]) {
+                    const wa = getWater(f, g + o);
+                    if (wa[0] > wa[1]) c.speedX += migAcc(1, .7); else if (wa[0] < wa[1]) c.speedX -= migAcc(1, .7);
+                    const s = mbwom.states ? mbwom.states[k] : undefined;
+                    if (s == 1) c.speedY += migAcc(3, .6); else if (s == -1 && c.falling) c.speedY -= migAcc(2, .6);
+                }
+            });
+            if (bd(fg(f, g + 1), 'walkThroughBlockHit') == null) {
+                if (bd(fg(f - 1, g + 1), 'walkThroughBlockHit') == 1) c.speedX -= migAcc(1, .7);
+                else if (bd(fg(f + 1, g + 1), 'walkThroughBlockHit') == 1) c.speedX += migAcc(1, .7);
+                else c.falling = true;
+            }
+            if (a.ignoreWeb != 1 && (fg(f, g + 1) === 'web' || fg(f, g + 2) === 'web')) { c.speedX *= migDamp(.2); c.speedY *= migDamp(.2); }
+            if (fg(f, g) === 'ssd' || fg(f, g) === 'slimeb') c.speedX *= migDamp(.5);
+            const cb = cbounds(c);
+            if (collision(c.x + .7 * cb.left, c.y - 1 / 3, .7 * cb.width, 0, .1333, false) && !collision(c.x + .7 * cb.left, c.y - 1.5, .7 * cb.width, 0, .1333, false)) c.y -= .5;
+            c.wasFalling = c.falling == true;
+            let p = c.falling = true;
+            d.rightable = true; d.leftable = true;
+            let t = false, wv = false, C = c.x, v = c.y;
+            const r = Math.max(1, Math.ceil(Math.sqrt(c.speedX * c.speedX + c.speedY * c.speedY))) | 0;
+            for (let B = 0; B < r; B++) {
+                if (!wv) C = c.x + c.speedX * (B + 1) / r / 30;
+                if (!t) {
+                    v = c.y - c.speedY * (B + 1) / r / 30;
+                    if (collision(C + .7 * cb.left, v + 1 / 30, .7 * cb.width, 0, .1333, false)) { t = true; c.falling = false; if (c.wasFalling) c.wasFallingSpeed = -c.speedY; c.speedY = 0; }
+                    if (collision(C + .7 * cb.left, v + cb.top, .7 * cb.width, 0, .1333, false)) { p = false; if (c.speedY > 0) { t = true; c.speedY = -Math.abs(c.speedY / 2); } }
+                }
+                if (!wv) {
+                    if (collision(C + cb.left, v + cb.top, 0, Math.max(0, cb.height - .6), .1333)) {
+                        d.leftable = false;
+                        if (a.climbsWalls == 1) { if (Math.random() < 1 / 60) K.up = !K.up; }
+                        else { if (Math.random() <= .1) { K.up = true; K.left = true; } if (Math.random() <= .1) { K.up = false; K.left = false; } }
+                        if (c.speedX < 0) { wv = true; c.speedX = 0; }
+                    }
+                    if (collision(C + cb.right, v + cb.top, 0, Math.max(0, cb.height - .6), .1333)) {
+                        d.rightable = false;
+                        if (a.climbsWalls == 1) { if (Math.random() < 1 / 60) K.up = !K.up; }
+                        else { if (Math.random() <= .1) { K.up = true; K.right = true; } if (Math.random() <= .1) { K.up = false; K.right = false; } }
+                        if (c.speedX > 0) { wv = true; c.speedX = 0; }
+                    }
+                }
+            }
+            if (d.following && !fr && Math.abs(c.x - d.followPoint.x) >= d.followMin && Math.abs(C - d.followPoint.x) < d.followMin) { K.left = false; K.right = false; }
+            c.x = C; c.y = v;
+            if (c.wasFalling && !c.falling) {                         // aterrizó: daño por caída
+                d.wasFallingAndNotFalling = 6;
+                if (fg(Math.floor(c.x), Math.floor(-(c.y + 1))).substr(0, 3) === 'bed') c.wasFallingSpeed *= migDamp(.6);
+                else if (fg(Math.floor(c.x), Math.floor(-(c.y + 1))) === 'slimeb') { if (c.wasFallingSpeed > migSpeed(6)) { c.speedY = .78 * Math.max(0, c.wasFallingSpeed - migSpeed(5)); c.wasFallingSpeed = 0; c.y -= c.speedY / 2 / 30; } else c.speedY = 0; }
+                if (a.takesFallDamage !== false && a.takesFallDamage !== 0 && c.wasFallingSpeed > migSpeed(23) && !flying) {
+                    c.wasFallingSpeed -= migSpeed(14);
+                    let B = 0, dm = 0;
+                    while (c.wasFallingSpeed >= 0) { B += 2; ++dm; c.wasFallingSpeed -= migSpeed(Math.max(11 - B, 1)); }
+                    if (dm > 0) hurtMob(id, dm, 'fall');
+                }
+                if (c.speedY <= 0) c.y = .5 * Math.round(c.y / .5) + 1 / 6;
+            } else d.wasFallingAndNotFalling--;
+            if (!flying && collisionWithLiquid(c.x + .7 * cb.left, c.y - cb.top, .7 * cb.width, cb.height, .5)) K.up = true;   // nada hacia arriba
+            const headB = fg(f, Math.floor(g + .8 * cb.height));
+            if (bd(headB, 'liquidCollision') == 1 && a.special.indexOf('specialFunction') < 0 || bd(headB, 'liquidCollision') == 1 && c.type !== 'squid') {
+                c.airTimer = (c.airTimer == null ? 60 : c.airTimer) - 1; c.startUnderwaterTimer = 5;
+                if (c.airTimer <= 0) { c.airTimer = 60; if (!(c.air > 0)) hurtMob(id, 1, 'drown'); else c.air--; }
+            } else { c.air = 11; c.airTimer = 60; }
+            if (flying) {                                               // voladores / nadadores: versión simple
+                c.speedY *= migDamp(.9); c.speedX *= migDamp(.9);
+                if (Math.random() < .03) c.speedY += migSpeed(4 * Math.random() - 2);
+                if (d.following && !fr && c.type !== 'bat' && c.type !== 'squid') { c.speedX += Math.sign(d.followPoint.x - c.x) * .05; c.speedY += Math.sign(c.y - d.followPoint.y - 2) * .04; }
+                if (c.type === 'squid' && bd(fg(f, g + 1), 'liquid') == null) c.speedY -= migAcc(2, .97);
+            } else if (c.falling) {
+                c.speedX *= bd(fg(f, g + 1), 'liquidCollision') == 1 ? migDamp(.55) : migDamp(.65);
+                c.speedY -= migAcc(a.fallSpeed != null ? a.fallSpeed : 2, .97);
+            } else if (fg(f, g) === 'ice' || fg(f, g) === 'fice') c.speedX *= migDamp(.9);
+            else c.speedX *= migDamp(.7);
+            if (bd(fg(f, g + 1), 'climbable') == 1) c.speedY *= migDamp(.6);
+            if (a.float == 1) { const mx = migSpeed(a.floatMaxSpeed != null ? a.floatMaxSpeed : 3); c.speedY = Math.max(-mx, Math.min(mx, c.speedY)); }
+            let ws = a.walkSpeed || 1;
+            if (c.type === 'slime' || c.type === 'magmacube') ws = .6 * (c.size || 1) + .3;
+            let mv = ws;
+            if (fr) mv += ws * ((a.sprintMultiplier || 1) - 1);
+            if (c.babyTimer > 0) mv *= 1.2;
+            if (K.left && d.leftable) { if (!hops || c.falling) c.speedX -= migAcc(mv, .97); c.direction = 0; }
+            if (K.right && d.rightable) { if (!hops || c.falling) c.speedX += migAcc(mv, .97); c.direction = 1; }
+            // ataques
+            if (a.attackExplode == 1) {
+                if (c.target != null) {
+                    if (!(c.fuse > 0)) { if (c.target === PLAYER_ID && intersects(mobBounds(id), mobBounds(PLAYER_ID))) c.fuse = 1; }
+                    else {
+                        const tp = c.target === PLAYER_ID ? { x: w.worldX, y: w.worldY } : (mbwom.mobs[c.target] || c);
+                        if (Math.pow(tp.x - c.x, 2) + Math.pow(tp.y - c.y, 2) >= 25) { if (c.fuse > 0) c.fuse--; }
+                        else if (c.fuse < (a.fuseLength || 140)) c.fuse++;
+                        else { explode(c.x, -c.y, c.charged ? 8 : 4, id); c.health = 0; delete mbwom.mobs[id]; S.tmp.delete(id); return; }
+                    }
+                } else if (c.fuse > 0) c.fuse--;
+            } else if (!(c.attackCooldown > 0)) mobAttack(id, c, a);
+            else c.attackCooldown--;
+            if (a.climbsWalls == 1) {
+                if (c.falling && collision(c.x + cb.left - 1 / 6, c.y + cb.top, 0, Math.max(0, cb.height + .3), .2) || collision(c.x + cb.right + 1 / 6, c.y + cb.top, 0, Math.max(0, cb.height + .3), .2)) { c.speedY *= migDamp(.7); if (K.up) c.speedY += migAcc(3, .97); }
+                else if (Math.random() < .05) K.up = false;
+            }
+            if (K.up && !flying) {
+                let B = 0;
+                if (a.float == 1) { if (p) B = (a.floatJump != null ? a.floatJump : 2); c.speedY += migAcc(B, .97); c.y -= B / 2 / 30; }
+                else if (bd(fg(f, g), 'climbable') == 1 && bd(fg(f, g + 1), 'climbable') != 1 && bd(fg(f, g + 2), 'climbable') != 1 && bd(fg(f, g + 3), 'climbable') != 1 || bd(fg(f, g + 1), 'climbable') == 1 && bd(fg(f, g + 2), 'walkThroughBlockHit') == 1) {
+                    if (p) { B = 3 * (a.jumpSpeedMultiplier != null ? a.jumpSpeedMultiplier : 1); c.speedY += migAcc(B, .7); if (!c.falling) c.y -= B / 2 / 30; }
+                } else if (p) {
+                    if (fg(f, g).substr(0, 3) === 'bed' && !c.falling) B = 17;
+                    else if (a.ignoreWeb != 1 && (fg(f, g) === 'web' || fg(f, g + 1) === 'web')) B = 2;
+                    else if (!c.falling) B = 15;
+                    if (B > 0) {
+                        B *= a.jumpSpeedMultiplier != null ? a.jumpSpeedMultiplier : 1;
+                        if (c.type === 'slime' || c.type === 'magmacube') B *= .2 * (c.size || 1) + .6;
+                        if (B > c.speedY) { c.speedY = migSpeed(B); c.y -= B / 2 / 30; }
+                    }
+                }
+            }
+        }
+        if (d.hurt > 0) d.hurt--;
+        if (c.y > 10) { delete mbwom.mobs[id]; S.tmp.delete(id); }     // cayó al vacío
+    }
+    function mobAttack(id, c, a) {
+        const w = W();
+        if (!isAggro(c) || (c.tamed && c.sitting)) return;
+        const toPlayer = (c.target == null && w.gamemode != 1 || c.target === PLAYER_ID) && w.gamemode != 3;
+        let did = false, tx = 0, ty = -1e4;
+        if (toPlayer) {
+            if (a.attackContact == 1 && intersects(mobBounds(id), mobBounds(PLAYER_ID)) && (c.type !== 'slime' || (c.size || 1) > 1)) {
+                c.attackCooldown = a.attackFrequency || 26;
+                ouch(1, Math.max(1, c.attackDamage != null ? c.attackDamage : a.attackDamage != null ? a.attackDamage : 2), 'attack');
+            }
+            did = true; tx = w.worldX; ty = w.worldY;
+        } else if (c.target != null && mbwom.mobs[c.target]) {
+            if (a.attackContact == 1 && intersects(mobBounds(id), mobBounds(c.target))) { c.attackCooldown = a.attackFrequency || 26; hurtMob(c.target, a.attackDamage != null ? a.attackDamage : 2, 'attack', id); }
+            did = true; tx = mbwom.mobs[c.target].x; ty = mbwom.mobs[c.target].y;
+        }
+        const dist = Math.hypot(tx - c.x, ty - c.y);
+        if (a.attackBow == 1) { if (did && dist < 10) { shootArrow(c, { x: tx, y: ty - 1 }); c.attackCooldown = a.attackFrequency || 40; } else c.attackCooldown = -30; }
+    }
+
+    // ------------------------------------------------------------------ picar y poner (Game.mineAndPlaceCode)
+    function mouseWorld() {
+        const cv = document.getElementById('canvas');
+        const r = cv.getBoundingClientRect();
+        let cx = S.mouse.x, cy = S.mouse.y;
+        if (window.mbwAspect && window.mbwAspect.active && window.mbwAspect.mapClient) { const u = window.mbwAspect.mapClient(cx, cy); cx = u.x; cy = u.y; }
+        const px = (cx - r.left) * (cv.width / r.width), py = cv.height - (cy - r.top) * (cv.height / r.height);
+        return { x: camera.x + px / tileSize, y: camera.y + py / tileSize };   // y hacia ARRIBA (como el editor)
+    }
+    function blockDist(bx, by) { const w = W(); return Math.hypot(Math.floor(w.worldX) - bx, Math.floor(-w.worldY) - (by - 1)); }
+    function mobUnderMouse(mw) {
+        const w = W();
+        if (typeof window.findMobAt !== 'function') return null;
+        const hit = window.findMobAt(mw.x, mw.y);
+        if (!hit || !mbwom.mobs[hit.key] || mbwom.mobs[hit.key].dead > 0) return null;
+        const m = hit.mob;
+        if (Math.hypot(m.x - w.worldX, m.y - w.worldY) > 3.5) return null;
+        return hit.key;
+    }
+    function miningTime(t) {
+        const mi = bd(t, 'mining');
+        const tool = selType();
+        let f = null;
+        if (mi && bd(tool, 'tool') == 1 && mi[tool] != null) f = mi[tool];
+        else if (mi && mi.None != null) f = mi.None;
+        if (f == null) return -1;                                   // no se puede picar
+        if (S.p.inWater) f *= 2;
+        return (Math.max(1, Math.floor(f)) / 25 * FPS) | 0;
+    }
+    function mineBlock(x, y) {
+        const w = W();
+        const t = fg(x, y);
+        if (t === 'air' || (t === 'br' && w.gamemode != 1)) return;
+        const s1 = st(x, y);
+        const chestItems = (t === 'chest' && mbwom.chests && Array.isArray(mbwom.chests[key(x, y)])) ? mbwom.chests[key(x, y)] : null;
+        setBlock(x, y, null);
+        if (w.gamemode == 1) return;
+        damageTool();
+        const dw = bd(t, 'dropsWith');
+        const tool = selType();
+        if (dw && !dw[tool]) return;                               // hace falta la herramienta correcta para que suelte algo
+        let drop = bd(t, 'dropDifferent');
+        if (drop === 'na') drop = null; else if (drop == null) drop = t;
+        if (t === 'lv' || t.substr(0, 2) === 'lv') drop = Math.random() < 1 / 12 ? 'sl' : null;   // (hojas: aproximado)
+        if (Array.isArray(drop)) drop = drop[0];
+        const ex = (typeof s1 === 'string' && s1 && (t === 'cloth' || t === 'carpet' || t === 'bdcloth' || t === 'bed')) ? { type: s1 } : {};
+        if (drop) addDrop(drop, x + .5, -y - .5, 1, 0, ex);
+        if (chestItems) chestItems.forEach(function (it) { if (!isEmpty(it)) addDrop(it[0], x + .5, -y - .5, it[1], it[2], it[3]); });
+    }
+    function placeBlock(mw) {
+        const w = W();
+        const bx = Math.floor(mw.x), by = Math.floor(mw.y);
+        const it = selItem();
+        if (!it) return false;
+        const id = String(it[0]);
+        const here = fg(bx, by);
+        // usar un objeto
+        if (here === 'TNT' && id === 'fas') { igniteTNT(bx, by); damageTool(); return true; }
+        const food = bd(id, 'food');
+        if (food && bd(id, 'placeable') != 1) { if (w.food < 1000 && S.useTimer < 0) S.useTimer = ((bd(id, 'timerToUse') || 50) / 25 * FPS) | 0; return false; }
+        if (id === 'megg' && it[3] && it[3].type) { if (blockDist(bx, by) <= REACH) { spawnMob(String(it[3].type), bx + .5, -by - .01); reduceSelected(1); return true; } return false; }
+        if (bd(id, 'placeable') != 1) return false;
+        if (blockDist(bx, by) > REACH) return false;
+        if (!(here === 'air' || bd(here, 'liquid') != null || bd(here, 'replaceable') != null)) return false;
+        if (here === id) return false;
+        // tiene que estar al lado de algo (o delante de un fondo)
+        const nb = [fg(bx + 1, by), fg(bx - 1, by), fg(bx, by + 1), fg(bx, by - 1)];
+        if (!nb.some((n) => n !== 'air' && bd(n, 'liquid') == null) && bd(here, 'backdrop') == null) return false;
+        const po = bd(id, 'placeOn');
+        if (po && Array.isArray(po)) {
+            const below = fg(bx, by - 1);
+            const okBelow = po[0] && typeof po[0] === 'object' && (po[0].SOLID ? bd(below, 'walkThroughBlock') != 1 : po[0][below]);
+            const okAbove = po[2] && typeof po[2] === 'object' && (po[2].SOLID ? bd(fg(bx, by + 1), 'walkThroughBlock') != 1 : po[2][fg(bx, by + 1)]);
+            const okSide = po[1] && typeof po[1] === 'object' && (po[1].SOLID ? (bd(fg(bx - 1, by), 'walkThroughBlock') != 1 || bd(fg(bx + 1, by), 'walkThroughBlock') != 1) : (po[1][fg(bx - 1, by)] || po[1][fg(bx + 1, by)]));
+            if (!okBelow && !okAbove && !okSide) return false;
+        }
+        // no ponerlo encima del Player o de un mob
+        if (!(bd(id, 'walkThroughBlockHit') && !bd(id, 'actuallyHasCollisionThough'))) {
+            const P = S.p, pxL = Math.floor(w.worldX - (10 + (sneakOrUse() ? 4 : 0)) / 30), pxR = Math.floor(w.worldX + (10 + (sneakOrUse() ? 4 : 0)) / 30);
+            if ((bx === pxL || bx === pxR) && (by === P.blockY + 1 || by === P.blockY + 2)) return false;
+            for (const k in mbwom.mobs) { const b2 = mobBounds(k); if (b2 && bx + 1 > b2.l && bx < b2.r && -by > b2.t && -by - 1 < b2.b) return false; }
+        }
+        let s1;
+        if (it[3] && typeof it[3].type === 'string') s1 = it[3].type;   // color de la lana, de la cama, etc.
+        setBlock(bx, by, id, s1);
+        reduceSelected(1);
+        return true;
+    }
+    function attackMob(mid) {
+        const w = W(), m = mbwom.mobs[mid];
+        if (!m) return;
+        let b = 0, kb = 0;
+        const hs = bd(selType(), 'hitStrength');
+        if (hs == null) {
+            if (w.ySpeed < -1) { ++b; kb += 5; }
+            hurtMob(mid, Math.max(1, 1 + b), 'attack', PLAYER_ID);
+        } else {
+            if (w.ySpeed < -1) { b += Math.floor((hs + b) * ((20 * Math.random() | 0) + 30) / 100); kb += 5; }
+            hurtMob(mid, Math.max(1, hs + b | 0), 'attack', PLAYER_ID);
+            damageTool();
+        }
+        const sprint = (S.p.leftSprinting !== 0 || S.p.rightSprinting !== 0);
+        m.speedX = (Number(m.speedX) || 0) + (m.x > w.worldX ? 1 : -1) * (7 + (sprint ? 15 : 0) + kb);
+        const cb = cbounds(m);
+        if (collision(m.x + .7 * cb.left, m.y + 1, .7 * cb.width, 0, 4, false)) { m.speedY = (Number(m.speedY) || 0) + migSpeed(4 + (sprint ? 4 : 0) + kb / 4); m.y -= 1 / 3; }
+    }
+    function mineAndPlace() {
+        const w = W();
+        if (w.dead > 0 || w.gamemode == 3) { S.mine = null; return; }
+        S.placeDelay++;
+        if (w.gamemode == 1 && selType().substr(-5) !== 'Sword') S.placeDelay += 6;
+        if (S.useTimer > -1) {                                    // comiendo
+            if (!(S.mouse.right || S.mouse.rightEdge) || bd(selType(), 'food') == null) S.useTimer = -1;
+            else if (--S.useTimer === 0) {
+                const fd = bd(selType(), 'food');
+                if (fd && fd.hunger != null) w.food = Math.min(1000, w.food + fd.hunger);
+                reduceSelected(1); S.useTimer = -1; hud.dirty = true;
+            }
+            return;
+        }
+        const mw = mouseWorld();
+        // un clic rapidísimo (se suelta antes del siguiente paso) cuenta igual una vez
+        const right = S.mouse.right || S.mouse.rightEdge, left = S.mouse.left || S.mouse.leftEdge;
+        S.mouse.rightEdge = false; S.mouse.leftEdge = false;
+        if (right) {
+            if (S.placeDelay >= 6 && placeBlock(mw)) S.placeDelay = 0;
+            S.mine = null;
+            return;
+        }
+        if (!left) { S.mine = null; return; }
+        if (S.placeDelay < 6) return;
+        const mid = mobUnderMouse(mw);
+        if (mid) { attackMob(mid); S.placeDelay = 0; S.mine = null; return; }
+        const bx = Math.floor(mw.x), by = Math.floor(mw.y);
+        const t = fg(bx, by);
+        if (t === 'air' || bd(t, 'liquid') == 1 || (t === 'br' && w.gamemode != 1) || blockDist(bx, by) > REACH + 1) { S.mine = null; return; }
+        if (!S.mine || S.mine.x !== bx || S.mine.y !== by || S.mine.t !== t) {
+            const n = w.gamemode == 1 ? 0 : miningTime(t);
+            if (n < 0) { S.mine = null; return; }
+            S.mine = { x: bx, y: by, t: t, left: n, total: Math.max(1, n) };
+        }
+        if (S.mine.left <= 0) { mineBlock(bx, by); S.mine = null; S.placeDelay = w.gamemode == 1 ? 0 : 6; return; }
+        S.mine.left--;
+    }
+
+    // ------------------------------------------------------------------ paso del juego
+    function step() {
+        S.tick++;
+        const w = W();
+        intervals();
+        deathCheck();
+        if (!(w.dead > 0)) { mineAndPlace(); doPlayerLogic(); }
+        // arena / grava que hay que revisar
+        if (S.sandCheck.size) {
+            let n = 0;
+            const due = [];
+            S.sandCheck.forEach(function (t, k) { if (t <= S.tick && n < 400) { due.push(k); n++; } });
+            due.forEach(function (k) { if (S.sandCheck.get(k) > S.tick) return; S.sandCheck.delete(k); const pp = k.split(','); checkSand(+pp[0], +pp[1]); });   // (si el de abajo acaba de caer, este espera 2 pasos más)
+        }
+        tickFalling();
+        tickDrops();
+        tickArrows();
+        const px = w.worldX;
+        for (const id in mbwom.mobs) {
+            const m = mbwom.mobs[id];
+            if (!m || !m.type) continue;
+            if (Math.abs(Number(m.x) - px) > 40) continue;                     // lejos: quieto (como el juego fuera de pantalla)
+            try { mobTick(id, m); } catch (e) { if (!S.mobErr) { S.mobErr = true; console.warn('play mob', e); } }
+        }
+        if (S.msgT > 0) S.msgT--;
+    }
+    function camSnap() { camFollow(1); }
+    function camFollow(k) {
+        const w = W();
+        const tx = w.worldX - (canvas.width / tileSize) / 2, ty = (-w.worldY + 1) - (canvas.height / tileSize) / 2;
+        camera.x += (tx - camera.x) * k; camera.y += (ty - camera.y) * k;
+        camera._tx = camera.x; camera._ty = camera.y; camera.velX = 0; camera.velY = 0;
+    }
+    function frame(ts) {
+        if (!S.playing) return;
+        S.raf = requestAnimationFrame(frame);
+        if (!S.last) S.last = ts;
+        S.acc += Math.min(200, ts - S.last); S.last = ts;
+        let n = 0;
+        while (S.acc >= 1000 / FPS && n < 6) { try { step(); } catch (e) { console.error('play step', e); } S.acc -= 1000 / FPS; n++; }
+        if (n >= 6) S.acc = 0;
+        camFollow(.25);
+        if (typeof worldDirty !== 'undefined') worldDirty = true;
+        hud.update();
+    }
+
+    // ------------------------------------------------------------------ dibujar (encima del dibujo del editor)
+    function iconFor(id, extras) {
+        const k = id + '|' + (extras && extras.type || '');
+        let c = iconFor.cache[k];
+        if (c) return c;
+        c = document.createElement('canvas'); c.width = c.height = 16;
+        try {
+            const cx = c.getContext('2d'); cx.imageSmoothingEnabled = false;
+            const sst = { type: id === 'bed' ? 'bed1' : id };
+            const v = window.itemTexVariant ? window.itemTexVariant(id, 0, extras) : undefined;
+            if (v !== undefined) sst.states1 = v;
+            const ro = typeof getBlockObject === 'function' ? getBlockObject(sst) : null;
+            if (ro && window.drawItemIcon && window.images && window.images.blocks && window.images.blocks.complete) window.drawItemIcon(cx, ro, id, extras, 0, 0, 16, 16);
+            else { cx.fillStyle = '#888'; cx.fillRect(2, 2, 12, 12); }
+        } catch (e) { /* nada */ }
+        iconFor.cache[k] = c;
+        return c;
+    }
+    iconFor.cache = {};
+    function toScreen(gx, gy) { return { x: (gx - camera.x) * tileSize, y: canvas.height - ((-gy) - camera.y) * tileSize }; }
+    function drawExtras() {
+        if (!S.playing) return;
+        const c2 = window.ctx || (typeof ctx !== 'undefined' ? ctx : null);
+        if (!c2) return;
+        c2.save();
+        c2.imageSmoothingEnabled = false;
+        S.drops.forEach(function (d) { const p = toScreen(d.x, d.y); const s = tileSize * .5; c2.drawImage(iconFor(d.id, d.ex), p.x - s / 2, p.y - s + Math.sin((S.tick + d.age) / 12) * 2, s, s); });
+        S.falling.forEach(function (e) { const p = toScreen(e.x, e.y); const s = tileSize; c2.drawImage(iconFor(e.t, e.s ? { type: e.s } : {}), p.x - s / 2, p.y - s / 2, s, s); if (e.tnt && (e.fuse >> 3) % 2) { c2.fillStyle = 'rgba(255,255,255,.55)'; c2.fillRect(p.x - s / 2, p.y - s / 2, s, s); } });
+        c2.strokeStyle = '#d9c9a3'; c2.lineWidth = Math.max(1, tileSize / 12);
+        S.arrows.forEach(function (r) { const p = toScreen(r.x, r.y); const a = Math.atan2(r.vy, r.vx); c2.beginPath(); c2.moveTo(p.x, p.y); c2.lineTo(p.x - Math.cos(a) * tileSize * .6, p.y - Math.sin(a) * tileSize * .6); c2.stroke(); });
+        if (S.mine && S.mine.total > 1) {                       // grietas del bloque que se pica
+            const k = 1 - S.mine.left / S.mine.total;
+            const p = toScreen(S.mine.x, -S.mine.y);
+            c2.fillStyle = 'rgba(0,0,0,' + (.15 + .45 * k) + ')';
+            c2.fillRect(p.x, p.y - tileSize, tileSize, tileSize);
+            c2.strokeStyle = 'rgba(255,255,255,.7)'; c2.lineWidth = 1;
+            c2.strokeRect(p.x + .5, p.y - tileSize + .5, tileSize - 1, tileSize - 1);
+        }
+        if (S.mouse.inside && !(W().dead > 0)) {                 // recuadro del bloque bajo el mouse
+            const mw = mouseWorld(); const bx = Math.floor(mw.x), by = Math.floor(mw.y);
+            const ok = blockDist(bx, by) <= REACH + 1;
+            const p = toScreen(bx, -by);
+            c2.strokeStyle = ok ? 'rgba(255,255,255,.85)' : 'rgba(255,80,80,.6)'; c2.lineWidth = 2;
+            c2.strokeRect(p.x + 1, p.y - tileSize + 1, tileSize - 2, tileSize - 2);
+        }
+        const w = W();
+        if (S.p && S.p.hurt > 0 || w.dead > 0) { c2.fillStyle = w.dead > 0 ? 'rgba(140,0,0,.35)' : 'rgba(255,0,0,.12)'; c2.fillRect(0, 0, canvas.width, canvas.height); }
+        c2.restore();
+        if (S.p && S.p.hurt > 0) S.p.hurt--;
+    }
+
+    // ------------------------------------------------------------------ HUD (vida, comida, aire, hotbar, botones)
+    const hud = {
+        el: null, dirty: true,
+        build: function () {
+            const el = this.el = document.createElement('div');
+            el.id = 'mbw-play-hud';
+            el.innerHTML =
+                '<div class="ph-top"><button type="button" class="ph-stop">■ <span></span></button><div class="ph-msg"></div></div>' +
+                '<div class="ph-bars"><div class="ph-hearts"></div><div class="ph-food"></div><div class="ph-air"></div></div>' +
+                '<div class="ph-hotbar"></div>' +
+                '<div class="ph-pad"><button type="button" data-k="left">◀</button><button type="button" data-k="right">▶</button></div>' +
+                '<div class="ph-pad2"><button type="button" data-k="down" class="ph-sneak">⇩</button><button type="button" data-k="up" class="ph-jump">⇧</button><button type="button" class="ph-mode">⛏</button></div>';
+            document.body.appendChild(el);
+            el.querySelector('.ph-stop').addEventListener('click', function (e) { e.stopPropagation(); stopPlay(); });
+            el.querySelectorAll('[data-k]').forEach(function (b) {
+                const k = b.getAttribute('data-k');
+                const on = function (e) { e.preventDefault(); e.stopPropagation(); S.keys[k] = true; b.classList.add('on'); };
+                const off = function (e) { e.preventDefault(); e.stopPropagation(); S.keys[k] = false; b.classList.remove('on'); };
+                b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('pointerleave', off);
+            });
+            const mb = el.querySelector('.ph-mode');
+            mb.addEventListener('click', function (e) { e.stopPropagation(); S.touchMode = S.touchMode === 'mine' ? 'place' : 'mine'; hud.dirty = true; });
+            el.querySelector('.ph-hotbar').addEventListener('click', function (e) {
+                const s = e.target.closest('[data-i]'); if (!s) return;
+                e.stopPropagation(); W().selectedInventoryItem = +s.getAttribute('data-i'); hud.dirty = true;
+            });
+            this.texts();
+        },
+        texts: function () { if (!this.el) return; this.el.querySelector('.ph-stop span').textContent = tr('play_stop', 'Stop'); this.el.querySelector('.ph-stop').title = tr('play_stop_tip', 'Stop playing (Esc): everything goes back to how it was'); },
+        update: function () {
+            if (!this.el) return;
+            const w = W();
+            const msg = this.el.querySelector('.ph-msg');
+            const mtxt = S.msgT > 0 ? S.msg : '';
+            if (msg.textContent !== mtxt) msg.textContent = mtxt;
+            if (!this.dirty) return;
+            this.dirty = false;
+            const surv = w.gamemode != 1 && w.gamemode != 3;
+            let h = '';
+            if (surv) {
+                const hp = Math.max(0, w.health | 0);
+                for (let i = 0; i < 10; i++) h += '<i class="' + (hp >= (i + 1) * 2 ? 'f' : hp === i * 2 + 1 ? 'h' : 'e') + '">♥</i>';
+            }
+            this.el.querySelector('.ph-hearts').innerHTML = h;
+            let fd = '';
+            if (surv) { const f = Math.max(0, (w.food | 0) / 100); for (let i = 0; i < 10; i++) fd += '<i class="' + (f >= i + 1 ? 'f' : f > i ? 'h' : 'e') + '">🍗</i>'; }
+            this.el.querySelector('.ph-food').innerHTML = fd;
+            let ai = '';
+            if (surv && w.air < 11) for (let i = 0; i < 10; i++) ai += '<i class="' + (w.air > i ? 'f' : 'e') + '">●</i>';
+            this.el.querySelector('.ph-air').innerHTML = ai;
+            const hb = this.el.querySelector('.ph-hotbar');
+            hb.innerHTML = '';
+            const list = inv(), sel = selIndex();
+            for (let i = 0; i < 9; i++) {
+                const s = document.createElement('div');
+                s.className = 'ph-slot' + (i === sel ? ' sel' : '');
+                s.setAttribute('data-i', i);
+                const it = list[i];
+                if (!isEmpty(it)) {
+                    const c = document.createElement('canvas'); c.width = c.height = 16;
+                    c.getContext('2d').drawImage(iconFor(String(it[0]), it[3] || {}), 0, 0);
+                    s.appendChild(c);
+                    if (it[1] > 1) { const n = document.createElement('b'); n.textContent = it[1]; s.appendChild(n); }
+                    s.title = String(it[0]);
+                }
+                hb.appendChild(s);
+            }
+            this.el.querySelector('.ph-mode').textContent = S.touchMode === 'mine' ? '⛏' : '🧱';
+            this.el.querySelector('.ph-mode').title = S.touchMode === 'mine' ? tr('play_mode_mine', 'Tap = break / hit') : tr('play_mode_place', 'Tap = place / use');
+        },
+        destroy: function () { if (this.el) this.el.remove(); this.el = null; }
+    };
+    function flashMsg(t) { S.msg = t; S.msgT = 2 * FPS; }
+
+    // ------------------------------------------------------------------ teclado / mouse / dedos (mientras se juega, el editor no los recibe)
+    const KEYMAP = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'up', KeyW: 'up', Space: 'up', ArrowDown: 'down', KeyS: 'down', ShiftLeft: 'down' };
+    function typing(e) { const t = e.target; return t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable); }
+    function onKeyDown(e) {
+        if (!S.playing || typing(e)) return;
+        if (e.code === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); stopPlay(); return; }
+        const k = KEYMAP[e.code];
+        const w = W();
+        if (k) {
+            if (!e.repeat) {
+                const now = performance.now();
+                const lastT = S.dbl[k] || 0;
+                if (now - lastT < 300) {                                // doble toque: correr / volar (creativo)
+                    if (k === 'left' && w.food > 300) S.p.leftSprinting = 1;
+                    if (k === 'right' && w.food > 300) S.p.rightSprinting = 1;
+                    if (k === 'up' && w.gamemode == 1) w.fly = !w.fly;
+                }
+                S.dbl[k] = now;
+            }
+            S.keys[k] = true;
+        }
+        const dg = /^Digit([1-9])$/.exec(e.code);
+        if (dg) { w.selectedInventoryItem = +dg[1] - 1; hud.dirty = true; }
+        if (e.code === 'KeyQ' && !(w.dead > 0)) {                    // tirar el objeto
+            const it = selItem();
+            if (it) { addDrop(it[0], w.worldX + (S.p.xScale < 0 ? 1.2 : -1.2), w.worldY - 1.2, 1, it[2], it[3]); S.drops[S.drops.length - 1].age = -40; reduceSelected(1); }
+        }
+        e.preventDefault(); e.stopImmediatePropagation();
+    }
+    function onKeyUp(e) {
+        if (!S.playing || typing(e)) return;
+        const k = KEYMAP[e.code];
+        if (k) { S.keys[k] = false; if (k === 'left' && !S.keys.left) { /* nada */ } }
+        e.preventDefault(); e.stopImmediatePropagation();
+    }
+    function onCanvas(e) { const cv = document.getElementById('canvas'); return e.target === cv || (cv && e.target && e.target.closest && e.target.closest('#canvas-container') && !e.target.closest('#mbw-play-hud')); }
+    function onPointer(e) {
+        if (!S.playing) return;
+        if (e.target && e.target.closest && e.target.closest('#mbw-play-hud')) return;
+        const cv = document.getElementById('canvas');
+        if (!cv) return;
+        if (e.type === 'pointermove' || e.type === 'mousemove') {
+            S.mouse.x = e.clientX; S.mouse.y = e.clientY;
+            const r = cv.getBoundingClientRect();
+            S.mouse.inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+            if (onCanvas(e)) e.stopImmediatePropagation();
+            return;
+        }
+        if (!onCanvas(e)) return;
+        e.preventDefault(); e.stopImmediatePropagation();
+        if (e.type === 'pointerdown') {
+            S.mouse.x = e.clientX; S.mouse.y = e.clientY; S.mouse.inside = true;
+            const right = e.button === 2 || (e.pointerType === 'touch' && S.touchMode === 'place');
+            if (right) { S.mouse.right = true; S.mouse.rightEdge = true; } else { S.mouse.left = true; S.mouse.leftEdge = true; }
+            S.placeDelay = 99;
+            try { cv.setPointerCapture && cv.setPointerCapture(e.pointerId); } catch (er) { /* nada */ }
+        } else if (e.type === 'pointerup' || e.type === 'pointercancel') {
+            S.mouse.left = false; S.mouse.right = false;
+            if (e.pointerType === 'touch') S.mouse.inside = false;
+        }
+    }
+    function swallow(e) { if (S.playing && onCanvas(e)) { e.preventDefault(); e.stopImmediatePropagation(); } }
+    function onWheel(e) { if (!S.playing || !onCanvas(e)) return; e.preventDefault(); e.stopImmediatePropagation(); const w = W(); w.selectedInventoryItem = (selIndex() + (e.deltaY > 0 ? 1 : 8)) % 9; hud.dirty = true; }
+    function onBlur() { S.keys = {}; S.mouse.left = S.mouse.right = false; }
+
+    // ------------------------------------------------------------------ entrar / salir
+    function syncScene() {
+        const cur = (typeof mbwom.currentScene !== 'undefined') ? mbwom.currentScene : 1;
+        mbwom.sceneList.forEach(function (k) { if (mbwom[k] !== undefined) mbwom.world[k + cur] = mbwom[k]; });
+        return cur;
+    }
+    function startPlay() {
+        if (S.playing) return;
+        if (typeof mbwom === 'undefined' || !mbwom.world || !mbwom.scene) { alert(tr('play_no_world', 'Open or create a world first')); return; }
+        if (typeof isMultiplayer !== 'undefined' && isMultiplayer) { alert(tr('play_no_mp', 'Play mode is not available inside a multiplayer room.')); return; }
+        if (!window.MB_PLAY_DATA) { alert('play-data.js missing'); return; }
+        const cur = syncScene();
+        let snap;
+        try { snap = JSON.stringify(mbwom.world); } catch (e) { alert(tr('play_snap_err', 'Could not take the snapshot of the world, so Play mode did not start.')); return; }
+        S.snapshot = snap; S.scene = cur;
+        S.old = { tool: (typeof currentTool !== 'undefined') ? currentTool : null, smooth: window.smoothScroll, cam: { x: camera.x, y: camera.y }, scrollOffset: null };
+        const w = mbwom.world;
+        if (typeof mbwom.mobs !== 'object' || !mbwom.mobs) { mbwom.mobs = {}; w['mobs' + cur] = mbwom.mobs; }
+        // el Player: el del mundo (su posición, inventario y vida). Si está en otra dimensión o no tiene posición, aparece en el centro de la pantalla.
+        const sameScene = (w.scene || 1) === cur;
+        let px = Number(w.worldX), py = Number(w.worldY);
+        if (!sameScene || !isFinite(px) || !isFinite(py)) {
+            const sp = mbwom.spawnPoint;
+            if (sp && isFinite(Number(sp.x)) && isFinite(Number(sp.y)) && sameScene) { px = Number(sp.x); py = Number(sp.y); }
+            else { px = camera.x + (canvas.width / tileSize) / 2; py = -(camera.y + (canvas.height / tileSize) / 2); }
+        }
+        w.worldX = px; w.worldY = py; w.scene = cur;
+        S.start = { x: px, y: py };
+        w.xSpeed = 0; w.ySpeed = 0; w.dead = 0;
+        if (!isFinite(Number(w.health))) w.health = 20;
+        if (!isFinite(Number(w.food))) w.food = 1000;
+        if (!isFinite(Number(w.air))) w.air = 11;
+        w.gamemode = Number(w.gamemode) || 0;
+        const gmEl = document.getElementById('gamemode');
+        if (gmEl && gmEl.value !== '') w.gamemode = Number(gmEl.value) || 0;
+        if (w.gamemode != 1) w.fly = false;
+        inv();
+        for (const id in mbwom.mobs) { const m = mbwom.mobs[id]; if (m && typeof m === 'object') { m.target = null; m.focus = null; m.speedX = Number(m.speedX) || 0; m.speedY = Number(m.speedY) || 0; } }
+        S.p = newPlayer(); S.tmp = new Map(); S.drops = []; S.falling = []; S.arrows = []; S.sandCheck = new Map(); S.tick = 0; S.acc = 0; S.last = 0; S.mine = null; S.useTimer = -1; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mobErr = false;
+        // arena y grava cerca: se revisan para que caigan si no tienen nada abajo
+        const x0 = Math.max(0, Math.floor(px) - 60), x1 = Math.floor(px) + 60;
+        for (let x = x0; x <= x1; x++) { const col = mbwom.scene[x]; if (!col) continue; for (let y = 0; y < col.length; y++) if (col[y] === 'sd' || col[y] === 'gv') S.sandCheck.set(x + ',' + y, 2); }
+        S.playing = true;
+        window.mbwPlaying = true;
+        document.body.classList.add('mbw-playing');
+        window.smoothScroll = true;
+        // zoom de juego: ~36 bloques a lo ancho (como se ve en Mine Blocks)
+        try {
+            if (typeof ZOOM_LEVELS !== 'undefined' && typeof currentZoomIndex !== 'undefined' && typeof updateZoomSlider === 'function') {
+                S.old.zoom = currentZoomIndex;
+                const want = Math.max(24, canvas.width / 36) / (tileSize / (ZOOM_LEVELS[currentZoomIndex] / 100));
+                let best = currentZoomIndex, bd2 = Infinity;
+                ZOOM_LEVELS.forEach(function (z, i) { const d = Math.abs(z / 100 - want); if (d < bd2) { bd2 = d; best = i; } });
+                window.mbwZoomInstant = true;
+                try { updateZoomSlider(best); } finally { window.mbwZoomInstant = false; }
+            }
+        } catch (e) { /* nada */ }
+        try { if (typeof selectTool === 'function') selectTool('move'); } catch (e) { /* nada */ }
+        try { if (typeof toggleMobInfo === 'function') toggleMobInfo(false); } catch (e) { /* nada */ }
+        hud.build(); hud.dirty = true;
+        camSnap();
+        S.raf = requestAnimationFrame(frame);
+        flashMsg(tr('play_started', '▶ Playing! Esc or ■ Stop to go back'));
+        syncButton();
+    }
+    // Vuelve a poner la foto del mundo (en el mismo objeto "world", así lo que lo tenga guardado sigue apuntando bien)
+    function restoreSnapshot() {
+        const w = mbwom.world;
+        const fresh = JSON.parse(S.snapshot);
+        Object.keys(w).forEach(function (k) { delete w[k]; });
+        Object.assign(w, fresh);
+        mbwom.loadScene(S.scene);
+        mbwom.currentScene = S.scene;
+    }
+    function stopPlay() {
+        if (!S.playing) return;
+        S.playing = false;
+        cancelAnimationFrame(S.raf);
+        try { restoreSnapshot(); } catch (e) { console.error('play restore', e); alert('Error restoring the world: ' + e.message); }
+        S.snapshot = null; S.drops = []; S.falling = []; S.arrows = []; S.tmp = new Map(); S.keys = {}; S.mine = null;
+        window.mbwPlaying = false;
+        document.body.classList.remove('mbw-playing');
+        hud.destroy();
+        if (S.old) {
+            window.smoothScroll = S.old.smooth;
+            if (S.old.zoom != null && typeof updateZoomSlider === 'function') { window.mbwZoomInstant = true; try { updateZoomSlider(S.old.zoom); } finally { window.mbwZoomInstant = false; } }
+            camera.x = S.old.cam.x; camera.y = S.old.cam.y; camera._tx = camera.x; camera._ty = camera.y; camera.velX = 0; camera.velY = 0;
+            try { if (S.old.tool && typeof selectTool === 'function') selectTool(S.old.tool); } catch (e) { /* nada */ }
+        }
+        try { if (typeof initializeWorldCache === 'function') initializeWorldCache(); } catch (e) { /* nada */ }
+        try { if (typeof window.playerInvRefresh === 'function') window.playerInvRefresh(); } catch (e) { /* nada */ }
+        if (typeof worldDirty !== 'undefined') worldDirty = true;
+        syncButton();
+    }
+    window.mbwStartPlay = startPlay;
+    window.mbwStopPlay = stopPlay;
+    window.mbwTogglePlay = function () { if (S.playing) stopPlay(); else startPlay(); };
+
+    // Mientras se juega, lo que se guarda / descarga / sube es la FOTO (el mundo de antes de jugar)
+    function withSnapshot(fn, self, args) {
+        if (!S.playing || !S.snapshot) return fn.apply(self, args);
+        const liveWorld = mbwom.world;
+        const cur = syncScene();
+        const tmpW = JSON.parse(S.snapshot);
+        mbwom.world = tmpW; mbwom.loadScene(S.scene);
+        try { return fn.apply(self, args); }
+        finally { mbwom.world = liveWorld; mbwom.loadScene(cur); }
+    }
+    function wrapSaves() {
+        const fm = window.fileManager || (typeof fileManager !== 'undefined' ? fileManager : null);
+        if (fm && !fm.__playWrapped) {
+            fm.__playWrapped = true;
+            ['prepareData', 'prepareNetworkJson'].forEach(function (n) { const o = fm[n]; if (typeof o === 'function') fm[n] = function () { return withSnapshot(o, this, arguments); }; });
+            const ld = fm.load; if (typeof ld === 'function') fm.load = function () { if (S.playing) stopPlay(); return ld.apply(this, arguments); };
+        }
+        // Deshacer / Rehacer mientras se juega movería el historial del editor sin que el mundo de antes cambie: se ignora
+        const hm = (typeof historyManager !== 'undefined') ? historyManager : null;
+        if (hm && !hm.__playWrapped) {
+            hm.__playWrapped = true;
+            ['undo', 'redo'].forEach(function (n) { const o = hm[n]; if (typeof o === 'function') hm[n] = function () { if (S.playing) { flashMsg(tr('play_no_undo', 'Undo is off while playing')); return; } return o.apply(this, arguments); }; });
+        }
+        const wt = (typeof WorldTabsManager !== 'undefined') ? WorldTabsManager : null;
+        if (wt && !wt.__playWrapped) {
+            wt.__playWrapped = true;
+            ['switchWorld', 'addWorld', 'closeWorld', 'saveCurrentWorldStateToMemory'].forEach(function (n) { const o = wt[n]; if (typeof o === 'function') wt[n] = function () { if (S.playing) stopPlay(); return o.apply(this, arguments); }; });
+        }
+    }
+    // dibujar encima: se envuelve drawPlayer (el editor lo llama en cada cuadro, después de los mobs)
+    function wrapDraw() {
+        if (typeof window.drawPlayer !== 'function' || window.drawPlayer.__play) return;
+        const o = window.drawPlayer;
+        const nw = function () {
+            if (S.playing) {
+                o.apply(this, arguments);
+                drawExtras();
+                return;
+            }
+            return o.apply(this, arguments);
+        };
+        nw.__play = true;
+        window.drawPlayer = nw;
+    }
+
+    // ------------------------------------------------------------------ botón ▶ Play
+    function syncButton() {
+        const b = document.getElementById('btn-play-mode');
+        if (!b) return;
+        b.classList.toggle('playing', S.playing);
+        const sp = b.querySelector('span');
+        if (sp) sp.textContent = S.playing ? tr('play_stop', 'Stop') : tr('play_btn', 'Play');
+        b.title = S.playing ? tr('play_stop_tip', 'Stop playing (Esc): everything goes back to how it was') : tr('play_btn_tip', 'Play the map to test it. When you stop, the blocks, mobs and Player go back to where they were.');
+        const ic = b.querySelector('.pb-ic');
+        if (ic) ic.textContent = S.playing ? '■' : '▶';
+    }
+    function init() {
+        wrapSaves(); wrapDraw();
+        window.addEventListener('keydown', onKeyDown, true);
+        window.addEventListener('keyup', onKeyUp, true);
+        ['pointerdown', 'pointerup', 'pointercancel', 'pointermove'].forEach(function (n) { window.addEventListener(n, onPointer, true); });
+        ['mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu', 'touchstart', 'touchmove', 'touchend'].forEach(function (n) { window.addEventListener(n, swallow, { capture: true, passive: false }); });
+        window.addEventListener('mousemove', function (e) { if (S.playing && onCanvas(e)) e.stopImmediatePropagation(); }, true);
+        window.addEventListener('wheel', onWheel, { capture: true, passive: false });
+        window.addEventListener('blur', onBlur);
+        window.addEventListener('beforeunload', function () { if (S.playing) { try { restoreSnapshot(); } catch (e) { /* nada */ } } });
+        window.addEventListener('mbw-lang-changed', function () { syncButton(); hud.texts(); });
+        syncButton();
+        setTimeout(function () { wrapSaves(); wrapDraw(); }, 1500);
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();

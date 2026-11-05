@@ -133,8 +133,9 @@
   return armor ? [it.id, it.dmg || 0, ex] : [it.id, it.qty, it.dmg || 0, ex];
  }
  // Un espacio: { k: 'i', i: 0-44 } = inventario, { k: 'a', i: 0-3 } = armadura, { k: 'c', i: 0-26 } = cofre que se está editando
- // Combustibles del horno (lista aproximada, tomada de Minecraft clásico: SIN VERIFICAR en el juego; el juego es quien decide si un objeto arde).
- const FUEL_IDS = ['cl', 'cl2', 'clb', 'wd', 'wd1', 'wp', 'st', 'sl', 'blazer', 'lbk', 'fnc', 'fncg', 'craft', 'chest', 'books', 'ladder', 'dr', 'bb', 'bbb', 'halfwp', 'stairwp', 'halfbbb', 'stairbbb', 'bow', 'fr', 'sign', 'WoodenPickaxe', 'WoodenAxe', 'WoodenShovel', 'WoodenHoe', 'WoodenSword'];
+ // Combustibles del horno: los objetos que tienen "fuel" en BlockData del juego (código decompilado de Mine Blocks 2.0.0).
+ // El número es cuánto dura cada uno (en "tics" del horno; un objeto se cocina cada 10).
+ const FUEL_IDS = ['cl', 'cl2', 'clb', 'wd', 'wp', 'st', 'sl', 'fnc', 'fncg', 'bb', 'bbb', 'hay', 'magma', 'lbk', 'WoodenPickaxe', 'WoodenAxe', 'WoodenShovel', 'WoodenHoe', 'WoodenSword'];
  const F_KEYS = ['input', 'fuel', 'output'];
  const isFuel = (id) => FUEL_IDS.indexOf(String(id)) >= 0;
  window.mbwFurnaceFuelIds = FUEL_IDS;

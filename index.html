@@ -440,7 +440,9 @@
     </div>
 </div>
 
-    <div class="dropdown-container" id="export-dropdown-container" style="margin-left: auto; margin-bottom: 4px; align-self: flex-end; display: flex;">
+    <!-- ▶️ Modo Jugar (scripts/play-mode.js): probar el mapa; al parar, todo vuelve a como estaba -->
+    <button type="button" id="btn-play-mode" class="btn-play-mode" onclick="mbwTogglePlay()" data-i18n-title="play_btn_tip" title="Play the map to test it. When you stop, the blocks, mobs and Player go back to where they were."><b class="pb-ic">▶</b> <span data-i18n="play_btn">Play</span></button>
+    <div class="dropdown-container" id="export-dropdown-container" style="margin-left: 6px; margin-bottom: 4px; align-self: flex-end; display: flex;">
         <button class="btn-ribbon-export" onclick="if(typeof fileManager !== 'undefined') fileManager.export();" style="margin: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: 1px solid #777;" data-i18n-title="tt_quick_download" title="Quick Download">
             <span data-i18n="btn_export">Download</span>
         </button>
@@ -1736,7 +1738,7 @@
             
             <div style="position: absolute; bottom: 10px; left: 15px; font-size: 11px; color: gray; font-family: monospace;">
                 <span data-i18n="about_last_update">Last Update:</span> Nov 4, 2026<br>
-                v2.6 - Snapshot 26
+                v2.6 - Snapshot 28
             </div>
             <div style="position: absolute; bottom: 10px; right: 15px; font-size: 12px; color: gray; font-weight: bold;">
                 2026
@@ -1826,6 +1828,8 @@
  <script src="scripts/world-presence.js"></script> <!-- 🌍 avisa si tengo un mundo abierto -->
  <script src="scripts/mobile-block-fab.js"></script> <!-- 🪜 espejo y girar flotantes (celular) -->
  <script src="scripts/mobile-layout.js"></script> <!-- 📱 Aspect en View, captura junto a Download -->
+    <script src="scripts/play-data.js"></script>
+    <script src="scripts/play-mode.js"></script> <!-- ▶️ Modo Jugar -->
  <script src="scripts/mobile-zoom.js"></script> <!-- 🔍 zoom flotante del celular -->
  <script src="scripts/chat-dm.js"></script>
  <script src="scripts/mini-chat.js"></script> <!-- 💬 mini ventana de chat de las burbujas (como Messenger) -->
