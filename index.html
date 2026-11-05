@@ -1054,6 +1054,11 @@
         <span data-i18n="config_touch_inertia">Smooth camera on touch</span>
     </label>
     <small data-i18n="config_touch_inertia_hint" style="display: block; margin-top: 4px; margin-left: 24px; color: #444;">When you drag the map with your finger and let go, the camera keeps gliding and slows down little by little instead of stopping suddenly.</small>
+    <label style="display: flex; align-items: center; gap: 8px; font-weight: bold; margin-top: 14px; cursor: pointer;">
+        <input type="checkbox" id="play-vibrate-toggle" checked onchange="setPlayVibration(this.checked)" style="margin: 0; cursor: pointer;">
+        <span data-i18n="config_play_vibrate">Vibration in Play mode</span>
+    </label>
+    <small data-i18n="config_play_vibrate_hint" style="display: block; margin-top: 4px; margin-left: 24px; color: #444;">The phone vibrates a little when you break a block and when you get hurt. (Some phones and browsers, like the iPhone, don't allow it.)</small>
     </div>
 
     <label style="display: flex; align-items: center; gap: 8px; font-weight: bold; margin-top: 14px; cursor: pointer;">
@@ -1747,7 +1752,7 @@
             
             <div style="position: absolute; bottom: 10px; left: 15px; font-size: 11px; color: gray; font-family: monospace;">
                 <span data-i18n="about_last_update">Last Update:</span> Nov 5, 2026<br>
-                v2.6 - Snapshot 31
+                v2.6 - Snapshot 32
             </div>
             <div style="position: absolute; bottom: 10px; right: 15px; font-size: 12px; color: gray; font-weight: bold;">
                 2026

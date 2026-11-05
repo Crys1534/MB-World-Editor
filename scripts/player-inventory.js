@@ -367,6 +367,14 @@
     const fire = document.createElement('div'); fire.className = 'pinv-f-fire'; fire.textContent = '🔥'; left.appendChild(fire);
     left.appendChild(mk(1, 'pinv-f-fuel'));
     const arrow = document.createElement('div'); arrow.className = 'pinv-f-arrow'; arrow.textContent = '➡️';
+    if (window.mbwPlaying) {                                       // ▶ Modo Jugar: el horno funciona → se ve si está prendido y cuánto le falta
+     const fd = furnaceData(false) || {};
+     const ft = Number(fd.fuelTimer) || 0, ftt = Number(fd.fuelTimerTotal) || 0, sm = Number(fd.smeltTimer) || 0;
+     fire.classList.toggle('off', !(ft > 0));
+     fire.style.setProperty('--fuel', ftt > 0 ? Math.max(0, Math.min(1, ft / ftt)) : 0);
+     const bar = document.createElement('i'); bar.className = 'pinv-f-prog'; bar.style.width = Math.round(Math.min(1, sm / 10) * 100) + '%';
+     arrow.appendChild(bar);
+    }
     fgrid.appendChild(left); fgrid.appendChild(arrow); fgrid.appendChild(mk(2, 'pinv-f-out'));
    }
   }
@@ -874,6 +882,8 @@
   return true;
  };
  window.playerInvChestOpen = function () { return !!st.chest; };
+ // ▶ Modo Jugar: el horno avanzó (se fundió algo / se gastó combustible) → se vuelve a pintar si está abierto
+ window.playerInvFurnaceTick = function () { if (st.open && st.furnace) renderAll(); };
 
  window.playerInvToggleCreative = function () {
   if (!st.open) return;

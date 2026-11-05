@@ -366,9 +366,12 @@ window.mbwAnimatedTile = function (o, x, y) {
         if (ro === TM.bdcloth_rainbow) return 'bdcloth_rainbow';
         if (ro === TM.magma) return 'magma';
         if (ro === TM.fire) return 'fire';
+        const lq = window.blockAnim && window.blockAnim.liqLive && window.blockAnim.liqLive.get(ro);   // agua / lava / ácido (también los que corren)
+        if (lq) return lq;
         return null;
     }
     function frameFor(kind) {
+        if (kind && kind.an === 'liq') return window.blockAnim.tileAt(kind, true, 0, 0);   // el dibujo animado recortado con la forma del bloque
         if (kind === 'magma' || kind === 'fire') return window.blockAnim.tileAt({ an: kind }, false);
         const pre = { cloth_rainbow: 'cloth_', carpet_rainbow: 'carpet_', bdcloth_rainbow: 'bdcloth_' }[kind];
         if (!window.mbwAnimationsOn) return window.texturesMap[kind];

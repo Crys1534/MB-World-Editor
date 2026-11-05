@@ -18,8 +18,12 @@
 //   - Mobs: Entity_Mob.run + mobCalculateTarget + mobAttack + hurtMob (caminar al azar, perseguir, saltar, no tirarse por
 //     barrancos, nadar, daño, empujón al pegarles, creeper que explota, esqueleto que dispara flechas).
 //   - Arena y grava que caen, TNT (con mechero), explosiones (Game.explode).
-// APROXIMADO / NO INCLUIDO (se dice para no engañar): el agua y la lava no fluyen, no hay día/noche ni clima, no aparecen
-// mobs nuevos solos, no hay redstone, ni crafteo, ni encantamientos, ni efectos de pociones. Los mobs que vuelan o nadan
+//   - Agua, lava y ácido que corren (blocks/Block_Water.js, Block_Lava.js, Block_Acid.js), cubetas, plantas que se rompen sin
+//     soporte (placeOn / Block_Cactus), hornos que funden (Game.onCertainInterval → toSmelt), experiencia (dropXP / experience),
+//     lo que suelta cada mob (Entity_Mob.killMob) y a quién persigue (mobCalculateTarget: comida en la mano, lobo, gólem, enderman).
+// APROXIMADO / NO INCLUIDO (se dice para no engañar): la lava no prende fuego, no hay día/noche ni clima, no aparecen
+// mobs nuevos solos, no hay redstone, ni crafteo, ni encantamientos, ni efectos de pociones, ni crías / domesticar.
+// Cómo se mueven las bolitas de experiencia no viene en el código decompilado: es aproximado. Los mobs que vuelan o nadan
 // (murciélago, ghast, calamar, blaze, ojo del Nether, dragón) usan una versión simple de su movimiento.
 // El alcance de las manos (5 bloques) no aparece en el código decompilado: es un valor estimado.
 // =====================================================================
@@ -35,12 +39,13 @@
     const tr = (k, fb, p) => { try { const v = window.tmsg ? window.tmsg(k, fb, p) : fb; return v || fb; } catch (e) { return fb; } };
     const bd = (id, p) => { const o = D.blocks[id]; return o ? o[p] : undefined; };
     const modulus = (a, b) => { const r = a % b; return r < 0 ? r + b : r; };
+    const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
     // ------------------------------------------------------------------ estado
     const S = {
         playing: false, snapshot: null, scene: 1, old: null,
         p: null, keys: {}, dbl: {}, mouse: { x: 0, y: 0, left: false, right: false, inside: false, leftEdge: false, rightEdge: false },
-        tmp: new Map(), drops: [], falling: [], arrows: [], sandCheck: new Map(),
+        tmp: new Map(), drops: [], falling: [], arrows: [], sandCheck: new Map(), liqFresh: new Set(), orbs: [], xpT: 0,
         tick: 0, acc: 0, last: 0, raf: 0, mine: null, placeDelay: 0, useTimer: -1, msg: '', msgT: 0,
         touchMode: 'mine'
     };
@@ -76,6 +81,8 @@
         // lo que había encima puede caerse (Block_Sand.inter: se revisa 2 pasos después)
         S.sandCheck.set(x + ',' + (y + 1), S.tick + 2);
         S.sandCheck.set(x + ',' + y, S.tick + 2);
+        S.sandCheck.set((x - 1) + ',' + y, S.tick + 2);              // (el cactus se rompe si le ponen algo al lado)
+        S.sandCheck.set((x + 1) + ',' + y, S.tick + 2);
     }
     function getWater(x, y) { const w = mbwom.water && mbwom.water[key(x, y)]; return Array.isArray(w) ? w : [0, 0]; }
     function gameRule(name) {
@@ -187,6 +194,13 @@
         hud.dirty = true;
     }
 
+    // 📳 Vibración (celular): al romper un bloque, mientras se pica (suave) y al recibir daño. Se apaga en Configuración.
+    const VIB_KEY = 'mbw_play_vibrate';
+    function vibOn() { try { if (localStorage.getItem(VIB_KEY) === '0') return false; } catch (e) { /* nada */ } return !!(navigator.vibrate && (document.body.classList.contains('is-touch') || (window.matchMedia && matchMedia('(pointer: coarse)').matches))); }
+    function buzz(ms) { if (!S.playing || !vibOn()) return; try { navigator.vibrate(ms); S.lastBuzz = { ms: ms, at: performance.now() }; } catch (e) { /* nada */ } }
+    window.setPlayVibration = function (on) { try { localStorage.setItem(VIB_KEY, on ? '1' : '0'); } catch (e) { /* no se recuerda */ } };
+    (function () { const sync = function () { const c = document.getElementById('play-vibrate-toggle'); if (c) { let v = true; try { v = localStorage.getItem(VIB_KEY) !== '0'; } catch (e) { /* nada */ } c.checked = v; } }; if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', sync); else sync(); })();
+
     // ------------------------------------------------------------------ objetos tirados en el suelo
     function addDrop(id, x, y, count, dmg, extras) {
         if (!id || id === 'air' || id === 'na' || !(count > 0)) return;
@@ -211,8 +225,25 @@
     }
 
     // ------------------------------------------------------------------ arena / grava / TNT que caen (Entity_FallingBlock)
+    // 🌵 Plantas que necesitan algo abajo (cactus, bambú, caña, flores, hongos, pasto alto, semillas...): si se lo quitan, se
+    // rompen y sueltan su objeto (como en el juego: placeOn de BlockData + Block_Cactus.frameEvent).
+    const PLANTS = { sl: 1, ct: 1, sw: 1, fw1: 1, fw2: 1, ms1: 1, ms2: 1, bb: 1, sc: 1, lgr: 1, shrub: 1, ds: 1, seed: 1, carrot: 1, potato: 1, nw: 1, bseed: 1, gasd: 1, lp: 1, pseed: 1, wseed: 1, moss: 1 };
+    function matchPlaceOn(x, y, po) {                               // Game.matchBlockDataPlaceOn: [abajo, a los lados, arriba]
+        const ok = function (set, n) { return !!(set && typeof set === 'object' && !Array.isArray(set) && (set.SOLID ? bd(n, 'walkThroughBlock') != 1 : set[n])); };
+        const okSide = function (set) { return !!(set && typeof set === 'object' && !Array.isArray(set) && (set.SOLID ? (bd(fg(x - 1, y), 'walkThroughBlock') != 1 || bd(fg(x + 1, y), 'walkThroughBlock') != 1) : (set[fg(x - 1, y)] || set[fg(x + 1, y)]))); };
+        return ok(po[0], fg(x, y - 1)) || ok(po[2], fg(x, y + 1)) || okSide(po[1]);
+    }
+    function plantSupported(x, y, t) {
+        if (t === 'ct') {                                            // cactus: arena o cactus abajo y nada sólido a los lados
+            const b = fg(x, y - 1);
+            return (b === 'sd' || b === 'ct') && bd(fg(x - 1, y), 'waterWalkThroughBlock') == 1 && bd(fg(x + 1, y), 'waterWalkThroughBlock') == 1;
+        }
+        const po = bd(t, 'placeOn');
+        return !Array.isArray(po) || matchPlaceOn(x, y, po);
+    }
     function checkSand(x, y) {
         const t = fg(x, y);
+        if (PLANTS[t]) { if (!plantSupported(x, y, t)) mineBlock(x, y, true); return; }
         if (bd(t, 'falls') != 1) return;
         const below = fg(x, y - 1);
         if (below === 'la' || below === 'ad') { setBlock(x, y, null); return; }
@@ -248,6 +279,105 @@
             }
         }
     }
+
+    // ------------------------------------------------------------------ 💧 agua, lava y ácido que corren (blocks/Block_Water.js, Block_Lava.js, Block_Acid.js)
+    // Cada bloque de líquido se revisa cada 12 ticks del juego a 25 fps (= 24 pasos aquí). Los niveles son [izquierda, derecha]:
+    // 10,10 = fuente (lleno), 9,9 = chorro que cae, menos = la orilla que va bajando. El agua corre de lado hasta el nivel 3 y la
+    // lava y el ácido hasta el 5 (por eso llegan menos lejos). Si se les quita lo que las alimenta, se secan. El agua que toca lava
+    // fuente la vuelve obsidiana y la que toca lava que corre (o ácido) la vuelve piedra (cobblestone). Dos fuentes de agua con un
+    // hueco en medio hacen una fuente nueva. En el Nether el agua se evapora. El ácido además quema lo que tiene "acidBurn".
+    // (No incluido: que la lava prenda fuego a lo de alrededor.)
+    const LIQ_MIN = { wr: 3, la: 5, ad: 5 };
+    const LIQ_EVERY = Math.floor(12 * FPS / 25);
+    const isLiq = (t) => t === 'wr' || t === 'la' || t === 'ad';
+    function lvOf(x, y) {                                           // Game.getWater
+        const v = mbwom.water && mbwom.water[key(x, y)];
+        if (Array.isArray(v)) return v;
+        return bd(fg(x, y), 'liquid') == 1 ? [10, 10] : [0, 0];
+    }
+    const fullLiq = (x, y) => { const v = lvOf(x, y); return v[0] == 10 && v[1] == 10; };
+    function setLiq(x, y, L, lv) {
+        if (x < 0 || y < 0) return;
+        mbwom.setBlockState(x, y, { type: L, water: (lv[0] == 10 && lv[1] == 10) ? undefined : [lv[0], lv[1]] });
+        if (typeof window.renderBlock === 'function') window.renderBlock(x, y);
+        S.liqFresh.add(x + ',' + y);
+        S.sandCheck.set(x + ',' + (y + 1), S.tick + 2); S.sandCheck.set((x - 1) + ',' + y, S.tick + 2); S.sandCheck.set((x + 1) + ',' + y, S.tick + 2);
+    }
+    function liqLevel(x, y, lv) {                                   // solo cambia el nivel (el dibujo de la orilla)
+        if (!mbwom.water) mbwom.water = {};
+        if (lv[0] == 10 && lv[1] == 10) delete mbwom.water[key(x, y)]; else mbwom.water[key(x, y)] = [lv[0], lv[1]];
+        if (typeof window.renderBlock === 'function') window.renderBlock(x, y);
+    }
+    function liqGone(x, y) { if (mbwom.water) delete mbwom.water[key(x, y)]; setBlock(x, y, null); }
+    function liqStep(x, y, L) {                                     // ifWater(): devuelve false si el bloque se secó
+        const lv = lvOf(x, y).slice(), M = LIQ_MIN[L];
+        const below = fg(x, y - 1);
+        if (below === L && mbwom.water && Array.isArray(mbwom.water[key(x, y - 1)])) { const b = mbwom.water[key(x, y - 1)]; if (b[0] < 9 || b[1] < 9) liqLevel(x, y - 1, [9, 9]); }
+        const eats = (n) => n === 'air' || bd(n, 'waterWalkThroughBlock') == 1 || (L === 'ad' && bd(n, 'acidBurn') == 1);
+        if (y - 1 >= 0 && eats(below)) {                             // cae
+            if (below !== 'air') mineBlock(x, y - 1, true);
+            setLiq(x, y - 1, L, [9, 9]);
+            return true;
+        }
+        if (!(lv[0] == 10 && lv[1] == 10)) {
+            if (!(lv[0] == 9 && lv[1] == 9)) {
+                if (lv[0] > lv[1]) { const n = isLiq(fg(x - 1, y)) ? lvOf(x - 1, y)[1] : -1; if (Math.min(n, 9) != Math.min(lv[0], 9)) { liqGone(x, y); return false; } }
+                else if (lv[0] < lv[1]) { const n = isLiq(fg(x + 1, y)) ? lvOf(x + 1, y)[0] : -1; if (Math.min(n, 9) != Math.min(lv[1], 9)) { liqGone(x, y); return false; } }
+                else { liqGone(x, y); return false; }
+            } else if (fg(x, y + 1) !== L) { liqGone(x, y); return false; }
+        } else if (L === 'wr') {                                      // dos fuentes con un hueco en medio: fuente nueva
+            [-1, 1].forEach(function (s1) {
+                const n = fg(x + s1, y);
+                if ((n === 'air' || (n === 'wr' && !fullLiq(x + s1, y))) && fg(x + 2 * s1, y) === 'wr' && fullLiq(x + 2 * s1, y)) setLiq(x + s1, y, 'wr', [10, 10]);
+            });
+        }
+        if (bd(fg(x, y - 1), 'liquid') != 1) {                        // corre a los lados
+            const l0 = Math.min(lv[0], 9), l1 = Math.min(lv[1], 9);
+            const nl = fg(x - 1, y);
+            if ((eats(nl) || (nl === L && Math.min(lvOf(x - 1, y)[0], 9) < l0 - 1)) && M <= lv[0] - 1 && lv[0] <= lv[1] && x - 1 >= 0) {
+                if (nl !== 'air') { if (L === 'wr') mineBlock(x - 1, y, true); else setBlock(x - 1, y, null); }
+                setLiq(x - 1, y, L, [Math.floor(l0 - 1), Math.floor(l0)]);
+            }
+            const nr = fg(x + 1, y);
+            if ((eats(nr) || (nr === L && Math.min(lvOf(x + 1, y)[1], 9) < l1 - 1)) && M <= lv[1] - 1 && lv[0] >= lv[1]) {
+                if (nr !== 'air') { if (L === 'wr') mineBlock(x + 1, y, true); else setBlock(x + 1, y, null); }
+                setLiq(x + 1, y, L, [Math.floor(l1), Math.floor(l1 - 1)]);
+            }
+        }
+        return true;
+    }
+    function waterTouch(x, y) {                                     // el agua apaga la lava / el ácido que toca
+        [[-1, 0], [1, 0], [0, 1], [0, -1]].forEach(function (o) {
+            const X = x + o[0], Y = y + o[1], n = fg(X, Y);
+            if (n !== 'la' && n !== 'ad') return;
+            const ob = n === 'la' && fullLiq(X, Y);
+            if (mbwom.water) delete mbwom.water[key(X, Y)];
+            setBlock(X, Y, ob ? 'ob' : 'cs');
+        });
+        // columnas de burbujas: magma abajo = jala hacia abajo, arena de almas = empuja hacia arriba
+        if (fullLiq(x, y) && mbwom.states) {
+            const b = fg(x, y - 1), sb = st(x, y - 1), k = key(x, y);
+            if (b === 'magma' || (b === 'wr' && sb == -1)) mbwom.states[k] = -1;
+            else if (b === 'ssd' || (b === 'wr' && sb == 1)) mbwom.states[k] = 1;
+            else if (mbwom.states[k] == 1 || mbwom.states[k] == -1) delete mbwom.states[k];
+        }
+    }
+    function tickLiquids() {
+        if (S.tick % LIQ_EVERY !== 0) return;
+        const w = W(), sc = mbwom.scene; if (!sc) return;
+        const px = Math.floor(w.worldX), x0 = Math.max(0, px - 48), x1 = Math.min(sc.length - 1, px + 48);
+        const nether = (mbwom.currentScene || 1) == 2;
+        S.liqFresh = new Set();
+        const list = [];
+        for (let x = x0; x <= x1; x++) { const col = sc[x]; if (!col) continue; for (let y = 0; y < col.length; y++) { const t = col[y]; if (t === 'wr' || t === 'la' || t === 'ad') list.push(x, y); } }
+        for (let i = 0; i < list.length; i += 2) {
+            const x = list[i], y = list[i + 1], L = fg(x, y);
+            if (!isLiq(L) || S.liqFresh.has(x + ',' + y)) continue;
+            if (L === 'wr' && nether) { liqGone(x, y); continue; }
+            if (liqStep(x, y, L) && L === 'wr') waterTouch(x, y);
+        }
+    }
+    function gameRuleOn(name) { const v = gameRule(name); return v === undefined || v === null || v === true || v === 1 || v === '1' || v === 'true'; }
 
     // ------------------------------------------------------------------ explosión (Game.explode)
     function explode(b, a, c, byId) {
@@ -307,7 +437,7 @@
             }
             a *= Math.max(0, d);
         }
-        if (a !== 0) { w.health -= Math.ceil(a); if (a > 0) S.p.hurt = 10; hud.dirty = true; }
+        if (a !== 0) { w.health -= Math.ceil(a); if (a > 0) { S.p.hurt = 10; buzz(Math.min(120, 35 + 10 * Math.ceil(a))); } hud.dirty = true; }
     }
     const key2 = (n) => !!S.keys[n];
     function doPlayerLogic() {
@@ -506,11 +636,64 @@
             if (w.gamemode == 1 && P.blockY < -40 && !(w.dead > 0)) w.dead = 1;
             if (P.keysX) w.food -= 3;
             if (P.leftSprinting > 0 || P.rightSprinting > 0) w.food -= 5;
+            tickFurnaces();
         }
         if (w.food < 0) w.food = 0;
         if (w.health > 20 || w.gamemode == 1) w.health = 20;
         if (w.food > 1000 || w.gamemode == 1) w.food = 1000;
         w.health = Math.floor(w.health); w.food = Math.floor(w.food);
+    }
+    // 🔥 Hornos (Game.onCertainInterval → world.toSmelt): cada ~1 segundo. Si hay algo para fundir y combustible, el combustible se
+    // gasta (carbón = 80 vueltas, madera = 15...), y cada 10 vueltas con fuego sale 1 objeto (≈ 10 s). La cubeta de lava deja la
+    // cubeta vacía. Si la salida está llena (64) o es otra cosa, se detiene. Meter TNT al horno... explota.
+    function tickFurnaces() {
+        const T = mbwom.toSmelt;
+        if (!T || typeof T !== 'object') return;
+        const nil = () => ['air', 0, 0, {}];
+        const emptyIt = (v) => !Array.isArray(v) || !v[0] || v[0] === 'air' || v[0] === 'na' || !(Number(v[1]) >= 1);
+        let changed = false;
+        Object.keys(T).forEach(function (k) {
+            const l = T[k];
+            if (!l || typeof l !== 'object') { delete T[k]; return; }
+            const m = /^blockX(-?\d+)Y(-?\d+)$/.exec(k); if (!m) return;
+            const bx = +m[1], by = +m[2];
+            if (fg(bx, by) !== 'oven') return;
+            ['input', 'fuel', 'output'].forEach(function (q) { if (!Array.isArray(l[q])) l[q] = nil(); else if (l[q][1] === '') l[q][1] = 1; });
+            if (l.fuelTimer == null) l.fuelTimer = 0;
+            if (l.smeltTimer == null) l.smeltTimer = 0;
+            const before = JSON.stringify(l);
+            const inId = String(l.input[0]);
+            if (l.fuelTimer == 0 && !emptyIt(l.fuel) && !emptyIt(l.input)) {
+                const fv = bd(String(l.fuel[0]), 'fuel');
+                if (fv) {
+                    l.fuelTimerTotal = fv; l.fuelTimer = fv;
+                    if (l.fuel[1] == 1) { if (l.fuel[0] === 'lbk') l.fuel = ['bk', 1, 0, {}]; else l.fuel = nil(); }
+                    else l.fuel[1]--;
+                }
+            }
+            if (l.fuelTimer > 0) {
+                l.fuelTimer--;
+                const into = bd(inId, 'smeltsInto');
+                const out = l.output;
+                const same = () => Array.isArray(into) ? (out[0] === into[0] && out[3] && out[3].type === into[1]) : out[0] === into;
+                if (into != null && !emptyIt(l.input) && Number(out[1]) != 64 && (emptyIt(out) || same())) {
+                    l.smeltTimer += 1;
+                    if (l.smeltTimer >= 10) {
+                        l.smeltTimer = 0;
+                        l.input[1]--;
+                        if (inId === 'TNT') { if (l.input[1] <= 0) l.input = nil(); explode(bx, by, 5, PLAYER_ID); changed = true; return; }
+                        if (emptyIt(out)) l.output = Array.isArray(into) ? [into[0], 0, 0, { type: into[1] }] : [into, 0, 0, {}];
+                        l.output[1] = (Number(l.output[1]) || 0) + 1;
+                        if (l.input[1] <= 0) l.input = nil();
+                    }
+                }
+            } else l.smeltTimer = 0;
+            if (emptyIt(l.input)) l.input = nil();
+            if (emptyIt(l.fuel)) l.fuel = nil();
+            if (emptyIt(l.output)) l.output = nil();
+            if (JSON.stringify(l) !== before) changed = true;
+        });
+        if (changed && typeof window.playerInvFurnaceTick === 'function') window.playerInvFurnaceTick();
     }
     function deathCheck() {
         const w = W();
@@ -522,6 +705,8 @@
             const list = inv();
             for (let i = 0; i < 45; i++) if (!isEmpty(list[i])) { addDrop(list[i][0], w.worldX, w.worldY, list[i][1], list[i][2], list[i][3]); list[i] = empty(); }
             for (let i = 0; i < 4; i++) { const ar = w.armors[i]; if (ar && ar[0] && ar[0] !== 'air') addDrop(ar[0], w.worldX, w.worldY, 1, ar[1], ar[2]); w.armors[i] = ['air', 0, {}]; }
+            dropXP(w.worldX, w.worldY - .5, Math.floor(.5 * (Number(w.experience) || 0)), 0, true);   // la mitad de la experiencia
+            w.experience = 0;
         }
         w.xSpeed = 0; w.ySpeed = 0; w.health = 20; w.food = 1000; w.dead = 0;
         const sp = spawnPoint();
@@ -558,25 +743,67 @@
         return d;
     }
     function alignment(m) { if (m.aggro != null) return m.aggro; const a = D.mobs[m.type] || {}; return a.hostile ? 'hostile' : a.neutral ? 'neutral' : 'passive'; }
-    function isAggro(m) { return alignment(m) === 'hostile' || m.aggressiveness > 0; }
+    // (Entity_Mob.mobIsAggro) hostil, enojado, el pollo cuando se quema, o el lobo / gólem de nieve persiguiendo a su presa
+    function isAggro(m) {
+        const a = D.mobs[m.type] || {};
+        if (alignment(m) === 'hostile' || m.aggressiveness > 0) return true;
+        if (a.hostileOnFire == 1 && m.__id && tmpOf(m.__id).onFire > 0) return true;
+        const t = m.target != null && m.target !== PLAYER_ID ? mbwom.mobs[m.target] : null;
+        return !!(a.randomlyHostileTowards && t && a.randomlyHostileTowards[t.type]);
+    }
+    // (Entity_Mob.mobCalculateTarget) a quién persigue / mira cada mob:
+    //  • los hostiles persiguen al Player (si no está en creativo / espectador); los neutrales solo si les pegan (y su grupo con ellos)
+    //  • los pacíficos que se asustan (cerdo, vaca, oveja, pollo, conejo) corren sin rumbo un rato después de que les pegan
+    //  • el lobo a veces caza ovejas y pollos; el gólem de nieve ataca a los monstruos que tiene cerca
+    //  • los animales siguen al Player si tiene en la mano su comida (trigo, zanahoria, semillas...)
+    //  • el lobo domesticado sigue a su dueño y se teletransporta a su lado si se queda lejos (si no está sentado)
     function calcTarget(id, m, a, d) {
         const w = W();
+        m.__id = id;
         if (alignment(m) === 'passive' && !isAggro(m) && (a.doFrightenedRunning != 1 || Math.random() < 1 / (30 * FPS))) { m.target = null; m.focus = null; }
-        if (m.target === PLAYER_ID && w.dead > 0) { m.target = null; m.aggressiveness = 0; }
-        else if (m.target !== PLAYER_ID && m.target != null && !mbwom.mobs[m.target]) { m.target = null; m.aggressiveness = 0; }
-        if (w.gamemode == 3 || w.gamemode == 1) { if (m.target === PLAYER_ID) { m.target = null; m.aggressiveness = 0; } if (m.focus === PLAYER_ID) m.focus = null; }
+        if (m.target === PLAYER_ID) { if (w.dead > 0) { m.target = null; m.aggressiveness = 0; } }
+        else if (m.target != null && (!mbwom.mobs[m.target] || mbwom.mobs[m.target].dead > 0)) { m.target = null; m.aggressiveness = 0; }
+        if (m.tamed && m.target === PLAYER_ID) { m.target = null; m.aggressiveness = 0; }
+        if (w.gamemode == 3) { if (m.target === PLAYER_ID) { m.target = null; m.aggressiveness = 0; } if (m.focus === PLAYER_ID) m.focus = null; }
+        if (a.randomlyHostileTowards && !(a.tameable && m.tamed)) {
+            if (m.target == null) {
+                if (Math.random() < (a.randomlyHostileChance || 0)) {
+                    let best = '', bd2 = 1e3;
+                    for (const k in mbwom.mobs) { const o = mbwom.mobs[k]; if (!o || k === id || !a.randomlyHostileTowards[o.type] || o.dead > 0) continue; const dd = Math.pow(o.x - m.x, 2) + Math.pow(o.y - m.y, 2); if (dd < bd2) { bd2 = dd; best = k; } }
+                    if (best && bd2 < 64) m.target = best;
+                }
+            } else if (m.target !== PLAYER_ID && Math.random() < (a.randomlyForgetHostility || 0) && mbwom.mobs[m.target] && a.randomlyHostileTowards[mbwom.mobs[m.target].type]) m.target = null;
+        }
         d.isFrightened = a.doFrightenedRunning == 1 && m.target != null;
-        d.followMin = .5; d.followMax = 12; d.following = false;
+        d.followMin = .5; d.followMax = 12; d.following = false; d.teleportWhenAway = 0;
+        let near = true, busy = false;
         if (isAggro(m)) {
             if (m.target == null) { if (w.gamemode != 1 && w.gamemode != 3) m.focus = m.target = PLAYER_ID; }
             else m.focus = m.target;
-        } else if (alignment(m) !== 'hostile' && !(m.aggressiveness > 0)) m.focus = null;
+        } else {
+            if (a.followItems && a.followItems[selType()] && w.gamemode != 3 && Math.pow(w.worldX - m.x, 2) + Math.pow(w.worldY - m.y, 2) < 49) { m.focus = PLAYER_ID; busy = true; }
+        }
+        if (!busy) {
+            if (a.tameable == 1 && m.tamed) { if (m.target == null) { m.focus = PLAYER_ID; near = false; d.followMin = 4; d.followMax = 20; if (!m.sitting) d.teleportWhenAway = 20; } }
+            else if (alignment(m) !== 'hostile' && !(m.aggressiveness > 0) && !isAggro(m)) m.focus = null;
+        }
         if (m.focus === PLAYER_ID) {
             d.followPoint.x = w.worldX; d.followPoint.y = w.worldY - .95; d.following = true;
         } else if (m.focus != null && mbwom.mobs[m.focus]) {
-            const o = mbwom.mobs[m.focus], ob = mobBounds(m.focus);
+            const ob = mobBounds(m.focus);
             d.followPoint.x = (ob.l + ob.r) / 2; d.followPoint.y = (ob.t + ob.b) / 2; d.following = true;
         }
+        if (d.teleportWhenAway > 0 && m.focus === PLAYER_ID && Math.hypot(w.worldX - m.x, w.worldY - m.y) > d.teleportWhenAway) { m.x = w.worldX; m.y = w.worldY; m.speedX = 0; m.speedY = 0; }
+    }
+    // El enderman se teletransporta a veces solo, y cuando le pegan (1 de cada 3): a un lugar libre cerca (aproximado)
+    function teleportMob(m) {
+        for (let n = 0; n < 24; n++) {
+            const x = Math.floor(m.x + (Math.random() * 32 - 16)), y0 = Math.floor(-m.y) + Math.floor(Math.random() * 16 - 8);
+            for (let y = y0; y > y0 - 8 && y > 0; y--) {
+                if (bd(fg(x, y - 1), 'walkThroughBlock') != 1 && bd(fg(x, y - 1), 'liquid') == null && fg(x, y) === 'air' && fg(x, y + 1) === 'air' && fg(x, y + 2) === 'air') { m.x = x + .5; m.y = -y; m.speedX = m.speedY = 0; return true; }
+            }
+        }
+        return false;
     }
     function maxHealth(m) { const a = D.mobs[m.type] || {}; if ((m.type === 'slime' || m.type === 'magmacube') && m.size > 0) return Math.pow(2, m.size) * (a.health || 4) / 2; return a.health || 10; }
     function hurtMob(id, amount, cause, by) {
@@ -585,6 +812,8 @@
         if (!isFinite(Number(m.health))) m.health = maxHealth(m);
         if (m.type === 'cow' && m.variant === 'cowctus' && cause === 'cactus') return;
         m.health = Math.round(m.health - amount);
+        if (by) m.lastDamageID = by;
+        if (cause === 'lava' || cause === 'fire') tmpOf(id).onFire = 8 * FPS;     // (si muere quemándose suelta la carne cocida)
         if ((cause === 'attack' || cause === 'projectile') && by && by !== id) {
             m.target = by;
             if (a.groupAttack && by === PLAYER_ID) {
@@ -593,25 +822,104 @@
             if (alignment(m) !== 'passive') m.aggressiveness = Math.random() * FPS * 50 + 100 * FPS;
         }
         const d = tmpOf(id); d.hurt = 10;
+        if (a.teleports && m.health > 0 && Math.random() < (a.teleportOnDamageChance || 0)) teleportMob(m);
         if (Math.random() < 1 / 3) d.keys.up = true;
     }
+    // Lo que suelta un mob al morir (Entity_Mob.killMob, tal cual): sus drops (con "botín" del encantamiento Looting, si murió
+    // quemándose suelta la carne cocida, la oveja suelta lana de su color si no estaba trasquilada, los bebés no sueltan...),
+    // lo que traía en las manos / su armadura / la silla, y experiencia si lo mató el Player (o su lobo).
     function killMob(id, m) {
         const a = D.mobs[m.type] || {};
+        const d = tmpOf(id);
         m.dead = 1;
-        if (W().gamemode != 1 || true) {
-            const r = Math.random();
-            (a.drops || []).forEach(function (dr) {
-                if (!dr || !dr.type) return;
-                if (dr.rare) { if (r >= dr.rare.lowerBound && r < dr.rare.upperBound) addDrop(dr.type, m.x, m.y - .5, 1); return; }
-                let q = (dr.quantity | 0) + Math.floor(Math.random() * ((dr.randomBonus | 0) + 1));
-                if (m.babyTimer > 0) q = 0;
-                if (q > 0) addDrop(dr.type, m.x, m.y - .5, q);
-            });
+        if (gameRuleOn('domobloot')) {
+            const ex = selExtra();
+            const loot = ex.looting3 != null ? 1 : ex.looting2 != null ? 2 / 3 : ex.looting1 != null ? 1 / 3 : 0;
+            let list = [];
+            if (m.defaultDrops !== false && m.defaultDrops !== 0) list = list.concat(a.drops || []);
+            if (Array.isArray(m.drops)) list = list.concat(m.drops);
+            const rnd = { 0: Math.random() };
+            const onFire = d.onFire > 0;
+            const cmp = { '==': (x, y) => x == y, '!=': (x, y) => x != y, '>=': (x, y) => parseFloat(x) >= y, '>': (x, y) => parseFloat(x) > y, '<=': (x, y) => parseFloat(x) <= y, '<': (x, y) => parseFloat(x) < y };
+            for (let k = list.length - 1; k >= 0; k--) {
+                const n = list[k];
+                if (!n || !n.type) continue;
+                if (n.onFire === true && !onFire) continue;
+                if (n.onFire === false && onFire) continue;
+                if (n.properties && typeof n.properties === 'object') {
+                    let bad = false;
+                    for (const q in n.properties) { const pr = n.properties[q]; if (Array.isArray(pr) && cmp[pr[0]] && !cmp[pr[0]](m[q] === undefined ? (pr[1] === false ? false : m[q]) : m[q], pr[1])) { bad = true; break; } }
+                    if (bad) continue;
+                }
+                if ((n.isBaby == true) !== (m.babyTimer > 0)) continue;
+                if (n.isVariant != null && (m.variant != n.isVariant || (('' === m.variant || m.variant == null) && n.isVariant === 'normal'))) continue;
+                if (n.isDimension != null && (mbwom.currentScene || 1) != n.isDimension) continue;
+                if (n.isSheared != null && !!m.sheared !== !!n.isSheared) continue;
+                if (n.rare) {
+                    const rn = n.rare.randomNum || 0; if (rnd[rn] == null) rnd[rn] = Math.random();
+                    const v = rnd[rn] * (1 - (n.rare.lootingBonusChances || 0) * loot);
+                    if (v < n.rare.lowerBound || v >= n.rare.upperBound) continue;
+                }
+                let q = n.quantity | 0;
+                if (n.randomBonus != null) q += Math.random() * (n.randomBonus + 1) | 0;
+                if (n.lootBonus != null) q += (.6 * Math.random() + .4) * loot * (n.lootBonus + 1) | 0;
+                const xe = n.extras ? JSON.parse(JSON.stringify(n.extras)) : {};
+                if (n.setColor && m.color != null) xe.type = m.color;
+                if (q > 0) addDrop(n.type, m.x, m.y - .5, q, n.damage || 0, xe);
+            }
+            const it = (v) => Array.isArray(v) && v[0] && v[0] !== 'air' && Number(v[1]) > 0;
+            const hand = Array.isArray(m.handItems) ? m.handItems : [], hch = Array.isArray(m.handDropChances) ? m.handDropChances : [];
+            for (let i = 0; i < 2; i++) if (it(hand[i]) && Math.random() < (Number(hch[i]) || 0) + .01 * loot) addDrop(hand[i][0] === 'wd1' ? 'wd' : hand[i][0], m.x, m.y - .5, hand[i][1], hand[i][2], hand[i][3]);
+            const arm = Array.isArray(m.armor) ? m.armor : [], ach = Array.isArray(m.armorDropChances) ? m.armorDropChances : [];
+            for (let i = 0; i < 4; i++) if (it(arm[i]) && Math.random() < (Number(ach[i]) || 0) + .01 * loot) addDrop(arm[i][0], m.x, m.y - .5, arm[i][1], arm[i][2], arm[i][3]);
+            if (it(m.saddleItem)) addDrop(m.saddleItem[0], m.x, m.y - .5, m.saddleItem[1], m.saddleItem[2], m.saddleItem[3]);
         }
-        if ((m.type === 'slime' || m.type === 'magmacube') && m.size > 1) {   // los slimes grandes se parten en chicos
+        const byPlayer = m.lastDamageID === PLAYER_ID || (m.lastDamageID && mbwom.mobs[m.lastDamageID] && mbwom.mobs[m.lastDamageID].type === 'wolf' && mbwom.mobs[m.lastDamageID].tamed);
+        if (byPlayer) dropXP(m.x, m.y - .5, a.xp || 0);
+        if ((m.type === 'slime' || m.type === 'magmacube') && m.size > 1) {   // los slimes grandes se parten en chicos (y sueltan experiencia)
+            dropXP(m.x, m.y - .5, Math.pow(2, m.size - 1) | 0);
             for (let i = 0; i < 2; i++) spawnMob(m.type, m.x + (i ? .3 : -.3), m.y, { size: m.size - 1 });
         }
     }
+
+    // ------------------------------------------------------------------ ✨ experiencia (Game.dropXP / world.experience)
+    // 100 de experiencia = 1 nivel. Las bolitas caen, se juntan hacia el Player cuando está cerca y al tocarlo se suman.
+    // Al morir se suelta la mitad (en una bolita) y se pierde el resto (si la regla keepInventory está apagada).
+    // (Cómo se mueven las bolitas no viene en el código decompilado: es aproximado.)
+    function dropXP(x, y, v, extra, one) {
+        v = Math.max(0, v + Math.random() * (extra || 0));
+        if (!v) return;
+        const n = one ? 1 : Math.max(1, Math.log(v) / Math.log(2.5)) | 0;
+        const each = Math.floor(v / n);
+        for (let i = 0; i < n; i++) {
+            const val = i === n - 1 ? v : each; v -= each;
+            S.orbs.push({ x: x, y: y, vx: migSpeed(6 * Math.random() - 3), vy: migSpeed(6 * Math.random() - 3), v: val, age: 0 });
+        }
+    }
+    function tickOrbs() {
+        const w = W();
+        for (let i = S.orbs.length - 1; i >= 0; i--) {
+            const o = S.orbs[i];
+            o.age++;
+            const dx = w.worldX - o.x, dy = (w.worldY - .9) - o.y, dist = Math.hypot(dx, dy);
+            const alive = !(w.dead > 0) && w.gamemode != 3;
+            if (alive && o.age > 15 && dist < 6) { const f = (1 - dist / 6) * .9 + .2; o.vx += dx / dist * f; o.vy += dy / dist * f; o.vx *= .88; o.vy *= .88; }
+            else { o.vy = Math.min(migSpeed(14), o.vy + .4); o.vx *= .9; }
+            const nx = o.x + o.vx / 30, ny = o.y + o.vy / 30;
+            if (dist < 6 && alive) { o.x = nx; o.y = ny; }
+            else {
+                if (!collision(nx - .1, o.y - .2, .2, 0, .1, true, false)) o.x = nx; else o.vx = 0;
+                if (collision(o.x - .1, ny, .2, 0, .1, true, false)) o.vy = 0; else o.y = ny;
+            }
+            if (o.age > 300 * FPS || o.y > 10) { S.orbs.splice(i, 1); continue; }
+            if (alive && o.age > 15 && dist < .9) {
+                w.experience = Math.max(0, Math.min(1e6, Math.floor((Number(w.experience) || 0) + o.v)));
+                S.orbs.splice(i, 1); hud.dirty = true; S.xpT = 8;
+                buzz(8);
+            }
+        }
+    }
+
     function spawnMob(type, x, y, extra) {
         let n = 1, id;
         do id = 'play_mob' + (n++) + '_' + S.tick; while (mbwom.mobs[id]);
@@ -654,6 +962,7 @@
             else if (!(c.type === 'wolf' && c.tamed) && !(c.type === 'cow' && c.variant === 'cowctus') && a.cactusDamage !== false && a.cactusDamage !== 0 && (fg(f, g) === 'ct' || fg(f, g + 1) === 'ct')) hurtMob(id, 1, 'cactus');
         } else c.hitCooldown--;
         calcTarget(id, c, a, d);
+        if (a.teleports && Math.random() < (a.teleportRandomChance || 0)) teleportMob(c);
         const K = d.keys, fr = d.isFrightened, hops = a.hops == 1;
         const flying = a.special && a.special.indexOf('specialGravityFunction') >= 0;
         if (a.aiType !== 'custom') {
@@ -805,6 +1114,7 @@
             }
         }
         if (d.hurt > 0) d.hurt--;
+        if (d.onFire > 0) d.onFire--;
         if (c.y > 10) { delete mbwom.mobs[id]; S.tmp.delete(id); }     // cayó al vacío
     }
     function mobAttack(id, c, a) {
@@ -887,6 +1197,23 @@
         const food = bd(id, 'food');
         if (food && bd(id, 'placeable') != 1) { if (w.food < 1000 && S.useTimer < 0) S.useTimer = ((bd(id, 'timerToUse') || 50) / 25 * FPS) | 0; return false; }
         if (id === 'megg' && it[3] && it[3].type) { if (blockDist(bx, by) <= REACH) { spawnMob(String(it[3].type), bx + .5, -by - .01); reduceSelected(1); return true; } return false; }
+        // 🪣 cubetas: la vacía recoge una fuente de agua / lava / ácido; la llena la pone
+        const BUCKET = { wbk: 'wr', lbk: 'la', abk: 'ad' }, FILL = { wr: 'wbk', la: 'lbk', ad: 'abk' };
+        if (id === 'bk' || BUCKET[id]) {
+            if (!S.rightFresh || blockDist(bx, by) > REACH) return false;    // (una vez por clic, como el juego: waitTillRightMouseIsUp)
+            if (id === 'bk') {
+                if (!(FILL[here] && fullLiq(bx, by))) return false;
+                liqGone(bx, by);
+                if (w.gamemode != 1) { reduceSelected(1); const left = addToInventory(FILL[here], 1, 0, {}); if (left > 0) addDrop(FILL[here], w.worldX, w.worldY - 1, left); }
+                return true;
+            }
+            if (!(here === 'air' || bd(here, 'replaceable') == 1 || (isLiq(here) && !fullLiq(bx, by)))) return false;
+            if (here !== 'air' && !isLiq(here)) mineBlock(bx, by, true);
+            if ((mbwom.currentScene || 1) == 2 && id === 'wbk') { flashMsg('💨'); }
+            else setLiq(bx, by, BUCKET[id], [10, 10]);
+            if (w.gamemode != 1) { inv()[selIndex()] = ['bk', 1, 0, {}]; hud.dirty = true; }
+            return true;
+        }
         if (bd(id, 'placeable') != 1) return false;
         if (blockDist(bx, by) > REACH) return false;
         if (!(here === 'air' || bd(here, 'liquid') != null || bd(here, 'replaceable') != null)) return false;
@@ -954,14 +1281,16 @@
             if (selType() === 'cbook') { if (rightFresh) useCommandBook(); S.mine = null; return; }      // (una vez por clic)
             const bx = Math.floor(mw.x), by = Math.floor(mw.y);
             if (rightFresh && BOX[fg(bx, by)] && blockDist(bx, by) <= REACH + 1) { openBox(bx, by); return; }   // clic derecho en un cofre / horno: se abre
+            S.rightFresh = rightFresh;
             if (S.placeDelay >= 6 && placeBlock(mw)) { S.placeDelay = 0; S.swing = 15; }
+            S.rightFresh = false;
             S.mine = null;
             return;
         }
         if (!left) { S.mine = null; return; }
         if (S.placeDelay < 6) return;
         const mid = mobUnderMouse(mw);
-        if (mid) { attackMob(mid); S.swing = 15; S.placeDelay = 0; S.mine = null; return; }
+        if (mid) { attackMob(mid); buzz(15); S.swing = 15; S.placeDelay = 0; S.mine = null; return; }
         const bx = Math.floor(mw.x), by = Math.floor(mw.y);
         const t = fg(bx, by);
         if (t === 'air' || bd(t, 'liquid') == 1 || (t === 'br' && w.gamemode != 1) || blockDist(bx, by) > REACH + 1) { S.mine = null; return; }
@@ -970,7 +1299,8 @@
             if (n < 0) { S.mine = null; return; }
             S.mine = { x: bx, y: by, t: t, left: n, total: Math.max(1, n) };
         }
-        if (S.mine.left <= 0) { mineBlock(bx, by); S.mine = null; S.placeDelay = w.gamemode == 1 ? 0 : 6; return; }
+        if (S.mine.left <= 0) { mineBlock(bx, by); buzz(22); S.mine = null; S.placeDelay = w.gamemode == 1 ? 0 : 6; return; }
+        if (S.mine.left % 13 === 0) buzz(6);                         // (picando: golpecitos suaves)
         S.mine.left--;
     }
 
@@ -1018,7 +1348,10 @@
             case 'tp': {
                 const x = coord(d[1], 'x'), y = coord(d[2], 'y');
                 if (isNaN(x) || isNaN(y) || x < -100 || x > 1e4 || y < -100 || y > 1e3) { say('[INFO] Invalid location.'); return; }
-                w.worldX = x; w.worldY = -y; w.xSpeed = 0; w.ySpeed = 0; camSnap();
+                w.worldX = x; w.worldY = -y; w.xSpeed = 0; w.ySpeed = 0; w.riding = '';
+                if (S.p) { S.p.falling = S.p.wasFalling = false; S.p.wasFallingSpeed = 0; S.p.wasFallingAndNotFalling = 0; S.p.suffocate = 0; S.p.jumpTimer = 0; }
+                S.mine = null;
+                camSnap();
                 info('WHOOSH! Teleported to x:' + Math.floor(100 * x) / 100 + ', y:' + Math.floor(100 * y) / 100); return;
             }
             case 'give': {
@@ -1180,10 +1513,12 @@
         return best;
     }
     function modalOpen() {
+        // (solo cuenta si de verdad se ve: una ventana abierta pero escondida dejaba al Player congelado)
+        const shown = function (el) { return !!(el && el.getClientRects().length && getComputedStyle(el).display !== 'none'); };
         const m = document.getElementById('inventory-modal');
-        if (m && m.style.display === 'block') return true;
+        if (m && m.style.display === 'block' && shown(m)) return true;
         const cb = document.getElementById('command-book-modal');
-        return !!(cb && cb.style.display && cb.style.display !== 'none');
+        return !!(cb && cb.style.display && cb.style.display !== 'none' && shown(cb));
     }
 
     // ------------------------------------------------------------------ paso del juego
@@ -1202,8 +1537,10 @@
             S.sandCheck.forEach(function (t, k) { if (t <= S.tick && n < 400) { due.push(k); n++; } });
             due.forEach(function (k) { if (S.sandCheck.get(k) > S.tick) return; S.sandCheck.delete(k); const pp = k.split(','); checkSand(+pp[0], +pp[1]); });   // (si el de abajo acaba de caer, este espera 2 pasos más)
         }
+        tickLiquids();
         tickFalling();
         tickDrops();
+        tickOrbs();
         tickArrows();
         const px = w.worldX;
         for (const id in mbwom.mobs) {
@@ -1268,6 +1605,12 @@
         S.drops.forEach(function (d) { const p = toScreen(d.x, d.y); const s = tileSize * .5; c2.drawImage(iconFor(d.id, d.ex), p.x - s / 2, p.y - s + Math.sin((S.tick + d.age) / 12) * 2, s, s); });
         S.falling.forEach(function (e) { const p = toScreen(e.x, e.y); const s = tileSize; c2.drawImage(iconFor(e.t, e.s ? { type: e.s } : {}), p.x - s / 2, p.y - s / 2, s, s); if (e.tnt && (e.fuse >> 3) % 2) { c2.fillStyle = 'rgba(255,255,255,.55)'; c2.fillRect(p.x - s / 2, p.y - s / 2, s, s); } });
         c2.strokeStyle = '#d9c9a3'; c2.lineWidth = Math.max(1, tileSize / 12);
+        S.orbs.forEach(function (o) {                                  // ✨ bolitas de experiencia
+            const p = toScreen(o.x, o.y), r = tileSize * (.12 + Math.min(.12, o.v / 400)), pulse = .75 + .25 * Math.sin((S.tick + o.age) / 4);
+            c2.fillStyle = 'rgba(140,255,60,' + (.85 * pulse) + ')'; c2.strokeStyle = 'rgba(40,90,0,.9)'; c2.lineWidth = Math.max(1, tileSize / 16);
+            c2.beginPath(); c2.arc(p.x, p.y - r, r, 0, Math.PI * 2); c2.fill(); c2.stroke();
+            c2.fillStyle = 'rgba(255,255,170,' + pulse + ')'; c2.beginPath(); c2.arc(p.x - r * .3, p.y - r * 1.3, r * .35, 0, Math.PI * 2); c2.fill();
+        });
         S.arrows.forEach(function (r) { const p = toScreen(r.x, r.y); const a = Math.atan2(r.vy, r.vx); c2.beginPath(); c2.moveTo(p.x, p.y); c2.lineTo(p.x - Math.cos(a) * tileSize * .6, p.y - Math.sin(a) * tileSize * .6); c2.stroke(); });
         if (S.mine && S.mine.total > 1) {                       // grietas del bloque que se pica
             const k = 1 - S.mine.left / S.mine.total;
@@ -1300,6 +1643,7 @@
                 '<div class="ph-top"><button type="button" class="ph-stop">■ <span></span></button><div class="ph-msg"></div></div>' +
                 '<button type="button" class="ph-chat-btn">💬</button>' +
                 '<div class="ph-bars"><div class="ph-hearts"></div><div class="ph-right"><div class="ph-air"></div><div class="ph-food"></div></div></div>' +
+                '<div class="ph-xp"><div class="ph-xp-fill"></div><b class="ph-xp-lv"></b></div>' +
                 '<div class="ph-hotbar"></div>' +
                 '<button type="button" class="ph-inv">🎒</button>' +
                 '<button type="button" class="ph-open" style="display:none"></button>' +
@@ -1337,6 +1681,8 @@
         update: function () {
             if (!this.el) return;
             const w = W();
+            const um = modalOpen();                                   // con el inventario / un cofre / un horno abierto, el HUD se esconde (no tapa la ventana)
+            if (um !== this.underModal) { this.underModal = um; this.el.classList.toggle('under-modal', um); }
             const msg = this.el.querySelector('.ph-msg');
             const mtxt = S.msgT > 0 ? S.msg : '';
             if (msg.textContent !== mtxt) msg.textContent = mtxt;
@@ -1346,7 +1692,7 @@
             const surv = w.gamemode != 1 && w.gamemode != 3;
             let h = '';
             // vida (assets/HEALTH.png) a la izquierda y hambre (assets/HUNGER.png) a la derecha, como en Minecraft;
-            // el hambre se vacía de izquierda a derecha (la de más a la derecha es la última en vaciarse)
+            // las dos barras se vacían de derecha a izquierda
             const icon = function (st) { return '<i class="' + st + '"><u></u></i>'; };
             if (surv) {
                 const hp = Math.max(0, w.health | 0);
@@ -1354,11 +1700,17 @@
             }
             this.el.querySelector('.ph-hearts').innerHTML = h;
             let fd = '';
-            if (surv) { const f = Math.max(0, (w.food | 0) / 50); for (let i = 9; i >= 0; i--) fd += icon(f >= (i + 1) * 2 ? 'f' : f >= i * 2 + 1 ? 'h' : 'e'); }
+            if (surv) { const f = Math.max(0, (w.food | 0) / 50); for (let i = 0; i < 10; i++) fd += icon(f >= (i + 1) * 2 ? 'f' : f >= i * 2 + 1 ? 'h' : 'e'); }
             this.el.querySelector('.ph-food').innerHTML = fd;
             let ai = '';
             if (surv && w.air < 11) for (let i = 0; i < 10; i++) ai += '<i class="' + (w.air > i ? 'f' : 'e') + '">●</i>';
             this.el.querySelector('.ph-air').innerHTML = ai;
+            // ✨ barra de experiencia (10 partes) y el nivel encima, como en el juego (100 de experiencia = 1 nivel)
+            const xp = Math.max(0, Number(w.experience) || 0), lvl = Math.floor(xp / 100);
+            const xb = this.el.querySelector('.ph-xp');
+            xb.style.display = w.gamemode == 3 ? 'none' : '';
+            this.el.querySelector('.ph-xp-fill').style.width = ((xp % 100) / 100 * 100).toFixed(1) + '%';
+            const xl = this.el.querySelector('.ph-xp-lv'); xl.textContent = lvl > 0 ? lvl : ''; xb.title = tr('play_xp_tip', 'Experience: {n} (level {l})', { n: xp, l: lvl });
             const hb = this.el.querySelector('.ph-hotbar');
             hb.innerHTML = '';
             const list = inv(), sel = selIndex();
@@ -1389,21 +1741,79 @@
     // 💬 Chat / consola de comandos del mundo (T, Enter o / para abrirlo; en el celular, el botón 💬).
     // Se escribe un comando del juego (con o sin "/"): tp, give, gamemode, time, weather, clone, fill, summon... y Enter.
     // ↑ / ↓ recuerdan lo último que se escribió.
+    // ⌨ Autocompletar: mientras se escribe salen sugerencias (el comando y lo que va en cada parte); Tab completa (otra vez Tab = la
+    // siguiente); en el celular se toca la sugerencia.
+    const CMDS = {
+        tp: ['[~]x [~]y', 'Teleport'], give: ['item [amount] [damage]', 'Give an item'], clear: ['[item] [max]', 'Clear the inventory'],
+        setblock: ['block [~]x [~]y [replace|keep|destroy]', 'Place a block'], fill: ['block [~]x [~]y width height', 'Fill an area'],
+        clone: ['[~]x1 [~]y1 width height [~]xDest [~]yDest [move]', 'Copy an area'], summon: ['mob [quantity] [~]x [~]y', 'Spawn a mob'],
+        kill: ['', 'Die'], heal: ['', 'Full health'], gamemode: ['survival|creative|adventure|spectator', 'Change game mode'],
+        gamerule: ['rule true|false', 'Change a game rule'], home: ['[set]', 'Go to (or set) the spawn point'], explode: ['size [~]x [~]y', 'Explosion'],
+        say: ['message', 'Write in the chat'], time: ['get|set <t|day|night>', 'Time of day'], weather: ['get|set <clear|rain|thunder>', 'Weather'],
+        difficulty: ['peaceful|easy|normal|hard', 'Difficulty'], xp: ['[add] value[L]', 'Experience (L = levels)'], help: ['', 'List of commands'], cls: ['', 'Clear the chat']
+    };
+    const GAMERULES = ['keepinventory', 'mobgriefing', 'dodaylightcycle', 'dofiretick', 'passivemobs', 'domobloot', 'sendcommandfeedback'];
+    function argOptions(cmd, i, prev) {                               // lo que puede ir en la parte i (1 = la primera después del comando)
+        const I = (window.MB_GAME && window.MB_GAME.identifiers) || {};
+        const items = () => Object.keys(I).map(function (k) { return k.trim(); });
+        const blocks = () => Object.keys(I).filter(function (k) { const id = I[k][0]; return bd(id, 'placeable') == 1; }).map(function (k) { return k.trim(); });
+        const mobs = () => Object.keys(D.mobs).filter(function (k) { return k !== 'player'; }).concat(Object.keys(MOB_ALIAS));
+        switch (cmd) {
+            case 'give': case 'clear': return i === 1 ? items() : null;
+            case 'setblock': return i === 1 ? ['air'].concat(blocks()) : i === 4 ? ['replace', 'keep', 'destroy'] : (i === 2 || i === 3) ? ['~'] : null;
+            case 'fill': return i === 1 ? ['air'].concat(blocks()) : (i === 2 || i === 3) ? ['~'] : null;
+            case 'summon': return i === 1 ? mobs() : (i === 3 || i === 4) ? ['~'] : null;
+            case 'tp': case 'clone': case 'explode': return (cmd === 'explode' ? i >= 2 : true) ? ['~'] : null;
+            case 'gamemode': return i === 1 ? ['survival', 'creative', 'adventure', 'spectator'] : null;
+            case 'gamerule': return i === 1 ? GAMERULES : i === 2 ? ['true', 'false'] : null;
+            case 'time': return i === 1 ? ['set', 'get'] : (i === 2 && prev[1] === 'set') ? ['day', 'night'] : null;
+            case 'weather': return i === 1 ? ['set', 'get', 'clear', 'rain', 'thunder'] : (i === 2 && prev[1] === 'set') ? ['clear', 'rain', 'thunder'] : null;
+            case 'difficulty': return i === 1 ? ['peaceful', 'easy', 'normal', 'hard'] : null;
+            case 'home': return i === 1 ? ['set'] : null;
+            case 'xp': return i === 1 ? ['add'] : null;
+        }
+        return null;
+    }
+    function suggest(text) {                                          // → { hint, list, tokStart }
+        const slash = /^\s*[\/\\]/.test(text) ? text.match(/^\s*[\/\\]/)[0].length : 0;
+        const body = text.slice(slash);
+        const parts = body.split(' ');
+        const cur = parts[parts.length - 1].toLowerCase();
+        const tokStart = text.length - parts[parts.length - 1].length;
+        if (parts.length === 1) {
+            const list = Object.keys(CMDS).filter(function (c) { return c.indexOf(cur) === 0; });
+            return { list: list, tokStart: tokStart, cmd: true };
+        }
+        const cmd = parts[0].toLowerCase();
+        if (!CMDS[cmd]) return { list: [], tokStart: tokStart, hint: '' };
+        const hint = '/' + cmd + ' ' + CMDS[cmd][0];
+        let opts = argOptions(cmd, parts.length - 1, parts.map(function (t) { return t.toLowerCase(); })) || [];
+        if (opts.length === 1 && opts[0] === '~') opts = cur === '' ? ['~'] : [];
+        const list = opts.filter(function (o) { return o.indexOf(cur) === 0 && o !== cur; }).slice(0, 60);
+        return { list: list, tokStart: tokStart, hint: hint };
+    }
     const chat = {
         open: false, dirty: true, hist: [], hi: -1, el: null,
         build: function (root) {
             const el = this.el = document.createElement('div');
             el.className = 'ph-chat';
-            el.innerHTML = '<div class="ph-chat-log"></div><form class="ph-chat-form" autocomplete="off"><input class="ph-chat-in" type="text" maxlength="200" spellcheck="false" autocapitalize="off" autocorrect="off" enterkeyhint="send"><button type="submit" class="ph-chat-send">➤</button><button type="button" class="ph-chat-x">✕</button></form>';
+            el.innerHTML = '<div class="ph-chat-log"></div><div class="ph-chat-sug"></div><form class="ph-chat-form" autocomplete="off"><input class="ph-chat-in" type="text" maxlength="200" spellcheck="false" autocapitalize="off" autocorrect="off" enterkeyhint="send"><button type="submit" class="ph-chat-send">➤</button><button type="button" class="ph-chat-x">✕</button></form>';
             root.appendChild(el);
             const inp = this.input = el.querySelector('.ph-chat-in');
             el.querySelector('.ph-chat-form').addEventListener('submit', function (e) { e.preventDefault(); chat.send(); });
             el.querySelector('.ph-chat-x').addEventListener('click', function (e) { e.stopPropagation(); chat.close(); });
+            inp.addEventListener('input', function () { chat.tabN = 0; chat.tabBase = null; chat.sug(); });
+            el.querySelector('.ph-chat-sug').addEventListener('click', function (e) {
+                const b = e.target.closest && e.target.closest('[data-s]'); if (!b) return;
+                e.preventDefault(); e.stopPropagation(); chat.apply(b.getAttribute('data-s')); inp.focus();
+            });
             inp.addEventListener('keydown', function (e) {
                 e.stopPropagation();
+                if (e.key === 'Tab') { e.preventDefault(); chat.tab(); return; }
                 if (e.key === 'Escape') { e.preventDefault(); chat.close(); }
                 else if (e.key === 'ArrowUp' && chat.hist.length) { e.preventDefault(); chat.hi = Math.max(0, (chat.hi < 0 ? chat.hist.length : chat.hi) - 1); inp.value = chat.hist[chat.hi]; }
                 else if (e.key === 'ArrowDown' && chat.hi >= 0) { e.preventDefault(); chat.hi++; if (chat.hi >= chat.hist.length) { chat.hi = -1; inp.value = ''; } else inp.value = chat.hist[chat.hi]; }
+                if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { chat.tabBase = null; chat.sug(); }
             });
             inp.addEventListener('keyup', function (e) { e.stopPropagation(); });
             el.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
@@ -1414,11 +1824,45 @@
             if (!this.el) return;
             this.open = true; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mine = null;
             if (S.joyReset) S.joyReset();
-            this.el.classList.add('open'); this.input.value = prefix || ''; this.hi = -1; this.dirty = true;
+            this.el.classList.add('open'); this.input.value = prefix || ''; this.hi = -1; this.dirty = true; this.tabBase = null; this.tabN = 0; this.sug();
             const inp = this.input;
             setTimeout(function () { inp.focus(); try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch (e) { /* nada */ } }, 0);
         },
-        close: function () { if (!this.el) return; this.open = false; this.el.classList.remove('open'); this.input.blur(); this.dirty = true; },
+        close: function () { if (!this.el) return; this.open = false; this.el.classList.remove('open'); this.input.blur(); this.dirty = true; this.sug(); },
+        // sugerencias
+        sug: function () {
+            const box = this.el && this.el.querySelector('.ph-chat-sug'); if (!box) return;
+            const v = this.open ? this.input.value : '';
+            if (!this.open || !v.trim()) { box.innerHTML = ''; box.style.display = 'none'; this.cur = null; return; }
+            const r = this.cur = suggest(this.tabBase != null ? this.tabBase : v);
+            let h = '';
+            if (r.hint) h += '<div class="ph-sug-hint">' + esc(r.hint) + '</div>';
+            if (r.list.length) {
+                h += '<div class="ph-sug-list">' + r.list.slice(0, 12).map(function (o, i) {
+                    const d = r.cmd ? ' <i>' + esc(CMDS[o][0]) + '</i>' : '';
+                    return '<button type="button" data-s="' + esc(o) + '"' + (i === ((chat.tabN || 1) - 1) % Math.min(12, r.list.length) && chat.tabBase != null ? ' class="on"' : '') + '>' + esc(o) + d + '</button>';
+                }).join('') + (r.list.length > 12 ? '<span class="ph-sug-more">+' + (r.list.length - 12) + '</span>' : '') + '</div>';
+            }
+            box.innerHTML = h; box.style.display = h ? 'block' : 'none';
+        },
+        apply: function (word) {                                      // pone la sugerencia en la parte que se está escribiendo
+            const base = this.input.value, r = suggest(base);
+            this.input.value = base.slice(0, r.tokStart) + word + ' ';
+            this.tabBase = null; this.tabN = 0;
+            try { this.input.setSelectionRange(this.input.value.length, this.input.value.length); } catch (e) { /* nada */ }
+            this.sug();
+        },
+        tab: function () {                                            // Tab: la 1.ª sugerencia; otra vez Tab = la siguiente
+            if (this.tabBase == null) this.tabBase = this.input.value;
+            const r = suggest(this.tabBase);
+            if (!r.list.length) { this.tabBase = null; return; }
+            const n = this.tabN = (this.tabN || 0) + 1;
+            const word = r.list[(n - 1) % r.list.length];
+            this.input.value = this.tabBase.slice(0, r.tokStart) + word;
+            if (r.list.length === 1) { this.input.value += ' '; this.tabBase = null; this.tabN = 0; }
+            try { this.input.setSelectionRange(this.input.value.length, this.input.value.length); } catch (e) { /* nada */ }
+            this.sug();
+        },
         send: function () {
             const t = this.input.value.trim();
             this.input.value = '';
@@ -1601,7 +2045,7 @@
         if (w.gamemode != 1) w.fly = false;
         inv();
         for (const id in mbwom.mobs) { const m = mbwom.mobs[id]; if (m && typeof m === 'object') { m.target = null; m.focus = null; m.speedX = Number(m.speedX) || 0; m.speedY = Number(m.speedY) || 0; } }
-        S.p = newPlayer(); S.tmp = new Map(); S.drops = []; S.falling = []; S.arrows = []; S.sandCheck = new Map(); S.tick = 0; S.acc = 0; S.last = 0; S.mine = null; S.useTimer = -1; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mobErr = false;
+        S.p = newPlayer(); S.tmp = new Map(); S.drops = []; S.falling = []; S.arrows = []; S.orbs = []; S.liqFresh = new Set(); S.sandCheck = new Map(); S.tick = 0; S.acc = 0; S.last = 0; S.mine = null; S.useTimer = -1; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mobErr = false;
         // arena y grava cerca: se revisan para que caigan si no tienen nada abajo
         const x0 = Math.max(0, Math.floor(px) - 60), x1 = Math.floor(px) + 60;
         for (let x = x0; x <= x1; x++) { const col = mbwom.scene[x]; if (!col) continue; for (let y = 0; y < col.length; y++) if (col[y] === 'sd' || col[y] === 'gv') S.sandCheck.set(x + ',' + y, 2); }
@@ -1652,7 +2096,7 @@
         S.playing = false;
         cancelAnimationFrame(S.raf);
         try { restoreSnapshot(); } catch (e) { console.error('play restore', e); alert('Error restoring the world: ' + e.message); }
-        S.snapshot = null; S.drops = []; S.falling = []; S.arrows = []; S.tmp = new Map(); S.keys = {}; S.mine = null;
+        S.snapshot = null; S.drops = []; S.falling = []; S.arrows = []; S.orbs = []; S.tmp = new Map(); S.keys = {}; S.mine = null;
         window.mbwPlaying = false;
         document.body.classList.remove('mbw-playing', 'play-survival');
         hud.destroy();
@@ -1727,10 +2171,13 @@
         P.animX = ax;
         P.walkDist = (P.walkDist || 0) + Math.abs(ax - last);
         const moving = Math.abs(ax - last) > 0.002 || P.keysX;
+        // (P.falling se borra al final de cada paso: lo que dice si está en el aire es wasFalling / la velocidad hacia arriba)
+        const climbing = bd(fg(Math.floor(ax), Math.floor(-Number(w.worldY)) + 1), 'climbable') == 1;
+        const inAir = (P.wasFalling || Math.abs(Number(w.ySpeed) || 0) > 0.01) && !w.fly && !P.inWater && !climbing && w.gamemode != 3;
         let a = 'idle';
         if (P.hurt > 0) a = 'hurt';
         else if ((S.swing || 0) > 0 || S.mine) a = 'mine';
-        else if (P.falling && !w.fly && !P.inWater) a = 'jump';
+        else if (inAir) a = 'jump';                                        // en el aire: solo el salto (nunca caminar)
         else if (P.sneaking) a = 'sneak';
         else if (moving) a = 'walk';
         const L = FR[a];

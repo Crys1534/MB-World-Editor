@@ -1272,7 +1272,7 @@ function drawUI() {
                         const gY = canvas.height - (mouse.worldY + dy - camera.y) * tileSize;
                         // Con pinceles muy grandes no se dibujan las casillas que quedan fuera de la pantalla
                         if (gX + tileSize < 0 || gX > canvas.width || gY < 0 || gY - tileSize > canvas.height) continue;
-                        drawBlock(ghostTex, { x: gX, y: gY, width: tileSize, height: -tileSize });
+                        drawBlock(window.mbwAnimatedTile ? window.mbwAnimatedTile(ghostTex, mouse.worldX + dx, mouse.worldY + dy) : ghostTex, { x: gX, y: gY, width: tileSize, height: -tileSize });
                     }
                 }
                 ctx.restore();
@@ -1332,7 +1332,8 @@ function drawUI() {
             const screenY = canvas.height - (absY - camera.y) * tileSize;
 
             const values = { x: screenX, y: screenY, width: tileSize, height: -tileSize };
-            const texture = getBlockObject(blockData.state);
+            let texture = getBlockObject(blockData.state);
+            if (window.mbwAnimatedTile) texture = window.mbwAnimatedTile(texture, absX, absY);   // (agua / lava / ácido y bloques animados: como en el mundo)
             drawBlock(texture, values);
         });
         
