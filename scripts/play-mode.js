@@ -47,6 +47,7 @@
         p: null, keys: {}, dbl: {}, mouse: { x: 0, y: 0, left: false, right: false, inside: false, leftEdge: false, rightEdge: false },
         tmp: new Map(), drops: [], falling: [], arrows: [], sandCheck: new Map(), liqFresh: new Set(), orbs: [], xpT: 0,
         tick: 0, acc: 0, last: 0, raf: 0, mine: null, placeDelay: 0, useTimer: -1, msg: '', msgT: 0,
+        sign: { text: '', a: 0, on: false }, iname: { key: null, text: '', t: 0 },
         touchMode: 'mine'
     };
     window.mbwPlay = { isPlaying: () => S.playing, state: S };
@@ -1550,7 +1551,42 @@
             try { mobTick(id, m); } catch (e) { if (!S.mobErr) { S.mobErr = true; console.warn('play mob', e); } }
         }
         if (S.msgT > 0) S.msgT--;
+        tickSign();
+        if (S.iname.t > 0) S.iname.t--;
     }
+    // 🪧 Letreros: si el jugador está parado frente a un letrero, su texto sale arriba en un tablero que aparece y se desvanece
+    // poco a poco (como Game.showSign / renderSign del juego: +0.05 por cuadro al estar ahí, −0.05 al irse; aquí a 50 pasos, la mitad)
+    function signTextAt(x, y) {
+        if (fg(x, y) !== 'sign') return null;
+        const o = mbwom.signs, v = o && typeof o === 'object' ? o[key(Math.floor(x), Math.floor(y))] : undefined;
+        return typeof v === 'string' ? v : '';
+    }
+    function tickSign() {
+        const w = W(), P = S.p, G = S.sign;
+        let t = null;
+        if (P && !(w.dead > 0)) {
+            const by = Math.floor(-w.worldY);
+            const xs = [w.worldX, w.worldX - .3, w.worldX + .3];
+            for (let k = 0; k < xs.length && t === null; k++) for (let dy = 1; dy <= 2 && t === null; dy++) t = signTextAt(xs[k], by + dy);
+        }
+        if (t !== null && t.replace(/[\r\n\s]/g, '')) { G.text = t; G.a = Math.min(1, G.a + .025); G.on = true; }
+        else { G.a = Math.max(0, G.a - .025); G.on = false; }
+    }
+    // Nombre del objeto de la mano: al cambiar de casilla (o de objeto) sale encima de la hotbar ~2 s y se desvanece
+    const NAMES = {};
+    function itemDisplayName(it) {
+        const ex = (it && it[3] && typeof it[3] === 'object') ? it[3] : {};
+        if (typeof ex.nameChange === 'string' && ex.nameChange.trim()) return ex.nameChange;
+        const id = String(it[0]);
+        if (!NAMES.__built) {
+            const I = (window.MB_GAME && window.MB_GAME.identifiers) || {};
+            Object.keys(I).forEach(function (k) { const v = I[k]; if (Array.isArray(v) && v[0] != null && !(v[0] in NAMES)) NAMES[v[0]] = v[1] || k; });
+            NAMES.__built = true;
+        }
+        if (NAMES[id]) return NAMES[id];
+        return id.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, function (c) { return c.toUpperCase(); });
+    }
+    window.mbwPlayItemName = itemDisplayName;
     function camSnap() { camFollow(1); }
     function camFollow(k) {
         const w = W();
@@ -1644,7 +1680,9 @@
                 '<button type="button" class="ph-chat-btn">💬</button>' +
                 '<div class="ph-bars"><div class="ph-hearts"></div><div class="ph-right"><div class="ph-air"></div><div class="ph-food"></div></div></div>' +
                 '<div class="ph-xp"><div class="ph-xp-fill"></div><b class="ph-xp-lv"></b></div>' +
+                '<div class="ph-iname"></div>' +
                 '<div class="ph-hotbar"></div>' +
+                '<div class="ph-sign"><div class="ph-sign-t"></div></div>' +
                 '<button type="button" class="ph-inv">🎒</button>' +
                 '<button type="button" class="ph-open" style="display:none"></button>' +
                 '<div class="ph-joy"><div class="ph-knob"></div></div>' +
@@ -1687,6 +1725,22 @@
             const mtxt = S.msgT > 0 ? S.msg : '';
             if (msg.textContent !== mtxt) msg.textContent = mtxt;
             chat.render();
+            // 🪧 el letrero que se está leyendo
+            const sg = this.el.querySelector('.ph-sign'), G = S.sign;
+            if (G.a > 0) {
+                const st = sg.querySelector('.ph-sign-t');
+                if (st.textContent !== G.text) st.textContent = G.text;
+            }
+            const so = G.a.toFixed(2);
+            if (sg.style.opacity !== so) { sg.style.opacity = so; sg.style.display = G.a > 0 ? 'block' : 'none'; }
+            // nombre del objeto que se acaba de elegir
+            const ni = this.el.querySelector('.ph-iname'), cur = selItem(), nk = selIndex() + ':' + (cur ? String(cur[0]) + '|' + JSON.stringify(cur[3] || {}) : '');
+            if (S.iname.key === null) S.iname.key = nk;                        // al empezar no se muestra
+            else if (nk !== S.iname.key) { S.iname.key = nk; S.iname.text = cur ? itemDisplayName(cur) : ''; S.iname.t = cur ? Math.round(2.2 * FPS) : 0; }
+            const na = S.iname.t > 0 ? Math.min(1, S.iname.t / (0.5 * FPS)) : 0;
+            if (ni.textContent !== S.iname.text) ni.textContent = S.iname.text;
+            const nao = na.toFixed(2);
+            if (ni.style.opacity !== nao) ni.style.opacity = nao;
             if (!this.dirty) return;
             this.dirty = false;
             const surv = w.gamemode != 1 && w.gamemode != 3;
@@ -2035,6 +2089,7 @@
         }
         w.worldX = px; w.worldY = py; w.scene = cur;
         S.start = { x: px, y: py };
+        S.sign = { text: '', a: 0, on: false }; S.iname = { key: null, text: '', t: 0 };
         w.xSpeed = 0; w.ySpeed = 0; w.dead = 0;
         if (!isFinite(Number(w.health))) w.health = 20;
         if (!isFinite(Number(w.food))) w.food = 1000;

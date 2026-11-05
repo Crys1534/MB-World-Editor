@@ -42,7 +42,18 @@ window.inventoryCategories = {
 'stairbrick_2', 'stairbrick_3', 'stairbrick_4', 'stairn_1', 'stairn_2', 'stairn_3', 'stairn_4', 'stairbbb_1', 'stairbbb_2',
 'stairbbb_3', 'stairbbb_4', 'halfr_1', 'halfr_2', 'halfcs_1', 'halfcs_2', 'halfsb_1', 'halfsb_2', 'halfob_1',
 'halfob_2', 'halfbr_1', 'halfbr_2', 'halfwp_1', 'halfwp_2', 'halfib_1', 'halfib_2', 'halfgb_1', 'halfgb_2',
-'halfdb_1', 'halfdb_2', 'halfbrick_1', 'halfbrick_2', 'halfn_1', 'halfn_2', 'halfbbb_1', 'halfbbb_2'
+'halfdb_1', 'halfdb_2', 'halfbrick_1', 'halfbrick_2', 'halfn_1', 'halfn_2', 'halfbbb_1', 'halfbbb_2',
+'ob', 'bdob', 'n', 'nb', 'bdnb', 'rnb', 'nwb', 'ssd', 'glow', 'es', 'dsb', 'boneb', 'tob', 'lemonb', 'slimeb', 'hay_1', 'hay_2',
+'portalstone', 'pf', 'pf_2', 'portal',
+        ]
+    },
+
+    // 🌱 Nature (nuevo): plantas, líquidos y cosas del mundo natural
+    Nature: {
+        icon: 'fw2',
+        items: [
+            'wr', 'la', 'ad', 'lgr', 'shrub', 'ds', 'fw1', 'fw2', 'ms1', 'ms2', 'msb1', 'msb2', 'msb3', 'msb4', 'bb', 'ct', 'sc',
+            'sw', 'coral', 'lp', 'moss', 'web', 'snow', 'mel', 'fire',
         ]
     },
 
@@ -51,8 +62,27 @@ window.inventoryCategories = {
         icon: 'shrub',
         items: [
             'craft', 'oven', 'chest', 'echest', 'cmp', 'enchant', 'anvil', 'ntag', 'bed1_red', 'dr2', 'idr2', 'bdr2', 'td1', 'sign', 'sl', 'lv', 'lv1', 'lv2', 'lv3', 'lv4', 'st', 'ladder', 'fnc', 'fncg', 'nfnc', 'nfncg', 'ibar',
-            // Antorcha: _1 parada (recta), _2 y _3 inclinadas a la pared (una de cada lado). Dispenser y dropper: _1 izquierda, _2 derecha, _3 arriba, _4 abajo
-            'th_1', 'th_2', 'th_3', 'dispense_1', 'dispense_2', 'dispense_3', 'dispense_4', 'dropper_1', 'dropper_2', 'dropper_3', 'dropper_4',
+            // Antorcha: _1 parada (recta), _2 y _3 inclinadas a la pared (una de cada lado). (dispenser y dropper ahora están en Redstone)
+            'th_1', 'th_2', 'th_3',
+            'jl', 'lant_1', 'lant_2', 'lant_3', 'ortorch_1', 'ortorch_2', 'ortorch_3', 'rp', 'td2', 'brew', 'brew_1', 'brew_2',
+            'brew_3', 'cauldron', 'cauldron_1', 'cauldron_2', 'cauldron_3', 'cmp_1', 'cmp_2', 'cmp_3', 'cmp_4', 'cmp_5',
+            'anvil_2', 'anvil_3', 'hcl', 'degg', 'bed1_white', 'bed1_lightgray', 'bed1_gray', 'bed1_black', 'bed1_brown',
+            'bed1_purple', 'bed1_magenta', 'bed1_orange', 'bed1_pink', 'bed1_yellow', 'bed1_lightgreen', 'bed1_green',
+            'bed1_cyan', 'bed1_lightblue', 'bed1_blue', 'carpet_white', 'carpet_lightgray', 'carpet_gray', 'carpet_black',
+            'carpet_brown', 'carpet_purple', 'carpet_magenta', 'carpet_red', 'carpet_orange', 'carpet_pink', 'carpet_yellow',
+            'carpet_lightgreen', 'carpet_green', 'carpet_cyan', 'carpet_lightblue', 'carpet_blue', 'carpet_rainbow', 'bl',
+            'bl_lightgray', 'bl_gray', 'bl_black', 'bl_brown', 'bl_purple', 'bl_magenta', 'bl_red', 'bl_orange', 'bl_pink',
+            'bl_yellow', 'bl_lightgreen', 'bl_green', 'bl_cyan', 'bl_lightblue', 'bl_blue', 'bl_ghast',
+        ]
+    },
+
+    // 🔴 Redstone (nuevo): mecanismos. Dispenser y dropper: _1 izquierda, _2 derecha, _3 arriba, _4 abajo
+    Redstone: {
+        icon: 'rstorch',
+        items: [
+            'dispense_1', 'dispense_2', 'dispense_3', 'dispense_4', 'dropper_1', 'dropper_2', 'dropper_3', 'dropper_4',
+            'rsd', 'rsd_1', 'rstorch', 'light', 'lever', 'lever_1', 'lever_2', 'button', 'button_1', 'button_2', 'pp', 'wpp',
+            'note', 'piston_1', 'piston1_1', 'piston2_1', 'spiston_1', 'spiston1_1', 'spiston2_1', 'TNT',
         ]
     },
 
@@ -61,6 +91,7 @@ window.inventoryCategories = {
         icon: 'rail',
         items: [
             'rail', 'rail_1', 'rail_2', 'railp', 'railp_1', 'railp_2', 'raila', 'raila_1', 'raila_2', 'raild', 'raild_1', 'raild_2',
+            'cart', 'raft', 'saddle',
         ]
     },
 
@@ -73,7 +104,8 @@ window.inventoryCategories = {
             'WoodenAxe', 'StoneAxe', 'IronAxe', 'GoldAxe', 'DiamondAxe',
             'WoodenShovel', 'StoneShovel', 'IronShovel', 'GoldShovel', 'DiamondShovel',
             'WoodenHoe', 'StoneHoe', 'IronHoe', 'GoldHoe', 'DiamondHoe',
-            'fr', 'frodcarrot', 'Shear',
+            'fr', 'Shear',
+            'bow', 'spear', 'bshur', 'fas', 'coas', 'scepter', 'snowb',   // coas = Carrot on a Stick, scepter = (Useless) Scepter: los nombres del juego
         ]
     },
 
@@ -82,7 +114,7 @@ window.inventoryCategories = {
         icon: 'bread',
         items: [
             'egg', 'fireegg', 'cegg', 'or', 'lemon', 'gasd', 'gap', 'capple', 'crml',
-            'sugar', 'icec', 'potato', 'ppotato', 'bsed', 'beet', 'wseed', 'gmels', 'pseed',
+            'sugar', 'icec', 'potato', 'ppotato', 'beet', 'wseed', 'gmels', 'pseed',
             'pkp', 'carrot', 'gcarrot', 'wheat', 'bread', 'cookie', 'ccane',
             'cake_1', 'cake_2', 'cake_3', 'cake_4', 'cake_5', 'cake_6', 'cake_7',
             'ccake_1', 'ccake_2', 'ccake_3', 'ccake_4', 'ccake_5', 'ccake_6', 'ccake_7',
@@ -94,6 +126,31 @@ window.inventoryCategories = {
             'pork', 'cpork', 'bacon', 'cbacon', 'beef', 'cbeef', 'chicken', 'cchicken', 'nugget',
             'mutton', 'cmutton', 'rabbit', 'crabbit', 'fi', 'cfi', 'salmon', 'csalmon', 'clown', 'puff',
             'rf', 'bowl', 'soup', 'rabbitsoup', 'beetsoup', 'lade', 'apade', 'orade', 'mbk',
+            'ap', 'mels', 'bpotato', 'ccb', 'bseed', 'bseed_3', 'bseed_5', 'bseed_7', 'potato_1', 'potato_4', 'potato_5',
+            'potato_7', 'pseed_1',
+        ]
+    },
+
+    // 💎 Materials (nuevo): minerales, lo que sueltan los mobs, tintes y otros objetos sueltos
+    Materials: {
+        icon: 'dm',
+        items: [
+            'cl', 'cl2', 'ii', 'gi', 'dm', 'll', 'topaz', 'egemd', 'oddrock', 'ironn', 'goldn', 'flint', 'gss', 'cy', 'brick',
+            'nbr', 'paper', 'book', 'cbook', 'tag', 'clock', 'compass', 'feather', 'leather', 'rleather', 'bone', 'bonem',
+            'fiber', 'ink', 'se', 'fse', 'gp', 'ep', 'eoe', 'blazer', 'bp', 'gt', 'slimeball', 'magmac', 'rfoot', 'dscl', 'boe',
+            'scepters', 'dye', 'dye_lightgray', 'dye_gray', 'dye_brown', 'dye_purple', 'dye_magenta', 'dye_red', 'dye_pink',
+            'dye_yellow', 'dye_lightgreen', 'dye_green', 'dye_cyan', 'dye_lightblue',
+        ]
+    },
+
+    // 🥚 Mobs (nuevo): huevos para hacer aparecer mobs, cabezas y el spawner
+    Mobs: {
+        icon: 'megg_creeper',
+        items: [
+            'mobSpawner', 'mh_1', 'mh_2', 'mh_3', 'mh_4', 'mh_5', 'mh_6', 'mh_7', 'mh_8', 'mh_9', 'megg_skeleton',
+            'megg_magmacube', 'megg_zombie', 'megg_ghast', 'megg_spider', 'megg_blaze', 'megg_chicken', 'megg_cow',
+            'megg_creeper', 'megg_enderman', 'megg_mushroom', 'megg_pig', 'megg_sheep', 'megg_wolf',
+            'megg_enderdragon', 'megg_squid', 'megg_rabbit', 'megg_cowctus', 'megg_zombiepigman', 'megg_bat', 'megg_slime',
         ]
     },
 

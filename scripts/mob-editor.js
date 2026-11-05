@@ -1140,7 +1140,7 @@
  function catItems(name) { try { const c = window.inventoryCategories; return (c && c[name] && Array.isArray(c[name].items)) ? c[name].items : []; } catch (e) { return []; } }
  function isToolId(id) { return catItems('Tools').indexOf(id) >= 0 || /(Pickaxe|Sword|Axe|Shovel|Hoe|Shear)$/.test(id); }
  function isArmorId(id) { return catItems('Armor').indexOf(id) >= 0 || /(Cap|Shirt|Pants|Shoes)$/.test(id); }
- function isBlockId(id) { return ['Blocks', 'Decoration', 'Transportation'].some(function (c) { return catItems(c).indexOf(id) >= 0; }); }
+ function isBlockId(id) { return ['Blocks', 'Nature', 'Decoration', 'Redstone', 'Transportation'].some(function (c) { return catItems(c).indexOf(id) >= 0; }); }
  // Qué data tags tienen sentido para este objeto (los que YA trae siempre se muestran, para poder quitarlos):
  //   color (type)  armadura de cuero      unbreakable  herramientas ("all tools")
  //   canDestroy    todo menos la armadura  canPlaceOn   bloques ("only applies to blocks")

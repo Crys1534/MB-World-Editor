@@ -3333,3 +3333,12 @@ body.is-touch #mbw-play-hud .ph-chat-sug { font-size: 15px; max-height: 22vh; }
 
 /* con una ventana abierta (inventario, cofre, horno) el HUD del Modo Jugar no la tapa */
 #mbw-play-hud.under-modal { visibility: hidden; }
+
+/* 🪧 Modo Jugar: letrero que se está leyendo (arriba al centro, como el juego) y nombre del objeto elegido (encima de la hotbar) */
+#mbw-play-hud .ph-sign { position: absolute; left: 50%; top: 54px; transform: translateX(-50%); width: min(300px, 82vw); box-sizing: border-box; padding: 8px 12px;
+    background: #c4904a repeating-linear-gradient(180deg, transparent 0, transparent 15px, rgba(90,52,16,.28) 15px, rgba(90,52,16,.28) 17px); border: 4px solid #8a5a1e; box-shadow: 0 0 0 3px #4a2f0e, 0 3px 10px rgba(0,0,0,.5);
+    pointer-events: none; display: none; opacity: 0; }
+#mbw-play-hud .ph-sign-t { font: 32px/1.0 'Pixeltype', 'Courier New', monospace; color: #1a1006; text-align: center; white-space: pre-wrap; overflow-wrap: anywhere; text-shadow: 1px 1px 0 rgba(255,220,160,.35); }
+#mbw-play-hud .ph-iname { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--phs) + 52px); max-width: 80vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    color: #fff; font: 26px/1 'Pixeltype', 'Segoe UI', monospace; text-shadow: 2px 2px 0 #3f3f3f; pointer-events: none; opacity: 0; text-align: center; }
+#mbw-play-hud.under-modal .ph-sign, #mbw-play-hud.under-modal .ph-iname { visibility: hidden; }

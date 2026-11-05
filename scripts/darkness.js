@@ -17,7 +17,7 @@
 (function () {
     'use strict';
 
-    const KEY = { dark: 'mbw_darkness', biomes: 'mbw_show_biomes', notice: 'mbw_dark_notice_seen', map: 'mbw_light_map' };
+    const KEY = { dark: 'mbw_darkness', biomes: 'mbw_show_biomes', notice: 'mbw_dark_notice_seen', map: 'mbw_light_map', level: 'mbw_dark_level' };
     function read(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
     function write(k, v) { try { localStorage.setItem(k, String(v)); } catch (e) { /* no se recuerda */ } }
     function tr(k, fb, vars) { return typeof window.tmsg === 'function' ? window.tmsg(k, fb, vars) : fb; }
@@ -27,7 +27,8 @@
         biomes: read(KEY.biomes) === '1',
         map: read(KEY.map) === '1',            // 🔆 Vista de luz: mapa de calor con cuánta luz recibe cada zona (apagada de fábrica)
         TOP: 90, BOTTOM: 66,                   // Y donde empieza (lo más leve) y donde ya es lo más oscuro
-        MIN: 0.14, MAX: 0.86,                  // qué tan oscuro en Y 90 y en Y 66 (1 = negro)
+        MIN: 0.14, MAX: 0.86,                  // qué tan oscuro en Y 90 y en Y 66 (1 = negro) — cambia con "Darkness opacity" (Configuration > Display)
+        level: 86,                             // "Darkness opacity" en % (0 = nada, 100 = negro total en lo más hondo). De fábrica 86 %
         rev: 0,                                // sube cada vez que se edita el mundo (para rehacer la imagen)
         stats: { builds: 0, lights: 0, maxAlpha: 0, drawn: false }
     };
@@ -47,6 +48,18 @@
         player: { r: 3.5 }
     };
     D.LIGHTS = LIGHTS;
+    // 🎚️ Qué tan opaca se ve la oscuridad: el % es lo más oscuro (Y 66 y más abajo); arriba (Y 90) queda en la misma proporción que antes
+    function applyLevel(v) {
+        v = Math.round(Number(v));
+        if (!isFinite(v)) v = 86;
+        v = Math.max(0, Math.min(100, v));
+        D.level = v;
+        D.MAX = v / 100;
+        D.MIN = D.MAX * (0.14 / 0.86);
+        LIGHTS.odd.dark = Math.min(0.75, D.MAX);            // la odd torch tampoco pasa de lo que elegiste
+        return v;
+    }
+    { const saved = read(KEY.level); applyLevel(saved === null || saved === '' ? 86 : saved); }
     let lightOf = null;   // Map: dibujo del bloque (de texturesMap) -> tipo de luz
     function buildLightMap() {
         const TM = window.texturesMap;
@@ -169,7 +182,7 @@
                     else A[k] = A[k] * (1 - s);
                     if (def.color && !far) {
                         if (!G) G = new Float32Array(w * h * 3);
-                        const wgt = s * def.glow * (0.3 + 0.7 * base[k] / D.MAX);
+                        const wgt = s * def.glow * (0.3 + 0.7 * (D.MAX > 0 ? base[k] / D.MAX : 0));
                         G[k * 3] += def.color[0] * wgt; G[k * 3 + 1] += def.color[1] * wgt; G[k * 3 + 2] += def.color[2] * wgt;
                     }
                 }
@@ -432,6 +445,8 @@
         const b = document.getElementById('biomes-toggle'); if (b) b.checked = D.biomes;
         const m = document.getElementById('lightmap-toggle'); if (m) m.checked = D.map;
         const c = document.getElementById('animations-toggle'); if (c) c.checked = window.mbwAnimationsOn !== false;
+        const lv = document.getElementById('darkness-level-slider'); if (lv && Number(lv.value) !== D.level) lv.value = D.level;
+        const ld = document.getElementById('darkness-level-display'); if (ld) ld.textContent = D.level + '%';
     }
     window.setDarkness = function (on) {
         D.on = !!on;
@@ -468,6 +483,12 @@
     window.setShowBiomes = function (on) {
         D.biomes = !!on;
         write(KEY.biomes, on ? '1' : '0');
+        sync();
+    };
+    window.setDarknessLevel = function (v) {
+        v = applyLevel(v);
+        write(KEY.level, v);
+        D.rev++; farKey = ''; maskKey = '';
         sync();
     };
     window.mbwDarknessSync = sync;

@@ -236,6 +236,7 @@ function renderInventoryTabs() {
     container.style.display = 'flex';
     container.style.flexDirection = 'row';
     container.style.gap = '2px';
+    container.style.flexWrap = 'wrap';            // 14 pestañas: si no caben en una fila, pasan a la siguiente
     container.style.padding = '8px 10px 0px 10px'; 
     container.style.background = 'lightgray';
     container.style.borderBottom = 'none'; 
@@ -251,14 +252,14 @@ function renderInventoryTabs() {
         tabBtn.style.display = 'flex';
         tabBtn.style.alignItems = 'center';
         tabBtn.style.justifyContent = 'center';
-        tabBtn.style.padding = '6px 12px'; // Un poco más cuadradas
+        tabBtn.style.padding = '6px 4px'; // Un poco más cuadradas (más angostas para que quepan las 14 en una fila)
         tabBtn.style.cursor = 'pointer';
         tabBtn.style.borderTopLeftRadius = '0px'; 
         tabBtn.style.borderTopRightRadius = '0px';
         tabBtn.style.border = '2px solid #555';
         
         // Tooltip: Se mostrará el nombre al pasar el ratón por encima
-        tabBtn.title = key === 'all' ? 'All Items' : key; 
+        tabBtn.title = (typeof window.tmsg === 'function') ? window.tmsg('inv_tab_' + key, key === 'all' ? 'All Items' : key) : (key === 'all' ? 'All Items' : key); 
         
         if (isActive) {
             tabBtn.style.background = '#373737'; 
@@ -582,7 +583,16 @@ function populateInventory() {
     let blocksToShow = [];
 
     if (activeInventoryTab === 'all') {
-        blocksToShow = allBlocks;
+        // (sin los nombres viejos que el juego llama de otra forma: frodcarrot → coas, Scepter → scepter, bsed → bseed)
+        const OLD = window.mbwWorldAliases || {};
+        // (ni las bases sin dibujo propio, que salían como cuadro rosa: cloth, carpet, bed1... sus colores sí salen)
+        const TM = window.texturesMap || {}, M = TM.missing;
+        blocksToShow = allBlocks.filter(item => {
+            if (OLD[item]) return false;
+            if (TM[item]) return true;
+            const o = typeof getBlockObject === 'function' ? getBlockObject({ type: item }) : null;
+            return !!(o && o.x !== undefined && !(M && o.x === M.x && o.y === M.y));
+        });
     } else {
         const categoryItems = inventoryCategories[activeInventoryTab].items;
         blocksToShow = categoryItems.filter(item => allBlocks.includes(item));

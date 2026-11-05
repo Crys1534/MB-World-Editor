@@ -757,4 +757,8 @@ Object.keys(window.texturesMap).forEach((id) => {
  const texture = window.texturesMap[id];
  texture.x *= 16;
  texture.y *= 16;
+});// Nombres del juego para dibujos que el editor tenía con otro nombre (el viejo se queda para mundos ya hechos,
+// pero en las pestañas sale el del juego). Va después de la multiplicación de arriba: comparten el mismo objeto.
+[['coas', 'frodcarrot'], ['scepter', 'Scepter'], ['bseed', 'bsed']].forEach((p) => {
+ if (!window.texturesMap[p[0]] && window.texturesMap[p[1]]) window.texturesMap[p[0]] = window.texturesMap[p[1]];
 });
