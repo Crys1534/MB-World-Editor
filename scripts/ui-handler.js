@@ -449,6 +449,7 @@ function populateInventory() {
             item.className = 'inv-item enchanted-slot'; 
             item.title = ""; 
             
+            item.dataset.search = potionData.name;
             item.dataset.enchantTooltip = `<strong>${potionData.name}</strong><span class="tooltip-enchant" style="color: ${potionData.color}; display: block; line-height: 0.6; margin-top: 2px;">Potion Effect</span>`;
 
             item.onclick = () => {
@@ -547,6 +548,7 @@ function populateInventory() {
 
                 let enchantTooltipHTML = typeof formatEnchantments === 'function' ? formatEnchantments(enchantments) : "";
                 item.dataset.enchantTooltip = `<strong>${itemNameStr}</strong>${enchantTooltipHTML}`;
+                item.dataset.search = itemNameStr + ' ' + itemID;
             } else {
                 item.title = itemNameStr + " (Custom)";
             }
@@ -604,6 +606,7 @@ function populateInventory() {
         const item = document.createElement('div');
         item.className = 'inv-item';
         item.title = blockType; 
+        item.dataset.search = mbwItemSearchText(blockType);   // la búsqueda usa el nombre ("golden carrot") y también el código ("gcarrot")
         
         item.onclick = () => {
             // Con el Creador de objetos abierto, el objeto va a la "mesa de encantamiento" en vez de pegarse al cursor
@@ -663,6 +666,25 @@ function populateInventory() {
     if (searchInput && searchInput.value) {
         filterInventory(searchInput.value);
     }
+}
+
+// Nombre en inglés de un objeto a partir de su código interno (gcarrot → "Golden Carrot"); sirve para el buscador del inventario
+let mbwItemNameMap = null;
+function mbwItemNameOf(code) {
+    if (!mbwItemNameMap) {
+        mbwItemNameMap = {};
+        const G = window.MB_GAME || {};
+        const I = G.identifiers || {};
+        Object.keys(I).forEach(k => { const v = I[k]; if (Array.isArray(v) && v[0] != null && v[1] && !(v[0] in mbwItemNameMap)) mbwItemNameMap[v[0]] = v[1]; });
+        const B = G.blocks || {};
+        Object.keys(B).forEach(k => { const v = B[k]; if (Array.isArray(v) && typeof v[0] === 'string' && v[0] && !(k in mbwItemNameMap)) mbwItemNameMap[k] = v[0]; });
+    }
+    const base = String(code).split('_')[0];
+    return mbwItemNameMap[code] || mbwItemNameMap[base] || '';
+}
+function mbwItemSearchText(code) {
+    const name = mbwItemNameOf(code);
+    return name ? name + ' ' + code : String(code);
 }
 
 function filterInventory(query) {
