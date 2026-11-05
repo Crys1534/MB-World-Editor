@@ -3098,6 +3098,8 @@ body.aspect-view-on #top-toggle { opacity: 0.9; pointer-events: auto; }
 .cb-icon { width: 48px; height: 48px; image-rendering: pixelated; background: #8b8b8b; border: 3px inset #fff; box-sizing: border-box; flex: none; }
 .cb-title { flex: 1; font-size: 30px; }
 .cb-x { font-family: inherit; font-size: 22px; width: 32px; height: 32px; cursor: pointer; background: #8b8b8b; color: #fff; border: 2px solid; border-color: #fff #373737 #373737 #fff; }
+.cb-kb { font-family: inherit; width: 32px; height: 32px; cursor: pointer; background: #8b8b8b; color: #fff; border: 2px solid; border-color: #fff #373737 #373737 #fff; margin-left: auto; margin-right: 6px; font-size: 18px; line-height: 1; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; }
+.cb-kb small { font-size: 10px; line-height: 0.6; }
 .cb-row { display: flex; flex-direction: column; gap: 2px; }
 .cb-label { font-size: 21px; }
 .cb-input { width: 100%; box-sizing: border-box; padding: 4px 6px; font-family: inherit; font-size: 23px; color: #000; background: #e6e6e6; border: 2px solid; border-color: #373737 #fff #fff #373737; border-radius: 0; }
@@ -3138,13 +3140,16 @@ body.mbw-transforming #mbw-block-fab { opacity: .38; pointer-events: none; }
 
 /* ===== 📱 Celular: herramientas reubicadas y barra lateral pegada a la izquierda (scripts/mobile-layout.js) ===== */
 .phone-only-group { display: none; }
+.touch-only-setting { display: none; }
+body.is-touch .touch-only-setting, body.is-phone .touch-only-setting { display: block; }
 body.is-phone .phone-only-group, body.phone-tools-moved .phone-only-group { display: flex; }
 body.is-phone .separator.phone-only-group, body.phone-tools-moved .separator.phone-only-group { display: block; }
 #view-aspect-slot .tool-btn { width: auto; height: auto; min-width: 45px; }
 #view-aspect-slot #tool-aspect { display: flex; align-items: center; justify-content: center; width: 52px; height: 44px; }
 #view-aspect-slot #tool-aspect .mbw-ic { width: 28px; height: 28px; }
-.tool-btn.tool-in-topbar { width: 34px; height: 28px; margin: 0 6px 4px 0; align-self: flex-end; flex: none; border: 1px solid var(--input-bg); border-radius: 3px; background: transparent; }
-.tool-btn.tool-in-topbar .mbw-ic { width: 18px; height: 18px; }
+body .tool-btn.tool-in-topbar { width: auto; height: auto; min-height: 0; padding: 6px 9px; margin: 0 4px 2px 0; align-self: flex-end; flex: none; border: none; border-radius: 3px; background: transparent; line-height: 0; }
+body .tool-btn.tool-in-topbar .mbw-ic { width: 16px; height: 16px; }
+body .tool-btn.tool-in-topbar:hover { background-color: rgba(128, 128, 128, 0.25); }
 /* barra lateral: ya no flota; pegada al borde izquierdo, de arriba a abajo del mundo y sin bordes redondeados */
 body.is-phone.panels-floating { --ws-left: 44px; }
 body.is-phone.panels-floating #toolbar-sidebar { top: var(--ws-top); left: 0; height: calc(100% - var(--ws-top) - var(--ws-bottom)); max-height: none; padding: 4px 3px; border-radius: 0; border: none; border-right: 1px solid var(--border); box-shadow: none; background: var(--bg-panel); width: 44px; box-sizing: border-box; }
@@ -3176,6 +3181,52 @@ body.is-phone.panels-floating #coords-overlay { left: 8px; }
   .pinv-fuel-grid .pinv-slot canvas { width: 34px; height: 34px; }
 }
 
+/* 📱 Celular / pantalla baja: el inventario del jugador, los cofres y los hornos caben sin tener que desplazarse.
+   Las casillas se achican (--ps) según el espacio que haya. Acostado: el cofre / horno a la izquierda y el inventario a la derecha;
+   en el horno, los combustibles van en una columna a la izquierda de todo. */
+@media (max-height: 520px) {
+  #inventory-modal-content.inv-modal-window { max-height: calc(100vh - 8px); max-width: calc(100vw - 8px); }
+  body.pinv-open #inventory-modal .inv-modal-header { padding: 4px 8px; }
+  body.pinv-open #inventory-modal-title { font-size: 15px; }
+  body.pinv-open #inventory-modal .btn-close-large { font-size: 26px; line-height: 1; }
+  body.pinv-open #pinv-creative-btn { font-size: 11px; padding: 3px 6px; }
+  .pinv-panel { --ps: min(52px, calc((100vh - 130px) / 5.6)); width: auto; flex: 0 0 auto; padding: 6px 8px 8px; }
+  body.pinv-chest-open .pinv-panel, body.pinv-furnace-open .pinv-panel { --ps: min(48px, calc((100vw - 96px) / 18), calc((100vh - 112px) / 4.8)); }
+  body.pinv-furnace-open .pinv-panel { --ps: min(48px, calc((100vw - 118px) / 15), calc((100vh - 112px) / 4.8)); }
+  .pinv-grid { grid-template-columns: repeat(9, var(--ps)); }
+  .pinv-slot { width: var(--ps); height: var(--ps); border-width: 3px; }
+  .pinv-slot canvas { width: calc(var(--ps) * 0.72); height: calc(var(--ps) * 0.72); }
+  .pinv-count { font-size: 11px; right: 2px; bottom: -1px; }
+  .pinv-label { font-size: 12px; margin: 0 0 2px 1px; }
+  .pinv-top { margin-bottom: 4px; }
+  .pinv-hotbar { margin-top: 4px; }
+  .pinv-bar { height: 5px; margin: 0 3px 2px; }
+  /* cofre / horno a la izquierda, inventario a la derecha */
+  body.pinv-chest-open .pinv-panel, body.pinv-furnace-open .pinv-panel { display: grid !important; grid-template-columns: auto auto; column-gap: 12px; align-items: start; }
+  body.pinv-chest-open .pinv-panel > *, body.pinv-furnace-open .pinv-panel > * { grid-column: 2; }
+  body.pinv-chest-open #pinv-chest-box, body.pinv-furnace-open #pinv-furnace-box { grid-column: 1; grid-row: 1 / span 6; margin: 0; padding: 0 12px 0 0; border-bottom: 0; border-right: 3px solid #8B8B8B; align-self: stretch; }
+  body.pinv-furnace-open #pinv-furnace-box { display: flex !important; flex-direction: column; }
+  body.pinv-furnace-open .pinv-furnace { flex: 1; gap: 10px; }
+  body.pinv-furnace-open .pinv-f-fire, body.pinv-furnace-open .pinv-f-arrow { font-size: 18px; }
+  /* combustibles: columna a la izquierda */
+  body.pinv-furnace-open .inv-main-columns { flex-direction: row; overflow: hidden; max-height: none; }
+  body.pinv-furnace-open .pinv-fuel-box { --ps: min(48px, calc((100vw - 118px) / 15), calc((100vh - 112px) / 4.8)); width: auto; flex: 0 0 auto; max-height: calc(100vh - 60px); overflow-y: auto; overflow-x: hidden; padding: 6px; border-right: 4px solid #555; border-bottom: 0; }
+  body.pinv-furnace-open .pinv-fuel-grid { display: grid; grid-template-columns: repeat(2, var(--ps)); width: auto; min-width: 0; overflow: visible; }
+  body.pinv-furnace-open .pinv-fuel-grid .pinv-slot { flex: none; width: var(--ps); height: var(--ps); }
+  body.pinv-furnace-open .pinv-fuel-grid .pinv-slot canvas { width: calc(var(--ps) * 0.72); height: calc(var(--ps) * 0.72); }
+}
+/* 📱 Celular parado (angosto): las casillas se achican para que quepan las 9 a lo ancho */
+@media (max-width: 600px) and (min-height: 521px) {
+  .pinv-panel { --ps: min(64px, calc((100vw - 48px) / 9)); width: auto; flex: 0 0 auto; padding: 8px; }
+  .pinv-grid { grid-template-columns: repeat(9, var(--ps)); }
+  .pinv-slot { width: var(--ps); height: var(--ps); border-width: 3px; }
+  .pinv-slot canvas { width: calc(var(--ps) * 0.72); height: calc(var(--ps) * 0.72); }
+  .pinv-count { font-size: 11px; }
+  .pinv-label { font-size: 13px; }
+  #inventory-modal-content.inv-modal-window { max-width: calc(100vw - 8px); }
+  body.pinv-furnace-open .pinv-fuel-grid .pinv-slot { flex: 0 0 var(--ps); width: var(--ps); height: var(--ps); }
+}
+
 /* ▶️ Modo Jugar (scripts/play-mode.js) */
 .btn-play-mode { margin: 0 0 4px auto; align-self: flex-end; display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 6px; border: 1px solid #1e7d3a; background: #27ae60; color: #fff; font-weight: 700; font-size: 14px; cursor: pointer; white-space: nowrap; }
 .btn-play-mode:hover { background: #2ecc71; }
@@ -3188,30 +3239,45 @@ body.mbw-playing #canvas { cursor: crosshair; }
 #mbw-play-hud .ph-top { position: absolute; top: 8px; right: 10px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 #mbw-play-hud .ph-stop { padding: 6px 16px; border-radius: 999px; border: 1px solid rgba(255,255,255,.4); background: rgba(192,57,43,.95); color: #fff; font-weight: 700; font-size: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.4); cursor: pointer; }
 #mbw-play-hud .ph-msg { color: #fff; font-weight: 700; text-shadow: 0 1px 3px #000, 0 0 2px #000; font-size: 15px; }
-#mbw-play-hud .ph-bars { position: absolute; left: 50%; transform: translateX(-50%); bottom: 64px; display: flex; flex-direction: column; align-items: center; gap: 1px; font-size: 16px; line-height: 1; }
-#mbw-play-hud .ph-bars > div { display: flex; gap: 1px; }
-#mbw-play-hud .ph-bars i { font-style: normal; text-shadow: 0 0 2px #000, 0 1px 1px #000; }
-#mbw-play-hud .ph-hearts i.f { color: #e3242b; } #mbw-play-hud .ph-hearts i.h { color: #f08a8d; } #mbw-play-hud .ph-hearts i.e { color: #3a3a3a; }
-#mbw-play-hud .ph-food i { font-size: 13px; } #mbw-play-hud .ph-food i.e { filter: grayscale(1) brightness(.4); } #mbw-play-hud .ph-food i.h { filter: grayscale(.5); }
+/* vida (izquierda) y hambre (derecha) sobre la hotbar, del mismo ancho que ella (como en Minecraft) */
+#mbw-play-hud { --phs: 44px; --phi: 18px; }
+body.is-touch #mbw-play-hud { --phs: 38px; --phi: 15px; }
+#mbw-play-hud .ph-bars { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--phs) + 18px); width: calc(var(--phs) * 9 + 4px); display: flex; justify-content: space-between; align-items: flex-end; line-height: 0; }
+#mbw-play-hud .ph-bars .ph-hearts, #mbw-play-hud .ph-bars .ph-food, #mbw-play-hud .ph-bars .ph-air { display: flex; gap: 1px; }
+#mbw-play-hud .ph-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+#mbw-play-hud .ph-hearts i, #mbw-play-hud .ph-food i { position: relative; display: block; width: var(--phi); height: var(--phi); background: center / contain no-repeat; image-rendering: pixelated; filter: drop-shadow(0 0 1px rgba(0,0,0,.7)); }
+#mbw-play-hud .ph-hearts i { background-image: url('assets/HEALTH.png'); }
+#mbw-play-hud .ph-food i { background-image: url('assets/HUNGER.png'); }
+#mbw-play-hud .ph-hearts i.e, #mbw-play-hud .ph-food i.e, #mbw-play-hud .ph-hearts i.h, #mbw-play-hud .ph-food i.h { background-image: none; }
+#mbw-play-hud .ph-hearts i.e::before, #mbw-play-hud .ph-food i.e::before, #mbw-play-hud .ph-hearts i.h::before, #mbw-play-hud .ph-food i.h::before { content: ''; position: absolute; inset: 0; background: inherit; background-size: contain; filter: brightness(0) opacity(.45); }
+#mbw-play-hud .ph-hearts i.e::before, #mbw-play-hud .ph-hearts i.h::before { background-image: url('assets/HEALTH.png'); }
+#mbw-play-hud .ph-food i.e::before, #mbw-play-hud .ph-food i.h::before { background-image: url('assets/HUNGER.png'); }
+#mbw-play-hud i u { display: none; position: absolute; top: 0; bottom: 0; overflow: hidden; background: center / var(--phi) var(--phi) no-repeat; image-rendering: pixelated; }
+#mbw-play-hud i.h u { display: block; width: 50%; }
+#mbw-play-hud .ph-hearts i.h u { left: 0; background-image: url('assets/HEALTH.png'); background-position: left center; }
+#mbw-play-hud .ph-food i.h u { right: 0; background-image: url('assets/HUNGER.png'); background-position: right center; }
+#mbw-play-hud .ph-air i { font-style: normal; font-size: calc(var(--phi) - 3px); line-height: 1; text-shadow: 0 0 2px #000; }
 #mbw-play-hud .ph-air i.f { color: #6ec6ff; } #mbw-play-hud .ph-air i.e { color: transparent; }
 #mbw-play-hud .ph-hotbar { position: absolute; left: 50%; transform: translateX(-50%); bottom: 10px; display: flex; pointer-events: auto; background: rgba(0,0,0,.45); border: 2px solid #555; }
-#mbw-play-hud .ph-slot { width: 44px; height: 44px; box-sizing: border-box; border: 2px solid #8b8b8b; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; }
+#mbw-play-hud .ph-slot { width: var(--phs); height: var(--phs); box-sizing: border-box; border: 2px solid #8b8b8b; display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer; }
 #mbw-play-hud .ph-slot.sel { border-color: #fff; box-shadow: inset 0 0 0 2px #000; }
 #mbw-play-hud .ph-slot canvas { width: 30px; height: 30px; image-rendering: pixelated; pointer-events: none; }
 #mbw-play-hud .ph-slot b { position: absolute; right: 2px; bottom: 0; color: #fff; font-size: 12px; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; pointer-events: none; }
-#mbw-play-hud .ph-pad, #mbw-play-hud .ph-pad2 { display: none; position: absolute; bottom: 14px; gap: 10px; }
-#mbw-play-hud .ph-pad { left: 14px; }
-#mbw-play-hud .ph-pad2 { right: 14px; }
-#mbw-play-hud .ph-pad button, #mbw-play-hud .ph-pad2 button { width: 58px; height: 58px; border-radius: 50%; border: 2px solid rgba(255,255,255,.5); background: rgba(20,20,20,.45); color: #fff; font-size: 24px; touch-action: none; -webkit-tap-highlight-color: transparent; }
-#mbw-play-hud .ph-pad button.on, #mbw-play-hud .ph-pad2 button.on { background: rgba(255,255,255,.35); }
+#mbw-play-hud .ph-pad2 { display: none; position: absolute; bottom: 14px; gap: 10px; right: 14px; }
+/* 🕹️ joystick circular */
+#mbw-play-hud .ph-joy { display: none; position: absolute; left: 22px; bottom: 22px; width: 116px; height: 116px; border-radius: 50%; background: rgba(20,20,20,.38); border: 2px solid rgba(255,255,255,.45); box-sizing: border-box; pointer-events: auto; touch-action: none; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
+#mbw-play-hud .ph-joy.on { background: rgba(20,20,20,.5); }
+#mbw-play-hud .ph-knob { width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,.55); border: 2px solid rgba(255,255,255,.85); box-shadow: 0 2px 6px rgba(0,0,0,.45); pointer-events: none; }
+#mbw-play-hud .ph-joy.run .ph-knob { background: rgba(120,220,255,.75); }
+#mbw-play-hud .ph-pad2 button { width: 58px; height: 58px; border-radius: 50%; border: 2px solid rgba(255,255,255,.5); background: rgba(20,20,20,.45); color: #fff; font-size: 24px; touch-action: none; -webkit-tap-highlight-color: transparent; }
+#mbw-play-hud .ph-pad2 button.on { background: rgba(255,255,255,.35); }
 #mbw-play-hud .ph-mode { font-size: 22px !important; }
-body.is-touch #mbw-play-hud .ph-pad, body.is-touch #mbw-play-hud .ph-pad2 { display: flex; }
+body.is-touch #mbw-play-hud .ph-pad2 { display: flex; }
+body.is-touch #mbw-play-hud .ph-joy { display: flex; }
 body.is-touch #mbw-play-hud .ph-pad2 { flex-direction: column-reverse; align-items: center; }
 body.is-touch #mbw-play-hud .ph-hotbar { bottom: 6px; }
-body.is-touch #mbw-play-hud .ph-slot { width: 38px; height: 38px; }
-body.is-touch #mbw-play-hud .ph-bars { bottom: 50px; }
 body.is-phone .btn-play-mode { padding: 4px 8px; }
-body.is-phone .btn-play-mode span { display: none; }
+body.is-phone .btn-play-mode { font-size: 12px; gap: 4px; }
 
 
 /* ▶️ Modo Jugar: pantalla completa, solo el mapa (todo el editor queda tapado) */
@@ -3222,6 +3288,23 @@ body.play-survival #pinv-creative-btn { display: none !important; }
 body.mbw-playing #inventory-modal { z-index: 9800; }
 #mbw-play-hud .ph-stop { padding: 4px 12px; font-size: 13px; opacity: .85; }
 #mbw-play-hud .ph-msg { white-space: pre-line; text-align: right; max-width: 70vw; font-size: 13px; }
+/* 💬 chat / consola de comandos */
+#mbw-play-hud .ph-chat-btn { position: absolute; top: 8px; left: 10px; width: 40px; height: 36px; border-radius: 8px; border: 1px solid rgba(255,255,255,.4); background: rgba(0,0,0,.45); color: #fff; font-size: 19px; cursor: pointer; }
+#mbw-play-hud .ph-chat { position: absolute; left: 10px; bottom: calc(var(--phs) + 46px); width: min(560px, calc(50vw - 30px)); display: flex; flex-direction: column; gap: 4px; pointer-events: none; }
+#mbw-play-hud .ph-chat-log { display: flex; flex-direction: column; font-family: 'Pixeltype', 'Segoe UI', monospace; font-size: 18px; line-height: 1.05; color: #fff; }
+#mbw-play-hud .ph-chat-log div { background: rgba(0,0,0,.42); padding: 1px 6px; white-space: pre-wrap; word-break: break-word; text-shadow: 1px 1px 0 #000; transition: opacity .9s; }
+#mbw-play-hud .ph-chat-log div.me { color: #d8d8d8; }
+#mbw-play-hud .ph-chat-log div.fade { opacity: 0; }
+#mbw-play-hud .ph-chat-form { display: none; gap: 4px; pointer-events: auto; }
+#mbw-play-hud .ph-chat.open { left: 10px; right: 10px; width: auto; bottom: calc(var(--phs) + 46px); }
+#mbw-play-hud .ph-chat.open .ph-chat-form { display: flex; }
+#mbw-play-hud .ph-chat.open .ph-chat-log { max-height: 45vh; overflow-y: auto; pointer-events: auto; }
+#mbw-play-hud .ph-chat-in { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 6px 8px; background: rgba(0,0,0,.65); color: #fff; border: 2px solid rgba(255,255,255,.55); outline: none; }
+#mbw-play-hud .ph-chat-send, #mbw-play-hud .ph-chat-x { width: 40px; border: 2px solid rgba(255,255,255,.55); background: rgba(0,0,0,.65); color: #fff; font-size: 17px; cursor: pointer; }
+body.is-touch #mbw-play-hud .ph-chat { bottom: 150px; width: min(420px, calc(50vw - 20px)); }
+body.is-touch #mbw-play-hud .ph-chat.open { top: 50px; bottom: auto; left: 60px; right: 120px; width: auto; flex-direction: column-reverse; }
+body.is-touch #mbw-play-hud .ph-chat.open .ph-chat-log { max-height: 30vh; }
+body.is-touch #mbw-play-hud .ph-chat-log { font-size: 15px; }
 #mbw-play-hud .ph-inv { position: absolute; bottom: 10px; left: calc(50% + 208px); width: 44px; height: 44px; border: 2px solid #555; background: rgba(0,0,0,.45); color: #fff; font-size: 22px; cursor: pointer; }
 #mbw-play-hud .ph-open { position: absolute; left: 50%; transform: translateX(-50%); bottom: 112px; padding: 7px 16px; border-radius: 999px; border: 2px solid rgba(255,255,255,.55); background: rgba(139,90,43,.95); color: #fff; font-weight: 700; font-size: 15px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.45); }
 body.is-touch #mbw-play-hud .ph-inv { left: calc(50% + 178px); width: 38px; height: 38px; bottom: 6px; font-size: 19px; }

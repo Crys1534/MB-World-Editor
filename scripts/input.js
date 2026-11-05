@@ -843,6 +843,7 @@ canvas.addEventListener("mousedown", function (event) {
         let exactWorldX = camera.x + (mouse.canvasX / tileSize);
         let exactWorldY = camera.y + (mouse.canvasY / tileSize);
 
+        window.mbwPlayerSelected = false;
         const hit = findMobAt(exactWorldX, exactWorldY);
         if (hit) {
             const m = hit.mob, key = hit.key;
@@ -869,7 +870,9 @@ canvas.addEventListener("mousedown", function (event) {
             clickedOnMob = true;
             selectedMob = null;
             selectedMobKey = null;
+            window.mbwPlayerSelected = true;
             if (typeof toggleMobInfo === 'function') toggleMobInfo(false);
+            if (typeof worldDirty !== 'undefined') worldDirty = true;
         }
 
         if (!clickedOnMob) {
@@ -1090,9 +1093,9 @@ window.addEventListener("mouseup", function (event) {
     if (mbwPlayerDrag) {
         const d = mbwPlayerDrag; mbwPlayerDrag = null;
         if (d.moved && typeof mbwom !== 'undefined' && mbwom.world) {
-            // Soltar: se redondea a 0.5 para que no quede en un decimal raro y se avisa al resto
-            mbwom.world.worldX = Math.round(Number(mbwom.world.worldX) * 2) / 2;
-            mbwom.world.worldY = Math.round(Number(mbwom.world.worldY) * 2) / 2;
+            // Soltar: queda en la posición exacta (con decimales, como en el juego); solo se recortan a 2 decimales para que el número no sea larguísimo
+            mbwom.world.worldX = Math.round(Number(mbwom.world.worldX) * 100) / 100;
+            mbwom.world.worldY = Math.round(Number(mbwom.world.worldY) * 100) / 100;
             if (typeof mbwom.world.worldX === 'number' && typeof worldDirty !== 'undefined') worldDirty = true;
         }
     }

@@ -34,7 +34,7 @@ window.toggleMobNames = function(isHidden) {
 const grid = { width: 60, height: 30 };
 let tileSize = BASE_TILE_SIZE;
 
-window.images = { names: ["blocks", "hotbar", "slot", "nether-bg", "end-bg", "overworld-bg", "zombie", "skeleton", "creeper", "enderman", "nethereye", "enderdragon", "pig", "cow", "cowctus", "mushroom", "chicken", "Player", "slime", "magmacube", "chicken", "blaze", "squid", "ghast", "rabbit", "dog", "sheep", "snowgolem", "wolf", "spider", "snowgolem", "zombiepigman", "bat", "spawnskin", "sun", "moon"] };
+window.images = { names: ["blocks", "hotbar", "slot", "nether-bg", "end-bg", "overworld-bg", "zombie", "skeleton", "creeper", "enderman", "nethereye", "enderdragon", "pig", "cow", "cowctus", "mushroom", "chicken", "Player", "slime", "magmacube", "chicken", "blaze", "squid", "ghast", "rabbit", "dog", "sheep", "snowgolem", "wolf", "spider", "snowgolem", "zombiepigman", "bat", "spawnskin", "sun", "moon", "water", "lava", "acid", "HEALTH", "HUNGER"] };
 
 window.images.names.forEach((name) => {
     window.images[name] = new Image();
@@ -327,6 +327,7 @@ function makeWorldCacheBuilder() {
                 }
             } else {
                 texture = renderer(mbwom.getBlockState(x, y));   // bloques especiales: el camino de siempre
+                if (renderer === window.renderers.liquid) texture = window.rainbowAnim.map(texture);   // agua / lava / ácido: el dibujo animado
             }
             out[y] = texture;
         }
@@ -1146,6 +1147,15 @@ function drawPlayer() {
 
         ctx.strokeStyle = "#FFFFFF";
         ctx.strokeRect(screenX - (playerWidth / 2), screenY - playerHeight, playerWidth, playerHeight);
+    }
+
+    // seleccionado con Move: el mismo recuadro azul que los mobs
+    if (window.mbwPlayerSelected && typeof currentTool !== 'undefined' && currentTool === 'move' && !window.mbwPlaying) {
+        ctx.fillStyle = "rgba(0, 120, 215, 0.3)";
+        ctx.fillRect(screenX - (playerWidth / 2), screenY - playerHeight, playerWidth, playerHeight);
+        ctx.strokeStyle = "#0078D7"; ctx.lineWidth = 2;
+        ctx.strokeRect(screenX - (playerWidth / 2), screenY - playerHeight, playerWidth, playerHeight);
+        ctx.lineWidth = 1;
     }
 
     ctx.fillStyle = "#00FFFF"; 
@@ -2115,7 +2125,8 @@ window.itemTexVariant = function (itemId, damage, extras) {
     return undefined;
 };
 
-window.openPixelArtModal = function() { if (typeof openModal === 'function') openModal('pixelart-addon-modal'); };
+// (los colores suaves / dithering vienen activados por defecto cada vez que se abre la ventana)
+window.openPixelArtModal = function() { const d = document.getElementById('pixelart-dithering'); if (d) d.checked = true; if (typeof openModal === 'function') openModal('pixelart-addon-modal'); };
 const blockPalette = {
     "cloth_white": [225, 225, 225], "cloth_lightgray": [160, 160, 160], "cloth_gray": [85, 85, 85], "cloth_black": [25, 25, 25], "cloth_brown": [85, 55, 30], "cloth_purple": [120, 50, 155], "cloth_magenta": [185, 65, 175], "cloth_red": [165, 45, 45], "cloth_orange": [225, 115, 35], "cloth_pink": [235, 140, 165], "cloth_yellow": [225, 200, 45], "cloth_lightgreen": [115, 185, 25], "cloth_green": [65, 105, 35], "cloth_cyan": [45, 115, 135], "cloth_lightblue": [105, 155, 210], "cloth_blue": [45, 60, 150], "cloth_rainbow": [200, 200, 200],
     "br": [80, 80, 80], "r": [120, 120, 120], "cs": [105, 105, 105], "ms": [95, 115, 80], "ms1": [95, 115, 80], "ms2": [95, 115, 80], "dt": [134, 96, 67], "dt_1": [110, 140, 65], "farm": [102, 70, 46], "myc": [111, 99, 105], "gdt": [119, 85, 58], "cdt": [119, 85, 58], "sb": [218, 210, 158], "sd": [218, 210, 158], "ss": [215, 205, 150], "ssd": [215, 205, 150], "gv": [130, 125, 120], "cy1": [160, 166, 179], "snowblock": [240, 250, 250], "ice": [160, 200, 255], "fice": [160, 200, 255], "fice_1": [160, 200, 255], "fice_2": [160, 200, 255], "fice_3": [160, 200, 255], "fice_4": [160, 200, 255],

@@ -254,7 +254,8 @@ window.blockAnim = (function () {
         if (!window.mbwAnimationsOn || n < 2) return 0;
         return Math.floor(performance.now() / B.ms(name)) % n;
     };
-    B.tileAt = function (mark, forWorld) {
+    B.tileAt = function (mark, forWorld, x, y) {
+        if (mark.an === 'liq') return liqTile(mark, x || 0, y || 0);
         const F = B.frames(mark.an, forWorld !== false);
         if (!F.length) return mark;
         return F[B.index(mark.an, F.length)] || mark;
@@ -264,10 +265,72 @@ window.blockAnim = (function () {
         if (!window.mbwAnimationsOn) return 0;
         let k = 0;
         NAMES.forEach(function (n, i) { k += Math.floor(performance.now() / B.ms(n)) * (i + 1) * 7919; });
+        k += Math.floor(performance.now() / LIQ_MS) * 104729;
         return k;
     };
+
+    // 💧 AGUA, LAVA Y ÁCIDO (también los que van corriendo): como en el juego (renderers/blocks/Q_Liquid.js).
+    // assets/water.png, lava.png y acid.png son de 64×64 = 4×4 cuadros. Cada bloque muestra el pedazo que le toca según su lugar
+    // (columna x % 4, fila según y) y el dibujo baja 1 píxel cada 16 ticks del juego (50 ticks por segundo → cada 320 ms).
+    // La forma del bloque (lleno o con la orilla inclinada) sale del dibujo de siempre de blocks.png: se usa como molde.
+    const LIQ_MS = 320;
+    const LIQ_IMG = { wr: 'water', la: 'lava', ad: 'acid' };
+    const liqLive = new Map();        // dibujo de texturesMap -> señal viva { x, y, an: 'liq', lq, tex }
+    Object.keys(T).forEach(function (k) {
+        const m = /^(wr|la|ad)(_[0-9]+n?)?$/.exec(k);
+        if (m) liqLive.set(T[k], { x: T[k].x, y: T[k].y, an: 'liq', lq: m[1], tex: T[k] });
+    });
+    B.liqLive = liqLive;
+    let liqCache = new Map(), liqTint = {};
+    // El agua de blocks.png es más azul y medio transparente que water.png: se tiñe para que se vea igual que antes, solo que animada
+    function tintFor(lq, spr, blocks, tex) {
+        if (liqTint[lq] !== undefined) return liqTint[lq];
+        let t = null;
+        if (lq === 'wr') {
+            try {
+                const avg = function (img, sx, sy, w, h) {
+                    const c = document.createElement('canvas'); c.width = w; c.height = h;
+                    const g = c.getContext('2d'); g.drawImage(img, sx, sy, w, h, 0, 0, w, h);
+                    const d = g.getImageData(0, 0, w, h).data; let r = 0, gg = 0, b = 0, n = 0;
+                    for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 0) { r += d[i]; gg += d[i + 1]; b += d[i + 2]; n++; }
+                    return n ? [r / n, gg / n, b / n] : null;
+                };
+                const a = avg(spr, 0, 0, 64, 64), full = T.wr || tex, b = avg(blocks, full.x, full.y, 16, 16);
+                if (a && b) t = 'rgb(' + [0, 1, 2].map(i => Math.max(0, Math.min(255, Math.round(255 * b[i] / a[i])))).join(',') + ')';
+            } catch (e) { t = null; }        // (abierto como archivo local: no se puede leer la imagen; se ve sin teñir)
+        }
+        return (liqTint[lq] = t);
+    }
+    function liqTile(mark, x, y) {
+        if (!window.mbwAnimationsOn) return mark.tex;
+        const spr = window.images && window.images[LIQ_IMG[mark.lq]];
+        const blocks = window.images && window.images.blocks;
+        if (!spr || !spr.complete || !(spr.naturalWidth >= 64) || !blocks || !blocks.complete || !blocks.naturalWidth) return mark.tex;
+        const step = Math.floor(performance.now() / LIQ_MS);
+        const u = (((x % 4) + 4) % 4) * 16;
+        const r = (((-16 * y - step) % 64) + 64) % 64;
+        const key = mark.tex.x + ',' + mark.tex.y + '|' + u + '|' + r;
+        let hit = liqCache.get(key);
+        if (hit) return hit;
+        if (liqCache.size > 8000) liqCache = new Map();
+        const c = document.createElement('canvas'); c.width = 16; c.height = 16;
+        const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+        const h1 = Math.min(16, 64 - r);
+        g.drawImage(spr, u, r, 16, h1, 0, 0, 16, h1);
+        if (h1 < 16) g.drawImage(spr, u, 0, 16, 16 - h1, 0, h1, 16, 16 - h1);
+        const tint = tintFor(mark.lq, spr, blocks, mark.tex);
+        if (tint) { g.globalCompositeOperation = 'multiply'; g.fillStyle = tint; g.fillRect(0, 0, 16, 16); }
+        g.globalCompositeOperation = 'destination-in';       // la forma (y transparencia) del dibujo de siempre
+        g.drawImage(blocks, mark.tex.x, mark.tex.y, 16, 16, 0, 0, 16, 16);
+        hit = { x: 0, y: 0, img: c };
+        liqCache.set(key, hit);
+        return hit;
+    }
+    B.resetLiquid = function () { liqCache = new Map(); liqTint = {}; };
     B.map = function (tex) {
         if (!tex) return tex;
+        const lv = liqLive.get(tex);
+        if (lv) return lv;
         const TM = window.texturesMap;
         for (let i = 0; i < NAMES.length; i++) if (tex === TM[NAMES[i]]) return live[NAMES[i]] || tex;
         return tex;
@@ -284,7 +347,7 @@ window.mbwAnimatedTile = function (o, x, y) {
         if (!window.mbwAnimationsOn) { const k = window.rainbowAnim.KIND_OF_LIVE(o); return (k && window.texturesMap[k]) || o; }
         return window.rainbowAnim.tileAt(o, x, y);
     }
-    if (o.an) return window.blockAnim.tileAt(o, true);
+    if (o.an) return window.blockAnim.tileAt(o, true, x, y);
     return o;
 };
 

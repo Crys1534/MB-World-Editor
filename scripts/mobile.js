@@ -204,7 +204,9 @@
         try {
             fire('mousemove', x, y);
             if (typeof findMobAt !== 'function' || typeof mouse === 'undefined') return false;
-            return !!findMobAt(camera.x + mouse.canvasX / tileSize, camera.y + mouse.canvasY / tileSize);
+            const wx = camera.x + mouse.canvasX / tileSize, wy = camera.y + mouse.canvasY / tileSize;
+            // (el Player también se agarra con el dedo, como un mob; si no, el dedo movía el mapa)
+            return !!findMobAt(wx, wy) || (typeof window.mbwPlayerHit === 'function' && window.mbwPlayerHit(wx, wy));
         } catch (e) { return false; }
     }
     function openableUnder(x, y) {
@@ -214,8 +216,48 @@
             return !!bs && (bs.type === 'chest' || bs.type === 'sign' || bs.type === 'oven');
         } catch (e) { return false; }
     }
+    // 🧈 Cámara suave (Configuration > "Smooth camera on touch"): al soltar el dedo después de arrastrar el mapa,
+    // la cámara sigue deslizándose y frena poco a poco, en vez de parar de golpe. Tocar de nuevo la detiene.
+    const INERTIA_KEY = 'mbw_touch_inertia';
+    M.inertiaOn = function () { try { return localStorage.getItem(INERTIA_KEY) !== '0'; } catch (e) { return true; } };
+    window.setTouchInertia = function (on) { try { localStorage.setItem(INERTIA_KEY, on ? '1' : '0'); } catch (e) { /* no se recuerda */ } if (!on) stopFling(); };
+    (function () { const sync = function () { const c = $('touch-inertia-toggle'); if (c) c.checked = M.inertiaOn(); }; if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', sync); else sync(); })();
+    const fl = { raf: 0, vx: 0, vy: 0, t: 0, hist: [] };
+    function stopFling() { if (fl.raf) cancelAnimationFrame(fl.raf); fl.raf = 0; fl.hist = []; }
+    function trackPan() {
+        const now = performance.now();
+        fl.hist.push({ t: now, x: camera.x, y: camera.y });
+        while (fl.hist.length > 2 && now - fl.hist[0].t > 90) fl.hist.shift();
+    }
+    function startFling() {
+        const h = fl.hist; fl.hist = [];
+        if (!M.inertiaOn() || h.length < 2) return;
+        const a = h[0], b = h[h.length - 1], dt = b.t - a.t;
+        if (dt <= 0 || performance.now() - b.t > 80) return;      // el dedo ya estaba quieto: no se desliza
+        fl.vx = (b.x - a.x) / dt; fl.vy = (b.y - a.y) / dt;        // cuadros por milisegundo
+        if (Math.hypot(fl.vx, fl.vy) * tileSize < 0.12) return;     // muy lento (menos de ~0.12 px/ms): nada
+        fl.t = performance.now();
+        fl.fx = camera.x; fl.fy = camera.y;                          // posición "exacta" (sin redondear) mientras se desliza
+        M.stats.flings = (M.stats.flings || 0) + 1;
+        const step = function () {
+            const now = performance.now(), d = Math.min(50, now - fl.t); fl.t = now;
+            fl.fx += fl.vx * d; fl.fy += fl.vy * d;
+            const k = Math.exp(-d / 260);                            // frenado suave
+            fl.vx *= k; fl.vy *= k;
+            let nx = fl.fx, ny = fl.fy;
+            if (!window.smoothScroll) { nx = Math.round(nx); ny = Math.round(ny); }
+            else if (typeof snapSmoothCamera === 'function') { camera.x = nx; camera.y = ny; snapSmoothCamera(); nx = camera.x; ny = camera.y; }
+            camera.x = nx; camera.y = ny; camera._tx = nx; camera._ty = ny; camera.velX = 0; camera.velY = 0;
+            if (typeof worldDirty !== 'undefined') worldDirty = true;
+            if (Math.hypot(fl.vx, fl.vy) * tileSize < 0.02) { fl.raf = 0; return; }
+            fl.raf = requestAnimationFrame(step);
+        };
+        fl.raf = requestAnimationFrame(step);
+    }
+    M.stopFling = stopFling;
     function startPan() {
         clearTimeout(T.timer); clearTimeout(T.longTimer);
+        stopFling();
         T.mode = 'pan';
         const w = worldAt(T.start.x, T.start.y);
         T.pan = { wx: w.wx, wy: w.wy };
@@ -230,6 +272,7 @@
         let nx = g.wx - sx / tileSize, ny = g.wy - cy / tileSize;
         if (!window.smoothScroll) { nx = Math.round(nx); ny = Math.round(ny); }
         if (nx !== camera.x || ny !== camera.y) { camera.x = nx; camera.y = ny; camera._tx = nx; camera._ty = ny; camera.velX = 0; camera.velY = 0; M.stats.pans++; }
+        trackPan();
         if (typeof worldDirty !== 'undefined') worldDirty = true;
     }
     function mid() {
@@ -271,6 +314,7 @@
         if (!canvas) return;
         e.preventDefault();
         closeDrawer();
+        stopFling();
         for (const t of e.changedTouches) T.pts.set(t.identifier, { x: t.clientX, y: t.clientY });
         if (T.pts.size === 1 && (T.mode === null || T.mode === 'done') && !T.releasing) {
             const t = e.changedTouches[0];
@@ -320,7 +364,7 @@
         }
         if (T.pts.size > 0) return;
         const now = performance.now();
-        if (T.mode === 'pan') { T.mode = null; T.pan = null; T.lastTap = null; return; }
+        if (T.mode === 'pan') { T.mode = null; T.pan = null; T.lastTap = null; startFling(); return; }
         if (T.mode === 'pending' && M.pickCb) {          // elegir posición (Command Book): un toque la marca, no pone nada en el mundo
             clearTimeout(T.timer);
             const cb = M.pickCb, p = T.start;

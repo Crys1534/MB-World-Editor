@@ -64,6 +64,10 @@
     }
     let modal = null, editIndex = null, f = {}, sugBox = null, sugItems = [], sugSel = 0, sugRange = null, picking = null;
     const tr = function (k, fb) { try { return (typeof window.tmsg === 'function' && window.tmsg(k, fb)) || fb; } catch (e) { return fb; } };
+    // Celular / tablet: el teclado NO se abre solo al abrir la ventana (solo cuando se toca un cuadro de texto),
+    // y se puede cerrar con el botón ⌨ de arriba, tocando fuera de los cuadros o con "Listo" del teclado.
+    const isTouch = function () { return !!((window.mbwMobile && window.mbwMobile.touch) || document.body.classList.contains('is-touch') || document.body.classList.contains('is-phone')); };
+    const focusCmd = function () { if (!isTouch() && f.cmd) f.cmd.focus(); };
     const el = function (tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
     function load() { try { const a = JSON.parse(localStorage.getItem(KEY)); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
     function save(a) { localStorage.setItem(KEY, JSON.stringify(a)); }
@@ -94,7 +98,11 @@
         f.icon = el('canvas', 'cb-icon'); f.icon.width = 48; f.icon.height = 48;
         f.title = el('div', 'cb-title');
         const x = el('button', 'cb-x', '✕'); x.type = 'button'; x.addEventListener('click', close);
-        head.appendChild(f.icon); head.appendChild(f.title); head.appendChild(x);
+        f.kb = el('button', 'cb-kb'); f.kb.type = 'button'; f.kb.style.display = 'none';
+        f.kb.innerHTML = '⌨<small>▾</small>'; f.kb.title = tr('cb_hide_keyboard', 'Hide keyboard');
+        f.kb.addEventListener('pointerdown', function (e) { e.preventDefault(); });
+        f.kb.addEventListener('click', function () { const a = document.activeElement; if (a && a.blur) a.blur(); f.kb.style.display = 'none'; });
+        head.appendChild(f.icon); head.appendChild(f.title); head.appendChild(f.kb); head.appendChild(x);
         const row = function (labelEl, inputEl) { const r = el('div', 'cb-row'); r.appendChild(labelEl); r.appendChild(inputEl); return r; };
         f.nameL = el('label', 'cb-label'); f.name = el('input', 'cb-input'); f.name.type = 'text'; f.name.maxLength = MAX_NAME;
         f.cmdL = el('label', 'cb-label'); f.cmd = el('input', 'cb-input'); f.cmd.type = 'text'; f.cmd.maxLength = MAX_CMD; f.cmd.spellcheck = false; f.cmd.autocomplete = 'off';
@@ -109,7 +117,19 @@
         btns.appendChild(f.save); btns.appendChild(f.cancel);
         [head, row(f.nameL, f.name), row(f.cmdL, f.cmd), f.usage, f.slots, f.slotHint, row(f.pickL, f.pick), row(f.usesL, f.uses), f.usesH, f.msg, f.cheats, btns].forEach(function (n) { box.appendChild(n); });
         modal.appendChild(box); document.body.appendChild(modal);
-        f.pick.addEventListener('change', function () { const v = f.pick.value; if (v) { f.cmd.value = v; f.pick.value = ''; validate(); f.cmd.focus(); } });
+        f.pick.addEventListener('change', function () { const v = f.pick.value; if (v) { f.cmd.value = v; f.pick.value = ''; validate(); focusCmd(); } });
+        f.cmd.enterKeyHint = 'done'; f.name.enterKeyHint = 'done'; f.uses.enterKeyHint = 'done';
+        [f.name, f.cmd, f.uses].forEach(function (inp) {
+            inp.addEventListener('focus', function () { if (isTouch()) f.kb.style.display = ''; });
+            inp.addEventListener('blur', function () { setTimeout(function () { const a = document.activeElement; if (!a || [f.name, f.cmd, f.uses].indexOf(a) < 0) f.kb.style.display = 'none'; }, 0); });
+            inp.addEventListener('keydown', function (e) { if (e.key === 'Enter' && isTouch()) { e.preventDefault(); e.stopImmediatePropagation(); hideSug(); inp.blur(); } }, true);
+        });
+        // tocar fuera de los cuadros de texto cierra el teclado
+        box.addEventListener('pointerdown', function (e) {
+            if (!isTouch()) return;
+            const t = e.target; if (t && t.closest && t.closest('input,select,textarea,button,.cb-sug')) return;
+            const a = document.activeElement; if (a && a.blur && box.contains(a)) a.blur();
+        });
         f.cmd.addEventListener('input', function () { validate(); suggest(); });
         f.cmd.addEventListener('click', suggest);
         f.cmd.addEventListener('blur', function () { setTimeout(hideSug, 150); });
@@ -297,7 +317,7 @@
             if (touchMode) { cancelAnimationFrame(raf); if (marker) marker.remove(); if (window.mbwMobile) window.mbwMobile.pickCb = null; }
             banner.remove(); document.body.classList.remove('cb-picking'); picking = null;
             // el clic que eligió la posición no debe llegar a las herramientas: se espera a que se suelte
-            setTimeout(function () { modal.style.display = 'flex'; f.cmd.focus(); }, done ? 60 : 0);
+            setTimeout(function () { modal.style.display = 'flex'; focusCmd(); }, done ? 60 : 0);
         }
         down.forEach(function (n) { window.addEventListener(n, swallow, true); });
         window.addEventListener('pointerup', onUp, true);
@@ -332,7 +352,7 @@
         texts();
         modal.style.display = 'flex';
         drawIcon(f.icon);
-        setTimeout(function () { f.cmd.focus(); }, 30);
+        setTimeout(focusCmd, 30);
     }
     function close() { hideSug(); if (picking) picking.stop(false); if (modal) modal.style.display = 'none'; }
     function onSave() {

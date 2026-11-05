@@ -66,6 +66,8 @@
         const liquid = (base, kind) => Object.keys(TM).forEach(k => { if (k === base || new RegExp('^' + base + '_[0-9]+n?$').test(k)) m.set(TM[k], kind); });
         liquid('la', 'lava');
         liquid('ad', 'acid');
+        // agua, lava y ácido animados: en el mundo guardan su señal viva (scripts/rendering.js)
+        if (window.blockAnim && window.blockAnim.liqLive) window.blockAnim.liqLive.forEach(function (mk) { if (mk.lq === 'la') m.set(mk, 'lava'); else if (mk.lq === 'ad') m.set(mk, 'acid'); });
         return m;
     }
     D.lightKindAt = function (x, y) {

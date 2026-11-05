@@ -954,14 +954,14 @@
             if (selType() === 'cbook') { if (rightFresh) useCommandBook(); S.mine = null; return; }      // (una vez por clic)
             const bx = Math.floor(mw.x), by = Math.floor(mw.y);
             if (rightFresh && BOX[fg(bx, by)] && blockDist(bx, by) <= REACH + 1) { openBox(bx, by); return; }   // clic derecho en un cofre / horno: se abre
-            if (S.placeDelay >= 6 && placeBlock(mw)) S.placeDelay = 0;
+            if (S.placeDelay >= 6 && placeBlock(mw)) { S.placeDelay = 0; S.swing = 15; }
             S.mine = null;
             return;
         }
         if (!left) { S.mine = null; return; }
         if (S.placeDelay < 6) return;
         const mid = mobUnderMouse(mw);
-        if (mid) { attackMob(mid); S.placeDelay = 0; S.mine = null; return; }
+        if (mid) { attackMob(mid); S.swing = 15; S.placeDelay = 0; S.mine = null; return; }
         const bx = Math.floor(mw.x), by = Math.floor(mw.y);
         const t = fg(bx, by);
         if (t === 'air' || bd(t, 'liquid') == 1 || (t === 'br' && w.gamemode != 1) || blockDist(bx, by) > REACH + 1) { S.mine = null; return; }
@@ -993,14 +993,25 @@
         if (v[0] === '~') { const r = v.slice(1); const n = r === '' ? 0 : parseFloat(r); if (isNaN(n)) return NaN; return axis === 'y' ? n - w.worldY : n + w.worldX; }
         const n = parseFloat(v); return (String(n) === v || /^-?\d+(\.\d+)?$/.test(v)) ? n : NaN;
     }
+    // Lo que dicen los comandos va al chat (abajo a la izquierda, como en el juego): cada línea se ve 10 segundos;
+    // con el chat abierto se ven las últimas.
     const cmdLog = [];
-    function say(t) { cmdLog.push(t); if (cmdLog.length > 4) cmdLog.shift(); S.msg = cmdLog.join('\n'); S.msgT = 4 * FPS; }
+    function say(t) { cmdLog.push({ t: String(t), at: performance.now() }); if (cmdLog.length > 60) cmdLog.shift(); chat.dirty = true; }
+    window.mbwPlay.chatLog = function () { return cmdLog.map(function (l) { return l.t; }); };
+    // ¿el mundo tiene los comandos activados? (casilla "Commands" de World Settings; en el juego, sin eso ni el chat ni los Command Books hacen nada)
+    function cheatsOn() {
+        const cb = document.getElementById('cheats');
+        if (cb) return !!cb.checked;
+        const c = W().cheats; return c === true || c === 1;
+    }
     function runCommand(raw) {
         const w = W();
         let c = String(raw || '').trim();
         if (c[0] === '/' || c[0] === '\\') c = c.slice(1);
         const d = c.toLowerCase().split(/\s+/).filter(Boolean);
         if (!d.length) return;
+        if (d[0] === 'cls') { cmdLog.length = 0; chat.dirty = true; return; }
+        if (!cheatsOn()) { say('[INFO] ' + tr('play_cheats_off', 'Commands are disabled in this world. Turn on "Commands" in World Settings (the game would not run them either).')); return; }
         const fb = gameRule('sendcommandfeedback') !== false;
         const info = (t) => { if (fb) say('[INFO] ' + t); };
         switch (d[0]) {
@@ -1287,21 +1298,32 @@
             el.id = 'mbw-play-hud';
             el.innerHTML =
                 '<div class="ph-top"><button type="button" class="ph-stop">■ <span></span></button><div class="ph-msg"></div></div>' +
-                '<div class="ph-bars"><div class="ph-hearts"></div><div class="ph-food"></div><div class="ph-air"></div></div>' +
+                '<button type="button" class="ph-chat-btn">💬</button>' +
+                '<div class="ph-bars"><div class="ph-hearts"></div><div class="ph-right"><div class="ph-air"></div><div class="ph-food"></div></div></div>' +
                 '<div class="ph-hotbar"></div>' +
                 '<button type="button" class="ph-inv">🎒</button>' +
                 '<button type="button" class="ph-open" style="display:none"></button>' +
-                '<div class="ph-pad"><button type="button" data-k="left">◀</button><button type="button" data-k="right">▶</button></div>' +
+                '<div class="ph-joy"><div class="ph-knob"></div></div>' +
                 '<div class="ph-pad2"><button type="button" data-k="down" class="ph-sneak">⇩</button><button type="button" data-k="up" class="ph-jump">⇧</button><button type="button" class="ph-mode">⛏</button></div>';
             document.body.appendChild(el);
             el.querySelector('.ph-stop').addEventListener('click', function (e) { e.stopPropagation(); stopPlay(); });
+            joystick(el.querySelector('.ph-joy'));
             el.querySelectorAll('[data-k]').forEach(function (b) {
                 const k = b.getAttribute('data-k');
-                const on = function (e) { e.preventDefault(); e.stopPropagation(); S.keys[k] = true; b.classList.add('on'); };
+                const on = function (e) {
+                    e.preventDefault(); e.stopPropagation(); S.keys[k] = true; b.classList.add('on');
+                    if (k === 'up') {                                     // tocar 2 veces rápido el botón de saltar: volar (creativo)
+                        const now = performance.now(), w = W();
+                        if (now - (S.dbl.touchUp || 0) < 320 && w.gamemode == 1) { w.fly = !w.fly; flashMsg(w.fly ? tr('play_fly_on', 'Flying') : tr('play_fly_off', 'Not flying')); S.dbl.touchUp = 0; }
+                        else S.dbl.touchUp = now;
+                    }
+                };
                 const off = function (e) { e.preventDefault(); e.stopPropagation(); S.keys[k] = false; b.classList.remove('on'); };
                 b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('pointerleave', off);
             });
             el.querySelector('.ph-inv').addEventListener('click', function (e) { e.stopPropagation(); toggleInv(); });
+            chat.build(el);
+            el.querySelector('.ph-chat-btn').addEventListener('click', function (e) { e.stopPropagation(); if (chat.open) chat.close(); else chat.show(''); });
             el.querySelector('.ph-open').addEventListener('click', function (e) { e.stopPropagation(); if (S.box) openBox(S.box.x, S.box.y); });
             const mb = el.querySelector('.ph-mode');
             mb.addEventListener('click', function (e) { e.stopPropagation(); S.touchMode = S.touchMode === 'mine' ? 'place' : 'mine'; hud.dirty = true; });
@@ -1311,24 +1333,28 @@
             });
             this.texts();
         },
-        texts: function () { if (!this.el) return; this.el.querySelector('.ph-stop span').textContent = tr('play_stop', 'Stop'); this.el.querySelector('.ph-stop').title = tr('play_stop_tip', 'Stop playing (Esc): everything goes back to how it was'); },
+        texts: function () { if (!this.el) return; chat.texts(); this.el.querySelector('.ph-chat-btn').title = tr('play_chat_tip', 'Chat / commands (T)'); this.el.querySelector('.ph-stop span').textContent = tr('play_stop', 'Stop'); this.el.querySelector('.ph-stop').title = tr('play_stop_tip', 'Stop playing (Esc): everything goes back to how it was'); },
         update: function () {
             if (!this.el) return;
             const w = W();
             const msg = this.el.querySelector('.ph-msg');
             const mtxt = S.msgT > 0 ? S.msg : '';
             if (msg.textContent !== mtxt) msg.textContent = mtxt;
+            chat.render();
             if (!this.dirty) return;
             this.dirty = false;
             const surv = w.gamemode != 1 && w.gamemode != 3;
             let h = '';
+            // vida (assets/HEALTH.png) a la izquierda y hambre (assets/HUNGER.png) a la derecha, como en Minecraft;
+            // el hambre se vacía de izquierda a derecha (la de más a la derecha es la última en vaciarse)
+            const icon = function (st) { return '<i class="' + st + '"><u></u></i>'; };
             if (surv) {
                 const hp = Math.max(0, w.health | 0);
-                for (let i = 0; i < 10; i++) h += '<i class="' + (hp >= (i + 1) * 2 ? 'f' : hp === i * 2 + 1 ? 'h' : 'e') + '">♥</i>';
+                for (let i = 0; i < 10; i++) h += icon(hp >= (i + 1) * 2 ? 'f' : hp === i * 2 + 1 ? 'h' : 'e');
             }
             this.el.querySelector('.ph-hearts').innerHTML = h;
             let fd = '';
-            if (surv) { const f = Math.max(0, (w.food | 0) / 100); for (let i = 0; i < 10; i++) fd += '<i class="' + (f >= i + 1 ? 'f' : f > i ? 'h' : 'e') + '">🍗</i>'; }
+            if (surv) { const f = Math.max(0, (w.food | 0) / 50); for (let i = 9; i >= 0; i--) fd += icon(f >= (i + 1) * 2 ? 'f' : f >= i * 2 + 1 ? 'h' : 'e'); }
             this.el.querySelector('.ph-food').innerHTML = fd;
             let ai = '';
             if (surv && w.air < 11) for (let i = 0; i < 10; i++) ai += '<i class="' + (w.air > i ? 'f' : 'e') + '">●</i>';
@@ -1357,9 +1383,100 @@
             this.el.querySelector('.ph-mode').textContent = S.touchMode === 'mine' ? '⛏' : '🧱';
             this.el.querySelector('.ph-mode').title = S.touchMode === 'mine' ? tr('play_mode_mine', 'Tap = break / hit') : tr('play_mode_place', 'Tap = place / use');
         },
-        destroy: function () { if (this.el) this.el.remove(); this.el = null; }
+        destroy: function () { if (chat.open) chat.close(); chat.el = null; chat.input = null; if (this.el) this.el.remove(); this.el = null; }
     };
     function flashMsg(t) { S.msg = t; S.msgT = 2 * FPS; }
+    // 💬 Chat / consola de comandos del mundo (T, Enter o / para abrirlo; en el celular, el botón 💬).
+    // Se escribe un comando del juego (con o sin "/"): tp, give, gamemode, time, weather, clone, fill, summon... y Enter.
+    // ↑ / ↓ recuerdan lo último que se escribió.
+    const chat = {
+        open: false, dirty: true, hist: [], hi: -1, el: null,
+        build: function (root) {
+            const el = this.el = document.createElement('div');
+            el.className = 'ph-chat';
+            el.innerHTML = '<div class="ph-chat-log"></div><form class="ph-chat-form" autocomplete="off"><input class="ph-chat-in" type="text" maxlength="200" spellcheck="false" autocapitalize="off" autocorrect="off" enterkeyhint="send"><button type="submit" class="ph-chat-send">➤</button><button type="button" class="ph-chat-x">✕</button></form>';
+            root.appendChild(el);
+            const inp = this.input = el.querySelector('.ph-chat-in');
+            el.querySelector('.ph-chat-form').addEventListener('submit', function (e) { e.preventDefault(); chat.send(); });
+            el.querySelector('.ph-chat-x').addEventListener('click', function (e) { e.stopPropagation(); chat.close(); });
+            inp.addEventListener('keydown', function (e) {
+                e.stopPropagation();
+                if (e.key === 'Escape') { e.preventDefault(); chat.close(); }
+                else if (e.key === 'ArrowUp' && chat.hist.length) { e.preventDefault(); chat.hi = Math.max(0, (chat.hi < 0 ? chat.hist.length : chat.hi) - 1); inp.value = chat.hist[chat.hi]; }
+                else if (e.key === 'ArrowDown' && chat.hi >= 0) { e.preventDefault(); chat.hi++; if (chat.hi >= chat.hist.length) { chat.hi = -1; inp.value = ''; } else inp.value = chat.hist[chat.hi]; }
+            });
+            inp.addEventListener('keyup', function (e) { e.stopPropagation(); });
+            el.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+            this.texts();
+        },
+        texts: function () { if (!this.input) return; this.input.placeholder = tr('play_chat_ph', 'Type a command (tp, give, gamemode, time...) and press Enter'); },
+        show: function (prefix) {
+            if (!this.el) return;
+            this.open = true; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mine = null;
+            if (S.joyReset) S.joyReset();
+            this.el.classList.add('open'); this.input.value = prefix || ''; this.hi = -1; this.dirty = true;
+            const inp = this.input;
+            setTimeout(function () { inp.focus(); try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch (e) { /* nada */ } }, 0);
+        },
+        close: function () { if (!this.el) return; this.open = false; this.el.classList.remove('open'); this.input.blur(); this.dirty = true; },
+        send: function () {
+            const t = this.input.value.trim();
+            this.input.value = '';
+            if (t) {
+                if (this.hist[this.hist.length - 1] !== t) this.hist.push(t);
+                if (this.hist.length > 30) this.hist.shift();
+                say('> ' + t);
+                try { runCommand(t); } catch (e) { say('[INFO] Error: ' + e.message); }
+                hud.dirty = true;
+            }
+            this.close();
+        },
+        render: function () {
+            if (!this.el) return;
+            const now = performance.now();
+            const lines = this.open ? cmdLog.slice(-12) : cmdLog.filter(function (l) { return now - l.at < 10000; }).slice(-6);
+            const key = (this.open ? 'o' : 'c') + lines.map(function (l) { return l.t + (now - l.at > 9000 && !chat.open ? '~' : ''); }).join('\n');
+            if (key === this.last && !this.dirty) return;
+            this.last = key; this.dirty = false;
+            const log = this.el.querySelector('.ph-chat-log');
+            log.innerHTML = '';
+            lines.forEach(function (l) {
+                const d = document.createElement('div');
+                d.textContent = l.t;
+                if (!chat.open && now - l.at > 9000) d.className = 'fade';
+                if (/^> /.test(l.t)) d.classList.add('me');
+                log.appendChild(d);
+            });
+        }
+    };
+    window.mbwPlay.chat = chat;
+    // 🕹️ Joystick (celular): un círculo; el punto del centro se arrastra con el dedo.
+    // A los lados = caminar; hasta la orilla = correr; arriba = saltar (o subir volando); abajo = agacharse (o bajar volando).
+    function joystick(base) {
+        if (!base) return;
+        const knob = base.querySelector('.ph-knob');
+        let id = null, edge = 0;
+        const set = function (dx, dy) {
+            const d = Math.hypot(dx, dy), m = Math.min(1, d);
+            const nx = d > 0 ? dx / d * m : 0, ny = d > 0 ? dy / d * m : 0;
+            knob.style.transform = 'translate(' + (nx * 38) + 'px,' + (ny * 38) + 'px)';
+            S.keys.left = nx < -0.3; S.keys.right = nx > 0.3;
+            S.keys.up = ny < -0.6; S.keys.down = ny > 0.65;
+            const run = Math.abs(nx) > 0.88 ? (nx > 0 ? 1 : -1) : 0;
+            if (run !== edge) {                                           // llegar a la orilla = empezar a correr (como el doble toque)
+                const w = W();
+                if (run && S.p && w.food > 300 && !S.keys.down) { if (run > 0) S.p.rightSprinting = 1; else S.p.leftSprinting = 1; }
+                edge = run;
+            }
+            base.classList.toggle('run', !!run && !!S.p && (S.p.leftSprinting > 0 || S.p.rightSprinting > 0));
+        };
+        const at = function (e) { const r = base.getBoundingClientRect(); return { dx: (e.clientX - (r.left + r.width / 2)) / (r.width / 2), dy: (e.clientY - (r.top + r.height / 2)) / (r.height / 2) }; };
+        base.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); id = e.pointerId; try { base.setPointerCapture(id); } catch (er) { /* nada */ } const p = at(e); set(p.dx, p.dy); base.classList.add('on'); });
+        base.addEventListener('pointermove', function (e) { if (e.pointerId !== id) return; e.preventDefault(); e.stopPropagation(); const p = at(e); set(p.dx, p.dy); });
+        const end = function (e) { if (e.pointerId !== id) return; e.preventDefault(); e.stopPropagation(); id = null; edge = 0; set(0, 0); S.keys.left = S.keys.right = S.keys.up = S.keys.down = false; base.classList.remove('on', 'run'); };
+        base.addEventListener('pointerup', end); base.addEventListener('pointercancel', end);
+        S.joyReset = function () { id = null; edge = 0; knob.style.transform = ''; base.classList.remove('on', 'run'); };
+    }
 
     // ------------------------------------------------------------------ teclado / mouse / dedos (mientras se juega, el editor no los recibe)
     const KEYMAP = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'up', KeyW: 'up', Space: 'up', ArrowDown: 'down', KeyS: 'down', ShiftLeft: 'down' };
@@ -1378,6 +1495,7 @@
         }
         if (e.code === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); stopPlay(); return; }
         if (e.code === 'KeyE') { e.preventDefault(); e.stopImmediatePropagation(); toggleInv(); return; }
+        if (e.code === 'KeyT' || e.code === 'Enter' || e.code === 'NumpadEnter' || e.key === '/') { e.preventDefault(); e.stopImmediatePropagation(); chat.show(e.key === '/' ? '/' : ''); return; }
         const k = KEYMAP[e.code];
         const w = W();
         if (k) {
@@ -1424,7 +1542,8 @@
         e.preventDefault(); e.stopImmediatePropagation();
         if (e.type === 'pointerdown') {
             S.mouse.x = e.clientX; S.mouse.y = e.clientY; S.mouse.inside = true;
-            const right = e.button === 2 || (e.pointerType === 'touch' && S.touchMode === 'place');
+            // (en el celular, tocar con un Command Book en la mano lo usa, sin importar si está en ⛏ o 🧱)
+            const right = e.button === 2 || (e.pointerType === 'touch' && (S.touchMode === 'place' || selType() === 'cbook'));
             // dos toques / dos clics rápidos sobre un cofre o un horno: se abre
             if (!right || e.pointerType === 'touch') {
                 const mw = mouseWorld(), bx = Math.floor(mw.x), by = Math.floor(mw.y), now = performance.now();
@@ -1594,13 +1713,68 @@
         nw.__play = true;
         window.enviarMensajeEnRed = nw;
     }
+    // 🧔 Frank (assets/mobs/Frank.png): el Player animado mientras se juega. 17 cuadros de 16×22:
+    // 0 quieto · 1-5 caminar · 6-7 agachado · 8 saltar / en el aire · 9-13 picar / golpear · 14 lastimado · 15 sentado · 16 vagoneta.
+    // El dibujo mira a la izquierda; hacia la derecha se voltea.
+    const frank = new Image();
+    frank.src = 'assets/mobs/Frank.png';
+    window.mbwPlay.frank = frank;
+    const FR = { idle: [0], walk: [1, 2, 3, 4, 5], sneak: [6, 7], jump: [8], mine: [9, 10, 11, 12, 13], hurt: [14], sit: [15], cart: [16] };
+    function frankFrame() {
+        const w = W(), P = S.p;
+        if (!P) return { a: 'idle', f: 0 };
+        const ax = Number(w.worldX), last = P.animX === undefined ? ax : P.animX;
+        P.animX = ax;
+        P.walkDist = (P.walkDist || 0) + Math.abs(ax - last);
+        const moving = Math.abs(ax - last) > 0.002 || P.keysX;
+        let a = 'idle';
+        if (P.hurt > 0) a = 'hurt';
+        else if ((S.swing || 0) > 0 || S.mine) a = 'mine';
+        else if (P.falling && !w.fly && !P.inWater) a = 'jump';
+        else if (P.sneaking) a = 'sneak';
+        else if (moving) a = 'walk';
+        const L = FR[a];
+        let i = 0;
+        if (a === 'walk') i = Math.floor(P.walkDist / 0.32) % L.length;
+        else if (a === 'sneak') i = moving ? Math.floor(P.walkDist / 0.3) % L.length : 0;
+        else if (a === 'mine') i = Math.floor(S.tick / 3) % L.length;
+        return { a: a, f: L[i] };
+    }
+    function drawFrank() {
+        if (!(frank.complete && frank.naturalWidth >= 272)) return false;
+        const w = W();
+        if (!w || w.worldX === undefined) return false;
+        if ((w.scene || 1) !== (mbwom.currentScene || 1)) return true;
+        if (w.dead > 0) return true;                                   // muerto: no se dibuja
+        const c2 = window.ctx || (typeof ctx !== 'undefined' ? ctx : null);
+        if (!c2) return false;
+        const sx = (Number(w.worldX) - camera.x) * tileSize, sy = canvas.height - (-Number(w.worldY) - camera.y) * tileSize;
+        const pw = tileSize * 16 / 11, ph = tileSize * 2;           // (16×22 píxeles: 2 cuadros de alto, como el Player del editor)
+        const fr = frankFrame();
+        S.frankAnim = fr.a;
+        c2.save();
+        c2.imageSmoothingEnabled = false;
+        c2.translate(sx, sy);
+        if (S.p && S.p.xScale < 0) c2.scale(-1, 1);
+        if (S.p && S.p.hurt > 0) c2.globalAlpha = 0.85;
+        c2.drawImage(frank, fr.f * 16, 0, 16, 22, -pw / 2, -ph, pw, ph);
+        c2.globalAlpha = 1;
+        try {
+            const pArmor = window.mbwPlayerArmorMob && window.mbwPlayerArmorMob();
+            if (pArmor && typeof drawMobArmorOverlay === 'function') drawMobArmorOverlay(c2, pArmor, -pw / 2, -ph, pw, ph);
+        } catch (e) { /* nada */ }
+        c2.restore();
+        if (S.swing > 0) S.swing--;
+        return true;
+    }
+
     // dibujar encima: se envuelve drawPlayer (el editor lo llama en cada cuadro, después de los mobs)
     function wrapDraw() {
         if (typeof window.drawPlayer !== 'function' || window.drawPlayer.__play) return;
         const o = window.drawPlayer;
         const nw = function () {
             if (S.playing) {
-                o.apply(this, arguments);
+                if (!drawFrank()) o.apply(this, arguments);
                 drawExtras();
                 return;
             }

@@ -677,6 +677,8 @@
   const hb = $('modal-hotbar-container');                          // la hotbar del editor no pinta nada aquí
   if (hb) hb.style.display = 'none';
   document.body.classList.toggle('pinv-furnace-open', !!st.furnace);
+  document.body.classList.toggle('pinv-chest-open', !!st.chest);
+  document.body.classList.add('pinv-open');
   const panel = $('player-inv-panel');
   if (panel) panel.style.display = 'block';
   const top = m.querySelector('.pinv-top');                       // armadura + papelera: no se muestran al editar un cofre
@@ -700,7 +702,7 @@
   if (content) content.style.height = '';
   if (left) left.style.display = '';
   if (wrap) { wrap.style.height = ''; wrap.style.flex = ''; wrap.style.minHeight = ''; }
-  document.body.classList.remove('pinv-furnace-open');
+  document.body.classList.remove('pinv-furnace-open', 'pinv-chest-open', 'pinv-open');
   const panel = $('player-inv-panel');
   if (panel) panel.style.display = 'none';
   const search = $('inventory-search');
