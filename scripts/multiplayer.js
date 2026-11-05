@@ -985,7 +985,7 @@ function recibirMensajeDeRed(datos) {
     }
 
     if (datos.tipo === "chat") { 
-    if (typeof audioManager !== 'undefined') audioManager.playTone(800, 'sine', 0.1, 0.2); 
+    if (window.mbSfx) window.mbSfx.notif('scavengerChat'); else if (typeof audioManager !== 'undefined') audioManager.playTone(800, 'sine', 0.1, 0.2); 
     if (typeof window.agregarMensajeChatPublico === 'function') window.agregarMensajeChatPublico(datos.autor, datos.texto);
 }
     if (datos.tipo === "sync_mundo") {
@@ -1075,7 +1075,7 @@ function recibirMensajeDeRed(datos) {
                 if (typeof showDesktopNotification === 'function') {
                     showDesktopNotification("👁️ Spectator Mode", datos.spectatorName + " is now spectating you.", "assets/default pfp.png");
                 }
-                if (typeof audioManager !== 'undefined') audioManager.playTone(600, 'sine', 0.1, 0.2); // Sonidito opcional
+                if (window.mbSfx) window.mbSfx.notif('scavengerOtherFindItem'); else if (typeof audioManager !== 'undefined') audioManager.playTone(600, 'sine', 0.1, 0.2); // Sonidito opcional
             } else {
                 // Alguien dejó de vernos
                 window.mySpectators.delete(datos.spectatorName);
@@ -1754,7 +1754,7 @@ window.startFriendListeners = function() {
         if (isInitialLoad) return; 
         if (window.isBlocked(snapshot.key)) return;
         const inv = snapshot.val();
-        if (typeof audioManager !== 'undefined') audioManager.playTone(800, 'sine', 0.1, 0.3); 
+        if (window.mbSfx) window.mbSfx.notif('scavengerOtherFindItem'); else if (typeof audioManager !== 'undefined') audioManager.playTone(800, 'sine', 0.1, 0.3); 
         showDesktopNotification("🎮 " + inv.hostName + " invited you", "Map: " + inv.mapName, inv.hostPfp, () => {
             if (typeof openFileMenu === 'function') openFileMenu('multiplayer');
             setTimeout(() => { openMpSidebar('invites'); }, 100);
@@ -1790,7 +1790,7 @@ window.startFriendListeners = function() {
         if (window.isChatMuted && window.isChatMuted(snapshot.key)) return;
 
         if (chat.unreadCount && chat.unreadCount > 0 && !isLookingAtThisChat) {
-            if (typeof audioManager !== 'undefined') audioManager.playTone(600, 'sine', 0.1, 0.2);
+            if (window.mbSfx) window.mbSfx.notif('scavengerChat'); else if (typeof audioManager !== 'undefined') audioManager.playTone(600, 'sine', 0.1, 0.2);
             // Al tocar el aviso: el mini chat flotante (o el chat grande si el menú Multiplayer ya está abierto)
             const openThisChat = () => { openChatSmart(snapshot.key, info.name, info.pfp); };
             // Globito con foto + nombre + un pedacito del mensaje (se va solo a los 6 s); la burbuja redonda con el contador se queda aparte.
@@ -1810,7 +1810,7 @@ window.startFriendListeners = function() {
         if (window.isBlocked(snapshot.key)) return;
         const req = snapshot.val();
         if (req.status) return; 
-        if (typeof audioManager !== 'undefined') audioManager.playTone(800, 'sine', 0.1, 0.3);
+        if (window.mbSfx) window.mbSfx.notif('scavengerOtherFindItem'); else if (typeof audioManager !== 'undefined') audioManager.playTone(800, 'sine', 0.1, 0.3);
         showDesktopNotification("👥 Friend Request", req.username + " added you.", req.pfp, () => {
             if (typeof openFileMenu === 'function') openFileMenu('multiplayer');
             setTimeout(() => { openMpSidebar('friends'); }, 100);

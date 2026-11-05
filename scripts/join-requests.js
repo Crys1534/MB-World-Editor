@@ -159,7 +159,7 @@
         box.appendChild(av); box.appendChild(tx); box.appendChild(btns);
         stack.appendChild(box);
         st.pops[fromUid] = { el: box, timer: setTimeout(() => closePop(fromUid), TTL) };
-        if (typeof audioManager !== 'undefined' && audioManager.playTone) { try { audioManager.playTone(660, 'sine', 0.12, 0.25); } catch (e) { /* sin sonido */ } }
+        if (window.mbSfx) window.mbSfx.notif('scavengerOtherFindItem'); else if (typeof audioManager !== 'undefined' && audioManager.playTone) { try { audioManager.playTone(660, 'sine', 0.12, 0.25); } catch (e) { /* sin sonido */ } }
     }
     function closePop(uid) {
         const p = st.pops[uid];

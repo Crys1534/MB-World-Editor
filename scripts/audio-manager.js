@@ -70,6 +70,8 @@ const audioManager = {
 // ✨ NUEVO: FUNCIÓN PARA REPRODUCIR SONIDOS DE MOBS (MP3) ✨
 playMobSound: function(mobName) {
     if (!this.enabled) return;
+    // 🔊 Primero los sonidos del juego (scripts/game-sfx.js): el de "idle" del mob (o el de "hurt" si no tiene)
+    if (window.mbSfx && window.mbSfx.mob(mobName, 'any')) return;
 
     let finalFileName = mobName;
 
@@ -112,6 +114,7 @@ playMobSound: function(mobName) {
             case 'paint': this.playTone(400 + Math.random()*100, 'sine', 0.1, 0.3); break;
             case 'teleport': this.playTone(200, 'sawtooth', 0.4, 0.5, 1000); break;
             case 'trash':
+                if (window.mbSfx && window.mbSfx.ui('pop')) break;     // (el "pop" del juego)
                 this.playNoise(0.05, 0.8);
                 setTimeout(() => this.playNoise(0.08, 0.6), 60);
                 setTimeout(() => this.playNoise(0.12, 0.4), 140);
@@ -156,11 +159,12 @@ window.addEventListener('DOMContentLoaded', () => {
                 oldType = String(oldType);
                 newType = String(newType);
 
-                if (oldType !== newType) {
+                // (en el Modo Jugar los sonidos los pone scripts/play-mode.js: aquí sonarían también el agua que corre, la arena que cae...)
+                if (oldType !== newType && !window.mbwPlaying) {
                     if (newType !== 'air') {
-                        playBlockSound(newType);
+                        playBlockSound(newType, 'place');
                     } else if (oldType !== 'air') {
-                        playBlockSound(oldType);
+                        playBlockSound(oldType, 'break');
                     }
                 }
                 
@@ -173,7 +177,7 @@ window.addEventListener('DOMContentLoaded', () => {
 // ✨ NUEVO: Variable para controlar el ritmo de los sonidos
 window.lastBlockSoundTime = 0;
 
-window.playBlockSound = function(blockType) {
+window.playBlockSound = function(blockType, kind) {
     if (!blockType) return;
 
     // ✨ ANTI-CACOFONÍA: Evitamos que suenen decenas de bloques en el mismo clic.
@@ -181,7 +185,10 @@ window.playBlockSound = function(blockType) {
     // pero permite que suene como ráfaga si arrastras el ratón.
     let now = Date.now();
     if (now - window.lastBlockSoundTime < 40) return; 
-    window.lastBlockSoundTime = now;
+ window.lastBlockSoundTime = now;
+    // 🔊 El sonido que usa el juego para ese bloque (piedra, pasto, madera, "smush"; vidrio al romperlo). Los bloques
+    // que en el juego no suenan (agua, TNT...) usan el sonido de siempre del editor.
+    if (window.mbSfx && window.mbSfx.block(blockType, kind || 'place', undefined, undefined, 0.8)) return;
     
     let soundType = null;
     let typeStr = String(blockType).toLowerCase();
@@ -232,7 +239,8 @@ window.addEventListener('DOMContentLoaded', () => {
             new Audio('assets/sfx/orb1.mp3'),
             new Audio('assets/sfx/orb2.mp3'),
             new Audio('assets/sfx/orb3.mp3'),
-            new Audio('assets/sfx/orb4.mp3')
+            new Audio('assets/sfx/orb4.mp3'),
+            new Audio('assets/sfx/misc/orb5.mp3')
         ];
         const levelUpSound = new Audio('assets/sfx/levelup.mp3');
 
@@ -241,7 +249,11 @@ window.addEventListener('DOMContentLoaded', () => {
         xpInput.addEventListener('input', (e) => {
             const currentXp = parseInt(e.target.value) || 0;
 
-            if (currentXp > previousXp) {
+            if (currentXp > previousXp && window.mbSfx) {
+                // 🔊 con los sonidos del juego (y el volumen de Configuration > Sound)
+                const lvUp = Math.floor(currentXp / 100) > Math.floor(previousXp / 100);
+                window.mbSfx.play(lvUp ? 'levelup' : 'orb' + ((Math.random() * 5 | 0) + 1));
+            } else if (currentXp > previousXp) {
                 const vol = (typeof window.masterVolume !== 'undefined') ? window.masterVolume : 1.0;
                 const crossedDecade = Math.floor(currentXp / 10) > Math.floor(previousXp / 10);
 
@@ -279,6 +291,7 @@ window.addEventListener('DOMContentLoaded', () => {
     
     arrowButtons.forEach(btn => {
         btn.addEventListener('click', () => {
+            if (window.mbSfx) return;          // (ya suena el "hit" del juego en todos los botones: scripts/game-sfx.js)
             // Reiniciamos el sonido por si el usuario hace clic muy rápido
             uiClickSound.currentTime = 0; 
             
@@ -291,19 +304,20 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-window.audioSettings = { master: 100, sfx: 100, ui: 100, notif: 100 };
+window.audioSettings = { master: 100, sfx: 100, ui: 100, notif: 100, music: 70 };
 
 window.updateAudioChannel = function(channel, value) {
     window.audioSettings[channel] = parseInt(value);
     document.getElementById(`vol-${channel}-display`).innerText = value + '%';
     localStorage.setItem('mbw_audio_' + channel, value);
+    if (window.mbSfx && window.mbSfx.refresh) window.mbSfx.refresh();     // lo que ya suena (música, lluvia...) cambia al momento
     // Aquí puedes disparar una lógica extra si necesitas actualizar el audio en tiempo real
     console.log(`Canal ${channel} ajustado a ${value}`);
 };
 
 // Cargar al iniciar
 window.addEventListener('DOMContentLoaded', () => {
-    ['master', 'sfx', 'ui', 'notif'].forEach(ch => {
+    ['master', 'sfx', 'ui', 'notif', 'music'].forEach(ch => {
         let saved = localStorage.getItem('mbw_audio_' + ch);
         if (saved !== null) {
             window.audioSettings[ch] = parseInt(saved);

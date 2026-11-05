@@ -374,7 +374,7 @@
         <div id="help-dropdown" class="dropdown-content">
             <a href="#" onclick="openModal('settings-modal'); closeHelpMenu();"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-gear"></use></svg> <span data-i18n="menu_configuration">Configuration</span></a>
             <a href="https://discord.gg/GHJutHJ" target="_blank" onclick="closeHelpMenu();">👾 <span data-i18n="menu_join_discord">Join our community!</span></a>
-            <a href="#" onclick="openModal('about-modal'); closeHelpMenu();">ℹ️ <span data-i18n="menu_about">About...</span></a>
+            <a href="#" onclick="openModal('about-modal'); closeHelpMenu(); if (window.mbSfx) mbSfx.ui('zanzlanzSplash', .7);">ℹ️ <span data-i18n="menu_about">About...</span></a>
         </div>
     </div>
    
@@ -1150,6 +1150,24 @@
         <span id="vol-notif-display">100%</span>
     </label>
     <input type="range" min="0" max="100" value="100" oninput="updateAudioChannel('notif', this.value)">
+
+    <!-- 🔊 Sonidos del juego (scripts/game-sfx.js) -->
+    <label style="display: flex; justify-content: space-between; font-weight: bold; margin-top: 10px;">
+        <span data-i18n="config_vol_music">Music</span>
+        <span id="vol-music-display">70%</span>
+    </label>
+    <input type="range" min="0" max="100" value="70" oninput="updateAudioChannel('music', this.value)">
+
+    <label style="display: flex; align-items: center; gap: 8px; font-weight: bold; margin-top: 16px; cursor: pointer;">
+        <input type="checkbox" id="sfx-clicks-toggle" checked onchange="mbSfx.setClicks(this.checked)" style="margin: 0; cursor: pointer;">
+        <span data-i18n="config_sfx_clicks">Button sounds</span>
+    </label>
+    <small data-i18n="config_sfx_clicks_hint" style="display: block; margin-top: 4px; margin-left: 24px; color: #444;">The click of the game's menus when you press a button.</small>
+    <label style="display: flex; align-items: center; gap: 8px; font-weight: bold; margin-top: 12px; cursor: pointer;">
+        <input type="checkbox" id="sfx-editor-amb-toggle" onchange="mbSfx.setEditorAmbience(this.checked)" style="margin: 0; cursor: pointer;">
+        <span data-i18n="config_sfx_editor_amb">Music and ambience while editing</span>
+    </label>
+    <small data-i18n="config_sfx_editor_amb_hint" style="display: block; margin-top: 4px; margin-left: 24px; color: #444;">The game's menu music, the rain and the sound of the Nether and the End also play while you edit (in Play mode they always play).</small>
 	</div>
 
                 <div id="set-tab-controls" class="settings-pane">
@@ -1760,7 +1778,7 @@
             
             <div style="position: absolute; bottom: 10px; left: 15px; font-size: 11px; color: gray; font-family: monospace;">
                 <span data-i18n="about_last_update">Last Update:</span> Nov 5, 2026<br>
-                v2.6 - Snapshot 33
+                v2.6 - Snapshot 34
             </div>
             <div style="position: absolute; bottom: 10px; right: 15px; font-size: 12px; color: gray; font-weight: bold;">
                 2026
@@ -1832,6 +1850,8 @@
  <script src="scripts/darkness.js"></script> <!-- 🌑 oscuridad bajo tierra, auras de luz y franja de biomas -->
  <script src="scripts/far-view.js"></script> <!-- 🔭 vista de lejos (zoom 3 % a 10 %): el mundo desde un mapa de 1 píxel por bloque, sin trabarse -->
  <script src="scripts/anim-editor.js"></script> <!-- 🎞️ editor secreto de animaciones (Ctrl + Shift + Alt + A) -->
+ <script src="scripts/game-sfx-data.js"></script> <!-- 🔊 qué archivo es cada sonido del juego, los de cada mob y cada bloque -->
+ <script src="scripts/game-sfx.js"></script> <!-- 🔊 los sonidos del juego: distancia, volúmenes, música y ambiente -->
  <script src="scripts/audio-manager.js"></script>
  <script src="scripts/file-menu.js"></script>
  <script src="scripts/commands.js"></script>

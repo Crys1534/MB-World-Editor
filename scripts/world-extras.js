@@ -676,7 +676,8 @@
         window.mbwSetVehicleState(kind, scn, id, d);
         recordVeh(kind, scn, id, null, d);
         vsel = null;
-        if (typeof audioManager !== 'undefined' && audioManager.playTone) { try { audioManager.playTone(300, 'triangle', 0.1, 0.1); } catch (e) { /* sin sonido */ } }
+        if (window.mbSfx && window.mbSfx.block(kind === 'raft' ? 'wp' : 'rail', 'place')) { /* (madera / riel, como el juego) */ }
+        else if (typeof audioManager !== 'undefined' && audioManager.playTone) { try { audioManager.playTone(300, 'triangle', 0.1, 0.1); } catch (e) { /* sin sonido */ } }
         return id;
     }
     window.mbwPlaceVehicle = function (kind, x, y, content) { toSpawn.kind = kind; toSpawn.content = content || ''; return placeVehicle(x, y); };

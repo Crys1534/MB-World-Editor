@@ -917,8 +917,9 @@ canvas.addEventListener("mousedown", function (event) {
                 enviarMensajeEnRed({ tipo: "accion_spawn_mob", id: newId, mob: mbwom.mobs[newId] });
             }
 
-            // Efecto visual/sonido
-            if (typeof audioManager !== 'undefined') audioManager.playTone(300, 'triangle', 0.1, 0.1);
+            // Efecto visual/sonido (🔊 el sonido de ese mob, del juego)
+            if (window.mbSfx && window.mbSfx.mob(newMob.type, 'any', 0, 0, newMob.babyTimer > 0)) { /* ya sonó */ }
+            else if (typeof audioManager !== 'undefined') audioManager.playTone(300, 'triangle', 0.1, 0.1);
             if (typeof worldDirty !== 'undefined') worldDirty = true;
             mouse.left = false; // Detener el spawn continuo
         }

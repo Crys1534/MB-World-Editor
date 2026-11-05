@@ -72,6 +72,18 @@
         return (v === null || v === undefined || v === '' || v === 0) ? 'air' : String(v);
     }
     const key = (x, y) => 'blockX' + x + 'Y' + y;
+    // 🔊 sonidos del juego (scripts/game-sfx.js). gx, gy = posición como la guarda el juego (y hacia abajo = negativo,
+    // igual que worldY y los mobs): el volumen baja con la distancia al Player y suena del lado donde está.
+    const SFX = () => window.mbSfx || null;
+    function sndAt(name, gx, gy, o) {
+        const X = SFX(); if (!X || !S.playing) return null;
+        o = Object.assign({}, o || {});
+        if (gx != null) { const w = W(); o.dx = gx - w.worldX; o.dy = gy - w.worldY; }
+        return X.play(name, o);
+    }
+    function snd(name, o) { return sndAt(name, null, null, o); }
+    function blockSnd(t, kind, bx, by, vol) { const X = SFX(); if (!X || !S.playing) return; const w = W(); X.block(t, kind, bx + .5 - w.worldX, -(by + .5) - w.worldY, vol); }
+    function mobSnd(m, kind) { const X = SFX(); if (!X || !S.playing || !m) return; const w = W(); X.mob(m.type, kind, m.x - w.worldX, m.y - w.worldY, m.babyTimer > 0); }
     const st = (x, y) => (mbwom.states ? mbwom.states[key(x, y)] : undefined);
     function setBlock(x, y, type, st1) {
         if (x < 0 || y < 0) return;
@@ -255,6 +267,7 @@
         }
     }
     function igniteTNT(x, y) {
+        sndAt('fuse', x + .5, -(y + .5));
         setBlock(x, y, null);
         S.falling.push({ t: 'TNT', x: x + .5, y: -y - .5, vx: migSpeed(2 * Math.random() - 1), vy: migSpeed(-5), tnt: true, fuse: 0 });
     }
@@ -274,7 +287,7 @@
             if (!e.tnt && Math.round(e.vx) === 0 && landed) {
                 const bx = Math.floor(e.x), by = Math.floor(-e.y);
                 const here = fg(bx, by);
-                if (here === 'air' || bd(here, 'replaceable') == 1) setBlock(bx, by, e.t, e.s);
+                if (here === 'air' || bd(here, 'replaceable') == 1) { setBlock(bx, by, e.t, e.s); if (e.t === 'anvil') sndAt('anvilsound', bx + .5, -(by + .5), { vol: .5 }); else blockSnd(e.t, 'place', bx, by); }
                 else if (W().gamemode != 1) addDrop(e.t, e.x, e.y, 1);
                 S.falling.splice(i, 1);
             }
@@ -352,6 +365,7 @@
             const X = x + o[0], Y = y + o[1], n = fg(X, Y);
             if (n !== 'la' && n !== 'ad') return;
             const ob = n === 'la' && fullLiq(X, Y);
+            if (S.tick - (S.lastSizzle || -99) > 15) { S.lastSizzle = S.tick; sndAt('sizzle', X + .5, -(Y + .5)); }   // (si la lava sigue cayendo, no a cada rato)
             if (mbwom.water) delete mbwom.water[key(X, Y)];
             setBlock(X, Y, ob ? 'ob' : 'cs');
         });
@@ -376,6 +390,10 @@
             if (!isLiq(L) || S.liqFresh.has(x + ',' + y)) continue;
             if (L === 'wr' && nether) { liqGone(x, y); continue; }
             if (liqStep(x, y, L) && L === 'wr') waterTouch(x, y);
+            // el agua que corre suena de vez en cuando (Block_Water: 1 entre 1000 por paso, y no dos seguidos)
+            if (L === 'wr' && fg(x, y) === 'wr' && !fullLiq(x, y) && Math.random() < .001 * LIQ_EVERY && S.tick - (S.lastWaterSnd || -99) > 10) {
+                S.lastWaterSnd = S.tick; sndAt('water' + ((Math.random() * 6 | 0) + 1), x + .5, -(y + .5), { vol: .2, vary: 1, rate: .9 });
+            }
         }
     }
     function gameRuleOn(name) { const v = gameRule(name); return v === undefined || v === null || v === true || v === 1 || v === '1' || v === 'true'; }
@@ -383,6 +401,7 @@
     // ------------------------------------------------------------------ explosión (Game.explode)
     function explode(b, a, c, byId) {
         const w = W();
+        sndAt('boom', b + .5, -(a + .5));
         for (const id in mbwom.mobs) {
             const m = mbwom.mobs[id];
             if (!m || !(m.health > 0) || m.dead > 0) continue;
@@ -438,7 +457,7 @@
             }
             a *= Math.max(0, d);
         }
-        if (a !== 0) { w.health -= Math.ceil(a); if (a > 0) { S.p.hurt = 10; buzz(Math.min(120, 35 + 10 * Math.ceil(a))); } hud.dirty = true; }
+        if (a !== 0) { w.health -= Math.ceil(a); if (a > 0) { S.p.hurt = 10; buzz(Math.min(120, 35 + 10 * Math.ceil(a))); snd(Math.random() < .5 ? 'ouch1' : 'ouch2', { vary: .3 }); } hud.dirty = true; }
     }
     const key2 = (n) => !!S.keys[n];
     function doPlayerLogic() {
@@ -476,10 +495,16 @@
         if (!P.falling) { if (P.wasFalling) P.wasFallingSpeed = -w.ySpeed; w.ySpeed = 0; }
         let c = true;
         if (P.wasFalling && !P.falling) {
+            if (P.wasFallingAndNotFalling <= 0) {                     // 🔊 al caer al suelo: el sonido del bloque (o el del bloque de slime)
+                const lx = Math.floor(w.worldX), ly = Math.floor(-w.worldY);    // (dónde quedó ya en el suelo)
+                let g = fg(lx, ly), gy = ly;
+                if (g === 'air' || bd(g, 'walkThroughBlock') == 1) { g = fg(lx, ly - 1); gy = ly - 1; }
+                if (g === 'slimeb') snd('slimeblockland'); else blockSnd(g, 'step', lx, gy);
+            }
             P.wasFallingAndNotFalling = 3;
             if (P.blockAtFeet.substr(0, 3) === 'bed') P.wasFallingSpeed *= .6;
             else if (P.blockAtFeet === 'slimeb' && !P.sneaking) {
-                if (P.wasFallingSpeed > migSpeed(6)) { w.ySpeed = .78 * Math.max(0, P.wasFallingSpeed - migSpeed(5)); P.wasFallingSpeed = 0; w.worldY -= w.ySpeed / 2 / 30; }
+                if (P.wasFallingSpeed > migSpeed(6)) { w.ySpeed = .78 * Math.max(0, P.wasFallingSpeed - migSpeed(5)); P.wasFallingSpeed = 0; w.worldY -= w.ySpeed / 2 / 30; snd('slimeblockjump'); }
                 else w.ySpeed = 0;
             }
             if (P.wasFallingSpeed > migSpeed(23)) {                // daño por caída
@@ -556,6 +581,9 @@
             w.air = 11; P.airTimer = 30;
             if (P.startUnderwaterTimer <= 0) P.inWater = false; else P.startUnderwaterTimer--;
         }
+        // 🔊 con la cabeza bajo el agua suena "underwater" (sin parar) y al salir, "splash"
+        if (P.inWater && !P.uwSnd) { P.uwSnd = true; if (SFX()) SFX().loop('underwater', 'underwater', .8); }
+        else if (!P.inWater && P.uwSnd) { P.uwSnd = false; if (SFX()) SFX().loop('underwater', null); snd('splash'); }
         if (P.falling) {
             w.xSpeed *= bd(fg(bx, by + 1), 'liquid') != null ? migDamp(.55) : migDamp(.6);
             w.ySpeed -= migAcc(2, .94);
@@ -614,6 +642,11 @@
                 } else if (w.fly && c && !P.falling) { w.ySpeed = migSpeed(7); w.worldY -= .1167; }
             }
             if (w.gamemode == 1 && w.fly && key2('down')) w.ySpeed -= migAcc(30, .7);
+        }
+        // 🔊 pasos: cada cuadro que se camina suena el bloque de abajo (Game: distanceX > 1 -> blockSound)
+        if (!w.fly && w.gamemode != 3 && !(w.dead > 0)) {
+            P.distanceX += Math.abs(w.xSpeed) / 30;
+            if (P.distanceX > 1) { P.distanceX = 0; if (!P.falling) blockSnd(fg(bx, by), 'step', bx, by, .6); }
         }
         P.wasFalling = P.falling;
         P.falling = false;
@@ -801,7 +834,7 @@
         for (let n = 0; n < 24; n++) {
             const x = Math.floor(m.x + (Math.random() * 32 - 16)), y0 = Math.floor(-m.y) + Math.floor(Math.random() * 16 - 8);
             for (let y = y0; y > y0 - 8 && y > 0; y--) {
-                if (bd(fg(x, y - 1), 'walkThroughBlock') != 1 && bd(fg(x, y - 1), 'liquid') == null && fg(x, y) === 'air' && fg(x, y + 1) === 'air' && fg(x, y + 2) === 'air') { m.x = x + .5; m.y = -y; m.speedX = m.speedY = 0; return true; }
+                if (bd(fg(x, y - 1), 'walkThroughBlock') != 1 && bd(fg(x, y - 1), 'liquid') == null && fg(x, y) === 'air' && fg(x, y + 1) === 'air' && fg(x, y + 2) === 'air') { sndAt('tp1', m.x, m.y); m.x = x + .5; m.y = -y; m.speedX = m.speedY = 0; sndAt('tp2', m.x, m.y); return true; }
             }
         }
         return false;
@@ -813,6 +846,7 @@
         if (!isFinite(Number(m.health))) m.health = maxHealth(m);
         if (m.type === 'cow' && m.variant === 'cowctus' && cause === 'cactus') return;
         m.health = Math.round(m.health - amount);
+        if (amount > 0) mobSnd(m, 'hurt');
         if (by) m.lastDamageID = by;
         if (cause === 'lava' || cause === 'fire') tmpOf(id).onFire = 8 * FPS;     // (si muere quemándose suelta la carne cocida)
         if ((cause === 'attack' || cause === 'projectile') && by && by !== id) {
@@ -833,6 +867,8 @@
         const a = D.mobs[m.type] || {};
         const d = tmpOf(id);
         m.dead = 1;
+        mobSnd(m, 'death');
+        if (m.type === 'enderdragon' && SFX()) SFX().music('enderdragondeath');
         if (gameRuleOn('domobloot')) {
             const ex = selExtra();
             const loot = ex.looting3 != null ? 1 : ex.looting2 != null ? 2 / 3 : ex.looting1 != null ? 1 / 3 : 0;
@@ -914,7 +950,10 @@
             }
             if (o.age > 300 * FPS || o.y > 10) { S.orbs.splice(i, 1); continue; }
             if (alive && o.age > 15 && dist < .9) {
-                w.experience = Math.max(0, Math.min(1e6, Math.floor((Number(w.experience) || 0) + o.v)));
+                const xp0 = Number(w.experience) || 0;
+                w.experience = Math.max(0, Math.min(1e6, Math.floor(xp0 + o.v)));
+                // 🔊 Entity_XP: "levelup" cada 500 de experiencia; si no, uno de los 5 "orb"
+                sndAt(Math.floor(xp0 / 500) !== Math.floor(w.experience / 500) ? 'levelup' : 'orb' + ((Math.random() * 5 | 0) + 1), o.x, o.y);
                 S.orbs.splice(i, 1); hud.dirty = true; S.xpT = 8;
                 buzz(8);
             }
@@ -931,6 +970,7 @@
     }
     function shootArrow(m, target) {
         const t = Math.atan2(target.y - Math.abs(target.x - m.x) / 5 - (m.y - 1.5), target.x - m.x) + (2 * Math.random() - 1) / 20;
+        sndAt('bowsfx', m.x, m.y - 1.5);
         S.arrows.push({ x: m.x, y: m.y - 1.5, vx: migSpeed(20 * Math.cos(t)), vy: migSpeed(20 * Math.sin(t)), by: m, age: 0 });
     }
     function tickArrows() {
@@ -952,6 +992,8 @@
         if (c.dead > 0) { c.dead++; c.speedX = 0; if (c.dead > 40) { delete mbwom.mobs[id]; S.tmp.delete(id); } return; }
         if (!isFinite(Number(c.health))) c.health = maxHealth(c);
         if (c.health <= 0) { killMob(id, c); return; }
+        // 🔊 de vez en cuando su sonido (Entity_Mob: 1 entre idleSoundFrequency por paso; si persigue al Player, el de "aggroIdle")
+        if (SFX()) { const si = SFX().mobInfo(c.type); if (si && si.sounds.idle && Math.random() * (si.freq || 200) <= 1) mobSnd(c, si.sounds.aggroIdle && c.target === PLAYER_ID ? 'aggro' : 'idle'); }
         c.x = Number(c.x) || 0; c.y = Number(c.y) || 0;
         if (!isFinite(c.speedX)) c.speedX = 0; if (!isFinite(c.speedY)) c.speedY = 0;
         const f = Math.floor(c.x), g = Math.floor(-c.y);
@@ -1083,7 +1125,7 @@
             // ataques
             if (a.attackExplode == 1) {
                 if (c.target != null) {
-                    if (!(c.fuse > 0)) { if (c.target === PLAYER_ID && intersects(mobBounds(id), mobBounds(PLAYER_ID))) c.fuse = 1; }
+                    if (!(c.fuse > 0)) { if (c.target === PLAYER_ID && intersects(mobBounds(id), mobBounds(PLAYER_ID))) { c.fuse = 1; sndAt('fuse', c.x, c.y); } }
                     else {
                         const tp = c.target === PLAYER_ID ? { x: w.worldX, y: w.worldY } : (mbwom.mobs[c.target] || c);
                         if (Math.pow(tp.x - c.x, 2) + Math.pow(tp.y - c.y, 2) >= 25) { if (c.fuse > 0) c.fuse--; }
@@ -1172,6 +1214,7 @@
         if (t === 'air' || (t === 'br' && w.gamemode != 1)) return;
         const s1 = st(x, y);
         const chestItems = (t === 'chest' && mbwom.chests && Array.isArray(mbwom.chests[key(x, y)])) ? mbwom.chests[key(x, y)] : null;
+        if (!byCmd) blockSnd(t, 'break', x, y);
         setBlock(x, y, null);
         if (w.gamemode == 1) return;
         if (!byCmd) damageTool();
@@ -1210,7 +1253,7 @@
             }
             if (!(here === 'air' || bd(here, 'replaceable') == 1 || (isLiq(here) && !fullLiq(bx, by)))) return false;
             if (here !== 'air' && !isLiq(here)) mineBlock(bx, by, true);
-            if ((mbwom.currentScene || 1) == 2 && id === 'wbk') { flashMsg('💨'); }
+            if ((mbwom.currentScene || 1) == 2 && id === 'wbk') { flashMsg('💨'); sndAt('sizzle', bx + .5, -(by + .5)); }
             else setLiq(bx, by, BUCKET[id], [10, 10]);
             if (w.gamemode != 1) { inv()[selIndex()] = ['bk', 1, 0, {}]; hud.dirty = true; }
             return true;
@@ -1239,9 +1282,49 @@
         let s1;
         if (it[3] && typeof it[3].type === 'string') s1 = it[3].type;   // color de la lana, de la cama, etc.
         setBlock(bx, by, id, s1);
+        blockSnd(id, 'place', bx, by);
         reduceSelected(1);
         return true;
     }
+    // 🚪 Puertas y trampillas de madera (Block_Door.toggle / Block_TrapDoor.useEvent) y 🎵 bloque musical (Block_Note.useEvent2):
+    // la puerta tiene 2 partes (1 = abajo, 2 = arriba abiertas; 3 = abajo, 4 = arriba cerradas). Las de hierro no se abren a mano.
+    function useBlock(x, y) {
+        const t = fg(x, y);
+        let m = /^(dr|bdr)([1-4])$/.exec(t);
+        if (m) {
+            const b = m[1], n = +m[2];
+            const low = (n === 1 || n === 3) ? y : y - 1;
+            const open = n === 1 || n === 2;
+            const s0 = st(x, low), s1 = st(x, low + 1);
+            setBlock(x, low, b + (open ? '3' : '1'), s0); setBlock(x, low + 1, b + (open ? '4' : '2'), s1);
+            sndAt(open ? 'doorclose' : 'dooropen', x + .5, -(y + .5));
+            return true;
+        }
+        if (t === 'td1' || t === 'td2') {
+            const s0 = st(x, y);
+            setBlock(x, y, t === 'td2' ? 'td1' : 'td2', s0);
+            sndAt(t === 'td2' ? 'dooropen' : 'doorclose', x + .5, -(y + .5));
+            return true;
+        }
+        if (t === 'note') {
+            if (!mbwom.states) mbwom.states = {};
+            let v = (parseInt(mbwom.states[key(x, y)], 10) || 0) + 1; if (v > 25) v = 1;
+            mbwom.states[key(x, y)] = v;
+            playNote(x, y);
+            return true;
+        }
+        return false;
+    }
+    function playNote(x, y) {
+        const X = SFX(); if (!X) return;
+        const v = Math.max(1, Math.min(25, parseInt(st(x, y), 10) || 1));
+        const k = X.blockKind(fg(x, y - 1));                     // lo que hay abajo decide el instrumento
+        const name = k === 'stone' ? 'kick' : k === 'wood' ? 'bass' + v : k === 'mush' ? 'snare' : 'piano' + v;
+        sndAt(name, x + .5, -(y + .5));
+    }
+    window.mbwPlay.useBlock = function (x, y) { return useBlock(x, y); };
+    window.mbwPlay.hurtMob = function (id, n) { hurtMob(id, n, 'attack', PLAYER_ID); };     // (lo usan las pruebas)
+    window.mbwPlay.explode = function (x, y, r) { explode(x, y, r || 3, PLAYER_ID); };
     function attackMob(mid) {
         const w = W(), m = mbwom.mobs[mid];
         if (!m) return;
@@ -1269,9 +1352,11 @@
             if (!(S.mouse.right || S.mouse.rightEdge) || bd(selType(), 'food') == null) S.useTimer = -1;
             else if (--S.useTimer === 0) {
                 const fd = bd(selType(), 'food');
+                // 🔊 al terminar: "drink" para lo que se bebe, si no uno de los 4 "eat"
+                if (bd(selType(), 'drink') != null || selType() === 'potion') snd('drink' + ((Math.random() * 2 | 0) + 1)); else snd('eat' + ((Math.random() * 4 | 0) + 1));
                 if (fd && fd.hunger != null) w.food = Math.min(1000, w.food + fd.hunger);
                 reduceSelected(1); S.useTimer = -1; hud.dirty = true;
-            }
+            } else if (S.useTimer % 20 === 0) snd('eat' + ((Math.random() * 2 | 0) + 1), { vol: .3 });   // (mientras come: mordiditas suaves)
             return;
         }
         const mw = mouseWorld();
@@ -1282,6 +1367,7 @@
             if (selType() === 'cbook') { if (rightFresh) useCommandBook(); S.mine = null; return; }      // (una vez por clic)
             const bx = Math.floor(mw.x), by = Math.floor(mw.y);
             if (rightFresh && BOX[fg(bx, by)] && blockDist(bx, by) <= REACH + 1) { openBox(bx, by); return; }   // clic derecho en un cofre / horno: se abre
+            if (rightFresh && !S.p.sneaking && blockDist(bx, by) <= REACH + 1 && useBlock(bx, by)) { S.mine = null; S.swing = 15; return; }   // puertas, trampillas, bloque musical
             S.rightFresh = rightFresh;
             if (S.placeDelay >= 6 && placeBlock(mw)) { S.placeDelay = 0; S.swing = 15; }
             S.rightFresh = false;
@@ -1299,7 +1385,9 @@
             const n = w.gamemode == 1 ? 0 : miningTime(t);
             if (n < 0) { S.mine = null; return; }
             S.mine = { x: bx, y: by, t: t, left: n, total: Math.max(1, n) };
+            if (t === 'note' && n > 0) playNote(bx, by);                // (al pegarle suena la nota, sin cambiarla)
         }
+        if (S.mine.left > 0 && (S.mine.total - S.mine.left) % 26 === 0) blockSnd(t, 'mine', bx, by);   // 🔊 picando: cada medio segundo
         if (S.mine.left <= 0) { mineBlock(bx, by); buzz(22); S.mine = null; S.placeDelay = w.gamemode == 1 ? 0 : 6; return; }
         if (S.mine.left % 13 === 0) buzz(6);                         // (picando: golpecitos suaves)
         S.mine.left--;
@@ -1470,7 +1558,7 @@
             }
             case 'say': say('[SAY] ' + String(raw).replace(/^[\/\\]?\s*say\s*/i, '')); return;
             case 'time': if (d[1] === 'set' && d[2] != null) { const v = d[2] === 'day' ? 0 : d[2] === 'night' ? 50 : Math.floor(+d[2] % 100); if (!isNaN(v)) { w.tim = v; info('Time set to ' + v + '. (Play mode has no day/night yet)'); return; } } if (d[1] === 'get') { say('[INFO] The time is ' + (w.tim | 0) + '.'); return; } say('[INFO] time <get|set <t|day|night>>'); return;
-            case 'weather': { const v = d[1] === 'set' ? d[2] : d[1]; const n = (v === 'clear' || v === '0') ? 0 : (v === 'rain' || v === '1') ? 1 : (v === 'thunder' || v === '2') ? 2 : -1; if (n < 0) { say('[INFO] weather <get|set <clear|rain|thunder>>'); return; } w.raining = n; info('Weather set to ' + ['clear', 'rain', 'thunder'][n] + '. (Play mode has no weather yet)'); return; }
+            case 'weather': { const v = d[1] === 'set' ? d[2] : d[1]; const n = (v === 'clear' || v === '0') ? 0 : (v === 'rain' || v === '1') ? 1 : (v === 'thunder' || v === '2') ? 2 : -1; if (n < 0) { say('[INFO] weather <get|set <clear|rain|thunder>>'); return; } w.raining = n; if (typeof setWeatherEffect === 'function') { try { setWeatherEffect(['clear', 'rain', 'thunder'][n]); } catch (e) { /* nada */ } } info('Weather set to ' + ['clear', 'rain', 'thunder'][n] + '.'); return; }
             case 'difficulty': { if (['peaceful', 'easy', 'normal', 'hard'].indexOf(d[1]) < 0) { say('[INFO] difficulty peaceful|easy|normal|hard'); return; } w.difficulty = d[1]; info('Difficulty set to ' + d[1] + '.'); return; }
             case 'xp': { let v = d[1] === 'add' ? d[2] : d[1]; if (v == null) { say('[INFO] xp [add] value[L]'); return; } v = /l$/.test(v) ? 100 * parseFloat(v) : parseFloat(v); if (isNaN(v)) { say('[INFO] xp [add] value[L]'); return; } w.experience = Math.max(0, Math.min(1e6, Math.floor((d[1] === 'add' ? (w.experience || 0) : 0) + v))); info('experience set to ' + w.experience + '.'); return; }
             case 'help': say('[INFO] tp give clear setblock fill clone summon kill heal gamemode gamerule home explode say time weather difficulty xp'); return;
@@ -1553,6 +1641,25 @@
         if (S.msgT > 0) S.msgT--;
         tickSign();
         if (S.iname.t > 0) S.iname.t--;
+        if (S.tick % 10 === 0) tickAmbience();
+    }
+    // 🎵🌧 Música (Game.onCertainInterval: en el Overworld, una canción al azar cada 4 a 6 minutos), lluvia, el sonido del Nether
+    // y del End, y el fuego / los portales que estén cerca (Block_Fire, Block_Portal: de vez en cuando, desde donde están)
+    function tickAmbience() {
+        const X = SFX(); if (!X) return;
+        const w = W(), sc = mbwom.currentScene || 1;
+        if (sc === 1) {
+            S.musicT -= 10;
+            if (S.musicT <= 0) { S.musicT = FPS * (120 * Math.random() + 240) | 0; if (!X.musicName()) X.music('song' + ((Math.random() * 5 | 0) + 1)); }
+        }
+        X.loop('rain', X.isRaining() && sc === 1 ? 'rainsound' : null, .6);
+        X.loop('dim', sc === 2 ? 'Nether' : sc === 3 ? 'EnderBG' : null, .5);
+        const px = Math.floor(w.worldX), py = Math.floor(-w.worldY);
+        for (let x = px - 14; x <= px + 14; x++) for (let y = py - 10; y <= py + 12; y++) {
+            const t = fg(x, y);
+            if (t === 'fire' && Math.random() < .025 && S.tick - (S.lastFireSnd || -99) > 5) { S.lastFireSnd = S.tick; sndAt('fire' + ((Math.random() * 5 | 0) + 1), x + .5, -(y + .5)); }
+            else if (t === 'portal' && Math.random() < .0025) sndAt('Portal' + ((Math.random() * 5 | 0) + 1), x + .5, -(y + .5));
+        }
     }
     // 🪧 Letreros: si el jugador está parado frente a un letrero, su texto sale arriba en un tablero que aparece y se desvanece
     // poco a poco (como Game.showSign / renderSign del juego: +0.05 por cuadro al estar ahí, −0.05 al irse; aquí a 50 pasos, la mitad)
@@ -1735,6 +1842,9 @@
             if (sg.style.opacity !== so) { sg.style.opacity = so; sg.style.display = G.a > 0 ? 'block' : 'none'; }
             // nombre del objeto que se acaba de elegir
             const ni = this.el.querySelector('.ph-iname'), cur = selItem(), nk = selIndex() + ':' + (cur ? String(cur[0]) + '|' + JSON.stringify(cur[3] || {}) : '');
+            const si = selIndex();
+            if (S.selSnd !== null && S.selSnd !== si) snd('tick');            // 🔊 cambiar de casilla: "tick", como el juego
+            S.selSnd = si;
             if (S.iname.key === null) S.iname.key = nk;                        // al empezar no se muestra
             else if (nk !== S.iname.key) { S.iname.key = nk; S.iname.text = cur ? itemDisplayName(cur) : ''; S.iname.t = cur ? Math.round(2.2 * FPS) : 0; }
             const na = S.iname.t > 0 ? Math.min(1, S.iname.t / (0.5 * FPS)) : 0;
@@ -2090,6 +2200,8 @@
         w.worldX = px; w.worldY = py; w.scene = cur;
         S.start = { x: px, y: py };
         S.sign = { text: '', a: 0, on: false }; S.iname = { key: null, text: '', t: 0 };
+        S.musicT = FPS * (15 + Math.random() * 25) | 0; S.selSnd = null;          // (la primera canción sale a los 15-40 s)
+        if (window.mbSfx) { window.mbSfx.stopLoops(); window.mbSfx.stopMusic(); }   // (lo que sonaba editando)
         w.xSpeed = 0; w.ySpeed = 0; w.dead = 0;
         if (!isFinite(Number(w.health))) w.health = 20;
         if (!isFinite(Number(w.food))) w.food = 1000;
@@ -2152,6 +2264,8 @@
         cancelAnimationFrame(S.raf);
         try { restoreSnapshot(); } catch (e) { console.error('play restore', e); alert('Error restoring the world: ' + e.message); }
         S.snapshot = null; S.drops = []; S.falling = []; S.arrows = []; S.orbs = []; S.tmp = new Map(); S.keys = {}; S.mine = null;
+        if (window.mbSfx) { window.mbSfx.stopLoops(); window.mbSfx.stopMusic(); }   // 🔊 se apaga la música, la lluvia, bajo el agua...
+        try { const gw = document.getElementById('gr-weather'); if (gw && typeof setWeatherEffect === 'function') setWeatherEffect(gw.value); } catch (e) { /* nada */ }   // (el clima vuelve al de World Settings)
         window.mbwPlaying = false;
         document.body.classList.remove('mbw-playing', 'play-survival');
         hud.destroy();

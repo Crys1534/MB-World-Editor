@@ -1798,6 +1798,7 @@ function animateWeather() {
                     [0.9, 0.9, 0.7, 0.7, 0.0, 0.0, 0.5, 0.5, 0.0]            
                 ];
                 flashSequence = patterns[Math.floor(Math.random() * patterns.length)].slice();
+                if (window.mbSfx && window.mbSfx.thunder) window.mbSfx.thunder();   // 🔊 trueno (cerca o lejos, como el juego)
             }
 
             if (flashSequence.length > 0) {

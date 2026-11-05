@@ -726,7 +726,7 @@ function dmOnAdded(token, snap) {
 
     if (!isMe) {
         if (dmViewActive() && !window.isChatMuted(currentChatPartner && currentChatPartner.uid) && typeof audioManager !== 'undefined') {
-            audioManager.playTone(600, 'sine', 0.05, 0.1);
+            if (window.mbSfx) window.mbSfx.notif('scavengerChat'); else audioManager.playTone(600, 'sine', 0.05, 0.1);
         }
         window.dmMarkRead();
     }
