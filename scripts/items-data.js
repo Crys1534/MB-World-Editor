@@ -105,7 +105,7 @@ window.inventoryCategories = {
             'WoodenShovel', 'StoneShovel', 'IronShovel', 'GoldShovel', 'DiamondShovel',
             'WoodenHoe', 'StoneHoe', 'IronHoe', 'GoldHoe', 'DiamondHoe',
             'fr', 'Shear',
-            'bow', 'spear', 'bshur', 'fas', 'coas', 'scepter', 'snowb',   // coas = Carrot on a Stick, scepter = (Useless) Scepter: los nombres del juego
+            'bow', 'arrow', 'spear', 'bshur', 'fas', 'coas', 'scepter', 'snowb', 'bk', 'wbk', 'lbk', 'abk',   // coas = Carrot on a Stick, scepter = (Useless) Scepter: los nombres del juego
         ]
     },
 
@@ -137,7 +137,7 @@ window.inventoryCategories = {
         items: [
             'cl', 'cl2', 'ii', 'gi', 'dm', 'll', 'topaz', 'egemd', 'oddrock', 'ironn', 'goldn', 'flint', 'gss', 'cy', 'brick',
             'nbr', 'paper', 'book', 'cbook', 'tag', 'clock', 'compass', 'feather', 'leather', 'rleather', 'bone', 'bonem',
-            'fiber', 'ink', 'se', 'fse', 'gp', 'ep', 'eoe', 'blazer', 'bp', 'gt', 'slimeball', 'magmac', 'rfoot', 'dscl', 'boe',
+            'fiber', 'ink', 'se', 'fse', 'gp', 'yellowdust', 'ep', 'eoe', 'blazer', 'bp', 'gt', 'slimeball', 'magmac', 'rfoot', 'dscl', 'boe',
             'scepters', 'dye', 'dye_lightgray', 'dye_gray', 'dye_brown', 'dye_purple', 'dye_magenta', 'dye_red', 'dye_pink',
             'dye_yellow', 'dye_lightgreen', 'dye_green', 'dye_cyan', 'dye_lightblue',
         ]

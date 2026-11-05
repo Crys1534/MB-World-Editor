@@ -586,6 +586,12 @@ fr: { x: 0, y: 209 },
 tag: { x: 0, y: 219 },
 paper: { x: 1, y: 219 },
 book: { x: 2, y: 219 },
+yellowdust: { x: 2, y: 218 },   // polvo de glowstone (arriba del libro)
+arrow: { x: 10, y: 209 },
+bk: { x: 1, y: 223 },   // cubeta vacía
+wbk: { x: 2, y: 223 },   // cubeta de agua
+abk: { x: 3, y: 223 },   // cubeta de ácido
+lbk: { x: 4, y: 223 },   // cubeta de lava
 ebook: { x: 3, y: 219 },
 cbook: { x: 4, y: 219 },
 ccb: { x: 10, y: 211 },
@@ -648,7 +654,7 @@ beetsoup: { x: 7, y: 213 },
 lade: { x: 5, y: 222 },
 apade: { x: 6, y: 222 },
 orade: { x: 4, y: 222 },
-mbk: { x: 8, y: 213 },
+mbk: { x: 5, y: 223 },   // (cubeta de leche nueva; la de antes, 8,213, estaba vacía)
 
 potion: { x: 10, y: 226 }, // <--- AQUÍ ESTÁ LA POCIÓN
 splash: { x: 9, y: 227 }, // <--- AQUÍ ESTÁ LA POCIÓN
