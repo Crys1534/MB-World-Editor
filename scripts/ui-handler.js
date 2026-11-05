@@ -719,7 +719,8 @@ function pickupItemFromInventory(blockType) {
     let type = blockType;
     let states1 = undefined;
     
-    if (blockType.includes('_')) {
+    // Los niveles de agua, lava y ácido (la_3, wr_2n, ad_1...) son bloques con nombre propio: no se parten en tipo + variante
+    if (blockType.includes('_') && !/^(wr|la|ad)_[0-9]+n?$/.test(blockType)) {
         let parts = blockType.split('_');
         type = parts[0];
         states1 = isNaN(parts[1]) ? parts[1] : parseInt(parts[1]); 
