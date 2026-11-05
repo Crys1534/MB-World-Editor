@@ -3183,9 +3183,9 @@ body.is-phone.panels-floating #coords-overlay { left: 8px; }
 .btn-play-mode .pb-ic { font-size: 12px; }
 body.mbw-playing #hotbar-container, body.mbw-playing #float-hotbar, body.mbw-playing #mbw-zoom-fab, body.mbw-playing #mbw-block-fab, body.mbw-playing #mbw-del-mob, body.mbw-playing #selection-overlay { display: none !important; }
 body.mbw-playing #canvas { cursor: crosshair; }
-#mbw-play-hud { position: fixed; inset: 0; pointer-events: none; z-index: 95; font-family: 'Segoe UI', Arial, sans-serif; user-select: none; -webkit-user-select: none; }
+#mbw-play-hud { position: fixed; inset: 0; pointer-events: none; z-index: 9500; font-family: 'Segoe UI', Arial, sans-serif; user-select: none; -webkit-user-select: none; }
 #mbw-play-hud button { pointer-events: auto; }
-#mbw-play-hud .ph-top { position: absolute; top: calc(var(--ws-top, 90px) + 8px); left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px; }
+#mbw-play-hud .ph-top { position: absolute; top: 8px; right: 10px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 #mbw-play-hud .ph-stop { padding: 6px 16px; border-radius: 999px; border: 1px solid rgba(255,255,255,.4); background: rgba(192,57,43,.95); color: #fff; font-weight: 700; font-size: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.4); cursor: pointer; }
 #mbw-play-hud .ph-msg { color: #fff; font-weight: 700; text-shadow: 0 1px 3px #000, 0 0 2px #000; font-size: 15px; }
 #mbw-play-hud .ph-bars { position: absolute; left: 50%; transform: translateX(-50%); bottom: 64px; display: flex; flex-direction: column; align-items: center; gap: 1px; font-size: 16px; line-height: 1; }
@@ -3200,7 +3200,7 @@ body.mbw-playing #canvas { cursor: crosshair; }
 #mbw-play-hud .ph-slot canvas { width: 30px; height: 30px; image-rendering: pixelated; pointer-events: none; }
 #mbw-play-hud .ph-slot b { position: absolute; right: 2px; bottom: 0; color: #fff; font-size: 12px; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; pointer-events: none; }
 #mbw-play-hud .ph-pad, #mbw-play-hud .ph-pad2 { display: none; position: absolute; bottom: 14px; gap: 10px; }
-#mbw-play-hud .ph-pad { left: calc(var(--ws-left, 0px) + 14px); }
+#mbw-play-hud .ph-pad { left: 14px; }
 #mbw-play-hud .ph-pad2 { right: 14px; }
 #mbw-play-hud .ph-pad button, #mbw-play-hud .ph-pad2 button { width: 58px; height: 58px; border-radius: 50%; border: 2px solid rgba(255,255,255,.5); background: rgba(20,20,20,.45); color: #fff; font-size: 24px; touch-action: none; -webkit-tap-highlight-color: transparent; }
 #mbw-play-hud .ph-pad button.on, #mbw-play-hud .ph-pad2 button.on { background: rgba(255,255,255,.35); }
@@ -3212,4 +3212,17 @@ body.is-touch #mbw-play-hud .ph-slot { width: 38px; height: 38px; }
 body.is-touch #mbw-play-hud .ph-bars { bottom: 50px; }
 body.is-phone .btn-play-mode { padding: 4px 8px; }
 body.is-phone .btn-play-mode span { display: none; }
-body.is-touch #mbw-play-hud .ph-top { top: calc(var(--ws-top, 90px) + 46px); }
+
+
+/* ▶️ Modo Jugar: pantalla completa, solo el mapa (todo el editor queda tapado) */
+body.mbw-playing #workspace { position: fixed !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; width: 100% !important; height: 100% !important; z-index: 9000; }
+body.mbw-playing #workspace > *:not(#canvas):not(#weather-canvas) { display: none !important; }
+body.mbw-playing #top-toggle, body.mbw-playing .mbw-toast-stack { display: none !important; }
+body.play-survival #pinv-creative-btn { display: none !important; }
+body.mbw-playing #inventory-modal { z-index: 9800; }
+#mbw-play-hud .ph-stop { padding: 4px 12px; font-size: 13px; opacity: .85; }
+#mbw-play-hud .ph-msg { white-space: pre-line; text-align: right; max-width: 70vw; font-size: 13px; }
+#mbw-play-hud .ph-inv { position: absolute; bottom: 10px; left: calc(50% + 208px); width: 44px; height: 44px; border: 2px solid #555; background: rgba(0,0,0,.45); color: #fff; font-size: 22px; cursor: pointer; }
+#mbw-play-hud .ph-open { position: absolute; left: 50%; transform: translateX(-50%); bottom: 112px; padding: 7px 16px; border-radius: 999px; border: 2px solid rgba(255,255,255,.55); background: rgba(139,90,43,.95); color: #fff; font-weight: 700; font-size: 15px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.45); }
+body.is-touch #mbw-play-hud .ph-inv { left: calc(50% + 178px); width: 38px; height: 38px; bottom: 6px; font-size: 19px; }
+body.is-touch #mbw-play-hud .ph-open { bottom: 92px; }

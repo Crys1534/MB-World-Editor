@@ -149,6 +149,18 @@
         A.flash = { text: tr('aspect_on', 'Aspect ratio view: {w} × {h} blocks. Zoom is locked.', { w: A.w, h: A.h }), until: Date.now() + 2600 };
         dirty();
     }
+    // Modo Jugar (scripts/play-mode.js): poner la vista con las medidas de fábrica sin elegir el área a mano
+    A.defaults = { w: DEF_W, h: DEF_H };
+    A.offsets = frameOffsets;
+    A.startView = function (w, h) {
+        A.picking = false; A.drag = null;
+        A.w = w || DEF_W; A.h = h || DEF_H;
+        if (!A.active) A.prevZoomIndex = currentZoomIndex;
+        A.active = true;
+        fitZoom();
+        paintButton();
+    };
+    A.refit = fitZoom;
     function attach() {
         const cv = $('canvas');
         if (!cv || cv.__aspect) return;
@@ -250,10 +262,10 @@
                 ctx.drawImage(A.buf, 0, 0, f.w, f.h, sr.x, sr.y, sr.w, sr.h);
                 ctx.restore();
             }
-            label(ctx, A.w + ' × ' + A.h, sr.x + 8, sr.y + sr.h - 30);
+            if (!window.mbwPlaying) label(ctx, A.w + ' × ' + A.h, sr.x + 8, sr.y + sr.h - 30);
         }
         if (A.flash) {
-            if (Date.now() > A.flash.until) A.flash = null;
+            if (Date.now() > A.flash.until || window.mbwPlaying) A.flash = null;
             else label(ctx, A.flash.text, canvas.width / 2, 10, 'center');
         }
     };

@@ -45,6 +45,14 @@
         touchMode: 'mine'
     };
     window.mbwPlay = { isPlaying: () => S.playing, state: S };
+    // un punto del mundo (y hacia arriba) -> punto de la pantalla (con la vista del juego estirada). Lo usan las pruebas.
+    window.mbwPlay.toClient = function (wx, wy) {
+        const cv = document.getElementById('canvas'), r = cv.getBoundingClientRect();
+        let X = (wx - camera.x) * tileSize, Y = cv.height - (wy - camera.y) * tileSize;
+        const A = window.mbwAspect;
+        if (A && A.active && A.screen) { const sr = A.screen(), f = sr.f; X = sr.x + (X - f.x) * sr.w / f.w; Y = sr.y + (Y - f.y) * sr.h / f.h; }
+        return { x: r.left + X * r.width / cv.width, y: r.top + Y * r.height / cv.height };
+    };
 
     // ------------------------------------------------------------------ mundo
     const W = () => mbwom.world;
@@ -847,7 +855,7 @@
         if (S.p.inWater) f *= 2;
         return (Math.max(1, Math.floor(f)) / 25 * FPS) | 0;
     }
-    function mineBlock(x, y) {
+    function mineBlock(x, y, byCmd) {
         const w = W();
         const t = fg(x, y);
         if (t === 'air' || (t === 'br' && w.gamemode != 1)) return;
@@ -855,7 +863,7 @@
         const chestItems = (t === 'chest' && mbwom.chests && Array.isArray(mbwom.chests[key(x, y)])) ? mbwom.chests[key(x, y)] : null;
         setBlock(x, y, null);
         if (w.gamemode == 1) return;
-        damageTool();
+        if (!byCmd) damageTool();
         const dw = bd(t, 'dropsWith');
         const tool = selType();
         if (dw && !dw[tool]) return;                               // hace falta la herramienta correcta para que suelte algo
@@ -940,9 +948,12 @@
         }
         const mw = mouseWorld();
         // un clic rapidísimo (se suelta antes del siguiente paso) cuenta igual una vez
-        const right = S.mouse.right || S.mouse.rightEdge, left = S.mouse.left || S.mouse.leftEdge;
+        const right = S.mouse.right || S.mouse.rightEdge, left = S.mouse.left || S.mouse.leftEdge, rightFresh = S.mouse.rightEdge;
         S.mouse.rightEdge = false; S.mouse.leftEdge = false;
         if (right) {
+            if (selType() === 'cbook') { if (rightFresh) useCommandBook(); S.mine = null; return; }      // (una vez por clic)
+            const bx = Math.floor(mw.x), by = Math.floor(mw.y);
+            if (rightFresh && BOX[fg(bx, by)] && blockDist(bx, by) <= REACH + 1) { openBox(bx, by); return; }   // clic derecho en un cofre / horno: se abre
             if (S.placeDelay >= 6 && placeBlock(mw)) S.placeDelay = 0;
             S.mine = null;
             return;
@@ -963,13 +974,216 @@
         S.mine.left--;
     }
 
+
+    // ------------------------------------------------------------------ Command Book (Game.interpretCommand)
+    // Los mismos comandos del juego y con las mismas coordenadas: x hacia la derecha, y hacia ARRIBA (número de bloque), "~" = desde el Player.
+    // (Los data_tags {…} no se usan aquí; lightning, spawnskin, enchant y seed solo avisan.)
+    function ident(name) {
+        const I = (window.MB_GAME && window.MB_GAME.identifiers) || {};
+        name = String(name || '').toLowerCase();
+        if (I[name]) return I[name][0];
+        if (D.blocks[name]) return name;                              // (también se acepta el id interno)
+        return null;
+    }
+    const MOB_ALIAS = { bunny: 'rabbit', dog: 'wolf', cowctus: 'cow', mooshroom: 'cow', netherwalker: 'nethereye', octopus: 'squid', pigman: 'zombiepigman' };
+    function coord(v, axis) {
+        const w = W();
+        if (v == null) return NaN;
+        v = String(v);
+        if (v[0] === '~') { const r = v.slice(1); const n = r === '' ? 0 : parseFloat(r); if (isNaN(n)) return NaN; return axis === 'y' ? n - w.worldY : n + w.worldX; }
+        const n = parseFloat(v); return (String(n) === v || /^-?\d+(\.\d+)?$/.test(v)) ? n : NaN;
+    }
+    const cmdLog = [];
+    function say(t) { cmdLog.push(t); if (cmdLog.length > 4) cmdLog.shift(); S.msg = cmdLog.join('\n'); S.msgT = 4 * FPS; }
+    function runCommand(raw) {
+        const w = W();
+        let c = String(raw || '').trim();
+        if (c[0] === '/' || c[0] === '\\') c = c.slice(1);
+        const d = c.toLowerCase().split(/\s+/).filter(Boolean);
+        if (!d.length) return;
+        const fb = gameRule('sendcommandfeedback') !== false;
+        const info = (t) => { if (fb) say('[INFO] ' + t); };
+        switch (d[0]) {
+            case 'tp': {
+                const x = coord(d[1], 'x'), y = coord(d[2], 'y');
+                if (isNaN(x) || isNaN(y) || x < -100 || x > 1e4 || y < -100 || y > 1e3) { say('[INFO] Invalid location.'); return; }
+                w.worldX = x; w.worldY = -y; w.xSpeed = 0; w.ySpeed = 0; camSnap();
+                info('WHOOSH! Teleported to x:' + Math.floor(100 * x) / 100 + ', y:' + Math.floor(100 * y) / 100); return;
+            }
+            case 'give': {
+                const id = ident(d[1]); if (!id) { say('[INFO] "' + (d[1] || '') + '" is not a proper item ID.'); return; }
+                let q = d[2] != null ? parseInt(d[2], 10) : 1; if (!(q >= 1 && q < 1e4)) q = 1;
+                let dm = null; if (d[3] != null && bd(id, 'tool') == 1) { const n = parseInt(d[3], 10); dm = n < 0 ? (bd(id, 'life') - Math.abs(n)) | 0 : n; }
+                addDrop(id, w.worldX, w.worldY, q, dm || 0, {}); if (S.drops.length) S.drops[S.drops.length - 1].age = 30;
+                info('Gave ' + q + ' "' + d[1] + '".'); return;
+            }
+            case 'clear': {
+                const list = inv(); let n = 0;
+                if (d[1]) {
+                    const id = ident(d[1]); if (!id) { say('[INFO] "' + d[1] + '" is not a proper item ID.'); return; }
+                    let max = d[2] != null && parseInt(d[2], 10) >= 0 ? parseInt(d[2], 10) : Infinity;
+                    for (let i = 0; i < 45 && n < max; i++) if (!isEmpty(list[i]) && list[i][0] === id) { const m = Math.min(list[i][1], max - n); list[i][1] -= m; n += m; if (list[i][1] <= 0) list[i] = empty(); }
+                } else { for (let i = 0; i < 45; i++) if (!isEmpty(list[i])) { n += list[i][1]; list[i] = empty(); } }
+                hud.dirty = true; info(n ? 'Cleared ' + n + ' item' + (n === 1 ? '' : 's') + '.' : 'No items were found.'); return;
+            }
+            case 'setblock': {
+                if (d.length < 4) { say('[INFO] setblock block_type [~]x [~]y [replace|keep|destroy]'); return; }
+                let id = d[1] === 'air' ? 'air' : ident(d[1]);
+                if (!id || (id !== 'air' && bd(id, 'placeable') != 1)) { say('[INFO] "' + d[1] + '" is not a placeable block.'); return; }
+                const x = Math.floor(coord(d[2], 'x')), y = Math.floor(coord(d[3], 'y'));
+                if (isNaN(x) || isNaN(y)) { say('[INFO] Invalid location.'); return; }
+                const mode = d[4] || 'replace';
+                if (['keep', 'replace', 'destroy'].indexOf(mode) < 0) { say('[INFO] Expected [replace|keep|destroy].'); return; }
+                if (mode === 'keep' && fg(x, y) !== 'air') { info('0 blocks set.'); return; }
+                let st1; if (id === 'dtg') { id = 'dt'; st1 = 1; }
+                if (mode === 'destroy') mineBlock(x, y, true);
+                setBlock(x, y, id === 'air' ? null : id, st1);
+                info('1 block set.'); return;
+            }
+            case 'fill': {
+                if (d.length < 6) { say('[INFO] fill block_type [~]x [~]y width height'); return; }
+                let id = d[1] === 'air' ? 'air' : ident(d[1]);
+                if (!id || (id !== 'air' && bd(id, 'placeable') != 1)) { say('[INFO] "' + d[1] + '" is not a placeable block.'); return; }
+                const x = Math.floor(coord(d[2], 'x')), y = Math.floor(coord(d[3], 'y')), ww = Math.floor(+d[4]), hh = Math.floor(+d[5]);
+                if ([x, y, ww, hh].some(isNaN)) { say('[INFO] X2 and Y2 should be numeric.'); return; }
+                if ((ww + 1) * (hh + 1) > 1e4) { say('[INFO] You may not involve more than a 10000-block region.'); return; }
+                const mode = d[6] || 'replace', only = mode === 'replace' && d[7] ? ident(d[7]) : null;
+                let st1; if (id === 'dtg') { id = 'dt'; st1 = 1; }
+                let n = 0;
+                for (let X = x; X < x + ww; X++) for (let Y = y; Y < y + hh; Y++) {
+                    if (Y < 0) continue;
+                    const edge = X === x || X === x + ww - 1 || Y === y || Y === y + hh - 1;
+                    const here = fg(X, Y);
+                    if (mode === 'keep' && here !== 'air') continue;
+                    if (only && here !== only) continue;
+                    if ((mode === 'hollow' || mode === 'hallow') && !edge) { setBlock(X, Y, null); continue; }
+                    if (mode === 'outline' && !edge) continue;
+                    if (mode === 'destroy') mineBlock(X, Y, true);
+                    setBlock(X, Y, id === 'air' ? null : id, st1); n++;
+                }
+                info(n + ' block' + (n === 1 ? '' : 's') + ' filled.'); return;
+            }
+            case 'clone': {
+                if (d.length < 7) { say('[INFO] clone [~]x1 [~]y1 width height [~]xDest [~]yDest'); return; }
+                const x1 = Math.floor(coord(d[1], 'x')), y1 = Math.floor(coord(d[2], 'y')), ww = Math.floor(+d[3]), hh = Math.floor(+d[4]), x2 = Math.floor(coord(d[5], 'x')), y2 = Math.floor(coord(d[6], 'y'));
+                if ([x1, y1, ww, hh, x2, y2].some(isNaN) || ww < 0 || hh < 0) { say('[INFO] Invalid coordinates.'); return; }
+                if (ww * hh > 1e4) { say('[INFO] You may not involve more than a 10000-block region.'); return; }
+                const filt = d[7] || 'replace', move = d[8] === 'move', mask = d[9] ? (d[9] === 'air' ? 'air' : ident(d[9])) : null;
+                const copy = [];
+                for (let X = x1; X < x1 + ww; X++) for (let Y = y1; Y < y1 + hh; Y++) {
+                    if (Y < 0) continue;
+                    const t = fg(X, Y);
+                    if (filt === 'filtered' && t !== mask) continue;
+                    if (filt === 'masked' && t === 'air') continue;
+                    copy.push({ dx: X - x1, dy: Y - y1, s: JSON.parse(JSON.stringify(mbwom.getBlockState(X, Y))) });
+                }
+                if (move) copy.forEach(function (c2) { setBlock(x1 + c2.dx, y1 + c2.dy, null); });
+                copy.forEach(function (c2) { const X = x2 + c2.dx, Y = y2 + c2.dy; if (Y < 0) return; mbwom.setBlockState(X, Y, c2.s); if (typeof window.renderBlock === 'function') window.renderBlock(X, Y); S.sandCheck.set(X + ',' + Y, S.tick + 2); });
+                info(copy.length + ' block' + (copy.length === 1 ? '' : 's') + ' cloned'); return;
+            }
+            case 'summon': {
+                const t0 = d[1] || ''; const t = MOB_ALIAS[t0] || t0;
+                if (!D.mobs[t] || t === 'player') { say('[INFO] "' + t0 + '" is not a mob.'); return; }
+                let q = 1; if (d[2] != null) { q = parseInt(d[2], 10); if (!(q >= 1 && q <= 20)) { say('[INFO] Quantity must a number from 1-20.'); return; } }
+                let x = w.worldX, y = w.worldY;
+                if (d.length >= 5) { const a = coord(d[3], 'x'), b = coord(d[4], 'y'); if (isNaN(a) || isNaN(b)) { say('[INFO] Invalid location.'); return; } x = a; y = -b; }
+                for (let i = 0; i < q; i++) { const id = spawnMob(t, x, y, (t0 === 'cowctus' || t0 === 'mooshroom') ? { variant: t0 } : null); if (t === 'slime' || t === 'magmacube') { mbwom.mobs[id].size = 1 + (3 * Math.random() | 0); mbwom.mobs[id].health = maxHealth(mbwom.mobs[id]); } }
+                info('Summoned ' + q + ' ' + t0 + (q === 1 ? '' : 's') + '.'); return;
+            }
+            case 'kill': w.dead = 1; info('O_O'); return;
+            case 'heal': w.health = 20; hud.dirty = true; info('Health restored.'); return;
+            case 'gamemode': {
+                const v = d[1]; const g = (v === 'survival' || v === 's' || v === '0') ? 0 : (v === 'creative' || v === 'c' || v === '1') ? 1 : (v === 'adventure' || v === 'a' || v === '2') ? 2 : (v === 'spectator' || v === 'sp' || v === '3') ? 3 : -1;
+                if (g < 0) { say('[INFO] gamemode survival|creative|adventure|spectator'); return; }
+                w.gamemode = g; if (g === 3) w.fly = true; else if (g !== 1) w.fly = false;
+                document.body.classList.toggle('play-survival', g != 1); hud.dirty = true;
+                info('You are now in ' + ['survival', 'creative', 'adventure', 'spectator'][g] + ' mode.'); return;
+            }
+            case 'gamerule': {
+                const rules = ['keepinventory', 'mobgriefing', 'dodaylightcycle', 'dofiretick', 'passivemobs', 'domobloot', 'sendcommandfeedback'];
+                if (d.length !== 3 || rules.indexOf(d[1]) < 0) { say('[INFO] Unknown game rule.'); return; }
+                if (!w.gameRules || typeof w.gameRules !== 'object') w.gameRules = {};
+                w.gameRules[d[1]] = d[2] === 'true' || d[2] === '1';
+                info(d[1] + ' = ' + w.gameRules[d[1]]); return;
+            }
+            case 'home': {
+                if (!mbwom.spawnPoint || typeof mbwom.spawnPoint !== 'object') { mbwom.spawnPoint = { x: S.start.x, y: S.start.y }; mbwom.world['spawnPoint' + S.scene] = mbwom.spawnPoint; }
+                const sp = mbwom.spawnPoint;
+                if (d[1] === 'set') {
+                    if (d.length === 2) { sp.x = w.worldX; sp.y = w.worldY; info('Your home position has been set to your current position.'); return; }
+                    const x = coord(d[2], 'x'), y = coord(d[3], 'y'); if (isNaN(x) || isNaN(y)) { say('[INFO] home <get|set [~]x [~]y>'); return; }
+                    sp.x = x; sp.y = -y; info('Your home position has been set to x=' + Math.floor(100 * x) / 100 + ', y=' + Math.floor(100 * y) / 100 + '.'); return;
+                }
+                if (d[1] === 'get') { say('[INFO] Your current home position: x=' + Math.floor(sp.x * 100) / 100 + ', y=' + Math.floor(-sp.y * 100) / 100 + '.'); return; }
+                w.worldX = sp.x; w.worldY = sp.y; w.xSpeed = 0; w.ySpeed = 0; camSnap(); info('Welcome home!'); return;
+            }
+            case 'explode': {
+                const n = parseFloat(d[1]); if (!(n >= 1 && n <= 10)) { say('[INFO] Explosion size must be a number from 1 to 10.'); return; }
+                if (d.length >= 4) { const x = coord(d[2], 'x'), y = coord(d[3], 'y'); if (isNaN(x) || isNaN(y)) { say('[INFO] X and Y should be numbers.'); return; } explode(Math.floor(x), Math.floor(y), n, PLAYER_ID); }
+                else explode(Math.floor(w.worldX), Math.floor(-w.worldY), n, PLAYER_ID);
+                return;
+            }
+            case 'say': say('[SAY] ' + String(raw).replace(/^[\/\\]?\s*say\s*/i, '')); return;
+            case 'time': if (d[1] === 'set' && d[2] != null) { const v = d[2] === 'day' ? 0 : d[2] === 'night' ? 50 : Math.floor(+d[2] % 100); if (!isNaN(v)) { w.tim = v; info('Time set to ' + v + '. (Play mode has no day/night yet)'); return; } } if (d[1] === 'get') { say('[INFO] The time is ' + (w.tim | 0) + '.'); return; } say('[INFO] time <get|set <t|day|night>>'); return;
+            case 'weather': { const v = d[1] === 'set' ? d[2] : d[1]; const n = (v === 'clear' || v === '0') ? 0 : (v === 'rain' || v === '1') ? 1 : (v === 'thunder' || v === '2') ? 2 : -1; if (n < 0) { say('[INFO] weather <get|set <clear|rain|thunder>>'); return; } w.raining = n; info('Weather set to ' + ['clear', 'rain', 'thunder'][n] + '. (Play mode has no weather yet)'); return; }
+            case 'difficulty': { if (['peaceful', 'easy', 'normal', 'hard'].indexOf(d[1]) < 0) { say('[INFO] difficulty peaceful|easy|normal|hard'); return; } w.difficulty = d[1]; info('Difficulty set to ' + d[1] + '.'); return; }
+            case 'xp': { let v = d[1] === 'add' ? d[2] : d[1]; if (v == null) { say('[INFO] xp [add] value[L]'); return; } v = /l$/.test(v) ? 100 * parseFloat(v) : parseFloat(v); if (isNaN(v)) { say('[INFO] xp [add] value[L]'); return; } w.experience = Math.max(0, Math.min(1e6, Math.floor((d[1] === 'add' ? (w.experience || 0) : 0) + v))); info('experience set to ' + w.experience + '.'); return; }
+            case 'help': say('[INFO] tp give clear setblock fill clone summon kill heal gamemode gamerule home explode say time weather difficulty xp'); return;
+            default: say('[INFO] Command not recognised: ' + d[0]);
+        }
+    }
+    function useCommandBook() {
+        const it = selItem();
+        if (!it || it[0] !== 'cbook') return false;
+        const ex = it[3] || {};
+        if (typeof ex.command !== 'string' || !ex.command.trim()) { say('[INFO] This Command Book has no command.'); return true; }
+        try { runCommand(ex.command); } catch (e) { say('[INFO] Error: ' + e.message); }
+        if (ex.uses != null && W().gamemode != 1) {
+            if (ex.uses > 0) ex.uses -= 1;
+            if (ex.uses === 0) inv()[selIndex()] = empty();
+            hud.dirty = true;
+        }
+        return true;
+    }
+    window.mbwPlayCommand = runCommand;
+
+    // ------------------------------------------------------------------ cofres y hornos (abrir)
+    const BOX = { chest: 1, oven: 1 };
+    function openBox(x, y) {
+        const t = fg(x, y);
+        let ok = false;
+        if (t === 'chest' && typeof window.openChestEditor === 'function') ok = window.openChestEditor(x, y);
+        else if (t === 'oven' && typeof window.openFurnaceEditor === 'function') ok = window.openFurnaceEditor(x, y);
+        if (ok) { S.keys = {}; S.mouse.left = S.mouse.right = false; S.mine = null; }
+        return ok;
+    }
+    function findBox() {                                             // el cofre / horno bajo el mouse (si está al alcance) o el más cercano
+        const w = W();
+        if (S.mouse.inside) { const mw = mouseWorld(); const bx = Math.floor(mw.x), by = Math.floor(mw.y); if (BOX[fg(bx, by)] && blockDist(bx, by) <= REACH + 1) return { x: bx, y: by, t: fg(bx, by) }; }
+        const px = Math.floor(w.worldX), py = Math.floor(-w.worldY);
+        let best = null, bdst = Infinity;
+        for (let x = px - REACH; x <= px + REACH; x++) for (let y = py - REACH; y <= py + REACH + 2; y++) {
+            const t = fg(x, y); if (!BOX[t]) continue;
+            const dd = blockDist(x, y); if (dd <= REACH + 1 && dd < bdst) { bdst = dd; best = { x: x, y: y, t: t }; }
+        }
+        return best;
+    }
+    function modalOpen() {
+        const m = document.getElementById('inventory-modal');
+        if (m && m.style.display === 'block') return true;
+        const cb = document.getElementById('command-book-modal');
+        return !!(cb && cb.style.display && cb.style.display !== 'none');
+    }
+
     // ------------------------------------------------------------------ paso del juego
     function step() {
         S.tick++;
         const w = W();
         intervals();
         deathCheck();
+        if (modalOpen()) { S.keys = {}; S.mouse.left = S.mouse.right = S.mouse.leftEdge = S.mouse.rightEdge = false; S.mine = null; }
         if (!(w.dead > 0)) { mineAndPlace(); doPlayerLogic(); }
+        if (S.tick % 10 === 0) { const b = findBox(); const k = b ? b.x + ',' + b.y : ''; if (k !== (S.box ? S.box.x + ',' + S.box.y : '')) { S.box = b; hud.dirty = true; } }
         // arena / grava que hay que revisar
         if (S.sandCheck.size) {
             let n = 0;
@@ -992,7 +1206,12 @@
     function camSnap() { camFollow(1); }
     function camFollow(k) {
         const w = W();
-        const tx = w.worldX - (canvas.width / tileSize) / 2, ty = (-w.worldY + 1) - (canvas.height / tileSize) / 2;
+        let tx = w.worldX - (canvas.width / tileSize) / 2, ty = (-w.worldY + 1) - (canvas.height / tileSize) / 2;
+        const A = window.mbwAspect;
+        if (A && A.active && A.offsets) {                          // con la vista del juego: el Player en el centro del recuadro
+            const o = A.offsets();
+            tx = w.worldX - A.w / 2 - o.offX; ty = (-w.worldY + 1) - A.h / 2 - o.offY;
+        }
         camera.x += (tx - camera.x) * k; camera.y += (ty - camera.y) * k;
         camera._tx = camera.x; camera._ty = camera.y; camera.velX = 0; camera.velY = 0;
     }
@@ -1070,6 +1289,8 @@
                 '<div class="ph-top"><button type="button" class="ph-stop">■ <span></span></button><div class="ph-msg"></div></div>' +
                 '<div class="ph-bars"><div class="ph-hearts"></div><div class="ph-food"></div><div class="ph-air"></div></div>' +
                 '<div class="ph-hotbar"></div>' +
+                '<button type="button" class="ph-inv">🎒</button>' +
+                '<button type="button" class="ph-open" style="display:none"></button>' +
                 '<div class="ph-pad"><button type="button" data-k="left">◀</button><button type="button" data-k="right">▶</button></div>' +
                 '<div class="ph-pad2"><button type="button" data-k="down" class="ph-sneak">⇩</button><button type="button" data-k="up" class="ph-jump">⇧</button><button type="button" class="ph-mode">⛏</button></div>';
             document.body.appendChild(el);
@@ -1080,6 +1301,8 @@
                 const off = function (e) { e.preventDefault(); e.stopPropagation(); S.keys[k] = false; b.classList.remove('on'); };
                 b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('pointerleave', off);
             });
+            el.querySelector('.ph-inv').addEventListener('click', function (e) { e.stopPropagation(); toggleInv(); });
+            el.querySelector('.ph-open').addEventListener('click', function (e) { e.stopPropagation(); if (S.box) openBox(S.box.x, S.box.y); });
             const mb = el.querySelector('.ph-mode');
             mb.addEventListener('click', function (e) { e.stopPropagation(); S.touchMode = S.touchMode === 'mine' ? 'place' : 'mine'; hud.dirty = true; });
             el.querySelector('.ph-hotbar').addEventListener('click', function (e) {
@@ -1127,6 +1350,10 @@
                 }
                 hb.appendChild(s);
             }
+            const ob = this.el.querySelector('.ph-open');
+            ob.style.display = S.box ? '' : 'none';
+            if (S.box) ob.textContent = (S.box.t === 'oven' ? '🔥 ' : '📦 ') + tr('play_open', 'Open');
+            this.el.querySelector('.ph-inv').title = tr('play_inv', 'Inventory (E)');
             this.el.querySelector('.ph-mode').textContent = S.touchMode === 'mine' ? '⛏' : '🧱';
             this.el.querySelector('.ph-mode').title = S.touchMode === 'mine' ? tr('play_mode_mine', 'Tap = break / hit') : tr('play_mode_place', 'Tap = place / use');
         },
@@ -1137,9 +1364,20 @@
     // ------------------------------------------------------------------ teclado / mouse / dedos (mientras se juega, el editor no los recibe)
     const KEYMAP = { ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', ArrowUp: 'up', KeyW: 'up', Space: 'up', ArrowDown: 'down', KeyS: 'down', ShiftLeft: 'down' };
     function typing(e) { const t = e.target; return t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable); }
+    function toggleInv() {
+        const m = document.getElementById('inventory-modal');
+        if (m && m.style.display === 'block') { if (typeof toggleInventory === 'function') toggleInventory(); }
+        else if (typeof window.togglePlayerInventory === 'function') { S.keys = {}; window.togglePlayerInventory(); }
+        hud.dirty = true;
+    }
     function onKeyDown(e) {
         if (!S.playing || typing(e)) return;
+        if (modalOpen()) {                                           // con el inventario / un cofre abierto: las teclas son de la ventana
+            if (e.code === 'KeyE' || e.code === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); closeModals(); hud.dirty = true; }
+            return;
+        }
         if (e.code === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); stopPlay(); return; }
+        if (e.code === 'KeyE') { e.preventDefault(); e.stopImmediatePropagation(); toggleInv(); return; }
         const k = KEYMAP[e.code];
         const w = W();
         if (k) {
@@ -1164,7 +1402,7 @@
         e.preventDefault(); e.stopImmediatePropagation();
     }
     function onKeyUp(e) {
-        if (!S.playing || typing(e)) return;
+        if (!S.playing || typing(e) || modalOpen()) return;
         const k = KEYMAP[e.code];
         if (k) { S.keys[k] = false; if (k === 'left' && !S.keys.left) { /* nada */ } }
         e.preventDefault(); e.stopImmediatePropagation();
@@ -1187,6 +1425,13 @@
         if (e.type === 'pointerdown') {
             S.mouse.x = e.clientX; S.mouse.y = e.clientY; S.mouse.inside = true;
             const right = e.button === 2 || (e.pointerType === 'touch' && S.touchMode === 'place');
+            // dos toques / dos clics rápidos sobre un cofre o un horno: se abre
+            if (!right || e.pointerType === 'touch') {
+                const mw = mouseWorld(), bx = Math.floor(mw.x), by = Math.floor(mw.y), now = performance.now();
+                const L = S.lastTap;
+                S.lastTap = { x: bx, y: by, t: now };
+                if (L && now - L.t < 380 && L.x === bx && L.y === by && BOX[fg(bx, by)] && blockDist(bx, by) <= REACH + 1) { S.lastTap = null; openBox(bx, by); return; }
+            }
             if (right) { S.mouse.right = true; S.mouse.rightEdge = true; } else { S.mouse.left = true; S.mouse.leftEdge = true; }
             S.placeDelay = 99;
             try { cv.setPointerCapture && cv.setPointerCapture(e.pointerId); } catch (er) { /* nada */ }
@@ -1245,17 +1490,21 @@
         window.mbwPlaying = true;
         document.body.classList.add('mbw-playing');
         window.smoothScroll = true;
-        // zoom de juego: ~36 bloques a lo ancho (como se ve en Mine Blocks)
-        try {
-            if (typeof ZOOM_LEVELS !== 'undefined' && typeof currentZoomIndex !== 'undefined' && typeof updateZoomSlider === 'function') {
-                S.old.zoom = currentZoomIndex;
-                const want = Math.max(24, canvas.width / 36) / (tileSize / (ZOOM_LEVELS[currentZoomIndex] / 100));
-                let best = currentZoomIndex, bd2 = Infinity;
-                ZOOM_LEVELS.forEach(function (z, i) { const d = Math.abs(z / 100 - want); if (d < bd2) { bd2 = d; best = i; } });
-                window.mbwZoomInstant = true;
-                try { updateZoomSlider(best); } finally { window.mbwZoomInstant = false; }
-            }
-        } catch (e) { /* nada */ }
+        // pantalla completa + solo el mapa (el CSS de body.mbw-playing esconde todo el editor) + la vista del juego (Aspect, medidas de fábrica)
+        S.old.fs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        S.enteredFs = false;
+        if (!S.old.fs && !document.documentElement.classList.contains('is-app')) {
+            const el = document.documentElement, req = el.requestFullscreen || el.webkitRequestFullscreen;
+            if (req) { try { const pr = req.call(el); S.enteredFs = true; if (pr && pr.catch) pr.catch(function () { S.enteredFs = false; }); } catch (e) { S.enteredFs = false; } }
+        }
+        document.body.classList.toggle('play-survival', w.gamemode != 1);
+        try { window.dispatchEvent(new Event('resize')); } catch (e) { /* nada */ }
+        const A = window.mbwAspect;
+        if (A && A.startView) {
+            S.old.aspect = A.active ? { w: A.w, h: A.h } : null;
+            const d = A.defaults || { w: 18, h: 14 };
+            A.startView(d.w, d.h);
+        }
         try { if (typeof selectTool === 'function') selectTool('move'); } catch (e) { /* nada */ }
         try { if (typeof toggleMobInfo === 'function') toggleMobInfo(false); } catch (e) { /* nada */ }
         hud.build(); hud.dirty = true;
@@ -1273,18 +1522,28 @@
         mbwom.loadScene(S.scene);
         mbwom.currentScene = S.scene;
     }
+    function closeModals() {
+        const m = document.getElementById('inventory-modal');
+        if (m && m.style.display === 'block' && typeof toggleInventory === 'function') { try { toggleInventory(); } catch (e) { m.style.display = 'none'; } }
+        ['sign-editor-modal', 'command-book-modal'].forEach(function (id) { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
+    }
     function stopPlay() {
         if (!S.playing) return;
+        closeModals();                                              // (con el juego todavía activo: lo del cofre no entra al historial)
         S.playing = false;
         cancelAnimationFrame(S.raf);
         try { restoreSnapshot(); } catch (e) { console.error('play restore', e); alert('Error restoring the world: ' + e.message); }
         S.snapshot = null; S.drops = []; S.falling = []; S.arrows = []; S.tmp = new Map(); S.keys = {}; S.mine = null;
         window.mbwPlaying = false;
-        document.body.classList.remove('mbw-playing');
+        document.body.classList.remove('mbw-playing', 'play-survival');
         hud.destroy();
+        const A = window.mbwAspect;
+        if (A && A.off) { try { A.off(); if (S.old && S.old.aspect && A.startView) A.startView(S.old.aspect.w, S.old.aspect.h); } catch (e) { /* nada */ } }
+        if (S.enteredFs && (document.fullscreenElement || document.webkitFullscreenElement)) { try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) { /* nada */ } }
+        S.enteredFs = false;
+        try { window.dispatchEvent(new Event('resize')); } catch (e) { /* nada */ }
         if (S.old) {
             window.smoothScroll = S.old.smooth;
-            if (S.old.zoom != null && typeof updateZoomSlider === 'function') { window.mbwZoomInstant = true; try { updateZoomSlider(S.old.zoom); } finally { window.mbwZoomInstant = false; } }
             camera.x = S.old.cam.x; camera.y = S.old.cam.y; camera._tx = camera.x; camera._ty = camera.y; camera.velX = 0; camera.velY = 0;
             try { if (S.old.tool && typeof selectTool === 'function') selectTool(S.old.tool); } catch (e) { /* nada */ }
         }
@@ -1319,12 +1578,21 @@
         if (hm && !hm.__playWrapped) {
             hm.__playWrapped = true;
             ['undo', 'redo'].forEach(function (n) { const o = hm[n]; if (typeof o === 'function') hm[n] = function () { if (S.playing) { flashMsg(tr('play_no_undo', 'Undo is off while playing')); return; } return o.apply(this, arguments); }; });
+            // lo que se cambie jugando (un cofre, un horno) no entra al historial: al parar se vuelve a la foto
+            ['startAction', 'recordChange', 'recordMobChange', 'recordMobPlacement', 'commitAction'].forEach(function (n) { const o = hm[n]; if (typeof o === 'function') hm[n] = function () { if (S.playing) return; return o.apply(this, arguments); }; });
         }
         const wt = (typeof WorldTabsManager !== 'undefined') ? WorldTabsManager : null;
         if (wt && !wt.__playWrapped) {
             wt.__playWrapped = true;
             ['switchWorld', 'addWorld', 'closeWorld', 'saveCurrentWorldStateToMemory'].forEach(function (n) { const o = wt[n]; if (typeof o === 'function') wt[n] = function () { if (S.playing) stopPlay(); return o.apply(this, arguments); }; });
         }
+    }
+    function wrapNet() {
+        if (typeof window.enviarMensajeEnRed !== 'function' || window.enviarMensajeEnRed.__play) return;
+        const o = window.enviarMensajeEnRed;
+        const nw = function () { if (S.playing) return; return o.apply(this, arguments); };
+        nw.__play = true;
+        window.enviarMensajeEnRed = nw;
     }
     // dibujar encima: se envuelve drawPlayer (el editor lo llama en cada cuadro, después de los mobs)
     function wrapDraw() {
@@ -1354,7 +1622,7 @@
         if (ic) ic.textContent = S.playing ? '■' : '▶';
     }
     function init() {
-        wrapSaves(); wrapDraw();
+        wrapSaves(); wrapDraw(); wrapNet();
         window.addEventListener('keydown', onKeyDown, true);
         window.addEventListener('keyup', onKeyUp, true);
         ['pointerdown', 'pointerup', 'pointercancel', 'pointermove'].forEach(function (n) { window.addEventListener(n, onPointer, true); });
@@ -1365,7 +1633,13 @@
         window.addEventListener('beforeunload', function () { if (S.playing) { try { restoreSnapshot(); } catch (e) { /* nada */ } } });
         window.addEventListener('mbw-lang-changed', function () { syncButton(); hud.texts(); });
         syncButton();
-        setTimeout(function () { wrapSaves(); wrapDraw(); }, 1500);
+        setTimeout(function () { wrapSaves(); wrapDraw(); wrapNet(); }, 1500);
+        ['fullscreenchange', 'webkitfullscreenchange'].forEach(function (n) { document.addEventListener(n, function () {
+            // Esc en pantalla completa: el navegador sale de pantalla completa (y no avisa la tecla): se deja de jugar también
+            if (S.playing && S.enteredFs && !(document.fullscreenElement || document.webkitFullscreenElement)) { S.enteredFs = false; stopPlay(); }
+            else if (S.playing) { try { window.dispatchEvent(new Event('resize')); } catch (e) { /* nada */ } }
+        }); });
+        window.addEventListener('resize', function () { if (S.playing && window.mbwAspect && window.mbwAspect.refit) setTimeout(function () { window.mbwAspect.refit(); camSnap(); }, 0); });
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
