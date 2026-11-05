@@ -7,9 +7,6 @@
 // verdad, aquí, y ui-handler.js (y cualquier otro archivo que la
 // necesite) la usa como window.inventoryCategories.
 window.inventoryCategories = {
-    // La pestaña "all" se llena automáticamente, no necesitas editar 'items' aquí.
-    all: { icon: 'chest', items: [] },
-
 // 🗡️ Ítems Creados
     Custom: {
         icon: 'ObsidianPickaxe',
@@ -48,20 +45,16 @@ window.inventoryCategories = {
         ]
     },
 
-    // 🌱 Nature (nuevo): plantas, líquidos y cosas del mundo natural
-    Nature: {
+    // 🌿 Decoration and Nature (unidas): líquidos y sus niveles, plantas, mecanismos de adorno, muebles, luces, camas, alfombras y globos
+    Decoration: {
         icon: 'fw2',
         items: [
-            'wr', 'la', 'ad', 'lgr', 'shrub', 'ds', 'fw1', 'fw2', 'ms1', 'ms2', 'msb1', 'msb2', 'msb3', 'msb4', 'bb', 'ct', 'sc',
-            'sw', 'coral', 'lp', 'moss', 'web', 'snow', 'mel', 'fire',
-        ]
-    },
-
-    // 🌿 Decoration
-    Decoration: {
-        icon: 'shrub',
-        items: [
-            'craft', 'oven', 'chest', 'echest', 'cmp', 'enchant', 'anvil', 'ntag', 'bed1_red', 'dr2', 'idr2', 'bdr2', 'td1', 'sign', 'sl', 'lv', 'lv1', 'lv2', 'lv3', 'lv4', 'st', 'ladder', 'fnc', 'fncg', 'nfnc', 'nfncg', 'ibar',
+            // líquidos con todos sus niveles (la forma de la orilla: n = inclinada hacia el otro lado)
+            'wr_6n', 'wr_5n', 'wr_4n', 'wr_3n', 'wr_2n', 'wr_1n', 'wr', 'wr_1', 'wr_2', 'wr_3', 'wr_4', 'wr_5', 'wr_6', 'la_4n', 'la_3n', 'la_2n', 'la_1n', 'la', 'la_1', 'la_2', 'la_3', 'la_4', 'ad_4n', 'ad_3n', 'ad_2n', 'ad_1n', 'ad', 'ad_1', 'ad_2', 'ad_3', 'ad_4',
+            // naturaleza
+            'lgr', 'shrub', 'ds', 'fw1', 'fw2', 'ms1', 'ms2', 'msb1', 'msb2', 'msb3', 'msb4', 'bb', 'ct', 'sc', 'sw', 'coral', 'lp', 'moss', 'web', 'snow', 'mel', 'fire',
+            // decoración
+            'craft', 'oven', 'chest', 'echest', 'cmp', 'enchant', 'anvil', 'bed1_red', 'dr2', 'idr2', 'bdr2', 'td1', 'sign', 'sl', 'lv', 'lv1', 'lv2', 'lv3', 'lv4', 'st', 'ladder', 'fnc', 'fncg', 'nfnc', 'nfncg', 'ibar',
             // Antorcha: _1 parada (recta), _2 y _3 inclinadas a la pared (una de cada lado). (dispenser y dropper ahora están en Redstone)
             'th_1', 'th_2', 'th_3',
             'jl', 'lant_1', 'lant_2', 'lant_3', 'ortorch_1', 'ortorch_2', 'ortorch_3', 'rp', 'td2', 'brew', 'brew_1', 'brew_2',
@@ -73,6 +66,9 @@ window.inventoryCategories = {
             'carpet_lightgreen', 'carpet_green', 'carpet_cyan', 'carpet_lightblue', 'carpet_blue', 'carpet_rainbow', 'bl',
             'bl_lightgray', 'bl_gray', 'bl_black', 'bl_brown', 'bl_purple', 'bl_magenta', 'bl_red', 'bl_orange', 'bl_pink',
             'bl_yellow', 'bl_lightgreen', 'bl_green', 'bl_cyan', 'bl_lightblue', 'bl_blue', 'bl_ghast',
+            // puertas en sus otras posiciones (abierta / cerrada, izquierda / derecha)
+            'dr1', 'dr3', 'dr4', 'idr1', 'idr1_2', 'idr3', 'idr3_2', 'idr4', 'bdr1', 'bdr1_2', 'bdr3', 'bdr3_2', 'bdr4',
+            'bl_white', 'mh',
         ]
     },
 
@@ -82,7 +78,10 @@ window.inventoryCategories = {
         items: [
             'dispense_1', 'dispense_2', 'dispense_3', 'dispense_4', 'dropper_1', 'dropper_2', 'dropper_3', 'dropper_4',
             'rsd', 'rsd_1', 'rstorch', 'light', 'lever', 'lever_1', 'lever_2', 'button', 'button_1', 'button_2', 'pp', 'wpp',
-            'note', 'piston_1', 'piston1_1', 'piston2_1', 'spiston_1', 'spiston1_1', 'spiston2_1', 'TNT',
+            'note', 'TNT',
+            // pistones: _1 a _4 = arriba, izquierda... según la dirección; piston1 / piston2 = extendido; spiston = pegajoso
+            'piston_1', 'piston_2', 'piston_3', 'piston_4', 'piston1', 'piston1_1', 'piston1_2', 'piston1_3', 'piston1_4', 'piston2', 'piston2_1', 'piston2_2', 'piston2_3', 'piston2_4',
+            'spiston_1', 'spiston_2', 'spiston_3', 'spiston_4', 'spiston1', 'spiston1_1', 'spiston1_2', 'spiston1_3', 'spiston1_4', 'spiston2', 'spiston2_1', 'spiston2_2', 'spiston2_3', 'spiston2_4',
         ]
     },
 
@@ -109,25 +108,27 @@ window.inventoryCategories = {
         ]
     },
 
-    // 🌿 Food and Crops
+    // 🌿 Food and Crops: primero la comida ya lista (frutas, cocinados, bebidas, pasteles...) y al final todos los cultivos
     Food: {
         icon: 'bread',
         items: [
-            'egg', 'fireegg', 'cegg', 'or', 'lemon', 'gasd', 'gap', 'capple', 'crml',
-            'sugar', 'icec', 'potato', 'ppotato', 'beet', 'wseed', 'gmels', 'pseed',
-            'pkp', 'carrot', 'gcarrot', 'wheat', 'bread', 'cookie', 'ccane',
+            // comida lista
+            'ap', 'or', 'lemon', 'gap', 'capple', 'crml', 'carrot', 'gcarrot', 'potato', 'ppotato', 'bpotato', 'beet', 'mels', 'gmels', 'wheat', 'bread', 'cookie', 'ccane',
+            'pkp', 'sugar', 'icec', 'ccb',
+            'egg', 'fireegg', 'cegg',
+            'pork', 'cpork', 'bacon', 'cbacon', 'beef', 'cbeef', 'chicken', 'cchicken', 'nugget',
+            'mutton', 'cmutton', 'rabbit', 'crabbit', 'fi', 'cfi', 'salmon', 'csalmon', 'clown', 'puff', 'rf',
+            'bowl', 'soup', 'rabbitsoup', 'beetsoup', 'lade', 'apade', 'orade', 'mbk',
             'cake_1', 'cake_2', 'cake_3', 'cake_4', 'cake_5', 'cake_6', 'cake_7',
             'ccake_1', 'ccake_2', 'ccake_3', 'ccake_4', 'ccake_5', 'ccake_6', 'ccake_7',
-            'nw', 'nw_2', 'nw_3', 'nw_4', 'nw_5', 'nw_6', 'nw_7',
-            'seed', 'seed_2', 'seed_3', 'seed_4', 'seed_5', 'seed_6', 'seed_7',
+            // cultivos (semillas y todas sus etapas de crecimiento) — al final
+            'gasd', 'seed', 'seed_2', 'seed_3', 'seed_4', 'seed_5', 'seed_6', 'seed_7',
+            'wseed', 'wseed_1', 'wseed_2', 'wseed_3', 'wseed_4', 'wseed_5', 'wseed_6', 'wseed_7',
+            'pseed', 'pseed_1', 'pseed_2', 'pseed_3', 'pseed_4', 'pseed_5', 'pseed_6', 'pseed_7',
+            'bseed', 'bseed_2', 'bseed_3', 'bseed_4', 'bseed_5', 'bseed_6', 'bseed_7',
             'carrot_1', 'carrot_2', 'carrot_3', 'carrot_4', 'carrot_5', 'carrot_6', 'carrot_7',
-            'wseed_1', 'wseed_2', 'wseed_3', 'wseed_4', 'wseed_5', 'wseed_6', 'wseed_7',
-            'pseed_2', 'pseed_3', 'pseed_4', 'pseed_5', 'pseed_6', 'pseed_7',
-            'pork', 'cpork', 'bacon', 'cbacon', 'beef', 'cbeef', 'chicken', 'cchicken', 'nugget',
-            'mutton', 'cmutton', 'rabbit', 'crabbit', 'fi', 'cfi', 'salmon', 'csalmon', 'clown', 'puff',
-            'rf', 'bowl', 'soup', 'rabbitsoup', 'beetsoup', 'lade', 'apade', 'orade', 'mbk',
-            'ap', 'mels', 'bpotato', 'ccb', 'bseed', 'bseed_3', 'bseed_5', 'bseed_7', 'potato_1', 'potato_4', 'potato_5',
-            'potato_7', 'pseed_1',
+            'potato_1', 'potato_2', 'potato_3', 'potato_4', 'potato_5', 'potato_6', 'potato_7',
+            'nw', 'nw_2', 'nw_3', 'nw_4', 'nw_5', 'nw_6', 'nw_7',
         ]
     },
 
@@ -139,7 +140,7 @@ window.inventoryCategories = {
             'nbr', 'paper', 'book', 'cbook', 'tag', 'clock', 'compass', 'feather', 'leather', 'rleather', 'bone', 'bonem',
             'fiber', 'ink', 'se', 'fse', 'gp', 'yellowdust', 'ep', 'eoe', 'blazer', 'bp', 'gt', 'slimeball', 'magmac', 'rfoot', 'dscl', 'boe',
             'scepters', 'dye', 'dye_lightgray', 'dye_gray', 'dye_brown', 'dye_purple', 'dye_magenta', 'dye_red', 'dye_pink',
-            'dye_yellow', 'dye_lightgreen', 'dye_green', 'dye_cyan', 'dye_lightblue',
+            'dye_yellow', 'dye_lightgreen', 'dye_green', 'dye_cyan', 'dye_lightblue', 'dye_white', 'dye_black', 'dye_orange',
         ]
     },
 

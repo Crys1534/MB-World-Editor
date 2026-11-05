@@ -27,6 +27,7 @@
         biomes: read(KEY.biomes) === '1',
         map: read(KEY.map) === '1',            // 🔆 Vista de luz: mapa de calor con cuánta luz recibe cada zona (apagada de fábrica)
         TOP: 90, BOTTOM: 66,                   // Y donde empieza (lo más leve) y donde ya es lo más oscuro
+        SPACE: 270, SPACE_FULL: 300,           // el espacio: desde Y 270 el cielo se va oscureciendo hasta quedar lo más oscuro en Y 300
         MIN: 0.14, MAX: 0.86,                  // qué tan oscuro en Y 90 y en Y 66 (1 = negro) — cambia con "Darkness opacity" (Configuration > Display)
         level: 86,                             // "Darkness opacity" en % (0 = nada, 100 = negro total en lo más hondo). De fábrica 86 %
         rev: 0,                                // sube cada vez que se edita el mundo (para rehacer la imagen)
@@ -92,6 +93,7 @@
 
     // Qué tan oscuro es la fila Y (0 = nada, 1 = negro), sin contar luces
     D.darkAt = function (y) {
+        if (y >= D.SPACE) return D.MAX * Math.min(1, (y - D.SPACE + 1) / (D.SPACE_FULL - D.SPACE + 1));   // espacio: más oscuro entre más arriba
         if (y > D.TOP) return 0;
         if (y <= D.BOTTOM) return D.MAX;
         return D.MIN + (D.MAX - D.MIN) * (D.TOP - y) / (D.TOP - D.BOTTOM);
@@ -289,7 +291,7 @@
         const sc = (typeof mbwom !== 'undefined' && Array.isArray(mbwom.scene)) ? mbwom.scene : [];
         for (let x = 0; x < sc.length; x++) { const col = sc[x]; if (col && col.length > H) H = col.length; }
         const Wd = Math.max(1, wc.length, sc.length);
-        H = Math.max(H, D.TOP + 2);
+        H = Math.max(H, D.SPACE_FULL + 2);
         if (Wd * H > 6000000) { D.stats.drawn = false; return; }
         const pt = playerTile();
         const key = ['far', Wd, H, D.rev, D.map ? 'm' : '', cacheId(window.worldCache), pt ? Math.floor(pt.x * 2) + ',' + Math.floor(pt.y * 2) : '-'].join('|');

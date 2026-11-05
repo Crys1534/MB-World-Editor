@@ -1036,8 +1036,10 @@ function eraser(cx, cy) {
 // Variante de un bloque (states1): 0, '', null y undefined significan "sin variante".
 function blockVariantKey(state) {
     const v = state ? state.states1 : undefined;
-    if (v === undefined || v === null || v === '' || v === 0 || v === '0') return '';
-    return String(v);
+    // el nivel de un líquido (water: [izq, der]) también cuenta: lava nivel 3 ≠ lava nivel 5 ≠ lava llena
+    const w = (state && Array.isArray(state.water) && !(state.water[0] == 10 && state.water[1] == 10)) ? '|w' + state.water[0] + ',' + state.water[1] : '';
+    if (v === undefined || v === null || v === '' || v === 0 || v === '0') return w;
+    return String(v) + w;
 }
 // ¿Es EXACTAMENTE el mismo bloque (mismo tipo y misma variante)? Si no, el Lápiz y la Cubeta sí lo cambian.
 function sameBlockKind(a, b) {

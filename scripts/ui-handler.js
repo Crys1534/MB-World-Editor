@@ -1,6 +1,7 @@
 // --- CONFIGURACIÓN DE PESTAÑAS E INVENTARIO ---
 
-let activeInventoryTab = 'all';
+let activeInventoryTab = 'Blocks';   // (ya no existe la pestaña "All Items": se abre en Bloques; el buscador sí busca en todas)
+let invSearchAll = false;           // true mientras hay texto en el buscador: se muestran los objetos de todas las pestañas
 
 // La lista completa de bloques/items ahora vive en scripts/items-data.js,
 // como window.inventoryCategories, para no tener dos copias (esta y la de
@@ -153,6 +154,7 @@ function toggleInventory() {
             if (!invIsTouch()) searchInput.focus();
         }
 
+        invSearchAll = false;
         renderInventoryTabs(); 
         populateInventory();   
         renderModalHotbar(); 
@@ -189,6 +191,7 @@ function invPlaceHeldInSelectedSlot() {
     if (heldItem.states1 !== undefined) s.states1 = heldItem.states1;
     if (heldItem.count > 1) s.count = heldItem.count;
     if (heldItem.nbt !== undefined) s.nbt = heldItem.nbt;
+    const lq = mbwLiquidSlotFromKey(heldItem.type); if (lq) { s.type = lq.type; s.water = lq.water; delete s.states1; }   // nivel de líquido: bloque normal + dato de nivel
     hotbar.slots[slotIndex] = s;
     heldItem = null;
     updateFloatingItem();
@@ -274,6 +277,8 @@ function renderInventoryTabs() {
 
         tabBtn.onclick = () => {
             activeInventoryTab = key;
+            invSearchAll = false;
+            const si0 = document.getElementById('inventory-search'); if (si0) si0.value = '';   // elegir una pestaña limpia la búsqueda
             populateInventory();
             renderInventoryTabs(); 
         };
@@ -584,20 +589,16 @@ function populateInventory() {
     const allBlocks = (typeof window.blockData !== 'undefined') ? Object.keys(window.blockData) : [];
     let blocksToShow = [];
 
-    if (activeInventoryTab === 'all') {
-        // (sin los nombres viejos que el juego llama de otra forma: frodcarrot → coas, Scepter → scepter, bsed → bseed)
-        const OLD = window.mbwWorldAliases || {};
-        // (ni las bases sin dibujo propio, que salían como cuadro rosa: cloth, carpet, bed1... sus colores sí salen)
-        const TM = window.texturesMap || {}, M = TM.missing;
-        blocksToShow = allBlocks.filter(item => {
-            if (OLD[item]) return false;
-            if (TM[item]) return true;
-            const o = typeof getBlockObject === 'function' ? getBlockObject({ type: item }) : null;
-            return !!(o && o.x !== undefined && !(M && o.x === M.x && o.y === M.y));
+    if (invSearchAll) {
+        // Buscando: salen los objetos de todas las pestañas (una sola vez cada uno)
+        const seen = new Set();
+        Object.keys(inventoryCategories).forEach(k => {
+            if (k === 'Custom' || k === 'Potions' || k === 'EnchantedBooks') return;
+            inventoryCategories[k].items.forEach(i => { if (!seen.has(i) && allBlocks.includes(i)) { seen.add(i); blocksToShow.push(i); } });
         });
     } else {
-        const categoryItems = inventoryCategories[activeInventoryTab].items;
-        blocksToShow = categoryItems.filter(item => allBlocks.includes(item));
+        const tabCfg = inventoryCategories[activeInventoryTab] || inventoryCategories.Blocks;
+        blocksToShow = tabCfg.items.filter(item => allBlocks.includes(item));
     }
     // Las variantes que Rotate ya produce (escaleras _2 a _4, losas _2, dispenser/dropper _2 a _4) no se muestran
     blocksToShow = blocksToShow.filter(item => !isHiddenByRotate(item));
@@ -691,6 +692,10 @@ function filterInventory(query) {
     const flat = (x) => String(x || '').toLowerCase().replace(/[\s_]+/g, '');   // "diamond sword" = "DiamondSword" = "diamond_sword"
     const rawQuery = String(query || '').toLowerCase().trim();
     query = flat(rawQuery);
+    // Con texto en el buscador se muestran los objetos de TODAS las pestañas; al borrarlo se vuelve a la pestaña elegida
+    const special = activeInventoryTab === 'Custom' || activeInventoryTab === 'Potions' || activeInventoryTab === 'EnchantedBooks';
+    const wantAll = rawQuery.length > 0 && !special;
+    if (wantAll !== invSearchAll) { invSearchAll = wantAll; populateInventory(); return; }   // (populateInventory vuelve a filtrar)
     const grid = document.getElementById('inventory-grid');
     // Los libros que una búsqueda anterior agregó se quitan antes de buscar de nuevo
     if (grid) grid.querySelectorAll('.inv-enchbook-extra').forEach(e => e.remove());
@@ -713,6 +718,26 @@ function filterInventory(query) {
         });
     }
 }
+
+// --- NIVELES DE AGUA, LAVA Y ÁCIDO ---
+// En el inventario cada nivel es un dibujo con nombre propio (la_3, wr_2n...), pero el juego guarda un líquido como el bloque normal
+// (la / wr / ad) + un dato de nivel "water": [izquierda, derecha]. Si se pusiera "la_3" tal cual, el juego lo vería como un bloque
+// SÓLIDO de nombre raro. Estas dos funciones pasan de un formato al otro (el dibujo sale igual: rendering.js lo calcula del nivel).
+function mbwLiquidSlotFromKey(key) {
+    const m = /^(wr|la|ad)_([0-9]+)(n?)$/.exec(String(key || ''));
+    if (!m) return null;
+    const k = parseInt(m[2], 10);
+    return { type: m[1], water: m[3] ? [9 - k, 10 - k] : [10 - k, 9 - k] };
+}
+function mbwLiquidKeyFromSlot(slot) {
+    if (!slot || !/^(wr|la|ad)$/.test(String(slot.type)) || !Array.isArray(slot.water)) return null;
+    const a = slot.water[0], b = slot.water[1];
+    if (a > b) return slot.type + '_' + (10 - a);
+    if (a < b) return slot.type + '_' + (10 - b) + 'n';
+    return null;
+}
+window.mbwLiquidSlotFromKey = mbwLiquidSlotFromKey;
+window.mbwLiquidKeyFromSlot = mbwLiquidKeyFromSlot;
 
 // --- RECOGER ÍTEMS DEL INVENTARIO ---
 function pickupItemFromInventory(blockType) {
@@ -925,6 +950,7 @@ function renderModalHotbar() {
                 if (heldItem.states1 !== undefined) newState.states1 = heldItem.states1;
                 if (heldItem.count > 1) newState.count = heldItem.count;
                 if (heldItem.nbt !== undefined) newState.nbt = heldItem.nbt;
+                const lq = mbwLiquidSlotFromKey(heldItem.type); if (lq) { newState.type = lq.type; newState.water = lq.water; delete newState.states1; }   // nivel de líquido: bloque normal + dato de nivel
 
                 hotbar.slots[index] = newState;
                 heldItem = null; 
@@ -934,7 +960,7 @@ function renderModalHotbar() {
                 if(typeof renderHotbarUI === 'function') renderHotbarUI(); 
             } else {
                 if (slot && slot.type) {
-                    heldItem = { type: slot.type, states1: slot.states1, count: slot.count || 1, nbt: slot.nbt };
+                    heldItem = { type: mbwLiquidKeyFromSlot(slot) || slot.type, states1: slot.states1, count: slot.count || 1, nbt: slot.nbt };
                     hotbar.slots[index] = { type: null }; 
                     
                     updateFloatingItem();
