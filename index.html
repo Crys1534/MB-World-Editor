@@ -754,6 +754,13 @@
         </div>
         <div class="separator"></div>
 
+        <!-- 👁 Relación de aspecto: en el celular la herramienta se mueve aquí (scripts/mobile-layout.js) -->
+        <div class="ribbon-group phone-only-group" id="view-aspect-group">
+            <div class="ribbon-group-content rg-row-center gap-5" id="view-aspect-slot"></div>
+            <div class="ribbon-group-label" data-i18n="tooltip_tool_aspect_short">Aspect ratio</div>
+        </div>
+        <div class="separator phone-only-group"></div>
+
         <!-- 🌑 Oscuridad bajo tierra (con auras de luz) y 🗺️ franja de biomas: scripts/darkness.js -->
         <div class="ribbon-group">
             <div class="ribbon-group-content rg-col-start gap-4 view-toggles">
@@ -920,10 +927,7 @@
     
     <div class="toolbar-separator"></div>
     
-    <button class="tool-btn" onclick="takeScreenshot()" data-i18n-title="tooltip_screenshot" title="Screenshot"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-camera"></use></svg></button>
-</div>
-    
-    <button class="tool-btn" onclick="takeScreenshot()" data-i18n-title="tooltip_screenshot" title="Screenshot"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-camera"></use></svg></button>
+    <button class="tool-btn" id="tool-screenshot" onclick="takeScreenshot()" data-i18n-title="tooltip_screenshot" title="Screenshot"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-camera"></use></svg></button>
 </div>
 
  <div id="workspace">
@@ -1158,11 +1162,21 @@
         
         <div class="inv-main-columns">
             <!-- 🎒 Inventario del jugador (se llena desde scripts/player-inventory.js) -->
+            <!-- 🔥 Solo se ve al editar un horno: los objetos que sirven de combustible (clic = tomar) -->
+            <div id="pinv-fuel-box" class="pinv-fuel-box" style="display: none;">
+                <div class="pinv-label" data-i18n="pinv_fuel_label">Fuel items</div>
+                <div id="pinv-fuel-grid" class="pinv-fuel-grid"></div>
+            </div>
             <div id="player-inv-panel" class="pinv-panel" style="display: none;">
                 <!-- 📦 Solo se ve al editar un cofre del mundo (clic derecho con la herramienta Move) -->
                 <div id="pinv-chest-box" class="pinv-chest-box" style="display: none;">
                     <div id="pinv-chest-label" class="pinv-label" data-i18n="pinv_chest_label">Chest contents</div>
                     <div id="pinv-chest" class="pinv-grid"></div>
+                </div>
+                <!-- 🔥 Horno: entrada, combustible y resultado -->
+                <div id="pinv-furnace-box" class="pinv-chest-box" style="display: none;">
+                    <div class="pinv-label" data-i18n="pinv_furnace_label">Furnace</div>
+                    <div id="pinv-furnace" class="pinv-furnace"></div>
                 </div>
                 <div class="pinv-top">
                     <div>
@@ -1721,8 +1735,8 @@
             </p>
             
             <div style="position: absolute; bottom: 10px; left: 15px; font-size: 11px; color: gray; font-family: monospace;">
-                <span data-i18n="about_last_update">Last Update:</span> Oct 30, 2026<br>
-                v2.6 - Snapshot 19
+                <span data-i18n="about_last_update">Last Update:</span> Nov 4, 2026<br>
+                v2.6 - Snapshot 26
             </div>
             <div style="position: absolute; bottom: 10px; right: 15px; font-size: 12px; color: gray; font-weight: bold;">
                 2026
@@ -1748,6 +1762,8 @@
                 <input type="number" id="pixelart-max-width" value="64" min="10" max="200" style="padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
                 <small data-i18n="pixelart_warning" style="color: #666; font-size: 10px;">Very large images may cause lag.</small>
             </div>
+
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #000; cursor: pointer;"><input type="checkbox" id="pixelart-dithering" checked> <span data-i18n="pixelart_dithering">Smooth colors (dithering)</span></label>
 
             <input type="file" id="pixelart-upload" accept="image/png, image/jpeg" style="display: none;" onchange="processPixelArt(event)">
             
@@ -1809,6 +1825,7 @@
  <script src="scripts/command-book.js"></script> <!-- 📕 Create Command Book -->
  <script src="scripts/world-presence.js"></script> <!-- 🌍 avisa si tengo un mundo abierto -->
  <script src="scripts/mobile-block-fab.js"></script> <!-- 🪜 espejo y girar flotantes (celular) -->
+ <script src="scripts/mobile-layout.js"></script> <!-- 📱 Aspect en View, captura junto a Download -->
  <script src="scripts/mobile-zoom.js"></script> <!-- 🔍 zoom flotante del celular -->
  <script src="scripts/chat-dm.js"></script>
  <script src="scripts/mini-chat.js"></script> <!-- 💬 mini ventana de chat de las burbujas (como Messenger) -->

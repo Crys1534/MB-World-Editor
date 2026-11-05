@@ -2125,14 +2125,56 @@ const blockPalette = {
     "bdcloth_white": [112, 112, 112], "bdcloth_black": [12, 12, 12], "bddt": [67, 48, 33], "bdr": [60, 60, 60], "bdcs": [52, 52, 52], "bdbbb": [110, 110, 105], "bdbricks": [72, 40, 35], "bdbooks": [57, 45, 27], "bdsb": [109, 101, 80], "bdwp": [80, 65, 40], "bdnb": [22, 10, 12], "bb": [57, 45, 27], "bdob": [12, 7, 18]
 };
 
-function getClosestBlock(r, g, b) {
-    let closestBlock = "cloth_white"; let minDistance = Infinity;
-    for (let block in blockPalette) {
-        let [br, bg, bb] = blockPalette[block];
-        let distance = Math.sqrt(Math.pow(r - br, 2) + Math.pow(g - bg, 2) + Math.pow(b - bb, 2));
-        if (distance < minDistance) { minDistance = distance; closestBlock = block; }
+// ---- Paleta del Pixel Art ----
+// Solo bloques enteros y sólidos, con el nombre REAL con que el juego los guarda: la lana es type "cloth" + states1 "<color>"
+// (antes se guardaba "cloth_white", que no existe en el juego), y la hierba es "dt" con states1 1.
+// El color de cada bloque se calcula con su dibujo real (promedio de sus píxeles); si el dibujo aún no cargó se usa el color de la tabla de arriba.
+const PIXEL_WOOL = ["white", "lightgray", "gray", "black", "brown", "purple", "magenta", "red", "orange", "pink", "yellow", "lightgreen", "green", "cyan", "lightblue", "blue"];
+const PIXEL_BLOCKS = ["br", "r", "cs", "ms", "dt", ["dt", 1], "farm", "myc", "gdt", "cdt", "sb", "sd", "ss", "ssd", "gv", "cy1", "snowblock", "ice", "wp", "wd1", "hay", "pk", "jl", "mel", "lemonb", "bricks", "books", "bbb", "dsb", "clore", "gd", "dmore", "rs", "os", "lap", "egem", "to", "ib", "gb", "db", "lapb", "clb", "tob", "ob", "n", "nb", "rnb", "magma", "glow", "light", "es", "pf", "portalstone"];
+let pixelPaletteCache = null;
+function buildPixelPalette() {
+    const list = [];
+    const atlasOk = !!(window.images && window.images.blocks && window.images.blocks.complete && window.images.blocks.naturalWidth > 0 && typeof getBlockObject === 'function');
+    const cv = document.createElement('canvas'); cv.width = 16; cv.height = 16;
+    const cx = cv.getContext('2d', { willReadFrequently: true });
+    function measure(state) {          // promedio de color de los píxeles visibles; null si el dibujo no es un cubo entero
+        if (!atlasOk) return null;
+        try {
+            const ro = getBlockObject(state);
+            if (!ro || ro.w === 32 || (window.texturesMap && ro === window.texturesMap.missing)) return null;
+            cx.clearRect(0, 0, 16, 16);
+            cx.drawImage(window.images.blocks, ro.x, ro.y, 16, 16, 0, 0, 16, 16);
+            const d = cx.getImageData(0, 0, 16, 16).data;
+            let r = 0, g = 0, b = 0, n = 0;
+            for (let i = 0; i < d.length; i += 4) { if (d[i + 3] > 200) { r += d[i]; g += d[i + 1]; b += d[i + 2]; n++; } }
+            if (n < 16 * 16 * 0.9) return null;       // tiene huecos: no es un bloque entero (planta, antorcha...)
+            return [r / n, g / n, b / n];
+        } catch (e) { return null; }
     }
-    return closestBlock;
+    function add(type, st) {
+        const state = { type: type };
+        if (st !== undefined) state.states1 = st;
+        const key = st === undefined ? type : (type === 'cloth' ? 'cloth_' + st : type + '_' + st);
+        let rgb = measure(state);
+        if (!rgb && blockPalette[key]) rgb = blockPalette[key];
+        if (rgb) list.push({ type: type, states1: st, rgb: rgb });
+    }
+    PIXEL_WOOL.forEach(function (c) { add('cloth', c); });
+    PIXEL_BLOCKS.forEach(function (b) { if (Array.isArray(b)) add(b[0], b[1]); else add(b); });
+    return { list: list, measured: atlasOk };
+}
+
+function getClosestBlock(r, g, b) {
+    if (!pixelPaletteCache || (!pixelPaletteCache.measured && window.images && window.images.blocks && window.images.blocks.complete)) pixelPaletteCache = buildPixelPalette();
+    let best = null, minDistance = Infinity;
+    const L = pixelPaletteCache.list;
+    for (let i = 0; i < L.length; i++) {
+        const c = L[i].rgb;
+        const dr = r - c[0], dg = g - c[1], db = b - c[2];
+        const dist = dr * dr + dg * dg + db * db;
+        if (dist < minDistance) { minDistance = dist; best = L[i]; }
+    }
+    return best || { type: 'cloth', states1: 'white', rgb: [225, 225, 225] };
 }
 
 window.processPixelArt = function(event) {
@@ -2170,7 +2212,8 @@ window.processPixelArt = function(event) {
                         dithering: wantsDithering
                     };
                     
-                    if (typeof currentTool !== 'undefined') currentTool = 'pixelart';
+                    if (typeof selectTool === 'function') selectTool('pixelart');
+                    else if (typeof currentTool !== 'undefined') currentTool = 'pixelart';
                     else window.currentTool = 'pixelart';
                     
                     alert(tmsg('msg_pixel_ready', "✅ Image processed! Close this menu and click on the map to paste it."));
@@ -2208,7 +2251,7 @@ window.buildPixelArtInWorld = function(pD, w, h, sX, sY, useDithering) {
                 const oldB = floatData[i + 2];
 
                 const bT = getClosestBlock(oldR, oldG, oldB);
-                const paletteColor = blockPalette[bT] || [255, 255, 255];
+                const paletteColor = bT.rgb;
                 const newR = paletteColor[0];
                 const newG = paletteColor[1];
                 const newB = paletteColor[2];
@@ -2218,7 +2261,8 @@ window.buildPixelArtInWorld = function(pD, w, h, sX, sY, useDithering) {
                 
                 if (typeof mbwom !== 'undefined' && typeof mbwom.setBlockState === 'function') {
                     const cS = mbwom.getBlockState(bX, bY);
-                    const nS = { type: bT };
+                    const nS = { type: bT.type };
+                    if (bT.states1 !== undefined) nS.states1 = bT.states1;
                     if (typeof historyManager !== 'undefined') historyManager.recordChange(bX, bY, cS, nS);
                     mbwom.setBlockState(bX, bY, nS); 
                     if (typeof renderBlock === 'function') renderBlock(bX, bY);

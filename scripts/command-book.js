@@ -250,6 +250,7 @@
         };
         const onMove = function (e) { const w = worldAt(e); pos.textContent = w ? 'X: ' + w.x + '  Y: ' + w.y : ''; };
         const onUp = function (e) {
+            if (touchMode) return;
             if (e.target && e.target.closest && e.target.closest('.cb-pick-banner')) return;
             const w = worldAt(e);
             if (!w) return;
@@ -257,12 +258,43 @@
             insertPos(slot, w.x, w.y);
         };
         const onKey = function (e) { if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); stop(false); } };
-        const down = ['pointerdown', 'mousedown', 'touchstart', 'click', 'contextmenu'];
+        // Celular / tablet: los dedos los maneja mobile.js (mover el mapa, zoom con dos dedos); un toque deja una marca y se pide confirmación
+        const touchMode = !!(window.mbwMobile && window.mbwMobile.touch);
+        let chosen = null, raf = 0, marker = null, okBtn = null;
+        if (touchMode) {
+            banner.classList.add('cb-pick-touch');
+            txt.textContent = tr('cb_pick_banner_touch', 'Drag to move the map and tap to mark the position.');
+            okBtn = el('button', 'cb-btn cb-btn-ok', tr('cb_confirm', 'Confirm')); okBtn.type = 'button'; okBtn.disabled = true;
+            banner.insertBefore(okBtn, cancel);
+            marker = el('div', 'cb-pick-marker'); marker.style.display = 'none'; document.body.appendChild(marker);
+            okBtn.addEventListener('click', function () { if (!chosen) return; const c = chosen; stop(true); insertPos(slot, c.x, c.y); });
+            const place = function () {
+                if (chosen && typeof camera !== 'undefined') {
+                    const cv = document.getElementById('canvas'), r = cv.getBoundingClientRect();
+                    const sx = ((chosen.x + 0.5) - camera.x) * tileSize, sy = cv.height - ((chosen.y + 0.5) - camera.y) * tileSize;
+                    let px = r.left + sx * (r.width / cv.width), py = r.top + sy * (r.height / cv.height);
+                    if (window.mbwAspect && window.mbwAspect.active && window.mbwAspect.mapWorld) { /* con Aspect activo la marca puede salir corrida; el valor sí es correcto */ }
+                    const inside = px >= r.left && px <= r.right && py >= r.top && py <= r.bottom;
+                    marker.style.display = inside ? 'block' : 'none';
+                    marker.style.left = px + 'px'; marker.style.top = py + 'px';
+                    marker.style.width = marker.style.height = Math.max(14, tileSize * (r.width / cv.width)) + 'px';
+                }
+                raf = requestAnimationFrame(place);
+            };
+            raf = requestAnimationFrame(place);
+            window.mbwMobile.pickCb = function (x, y) {
+                const w = worldAt({ clientX: x, clientY: y });
+                if (!w) return;
+                chosen = w; pos.textContent = 'X: ' + w.x + '  Y: ' + w.y; okBtn.disabled = false;
+            };
+        }
+        const down = touchMode ? ['pointerdown', 'mousedown', 'click', 'contextmenu'] : ['pointerdown', 'mousedown', 'touchstart', 'click', 'contextmenu'];
         function stop(done) {
             down.forEach(function (n) { window.removeEventListener(n, swallow, true); });
             window.removeEventListener('pointerup', onUp, true);
             window.removeEventListener('pointermove', onMove, true);
             window.removeEventListener('keydown', onKey, true);
+            if (touchMode) { cancelAnimationFrame(raf); if (marker) marker.remove(); if (window.mbwMobile) window.mbwMobile.pickCb = null; }
             banner.remove(); document.body.classList.remove('cb-picking'); picking = null;
             // el clic que eligió la posición no debe llegar a las herramientas: se espera a que se suelte
             setTimeout(function () { modal.style.display = 'flex'; f.cmd.focus(); }, done ? 60 : 0);

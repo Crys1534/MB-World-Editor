@@ -2748,7 +2748,7 @@ body.ex-picking canvas, body.pf-picking canvas { cursor: crosshair !important; }
 .btn-save-quick .mbw-ic { width: 16px; height: 16px; }
 /* File, Load y Save Now (arriba a la izquierda): los tres del mismo alto y con el mismo borde; los dos de ícono, del mismo ancho */
 .top-bar .left-group > .icon-btn, .top-bar .btn-save-quick { height: 26px; box-sizing: border-box; }
-.top-bar .btn-load-quick, .top-bar .btn-save-quick { width: 34px; padding: 0; margin-left: 3px; display: flex; align-items: center; justify-content: center; }
+.top-bar .btn-load-quick, .top-bar .btn-save-quick { width: 34px; padding: 0; display: flex; align-items: center; justify-content: center; }
 .top-bar .btn-save-quick { background: transparent; color: var(--text); cursor: pointer; border: 1px solid var(--input-bg); border-radius: 3px; font-size: 14px; }
 .top-bar .btn-save-quick:hover { background-color: rgba(128, 128, 128, 0.2); }
 #btn-publish-map .mbw-ic { width: 16px; height: 16px; vertical-align: middle; }
@@ -2882,11 +2882,10 @@ body.is-phone #float-hotbar { bottom: 6px; }
 body.is-phone #coords-overlay { font-size: 14px; }
 body.is-phone.panels-floating #coords-overlay { left: 52px; }
 /* menú File (pantalla completa): menú de la izquierda solo con íconos */
-body.is-phone .backstage-sidebar { width: 58px; }
-body.is-phone .backstage-sidebar span[data-i18n] { display: none; }
-body.is-phone .backstage-back-btn { padding: 10px 0; justify-content: center; margin-bottom: 6px; font-size: 20px; }
-body.is-phone .backstage-nav-btn { padding: 12px 0; justify-content: center; border-left-width: 4px; }
-body.is-phone .backstage-nav-btn .mbw-ic { width: 22px; height: 22px; }
+body.is-phone .backstage-sidebar { width: 138px; flex: none; overflow-y: auto; }
+body.is-phone .backstage-back-btn { padding: 8px 10px; justify-content: flex-start; margin-bottom: 6px; font-size: 18px; gap: 6px; }
+body.is-phone .backstage-nav-btn { padding: 11px 8px; justify-content: flex-start; border-left-width: 4px; font-size: 14px; gap: 7px; line-height: 1.15; text-align: left; }
+body.is-phone .backstage-nav-btn .mbw-ic { width: 20px; height: 20px; flex: none; }
 body.is-phone #panel-my-worlds, body.is-phone #panel-templates { padding: 10px 14px; }
 body.is-phone #mp-servers-view { gap: 8px !important; }
 body.is-phone #mp-servers-view > div:last-child { width: 250px !important; padding: 8px !important; }
@@ -2917,10 +2916,9 @@ body.is-phone .sg-results { max-height: calc(100vh - 150px); min-height: 100px; 
     body.is-touch #ribbon .tab-pane.active { width: max-content; min-width: 100%; }
 }
 @media (max-width: 900px) {
-    body.is-touch .backstage-sidebar { width: 58px; }
-    body.is-touch .backstage-sidebar span[data-i18n] { display: none; }
-    body.is-touch .backstage-back-btn { padding: 10px 0; justify-content: center; margin-bottom: 6px; font-size: 20px; }
-    body.is-touch .backstage-nav-btn { padding: 12px 0; justify-content: center; border-left-width: 4px; }
+    body.is-touch .backstage-sidebar { width: 138px; flex: none; overflow-y: auto; }
+    body.is-touch .backstage-back-btn { padding: 8px 10px; justify-content: flex-start; margin-bottom: 6px; font-size: 18px; gap: 6px; }
+    body.is-touch .backstage-nav-btn { padding: 11px 8px; justify-content: flex-start; border-left-width: 4px; font-size: 14px; gap: 7px; line-height: 1.15; text-align: left; }
     body.is-touch #panel-my-worlds, body.is-touch #panel-templates { padding: 12px 18px; }
     body.is-touch #mp-servers-view { gap: 8px !important; }
     body.is-touch #mp-servers-view > div:last-child { width: 270px !important; padding: 10px !important; }
@@ -3137,3 +3135,43 @@ body.cb-picking #canvas, body.cb-picking #workspace { cursor: crosshair !importa
 #mbw-block-fab .bf-btn:active { background: rgba(59, 130, 246, 0.95); }
 #mbw-block-fab .bf-btn svg { width: 24px; height: 24px; fill: currentColor; stroke: none; pointer-events: none; }
 body.mbw-transforming #mbw-block-fab { opacity: .38; pointer-events: none; }
+
+/* ===== 📱 Celular: herramientas reubicadas y barra lateral pegada a la izquierda (scripts/mobile-layout.js) ===== */
+.phone-only-group { display: none; }
+body.is-phone .phone-only-group, body.phone-tools-moved .phone-only-group { display: flex; }
+body.is-phone .separator.phone-only-group, body.phone-tools-moved .separator.phone-only-group { display: block; }
+#view-aspect-slot .tool-btn { width: auto; height: auto; min-width: 45px; }
+#view-aspect-slot #tool-aspect { display: flex; align-items: center; justify-content: center; width: 52px; height: 44px; }
+#view-aspect-slot #tool-aspect .mbw-ic { width: 28px; height: 28px; }
+.tool-btn.tool-in-topbar { width: 34px; height: 28px; margin: 0 6px 4px 0; align-self: flex-end; flex: none; border: 1px solid var(--input-bg); border-radius: 3px; background: transparent; }
+.tool-btn.tool-in-topbar .mbw-ic { width: 18px; height: 18px; }
+/* barra lateral: ya no flota; pegada al borde izquierdo, de arriba a abajo del mundo y sin bordes redondeados */
+body.is-phone.panels-floating { --ws-left: 44px; }
+body.is-phone.panels-floating #toolbar-sidebar { top: var(--ws-top); left: 0; height: calc(100% - var(--ws-top) - var(--ws-bottom)); max-height: none; padding: 4px 3px; border-radius: 0; border: none; border-right: 1px solid var(--border); box-shadow: none; background: var(--bg-panel); width: 44px; box-sizing: border-box; }
+body.is-phone.panels-floating #coords-overlay { left: 8px; }
+
+/* 🗑 Celular: eliminar el mob seleccionado (scripts/mobile-layout.js) */
+#mbw-del-mob { position: fixed; right: 12px; top: calc(var(--ws-top, 90px) + 10px); z-index: 96; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.3); background: rgba(200, 40, 40, 0.95); color: #fff; font: 700 14px/1 'Segoe UI', Arial, sans-serif; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45); -webkit-tap-highlight-color: transparent; }
+#mbw-del-mob svg { width: 18px; height: 18px; fill: currentColor; pointer-events: none; }
+
+/* Command Book: elegir posición con el dedo (celular) */
+.cb-pick-banner.cb-pick-touch { top: 6px; flex-wrap: wrap; justify-content: center; gap: 8px; font-size: 13px; }
+.cb-pick-banner .cb-btn-ok { background: #16a34a; color: #fff; border-color: #16a34a; font-size: 16px; padding: 2px 12px; }
+.cb-pick-banner .cb-btn-ok:disabled { opacity: .45; }
+.cb-pick-marker { position: fixed; z-index: 100001; transform: translate(-50%, -50%); border: 3px solid #facc15; box-shadow: 0 0 0 2px rgba(0,0,0,.6), 0 0 10px #facc15; pointer-events: none; box-sizing: border-box; }
+
+/* 🔥 Editor de hornos (scripts/player-inventory.js) */
+.pinv-fuel-box { box-sizing: border-box; width: 244px; flex: 0 0 244px; padding: 12px 8px; background: #B5B5B5; border-right: 4px solid #555; color: #333; max-height: 80vh; overflow-y: auto; }
+.pinv-fuel-grid { display: grid; grid-template-columns: repeat(3, 64px); justify-content: center; }
+.pinv-furnace { display: flex; align-items: center; justify-content: center; gap: 24px; }
+.pinv-f-col { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.pinv-f-fire, .pinv-f-arrow { font-size: 26px; line-height: 1; }
+.pinv-f-out { transform: scale(1.2); }
+@media (max-width: 900px) {
+  body.pinv-furnace-open .inv-main-columns { flex-direction: column; overflow-y: auto; max-height: calc(96vh - 60px); }
+  .pinv-fuel-box { width: 100%; flex: 0 0 auto; max-height: none; overflow: visible; padding: 4px 6px; border-right: 0; border-bottom: 4px solid #555; }
+  .pinv-fuel-box .pinv-label { font-size: 13px; margin: 0 0 2px; }
+  .pinv-fuel-grid { display: flex; overflow-x: auto; justify-content: flex-start; width: 0; min-width: 100%; }
+  .pinv-fuel-grid .pinv-slot { flex: 0 0 48px; width: 48px; height: 48px; border-width: 3px; }
+  .pinv-fuel-grid .pinv-slot canvas { width: 34px; height: 34px; }
+}

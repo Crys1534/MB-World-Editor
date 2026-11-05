@@ -79,7 +79,7 @@
  }
  window.mbwDrawDurBar = drawDurBar;
 
- const st = { open: false, expanded: false, chest: null };     // ventana abierta / inventario creativo visible / cofre que se está editando { x, y, key, before }
+ const st = { open: false, expanded: false, chest: null, furnace: null };     // ventana abierta / inventario creativo visible / cofre que se está editando { x, y, key, before }
 
  const $ = (id) => document.getElementById(id);
  const tr = (k, fb) => { const v = (typeof window.t === 'function') ? window.t(k) : k; return (v && v !== k) ? v : (fb || k); };
@@ -133,7 +133,31 @@
   return armor ? [it.id, it.dmg || 0, ex] : [it.id, it.qty, it.dmg || 0, ex];
  }
  // Un espacio: { k: 'i', i: 0-44 } = inventario, { k: 'a', i: 0-3 } = armadura, { k: 'c', i: 0-26 } = cofre que se está editando
+ // Combustibles del horno (lista aproximada, tomada de Minecraft clásico: SIN VERIFICAR en el juego; el juego es quien decide si un objeto arde).
+ const FUEL_IDS = ['cl', 'cl2', 'clb', 'wd', 'wd1', 'wp', 'st', 'sl', 'blazer', 'lbk', 'fnc', 'fncg', 'craft', 'chest', 'books', 'ladder', 'dr', 'bb', 'bbb', 'halfwp', 'stairwp', 'halfbbb', 'stairbbb', 'bow', 'fr', 'sign', 'WoodenPickaxe', 'WoodenAxe', 'WoodenShovel', 'WoodenHoe', 'WoodenSword'];
+ const F_KEYS = ['input', 'fuel', 'output'];
+ const isFuel = (id) => FUEL_IDS.indexOf(String(id)) >= 0;
+ window.mbwFurnaceFuelIds = FUEL_IDS;
  const CHEST_SLOTS = 27;
+ // Datos del horno que se está editando: mbwom.toSmelt["blockX{x}Y{y}"] = { input, fuel, output, fuelTimer, fuelTimerTotal, smeltTimer }
+ function furnaceData(create) {
+  if (!st.furnace || typeof mbwom === 'undefined' || !mbwom) return null;
+  let d = mbwom.toSmelt;
+  if (!isObj(d)) {
+   if (!create) return null;
+   d = {};
+   mbwom.toSmelt = d;
+   if (mbwom.world && mbwom.currentScene !== undefined) mbwom.world['toSmelt' + mbwom.currentScene] = d;
+  }
+  let f = d[st.furnace.key];
+  if (!isObj(f)) {
+   if (!create) return null;
+   f = { output: ['air', 0, 0, {}], fuelTimerTotal: 0, smeltTimer: 0, input: ['air', 0, 0, {}], fuel: ['air', 0, 0, {}], fuelTimer: 0 };
+   d[st.furnace.key] = f;
+  }
+  F_KEYS.forEach((k) => { if (!Array.isArray(f[k])) f[k] = ['air', 0, 0, {}]; });
+  return f;
+ }
  function chestList() {
   if (!st.chest || typeof mbwom === 'undefined' || !mbwom) return null;
   let d = mbwom.chests;
@@ -149,6 +173,7 @@
  }
  function slotArr(a) {
   if (a.k === 'c') { const l = chestList(); return l ? l[a.i] : null; }
+  if (a.k === 'f') { const f = furnaceData(true); return f ? f[F_KEYS[a.i]] : null; }
   const w = world(); if (!w) return null; return ((a.k === 'a' ? w.armors : w.inventoryList) || [])[a.i];
  }
  function getSlot(a) { return readItem(slotArr(a), a.k === 'a'); }
@@ -156,6 +181,11 @@
   if (a.k === 'c') {
    const l = chestList();
    if (l) l[a.i] = itemToArr(it, false, l[a.i]);
+   return;
+  }
+  if (a.k === 'f') {
+   const f = furnaceData(true);
+   if (f) f[F_KEYS[a.i]] = itemToArr(it, false, f[F_KEYS[a.i]]);
    return;
   }
   const w = ensure();
@@ -325,6 +355,21 @@
    chestGrid.innerHTML = '';
    if (st.chest) for (let i = 0; i < CHEST_SLOTS; i++) chestGrid.appendChild(slotEl({ k: 'c', i: i }));
   }
+  const fbox = $('pinv-furnace-box'), fgrid = $('pinv-furnace');
+  if (fbox) fbox.style.display = st.furnace ? '' : 'none';
+  if (fgrid) {
+   fgrid.innerHTML = '';
+   if (st.furnace) {
+    const mk = (i, cls) => { const e = slotEl({ k: 'f', i: i }); e.classList.add(cls); return e; };
+    const left = document.createElement('div'); left.className = 'pinv-f-col';
+    left.appendChild(mk(0, 'pinv-f-in'));
+    const fire = document.createElement('div'); fire.className = 'pinv-f-fire'; fire.textContent = '🔥'; left.appendChild(fire);
+    left.appendChild(mk(1, 'pinv-f-fuel'));
+    const arrow = document.createElement('div'); arrow.className = 'pinv-f-arrow'; arrow.textContent = '➡️';
+    fgrid.appendChild(left); fgrid.appendChild(arrow); fgrid.appendChild(mk(2, 'pinv-f-out'));
+   }
+  }
+  renderFuelPalette();
   for (let i = 0; i < 4; i++) armor.appendChild(slotEl({ k: 'a', i: i }, PARTS[i]));
   for (let i = HOTBAR; i < TOTAL; i++) main.appendChild(slotEl({ k: 'i', i: i }));
   const sel = w ? num(w.selectedInventoryItem) : -1;
@@ -349,11 +394,39 @@
   t.appendChild(ic);
   trash.appendChild(t);
  }
+ // Columna de la izquierda (solo en el horno): los objetos que sirven de combustible. Clic = tomar una pila en el cursor.
+ function renderFuelPalette() {
+  const box = $('pinv-fuel-box'), grid = $('pinv-fuel-grid');
+  if (box) box.style.display = st.furnace ? '' : 'none';
+  if (!grid) return;
+  grid.innerHTML = '';
+  if (!st.furnace) return;
+  FUEL_IDS.forEach((id) => {
+   const it = { id: id, qty: 1, dmg: 0, extras: {}, legacy: undefined };
+   const d = document.createElement('div');
+   d.className = 'pinv-slot pinv-fuel-slot';
+   const c = document.createElement('canvas');
+   c.width = 48; c.height = 48;
+   paintId(c, id, undefined, 48);
+   d.appendChild(c);
+   decorate(d, it, true);
+   d.onclick = d.oncontextmenu = (e) => {
+    e.preventDefault();
+    if (heldItem) { heldItem = null; refreshCursor(); renderAll(); return; }           // con algo en el cursor: se suelta (descarta)
+    const h = toHeld(copy(it, maxStack(it)));
+    delete h.src;                                                                         // viene del "catálogo": no sale de ningún espacio
+    heldItem = h;
+    refreshCursor();
+   };
+   grid.appendChild(d);
+  });
+ }
  function renderAll() { renderRibbon(); renderPanel(); }
 
  function flash(addr) {
-  const root = addr.k === 'a' ? $('pinv-armor') : null;
-  const d = root && root.children[addr.i];
+  let d = null;
+  if (addr.k === 'a') { const root = $('pinv-armor'); d = root && root.children[addr.i]; }
+  else if (addr.k === 'f') { const root = $('pinv-furnace'); d = root && root.querySelectorAll('.pinv-slot')[addr.i]; }
   if (!d) return;
   d.classList.remove('pinv-flash');
   void d.offsetWidth;
@@ -362,7 +435,10 @@
  }
 
  // ------------------------------------------------------------------ mover objetos
- function accepts(addr, it) { return addr.k !== 'a' || PARTS[addr.i].suffix === String(it.id).slice(-PARTS[addr.i].suffix.length); }
+ function accepts(addr, it) {
+  if (addr.k === 'f' && addr.i === 1) return isFuel(it.id);                    // el espacio de combustible solo acepta combustibles
+  return addr.k !== 'a' || PARTS[addr.i].suffix === String(it.id).slice(-PARTS[addr.i].suffix.length);
+ }
 
  // Mete un objeto en un rango de espacios (primero completa pilas iguales, luego usa espacios vacíos). Devuelve lo que no cupo.
  function insertRange(it, from, to, kind) {
@@ -390,6 +466,20 @@
  // Shift + clic (solo espacios del inventario): la hotbar manda a la mochila y la mochila a la hotbar;
  // una pieza de armadura de la mochila se pone sola si su espacio está libre.
  function quickMove(addr, it) {
+  if (st.furnace) {                                                 // modo horno: del horno al jugador; del jugador al combustible (si arde) o a la entrada
+   const toF = addr.k !== 'f';
+   setSlot(addr, null);
+   let left;
+   if (toF) {
+    const dst = isFuel(it.id) ? 1 : 0;
+    const cur = getSlot({ k: 'f', i: dst });
+    if (!cur) { setSlot({ k: 'f', i: dst }, copy(it, Math.min(it.qty, maxStack(it)))); left = it.qty - Math.min(it.qty, maxStack(it)); }
+    else if (same(cur, it) && cur.qty < maxStack(it)) { const m = Math.min(it.qty, maxStack(it) - cur.qty); setSlot({ k: 'f', i: dst }, copy(cur, cur.qty + m)); left = it.qty - m; }
+    else left = it.qty;
+   } else left = insertRange(it, 0, TOTAL - 1, 'i');
+   if (left > 0) setSlot(addr, copy(it, left));
+   return;
+  }
   if (st.chest) {                                                   // modo cofre: del cofre al jugador y del jugador al cofre
    const toChest = addr.k !== 'c';
    setSlot(addr, null);
@@ -532,7 +622,7 @@
   }
 
   // cursor con objeto: soltar
-  if (armor && !accepts(addr, held)) { flash(addr); return; }
+  if ((armor || addr.k === 'f') && !accepts(addr, held)) { flash(addr); return; }
   const fromCreative = heldItem.src !== 'inv';
   const max = armor ? 1 : maxStack(held);
   let n = right ? 1 : held.qty;
@@ -585,16 +675,18 @@
   ['chest-builder-panel', 'custom-item-builder-panel'].forEach((id) => { const e = $(id); if (e) e.style.display = 'none'; });
   const hb = $('modal-hotbar-container');                          // la hotbar del editor no pinta nada aquí
   if (hb) hb.style.display = 'none';
+  document.body.classList.toggle('pinv-furnace-open', !!st.furnace);
   const panel = $('player-inv-panel');
   if (panel) panel.style.display = 'block';
   const top = m.querySelector('.pinv-top');                       // armadura + papelera: no se muestran al editar un cofre
-  if (top) top.style.display = st.chest ? 'none' : '';
+  if (top) top.style.display = (st.chest || st.furnace) ? 'none' : '';
   const search = $('inventory-search');
   if (search) search.style.display = st.expanded ? '' : 'none';
   const btn = $('pinv-creative-btn');
   if (btn) { btn.style.display = ''; btn.textContent = tr(st.expanded ? 'pinv_hide_creative' : 'pinv_show_creative'); }
   const title = $('inventory-modal-title');
-  if (title) title.innerText = st.chest ? (tr('pinv_chest_title', 'Chest') + '  (X: ' + st.chest.x + ', Y: ' + st.chest.y + ')') : tr('pinv_title', 'Player Inventory');
+  if (title && st.furnace) title.innerText = tr('pinv_furnace_title', 'Furnace') + '  (X: ' + st.furnace.x + ', Y: ' + st.furnace.y + ')';
+  else if (title) title.innerText = st.chest ? (tr('pinv_chest_title', 'Chest') + '  (X: ' + st.chest.x + ', Y: ' + st.chest.y + ')') : tr('pinv_title', 'Player Inventory');
   const lbl = $('pinv-chest-label');
   if (lbl) { lbl.textContent = tr('pinv_chest_label', 'Chest contents'); lbl.title = tr('pinv_chest_delete_hint', 'Tip: press Delete to discard the item on the cursor'); }
  }
@@ -607,6 +699,7 @@
   if (content) content.style.height = '';
   if (left) left.style.display = '';
   if (wrap) { wrap.style.height = ''; wrap.style.flex = ''; wrap.style.minHeight = ''; }
+  document.body.classList.remove('pinv-furnace-open');
   const panel = $('player-inv-panel');
   if (panel) panel.style.display = 'none';
   const search = $('inventory-search');
@@ -615,6 +708,7 @@
   if (btn) btn.style.display = 'none';
   const cb = $('pinv-chest-box');
   if (cb) cb.style.display = 'none';
+  ['pinv-furnace-box', 'pinv-fuel-box'].forEach((id) => { const e = $(id); if (e) e.style.display = 'none'; });
   const top = m.querySelector('.pinv-top');
   if (top) top.style.display = '';
  }
@@ -625,7 +719,11 @@
    const it = fromHeld(heldItem);
    if (it) {
     let left = it.qty;
-    if (st.chest) {                                       // lo que se sacó del cofre vuelve primero al cofre
+    if (st.furnace) {
+     const f = heldItem.from;
+     if (f && f.k === 'f' && !getSlot(f) && accepts(f, it)) { setSlot(f, it); heldItem = null; return; }
+     left = insertRange(it, 0, TOTAL - 1, 'i');
+    } else if (st.chest) {                                       // lo que se sacó del cofre vuelve primero al cofre
      const f = heldItem.from;
      if (f && f.k === 'c' && !getSlot(f)) { setSlot(f, it); heldItem = null; return; }   // a su casilla de origen, si sigue vacía
      const back = insertRange(it, 0, CHEST_SLOTS - 1, 'c');
@@ -656,6 +754,28 @@
   if (typeof enviarMensajeEnRed === 'function') enviarMensajeEnRed({ tipo: 'actualizar_bloque', x: c.x, y: c.y, estado: after });
   if (typeof worldDirty !== 'undefined') worldDirty = true;
  }
+ // Al cerrar la ventana de un horno: igual que el cofre, un paso en el historial y aviso a los demás.
+ function commitFurnace() {
+  const c = st.furnace;
+  st.furnace = null;
+  if (!c || typeof mbwom === 'undefined' || !mbwom.scene) return;
+  const d = mbwom.toSmelt;
+  const f = isObj(d) ? d[c.key] : null;
+  if (isObj(f) && !c.before.toSmelt) {                                           // el horno no tenía datos y siguen vacíos: no se deja nada creado
+   if (F_KEYS.every((k) => !readItem(f[k], false))) { delete d[c.key]; return; }
+  }
+  let after = null;
+  try { after = mbwom.getBlockState(c.x, c.y); } catch (e) { after = null; }
+  if (!after || !after.toSmelt) return;
+  if (JSON.stringify(c.before) === JSON.stringify(after)) return;
+  if (typeof historyManager !== 'undefined') {
+   historyManager.startAction();
+   historyManager.recordChange(c.x, c.y, c.before, after);
+   historyManager.commitAction();
+  }
+  if (typeof enviarMensajeEnRed === 'function') enviarMensajeEnRed({ tipo: 'actualizar_bloque', x: c.x, y: c.y, estado: after });
+  if (typeof worldDirty !== 'undefined') worldDirty = true;
+ }
  function closed() {
   if (!st.open) return;
   closeArmorMenu();
@@ -664,6 +784,7 @@
   st.expanded = false;
   giveBackCursor();
   commitChest();
+  commitFurnace();
   resetLayout();
   refreshCursor();
   renderRibbon();
@@ -689,6 +810,7 @@
   }
   if (!world()) { alert(tr('pinv_no_world', 'Open or create a world first')); return; }
   st.chest = null;
+  st.furnace = null;
   st.open = true;
   st.expanded = false;
   heldItem = null;
@@ -710,9 +832,35 @@
   if (!bs || bs.type !== 'chest') return false;
   if (!world()) return false;
   if (m.style.display === 'block') toggleInventory();            // cierra lo que esté abierto (guarda lo del cofre anterior si lo había)
+  st.furnace = null;
   st.chest = { x: x, y: y, key: 'blockX' + x + 'Y' + y, before: null };
   chestList();                                                    // completa los 27 espacios si faltaban
   st.chest.before = JSON.parse(JSON.stringify(mbwom.getBlockState(x, y)));
+  st.open = true;
+  st.expanded = false;
+  heldItem = null;
+  refreshCursor();
+  m.style.display = 'block';
+  layout();
+  renderAll();
+  return true;
+ };
+ // Abre el editor del horno (bloque "oven") que hay en (x, y). A la izquierda salen los combustibles para tomar.
+ window.openFurnaceEditor = function (x, y) {
+  const m = $('inventory-modal');
+  if (!m || typeof toggleInventory !== 'function') return false;
+  if (typeof mbwom === 'undefined' || !mbwom || !mbwom.scene) return false;
+  x = Math.floor(Number(x)); y = Math.floor(Number(y));
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+  let bs = null;
+  try { bs = mbwom.getBlockState(x, y); } catch (e) { bs = null; }
+  if (!bs || bs.type !== 'oven') return false;
+  if (!world()) return false;
+  if (m.style.display === 'block') toggleInventory();
+  st.chest = null;
+  st.furnace = { x: x, y: y, key: 'blockX' + x + 'Y' + y, before: null };
+  st.furnace.before = JSON.parse(JSON.stringify(mbwom.getBlockState(x, y)));
+  furnaceData(true);                                              // completa los 3 espacios si faltaban (si queda vacío no se guarda)
   st.open = true;
   st.expanded = false;
   heldItem = null;
@@ -750,7 +898,7 @@
   if (!st.open) return;
   const tag = document.activeElement ? document.activeElement.tagName : '';
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-  if (st.chest && (e.code === 'Delete' || e.code === 'Backspace') && typeof heldItem !== 'undefined' && heldItem) {   // sin papelera: Supr tira lo que llevas en el cursor
+  if ((st.chest || st.furnace) && (e.code === 'Delete' || e.code === 'Backspace') && typeof heldItem !== 'undefined' && heldItem) {   // sin papelera: Supr tira lo que llevas en el cursor
    e.preventDefault();
    heldItem = null;
    refreshCursor();

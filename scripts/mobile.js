@@ -180,7 +180,7 @@
     }
     function longPress() {
         if (!(T.mode === 'pending' || T.mode === 'one') || T.moved) return;
-        if (tool() !== 'move' || (typeof isDraggingMob !== 'undefined' && isDraggingMob)) return;
+        if (M.pickCb || tool() !== 'move' || (typeof isDraggingMob !== 'undefined' && isDraggingMob)) return;
         if (T.mode === 'one') { fire('mouseup', T.start.x, T.start.y, T.btn); }
         clearTimeout(T.timer);
         T.mode = 'done';
@@ -211,7 +211,7 @@
         try {
             fire('mousemove', x, y);
             const bs = mbwom.getBlockState(mouse.worldX, mouse.worldY);
-            return !!bs && (bs.type === 'chest' || bs.type === 'sign');
+            return !!bs && (bs.type === 'chest' || bs.type === 'sign' || bs.type === 'oven');
         } catch (e) { return false; }
     }
     function startPan() {
@@ -276,8 +276,8 @@
             const t = e.changedTouches[0];
             T.mode = 'pending'; T.moved = false;
             T.start = { x: t.clientX, y: t.clientY }; T.last = T.start; T.startT = performance.now();
-            T.moveTool = tool() === 'move';
-            T.onMob = T.moveTool ? mobUnder(T.start.x, T.start.y) : false;
+            T.moveTool = tool() === 'move' || !!M.pickCb;       // (M.pickCb: el Command Book está eligiendo una posición: solo se mueve el mapa o se toca)
+            T.onMob = (T.moveTool && !M.pickCb) ? mobUnder(T.start.x, T.start.y) : false;
             // con Move sobre un lugar vacío no se "aprieta" nada: o es un toque, o es arrastrar el mapa
             if (!T.moveTool || T.onMob) T.timer = setTimeout(beginOne, HOLD_MS);
             T.longTimer = setTimeout(longPress, LONG_MS);
@@ -321,6 +321,13 @@
         if (T.pts.size > 0) return;
         const now = performance.now();
         if (T.mode === 'pan') { T.mode = null; T.pan = null; T.lastTap = null; return; }
+        if (T.mode === 'pending' && M.pickCb) {          // elegir posición (Command Book): un toque la marca, no pone nada en el mundo
+            clearTimeout(T.timer);
+            const cb = M.pickCb, p = T.start;
+            T.mode = null; T.lastTap = null;
+            try { cb(p.x, p.y); } catch (err) { /* nada */ }
+            return;
+        }
         if (T.mode === 'pending' && T.moveTool && !T.onMob && openableUnder(T.start.x, T.start.y)) {
             // Move: tocar un cofre o un letrero lo abre (igual que el clic derecho en la computadora)
             clearTimeout(T.timer);

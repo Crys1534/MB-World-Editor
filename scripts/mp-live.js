@@ -228,6 +228,7 @@
         guard('fillSelectionWithBucket');
         guard('buildPixelArtInWorld');
         guard('openChestEditor');
+        guard('openFurnaceEditor');
         guard('openSignEditor');
         guard('openMobFromWorld');
         guard('pasteMobFromClipboard');

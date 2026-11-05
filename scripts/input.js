@@ -1,5 +1,6 @@
 // ✨ VARIABLES GLOBALES PARA MOBS ✨
 let selectedMob = null;
+
 let selectedMobKey = null;
 // (mobClipboard — el mob copiado — se declara en scripts/clipboard.js)
 let draggedMob = null;
@@ -171,24 +172,7 @@ window.addEventListener("keydown", function (event) {
 
     if (event.code === 'Delete' || event.code === 'Backspace') {
         if (typeof currentTool !== 'undefined' && currentTool === 'move' && selectedMobKey && typeof mbwom !== 'undefined' && mbwom.mobs && mbwom.mobs[selectedMobKey]) {
-            
-    // ✨ ADD HISTORY: Borrar Mob
-            historyManager.startAction();
-            historyManager.recordMobChange(selectedMobKey, mbwom.mobs[selectedMobKey], null);
-            historyManager.commitAction();
-            
-            // ==========================================
-            // ✨ MULTIPLAYER C: Avisar que borramos el Mob
-            // ==========================================
-            if (typeof enviarMensajeEnRed === 'function') {
-                enviarMensajeEnRed({ tipo: "accion_eliminar_mob", id: selectedMobKey });
-            }
-            
-            delete mbwom.mobs[selectedMobKey];
-            selectedMob = null;
-            selectedMobKey = null;
-            if (typeof toggleMobInfo === 'function') toggleMobInfo(false);
-            if (typeof worldDirty !== 'undefined') worldDirty = true;
+            mbwDeleteSelectedMob();
             event.preventDefault();
         }
     }
@@ -320,6 +304,13 @@ canvas.addEventListener("mousemove", (event) => {
     }
     
     // (A partir de aquí sigue lo de arrastrar mobs, etc.)
+    if (mbwPlayerDrag && typeof currentTool !== 'undefined' && currentTool === 'move' && typeof mbwom !== 'undefined' && mbwom.world) {
+        const ex = camera.x + (mouse.canvasX / tileSize), ey = camera.y + (mouse.canvasY / tileSize);
+        mbwom.world.worldX = ex + mbwPlayerDrag.dx;
+        mbwom.world.worldY = -(ey + mbwPlayerDrag.dy);
+        mbwPlayerDrag.moved = true;
+        if (typeof worldDirty !== 'undefined') worldDirty = true;
+    }
     if (typeof currentTool !== 'undefined' && currentTool === 'move' && isDraggingMob && draggedMob) {
         let exactWorldX = camera.x + (mouse.canvasX / tileSize);
         let exactWorldY = camera.y + (mouse.canvasY / tileSize);
@@ -737,8 +728,9 @@ function updateChestTooltip() {
     ov.addEventListener('mouseleave', function () { tipOverTip = false; scheduleTipHide(); });
     ov.addEventListener('mousedown', function (e) {
         if (e.button !== 2 || typeof currentTool === 'undefined' || currentTool !== 'move') return;
-        if (!chestTipAt || chestTipAt.type !== 'chest' || typeof openChestEditor !== 'function') return;
-        if (openChestEditor(chestTipAt.x, chestTipAt.y)) { e.preventDefault(); hideTip(true); }
+        if (!chestTipAt) return;
+        if (chestTipAt.type === 'chest' && typeof openChestEditor === 'function' && openChestEditor(chestTipAt.x, chestTipAt.y)) { e.preventDefault(); hideTip(true); }
+        else if (chestTipAt.type === 'oven' && typeof openFurnaceEditor === 'function' && openFurnaceEditor(chestTipAt.x, chestTipAt.y)) { e.preventDefault(); hideTip(true); }
     });
     ov.addEventListener('contextmenu', function (e) { e.preventDefault(); });
 })();
@@ -822,6 +814,17 @@ canvas.addEventListener("mousedown", function (event) {
         }
     }
 
+    // ✨ CLIC DERECHO CON MOVE SOBRE UN HORNO: abre el editor del horno (entrada, combustible, resultado)
+    if (currentTool === 'move' && event.button == 2 && typeof openFurnaceEditor === 'function') {
+        const bs = mbwom.getBlockState(mouse.worldX, mouse.worldY);
+        if (bs && bs.type === 'oven' && openFurnaceEditor(mouse.worldX, mouse.worldY)) {
+            mouse.right = false;
+            event.preventDefault();
+            hideTip(true);
+            return;
+        }
+    }
+
     // ✨ CLIC DERECHO CON MOVE SOBRE UN LETRERO: abre el editor de texto (scripts/world-extras.js)
     if (currentTool === 'move' && event.button == 2 && typeof openSignEditor === 'function') {
         const bs = mbwom.getBlockState(mouse.worldX, mouse.worldY);
@@ -857,6 +860,16 @@ canvas.addEventListener("mousedown", function (event) {
 
             if (typeof toggleMobInfo === 'function') toggleMobInfo(true);
             if (typeof worldDirty !== 'undefined') worldDirty = true;
+        }
+
+        // El Player también se puede arrastrar con Move (si no se tocó ningún mob)
+        if (!clickedOnMob && typeof mbwPlayerHit === 'function' && mbwPlayerHit(exactWorldX, exactWorldY)) {
+            const w = mbwom.world;
+            mbwPlayerDrag = { dx: Number(w.worldX) - exactWorldX, dy: -Number(w.worldY) - exactWorldY, x0: Number(w.worldX), y0: Number(w.worldY), moved: false };
+            clickedOnMob = true;
+            selectedMob = null;
+            selectedMobKey = null;
+            if (typeof toggleMobInfo === 'function') toggleMobInfo(false);
         }
 
         if (!clickedOnMob) {
@@ -1074,6 +1087,15 @@ canvas.addEventListener("dblclick", function (event) {
 
 // --- SOLTAR CLICS (MOUSEUP) ---
 window.addEventListener("mouseup", function (event) {
+    if (mbwPlayerDrag) {
+        const d = mbwPlayerDrag; mbwPlayerDrag = null;
+        if (d.moved && typeof mbwom !== 'undefined' && mbwom.world) {
+            // Soltar: se redondea a 0.5 para que no quede en un decimal raro y se avisa al resto
+            mbwom.world.worldX = Math.round(Number(mbwom.world.worldX) * 2) / 2;
+            mbwom.world.worldY = Math.round(Number(mbwom.world.worldY) * 2) / 2;
+            if (typeof mbwom.world.worldX === 'number' && typeof worldDirty !== 'undefined') worldDirty = true;
+        }
+    }
     if (typeof isDraggingMob !== 'undefined' && isDraggingMob) {
         
         // ✨ ADD HISTORY: Tomar foto final y guardar el movimiento
@@ -1135,3 +1157,35 @@ document.addEventListener("contextmenu", function (e) {
     if (tag === 'TEXTAREA' || (tag === 'INPUT' && /^(text|search|url|email|password|number|tel)?$/i.test(t.type || '')) || (t && t.isContentEditable)) return;
     e.preventDefault();
 }, true);
+
+// Borra el mob seleccionado (tecla Delete o el botón 🗑 del celular, scripts/mobile-layout.js). Devuelve true si borró algo.
+function mbwDeleteSelectedMob() {
+    if (!selectedMobKey || typeof mbwom === 'undefined' || !mbwom.mobs || !mbwom.mobs[selectedMobKey]) return false;
+    // ✨ ADD HISTORY: Borrar Mob
+    historyManager.startAction();
+    historyManager.recordMobChange(selectedMobKey, mbwom.mobs[selectedMobKey], null);
+    historyManager.commitAction();
+    // ✨ MULTIPLAYER C: Avisar que borramos el Mob
+    if (typeof enviarMensajeEnRed === 'function') {
+        enviarMensajeEnRed({ tipo: "accion_eliminar_mob", id: selectedMobKey });
+    }
+    delete mbwom.mobs[selectedMobKey];
+    selectedMob = null;
+    selectedMobKey = null;
+    if (typeof toggleMobInfo === 'function') toggleMobInfo(false);
+    if (typeof worldDirty !== 'undefined') worldDirty = true;
+    return true;
+}
+window.mbwDeleteSelectedMob = mbwDeleteSelectedMob;
+
+// Player arrastrable con Move: mbwPlayerDrag guarda el arrastre en curso; mbwPlayerHit dice si un punto toca al Player (igual que lo dibuja drawPlayer)
+let mbwPlayerDrag = null;
+function mbwPlayerHit(wx, wy) {
+    const w = (typeof mbwom !== 'undefined') ? mbwom.world : null;
+    if (!w || w.worldX === undefined || w.worldY === undefined) return false;
+    if ((w.scene || 1) !== (mbwom.currentScene || 1)) return false;
+    const px = Number(w.worldX), py = -Number(w.worldY);
+    if (!isFinite(px) || !isFinite(py)) return false;
+    return wx >= px - 0.7 && wx <= px + 0.7 && wy >= py && wy <= py + 2;
+}
+window.mbwPlayerHit = mbwPlayerHit;
