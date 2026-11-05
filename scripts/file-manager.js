@@ -460,15 +460,30 @@ prepareData: function(opts) {
     const data = this.prepareData();
     if (!data) { alert(tmsg('msg_no_world', "No hay mundo cargado.")); return; }
 
-    const blob = new Blob([data.textData], { type: "text/plain" });
+    // "application/octet-stream" (no "text/plain"): Chrome de Android le pegaba ".txt" al nombre (Mundo.mbw.txt) y el juego no lo reconocía.
+    const blob = new Blob([data.textData], { type: "application/octet-stream" });
+    const fileName = data.name + ".mbw";
+    // iPhone / iPad: Safari no baja archivos "blob:" con el atributo download; el menú Compartir sí deja "Guardar en Archivos".
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isIOS && navigator.canShare && navigator.share) {
+        try {
+            const file = new File([blob], fileName, { type: "application/octet-stream" });
+            if (navigator.canShare({ files: [file] })) {
+                navigator.share({ files: [file], title: fileName }).catch(function () { /* la persona cerró el menú */ });
+                return;
+            }
+        } catch (e) { /* se usa la descarga normal */ }
+    }
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = data.name + ".mbw";
+    a.download = fileName;
+    a.style.display = "none";
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setTimeout(function () { if (a.parentNode) a.parentNode.removeChild(a); }, 1000);
+    // Antes se liberaba el archivo al instante: en celulares la descarga empieza un momento después y quedaba vacía o fallaba.
+    setTimeout(function () { URL.revokeObjectURL(url); }, 120000);
  },
  
  saveAs: async function() {
