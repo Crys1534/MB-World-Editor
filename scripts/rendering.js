@@ -47,8 +47,10 @@ window.renderers = {
         }
         return getTexture(states.type, variant);
     },
+    // Cultivos: la etapa (1 a 7) va en "wheat" (así la guarda el juego); si no la tiene, se usa la variante (cultivos puestos con versiones viejas)
     wheat: function (states) {
-        return getTexture(states.type, states.wheat);
+        const st = states.wheat != null ? states.wheat : (Number.isInteger(Number(states.states1)) && Number(states.states1) >= 1 ? Number(states.states1) : undefined);
+        return getTexture(states.type, st);
     },
     // Lámpara de redstone: encendida si le llega señal (hasSignal = [fuerza, ...], fuerza > 0) o si viene marcada como encendida
     lamp: function (states) {
@@ -452,6 +454,8 @@ window.blockData = {
     carrot: window.renderers.wheat,
     nw: window.renderers.wheat,
     bseed: window.renderers.wheat,
+    wseed: window.renderers.wheat,     // tallos de sandía y calabaza: también crecen por etapas
+    pseed: window.renderers.wheat,
 
 // --- SOLUCIÓN: ALIAS PARA BLOQUES CON VARIANTES DE COLOR ---
     cloth: window.renderers.default,

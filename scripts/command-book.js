@@ -352,7 +352,8 @@
         texts();
         modal.style.display = 'flex';
         drawIcon(f.icon);
-        setTimeout(focusCmd, 30);
+        // La ventana se abre SIN ningún cuadro elegido (en el celular así no sale el teclado solo); se escribe al tocar un cuadro
+        try { if (document.activeElement && document.activeElement !== document.body && document.activeElement.blur) document.activeElement.blur(); } catch (e) { /* nada */ }
     }
     function close() { hideSug(); if (picking) picking.stop(false); if (modal) modal.style.display = 'none'; }
     function onSave() {

@@ -3342,3 +3342,13 @@ body.is-touch #mbw-play-hud .ph-chat-sug { font-size: 15px; max-height: 22vh; }
 #mbw-play-hud .ph-iname { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--phs) + 52px); max-width: 80vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     color: #fff; font: 26px/1 'Pixeltype', 'Segoe UI', monospace; text-shadow: 2px 2px 0 #3f3f3f; pointer-events: none; opacity: 0; text-align: center; }
 #mbw-play-hud.under-modal .ph-sign, #mbw-play-hud.under-modal .ph-iname { visibility: hidden; }
+
+/* ===== 🔧 Barra lateral de herramientas centrada de arriba a abajo (PC y celular) — Snapshot 39 ===== */
+/* La cámara ya no está en la barra (va junto a Download): la rayita que la separaba sobra */
+body.phone-tools-moved #toolbar-sidebar > .toolbar-separator:last-child { display: none; }
+/* Dos "resortes" invisibles arriba y abajo empujan los botones al centro; si no caben, se encogen a 0 (no se corta nada) */
+#toolbar-sidebar::before, #toolbar-sidebar::after { content: ''; flex: 1 1 0; min-height: 0; }
+/* Computadora con paneles flotantes: la barra mide lo que sus botones y se pone a la mitad del espacio del mundo */
+body.panels-floating:not(.is-phone) #toolbar-sidebar { top: calc(var(--ws-top) + 8px); bottom: calc(var(--ws-bottom) + 8px); height: fit-content; margin: auto 0; }
+/* Paneles fijos (sin flotar): la barra va de arriba a abajo del mundo, con los botones al centro */
+body:not(.panels-floating):not(.is-phone) #toolbar-sidebar { top: var(--ws-top); height: calc(100% - var(--ws-top) - var(--ws-bottom)); box-sizing: border-box; }

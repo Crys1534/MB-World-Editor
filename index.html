@@ -786,6 +786,19 @@
         </div>
         <div class="separator"></div>
 
+        <!-- ☁ Nubes en el cielo, como en el juego (scripts/clouds.js) -->
+        <div class="ribbon-group">
+            <div class="ribbon-group-content rg-col-start gap-4 view-toggles">
+                <label class="rg-row-center gap-5 lbl-small pointer" data-i18n-title="clouds_toggle_tip" title="Shows clouds drifting in the sky, like in the game.">
+                    <svg class="mbw-ic vt-ic" aria-hidden="true" focusable="false"><use href="#ic-weather"></use></svg>
+                    <input type="checkbox" id="clouds-toggle" checked onchange="mbwClouds.set(this.checked)">
+                    <span data-i18n="lbl_clouds_toggle">Clouds</span>
+                </label>
+            </div>
+            <div class="ribbon-group-label" data-i18n="lbl_sky_group">Sky</div>
+        </div>
+        <div class="separator"></div>
+
         <div class="ribbon-group">
             <div class="ribbon-group-content">
                 <button class="ribbon-btn-large" onclick="openModal('dimensions-modal')">
@@ -894,13 +907,18 @@
     <label class="lbl-small" style="font-weight: bold; text-align: center; margin-bottom: 2px;" data-i18n="lbl_current_pos">Current Pos.</label>
     <div class="rg-row-center gap-2">
         <label class="lbl-small" style="color: #4DA6FF; font-weight: bold;">X</label>
-        <input type="number" id="player-pos-x" class="input-stat w-52" onchange="updatePlayerPos('x', this.value)" step="0.1">
+        <input type="number" id="player-pos-x" class="input-stat w-52" onchange="updatePlayerPos('x', this.value)" step="any">
     </div>
     <div class="rg-row-center gap-2">
         <label class="lbl-small" style="color: #2ecc71; font-weight: bold;">Y</label>
-        <input type="number" id="player-pos-y" class="input-stat w-52" onchange="updatePlayerPos('y', this.value)" step="0.1">
+        <input type="number" id="player-pos-y" class="input-stat w-52" onchange="updatePlayerPos('y', this.value)" step="any">
     </div>
 </div>
+
+<!-- 📍 Elegir la posición en el mapa: un Player fantasma sigue al cursor hasta hacer clic (scripts/player-pick.js) -->
+<button class="ribbon-btn-large" id="btn-player-pick" type="button" onclick="mbwPlayerPick.start()" data-i18n-title="pp_pick_tip" title="Choose the Player's new position on the map: a ghost Player follows the cursor until you click">
+    <span class="icon"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-pin"></use></svg></span><span class="text" data-i18n="pp_pick_btn">Pick on map</span>
+</button>
 
 
             </div>
@@ -1778,7 +1796,7 @@
             
             <div style="position: absolute; bottom: 10px; left: 15px; font-size: 11px; color: gray; font-family: monospace;">
                 <span data-i18n="about_last_update">Last Update:</span> Nov 5, 2026<br>
-                v2.6 - Snapshot 38
+                v2.6 - Snapshot 39
             </div>
             <div style="position: absolute; bottom: 10px; right: 15px; font-size: 12px; color: gray; font-weight: bold;">
                 2026
@@ -1869,6 +1887,8 @@
  <script src="scripts/command-book.js"></script> <!-- 📕 Create Command Book -->
  <script src="scripts/world-presence.js"></script> <!-- 🌍 avisa si tengo un mundo abierto -->
  <script src="scripts/mobile-block-fab.js"></script> <!-- 🪜 espejo y girar flotantes (celular) -->
+ <script src="scripts/clouds.js"></script> <!-- ☁ nubes -->
+ <script src="scripts/player-pick.js"></script> <!-- 📍 Player > Location: elegir la posición del Player en el mapa -->
  <script src="scripts/mobile-layout.js"></script> <!-- 📱 Aspect en View, captura junto a Download -->
     <script src="scripts/play-data.js"></script>
     <script src="scripts/play-mode.js"></script> <!-- ▶️ Modo Jugar -->

@@ -4,23 +4,19 @@
 // Para que la barra de herramientas de la izquierda no sea tan larga en el celular:
 //   · "Relación de aspecto" (ojo) se pasa a la pestaña View (grupo "Aspect ratio").
 //   · "Captura de pantalla" (cámara) se pasa a la izquierda del botón Download.
-// Son los MISMOS botones (solo se cambian de lugar), así que siguen funcionando igual; en la computadora vuelven a la barra lateral.
+// Son los MISMOS botones (solo se cambian de lugar), así que siguen funcionando igual. Desde la Snapshot 39 se mueven igual en la computadora.
 (function () {
     'use strict';
     const body = document.body;
     const $ = (id) => document.getElementById(id);
     let home = null;      // { aspect: next sibling, shots: next sibling }
-    function isPhone() {
-        let small = false;
-        try { small = Math.min(screen.width, screen.height) <= 600; } catch (e) { /* nada */ }
-        return body.classList.contains('is-phone') || (body.classList.contains('is-touch') && small);
-    }
     function place() {
         const side = $('toolbar-sidebar'), asp = $('tool-aspect'), shot = $('tool-screenshot');
         const slot = $('view-aspect-slot'), dl = $('export-dropdown-container');
         if (!side || !asp || !shot) return;
         if (!home) home = { aspect: asp.nextSibling, shot: shot.nextSibling };
-        const phone = isPhone();
+        // (antes solo en el celular; ahora también en la computadora: el ojo va a View y la cámara junto a Download)
+        const phone = true;
         body.classList.toggle('phone-tools-moved', phone);
         if (phone) {
             if (slot && asp.parentNode !== slot) { slot.appendChild(asp); asp.classList.add('ribbon-btn-large'); }

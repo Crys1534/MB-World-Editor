@@ -191,7 +191,7 @@ function invPlaceHeldInSelectedSlot() {
     if (heldItem.states1 !== undefined) s.states1 = heldItem.states1;
     if (heldItem.count > 1) s.count = heldItem.count;
     if (heldItem.nbt !== undefined) s.nbt = heldItem.nbt;
-    const lq = mbwLiquidSlotFromKey(heldItem.type); if (lq) { s.type = lq.type; s.water = lq.water; delete s.states1; }   // nivel de líquido: bloque normal + dato de nivel
+    mbwFixSlotFromInventory(s, heldItem.type);   // nivel de líquido / etapa de cultivo: bloque normal + su dato (como el juego)
     hotbar.slots[slotIndex] = s;
     heldItem = null;
     updateFloatingItem();
@@ -739,6 +739,30 @@ function mbwLiquidKeyFromSlot(slot) {
 window.mbwLiquidSlotFromKey = mbwLiquidSlotFromKey;
 window.mbwLiquidKeyFromSlot = mbwLiquidKeyFromSlot;
 
+// --- CULTIVOS ---
+// Igual que los líquidos: en el juego la etapa de un cultivo (1 a 7) NO va en la variante, va en el dato "wheat" del bloque.
+// (Con Live Time ese dato es el que va subiendo: ver mbwCropTick más abajo.)
+window.MBW_CROPS = ['seed', 'wseed', 'pseed', 'carrot', 'potato', 'bseed', 'nw'];
+function mbwIsCrop(type) { return window.MBW_CROPS.indexOf(String(type)) >= 0; }
+// Arregla una casilla de la barra rápida recién llenada desde el inventario: niveles de líquido y etapas de cultivo al formato del juego
+function mbwFixSlotFromInventory(s, key) {
+    const lq = mbwLiquidSlotFromKey(key);
+    if (lq) { s.type = lq.type; s.water = lq.water; delete s.states1; return s; }
+    if (mbwIsCrop(s.type)) {
+        const n = Number(s.states1);
+        if (Number.isInteger(n) && n >= 1 && n <= 7) { s.wheat = n; delete s.states1; }
+    }
+    return s;
+}
+// Al revés: de la barra rápida a la mano (para que el dibujo de la mano sea el mismo)
+function mbwHeldFromSlot(slot) {
+    const lk = mbwLiquidKeyFromSlot(slot);
+    if (lk) return { type: lk };
+    if (slot && mbwIsCrop(slot.type) && slot.wheat != null) return { type: slot.type, states1: slot.wheat };
+    return null;
+}
+window.mbwIsCrop = mbwIsCrop;
+
 // --- RECOGER ÍTEMS DEL INVENTARIO ---
 function pickupItemFromInventory(blockType) {
     let type = blockType;
@@ -950,7 +974,7 @@ function renderModalHotbar() {
                 if (heldItem.states1 !== undefined) newState.states1 = heldItem.states1;
                 if (heldItem.count > 1) newState.count = heldItem.count;
                 if (heldItem.nbt !== undefined) newState.nbt = heldItem.nbt;
-                const lq = mbwLiquidSlotFromKey(heldItem.type); if (lq) { newState.type = lq.type; newState.water = lq.water; delete newState.states1; }   // nivel de líquido: bloque normal + dato de nivel
+                mbwFixSlotFromInventory(newState, heldItem.type);   // nivel de líquido / etapa de cultivo: bloque normal + su dato (como el juego)
 
                 hotbar.slots[index] = newState;
                 heldItem = null; 
@@ -960,7 +984,8 @@ function renderModalHotbar() {
                 if(typeof renderHotbarUI === 'function') renderHotbarUI(); 
             } else {
                 if (slot && slot.type) {
-                    heldItem = { type: mbwLiquidKeyFromSlot(slot) || slot.type, states1: slot.states1, count: slot.count || 1, nbt: slot.nbt };
+                    const hs = mbwHeldFromSlot(slot) || {};
+                    heldItem = { type: hs.type || slot.type, states1: hs.type ? hs.states1 : slot.states1, count: slot.count || 1, nbt: slot.nbt };
                     hotbar.slots[index] = { type: null }; 
                     
                     updateFloatingItem();
@@ -2322,6 +2347,50 @@ let weatherEngine = null;
 let weatherTimeout = null;
 let cropEngine = null; // ✨ NUEVO: El motor de las plantas
 
+// 🌱 Un "turno" de crecimiento de los cultivos del mundo que se está viendo (lo llama Live Time cada 12 segundos)
+function mbwCropTick(chance) {
+    if (typeof mbwom === 'undefined' || !mbwom || !mbwom.scene || !mbwom.world) return 0;
+    if (!mbwom.wheat || typeof mbwom.wheat !== 'object') { mbwom.wheat = {}; mbwom.world['wheat' + (mbwom.sceneIndex || mbwom.currentScene || 1)] = mbwom.wheat; }
+    if (!mbwom.states || typeof mbwom.states !== 'object') return 0;
+    const p = typeof chance === 'number' ? chance : 0.1;   // 1 en 10, como el juego
+    const crops = window.MBW_CROPS || ['seed', 'wseed', 'pseed', 'carrot', 'potato', 'bseed', 'nw'];
+    const changed = [];
+    const scene = mbwom.scene;
+    for (let x = 0; x < scene.length; x++) {
+        const col = scene[x];
+        if (!col) continue;
+        for (let y = 0; y < col.length; y++) {
+            const t = col[y];
+            if (t == null || crops.indexOf(t) < 0) continue;
+            const id = 'blockX' + x + 'Y' + y;
+            let w = mbwom.wheat[id];
+            if (w == null) {
+                // cultivo sin etapa guardada (puesto con una versión vieja, con la etapa en la variante): se pasa al dato del juego
+                const s1 = Number(mbwom.states[id]);
+                w = (Number.isInteger(s1) && s1 >= 1 && s1 <= 7) ? s1 : 1;
+                mbwom.wheat[id] = w;
+                if (t !== 'wseed' && t !== 'pseed') delete mbwom.states[id];
+                changed.push([x, y]);
+            }
+            if (w < 7 && Math.random() < p) { mbwom.wheat[id] = w + 1; changed.push([x, y]); }
+        }
+    }
+    if (!changed.length) return 0;
+    const net = [];
+    changed.forEach(function (c) {
+        if (typeof renderBlock === 'function') renderBlock(c[0], c[1]);
+        net.push({ x: c[0], y: c[1], estado: mbwom.getBlockState(c[0], c[1]) });
+    });
+    if (typeof worldDirty !== 'undefined') worldDirty = true;
+    // multijugador: los demás ven crecer lo mismo
+    if (typeof isMultiplayer !== 'undefined' && isMultiplayer && typeof enviarMensajeEnRed === 'function') {
+        if (net.length > 20 && typeof window.mbwSendBlockBatch === 'function') window.mbwSendBlockBatch(net.map(function (n) { return [n.x, n.y, n.estado]; }));
+        else net.forEach(function (n) { enviarMensajeEnRed({ tipo: "actualizar_bloque", x: n.x, y: n.y, estado: n.estado }); });
+    }
+    return changed.length;
+}
+window.mbwCropTick = mbwCropTick;
+
 function toggleLiveTime(checkbox) {
     if (checkbox.checked) {
         
@@ -2371,43 +2440,10 @@ function toggleLiveTime(checkbox) {
             }
         }, HORA_EN_MS);
 
-        // --- 3. ✨ MOTOR DE CRECIMIENTO EXACTO (Sin Suerte) ✨ ---
-        // Usamos la misma 'velocidad' que el Motor de Tiempo (ej. 1000ms)
-        cropEngine = setInterval(() => {
-            if (mbwom && mbwom.world && mbwom.world.blocks) {
-                let cultivCrecio = false;
-                const crops = ["nw", "seed", "carrot", "wseed", "pseed", "potato", "bseed"];
-
-                // Escaneamos TODOS los bloques del mundo buscando cultivos
-                for (let key in mbwom.world.blocks) {
-                    const block = mbwom.world.blocks[key];
-                    
-                    if (block && crops.includes(block.type)) {
-                        // 1. Aseguramos que la semilla tenga nivel inicial y su propio cronómetro
-                        if (block.wheat === undefined || isNaN(block.wheat)) block.wheat = 1;
-                        if (block.growthTimer === undefined) block.growthTimer = 0;
-
-                        // 2. Si aún no llega al nivel 7 (máximo)
-                        if (block.wheat < 7) {
-                            // Le sumamos 1 unidad de tiempo a esta planta
-                            block.growthTimer++;
-
-                            // 3. Cuando junta 29 unidades de tiempo (Aprox 1.75 días en total para crecer por completo)
-                            if (block.growthTimer >= 29) {
-                                block.wheat++; // Sube a la siguiente fase (ej. _3 a _4)
-                                block.growthTimer = 0; // Reinicia su cronómetro para la próxima fase
-                                cultivCrecio = true;
-                            }
-                        }
-                    }
-                }
-
-                // Si algún cultivo cambió de fase, repintamos el mapa
-                if (cultivCrecio && typeof worldDirty !== 'undefined') {
-                    worldDirty = true;
-                }
-            }
-        }, 1000); // Se ejecuta al mismo ritmo que el reloj del juego
+        // --- 3. 🌱 CULTIVOS: crecen poco a poco, como en el juego ---
+        // El juego, cada 12 segundos (300 ticks a 25 por segundo), le da a cada cultivo 1 oportunidad en 10 de subir una etapa,
+        // hasta la 7 (la última). En promedio cada etapa tarda unos 2 minutos y un cultivo completo unos 12 minutos.
+        cropEngine = setInterval(mbwCropTick, window.MBW_CROP_TICK_MS || 12000);
         
         console.log("⏱️ Live Time + Weather + Crops: ACTIVADOS");
 
@@ -2442,11 +2478,11 @@ window.populateLocationSettings = function() {
     const spawnX = document.getElementById('world-spawn-x');
     const spawnY = document.getElementById('world-spawn-y');
 
-    // Redondeamos a 1 decimal para que no se vea feo (ej: 500.4 en vez de 500.456915)
-    if (posX && mbwom.world.worldX !== undefined) posX.value = Math.round(mbwom.world.worldX * 10) / 10;
+    // Redondeamos a 2 decimales para que no se vea feo (ej: 500.46 en vez de 500.456915)
+    if (posX && mbwom.world.worldX !== undefined) posX.value = Math.round(mbwom.world.worldX * 100) / 100;   // (2 decimales: así se ve la posición elegida en el mapa)
     // La Y del jugador se guarda "hacia abajo" (en el archivo es negativa: -40 = 40 bloques arriba del fondo), pero SOLO en pantalla se
     // muestra al revés (positiva), como las alturas de siempre. Lo que se guarda en el archivo no cambia: updatePlayerPos la voltea de vuelta.
-    if (posY && mbwom.world.worldY !== undefined) posY.value = (Math.round(-mbwom.world.worldY * 10) / 10) || 0;
+    if (posY && mbwom.world.worldY !== undefined) posY.value = (Math.round(-mbwom.world.worldY * 100) / 100) || 0;
 
     // Spawn Point (Es un array [x, y])
     if (spawnX && mbwom.world.spawnPoint1) spawnX.value = Math.round(mbwom.world.spawnPoint1[0] * 10) / 10;

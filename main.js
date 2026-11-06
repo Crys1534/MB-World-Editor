@@ -1591,12 +1591,14 @@ function mainLoop(ts) {
     }
     
     drawWorld();
+    if (window.mbwClouds) { try { window.mbwClouds.draw(ctx); } catch (e) { /* las nubes nunca rompen el dibujo */ } }   // ☁ scripts/clouds.js
     // scripts/world-extras.js: texto de letreros y vagonetas / balsas van debajo de los mobs; marcadores y fantasma de vagoneta encima
     if (window.mbwExtras) { try { window.mbwExtras.beforeMobs(); } catch (e) { if (!window.mbwExtrasErr) { window.mbwExtrasErr = true; console.error('world-extras:', e); } } }
     if (typeof drawMobs === 'function') drawMobs(); 
     if (window.mbwExtras) { try { window.mbwExtras.afterMobs(); } catch (e) { if (!window.mbwExtrasErr) { window.mbwExtrasErr = true; console.error('world-extras:', e); } } }
     drawPlayer();
     if (window.mbwDarkness) window.mbwDarkness.draw(ctx);   // 🌑 oscuridad bajo tierra + auras de luz + 🗺️ franja de biomas (scripts/darkness.js)
+    if (window.mbwPlayerPick) { try { window.mbwPlayerPick.drawGhost(); } catch (e) { /* nada */ } }   // 📍 Player fantasma al elegir su posición (scripts/player-pick.js)
 
     const liveTimeToggle = document.getElementById('live-time-toggle');
     const timeInput = document.getElementById('gr-time');

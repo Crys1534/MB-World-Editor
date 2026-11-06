@@ -57,6 +57,7 @@ const mbwom = {
 	],
 	// En scripts/mbwom.js
 loadScene: function (index) {
+    this.sceneIndex = index;   // (para poder crear después las listas que el mundo no traía: ver setBlockState)
     for (let i = 0; i < this.sceneList.length; i++) {
         const element = this.sceneList[i];
         
@@ -111,19 +112,29 @@ loadScene: function (index) {
 			this.setBlock(x, y, newState.type);
 			// Lo que el bloque NO tiene se quita (no se guarda "vacío"). En multijugador los datos vacíos llegaban
 			// convertidos en null y el mundo se llenaba de miles de entradas null que el juego no espera.
-			const put = (obj, key, v) => { if (!obj) return; if (v === undefined || v === null) delete obj[key]; else obj[key] = v; };
-			put(this.states, id, newState.states1);
-			put(this.states, id + "_2", newState.states2);
-			put(this.states, id + "_3", newState.states3);
-			put(this.firstTimes, id, newState.firstTimes);
-			put(this.chests, id, newState.chests);
-			put(this.toSmelt, id, newState.toSmelt);
-			put(this.toGrow, id, newState.toGrow);
-			put(this.water, id, newState.water);
-			put(this.wheat, id, newState.wheat);
-			put(this.toBrew, id, newState.toBrew);
-			put(this.signs, id, newState.signs);
-			put(this.hasSignal, id, newState.hasSignal);
+			// Si el mundo no traía esa lista (venía como 0) y el bloque sí tiene ese dato, se crea la lista; antes el dato se perdía en silencio
+			// (por ejemplo la etapa de un cultivo o el nivel de un líquido en un mundo que todavía no tenía ninguno)
+			const put = (name, key, v) => {
+				let obj = this[name];
+				if (v === undefined || v === null) { if (obj && typeof obj === 'object') delete obj[key]; return; }
+				if (!obj || typeof obj !== 'object') {
+					obj = {}; this[name] = obj;
+					if (this.world) this.world[name + (this.sceneIndex || this.currentScene || 1)] = obj;
+				}
+				obj[key] = v;
+			};
+			put('states', id, newState.states1);
+			put('states', id + "_2", newState.states2);
+			put('states', id + "_3", newState.states3);
+			put('firstTimes', id, newState.firstTimes);
+			put('chests', id, newState.chests);
+			put('toSmelt', id, newState.toSmelt);
+			put('toGrow', id, newState.toGrow);
+			put('water', id, newState.water);
+			put('wheat', id, newState.wheat);
+			put('toBrew', id, newState.toBrew);
+			put('signs', id, newState.signs);
+			put('hasSignal', id, newState.hasSignal);
 		}
 	},
 	isEmptyItem: function (item) {
