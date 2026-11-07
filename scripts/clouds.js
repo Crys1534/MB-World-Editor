@@ -3,7 +3,7 @@
 // =====================================================================
 // Copiado de cómo las hace Mine Blocks (clase Clouds del juego):
 //  · Son cuadros blancos medio transparentes (20%), de 26/30 de bloque, en 3 filas, justo arriba del techo del mundo
-//    (a la altura worldHeight + 3.3).
+//    (Y 121 a 123, en todos los mundos).
 //  · Se mueven poco a poco hacia la derecha (0.5 px por cuadro del juego, a 50 cuadros por segundo) y no se mueven con la cámara
 //    de lado a lado: se ven "lejanas", siempre pasando por la pantalla.
 //  · Van saliendo por la izquierda en grupos al azar (nubes de varios cuadros); algunas aparecen o se borran poco a poco.
@@ -24,17 +24,10 @@
         try { if (!r && typeof isRaining !== 'undefined' && isRaining) r = 1; } catch (e) { /* nada */ }
         return Math.min(2, r);
     }
-    function worldTop() {
-        const w = mbwom.world || {};
-        let h = Number(w.worldHeight);
-        if (!(h > 0)) {
-            h = 0;
-            const sc = mbwom.scene || [];
-            for (let x = 0; x < sc.length; x += 7) if (sc[x] && sc[x].length > h) h = sc[x].length;
-            if (!h) h = 128;
-        }
-        return h;
-    }
+    // Altura del techo del mundo: SIEMPRE 120 (la de Mine Blocks), así las nubes salen en Y 121 a 123 en todos los mundos.
+    // (Antes se usaba el dato worldHeight del mundo y, si no lo traía, lo alto de las columnas; en muchos mundos eso daba otra
+    //  altura y las nubes salían más abajo o más arriba.)
+    function worldTop() { return 120; }
     function make(x, y) {
         // 1 de cada 10 nubes empieza invisible y aparece poco a poco
         const fade = Math.random() < 0.1;
