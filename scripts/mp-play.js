@@ -16,11 +16,16 @@
 //     pantalla se deslizan suave entre un dato y otro. Las flechas de los esqueletos también se ven.
 //   • Los hostiles persiguen al jugador más cercano (también a los invitados); los animales siguen a quien tenga su comida.
 //   • Cuando un mob le pega a un invitado (golpe, flecha), el anfitrión le avisa y el invitado pierde vida en su pantalla.
-//   • Cuando un invitado le pega a un mob, el golpe va al anfitrión; si lo mata, lo que suelta y la experiencia le salen al invitado.
+//   • Cuando un invitado le pega a un mob, el golpe va al anfitrión; si lo mata, la experiencia le sale al invitado.
 //   • Las explosiones (creeper, TNT) lastiman a todos los que estén cerca; a los mobs los lastima el anfitrión.
 //   • Un mob que crea un invitado (huevo, /summon) lo crea el anfitrión.
-// TODAVÍA NO (Etapa 3): no se pueden pegar entre jugadores, y los objetos tirados en el suelo son de cada quien. Los mobs de una
-// dimensión donde no está el anfitrión se quedan quietos.
+// ETAPA 3:
+//   • Pegarse entre jugadores: clic izquierdo sobre otro jugador (a la mano) = golpe con la fuerza de lo que tengo en la mano y un
+//     empujón. Si alguien muere, a todos les sale quién lo derrotó (o que murió).
+//   • Objetos en el suelo: lo que se tira (al romper un bloque, lo que suelta un mob, lo que se suelta al morir...) lo ven todos y
+//     cae igual en todas las pantallas. Recogerlo lo decide el anfitrión: se lo lleva el primero que lo toca (no se duplica).
+//   • Chat: en una partida, lo que se escribe con T (sin "/") les llega a los demás (en el chat del juego y en el de la sala).
+// TODAVÍA NO: los mobs de una dimensión donde no está el anfitrión se quedan quietos.
 // Mensajes (no son "cambios del mundo": el anfitrión los pasa a todos, aunque el jugador solo pueda ver):
 //   juego_inicio / juego_activo (anfitrión: hay partida) · juego_fin (anfitrión: se acabó) · juego_jugador (dónde estoy y cómo me veo)
 //   juego_salir (me salí) · juego_bloques (bloques que cambiaron) · juego_pedir (entré tarde: ¿qué cambió?) · juego_cambios (respuesta)
@@ -238,8 +243,22 @@
         if (!M.on) return;                                            // (lo de abajo solo sirve jugando)
         if (t === 'juego_jugador') { onPlayer(d); return; }
         if (t === 'juego_bloques' || t === 'juego_cambios') { applyBlocks(Number(d.s) || 1, d.c); return; }
-        if (t === 'juego_pedir' && M.role === 'host') { sendChangesTo(d.peerId); sendMobListTo(d.peerId); return; }
+        if (t === 'juego_pedir' && M.role === 'host') { sendChangesTo(d.peerId); sendMobListTo(d.peerId); sendDropsTo(d.peerId); return; }
         const N = window.mbwPlay && window.mbwPlay.net; if (!N) return;
+        // objetos en el suelo
+        if (t === 'juego_suelta') { if (d.peerId !== myPeer()) N.dropIn(d.d); return; }
+        if (t === 'juego_suelos') { (d.l || []).forEach(function (o) { N.dropIn(o); }); return; }
+        if (t === 'juego_toma') { if (M.role === 'host') N.dropGrant(String(d.nid), d.peerId); return; }
+        if (t === 'juego_tomado') { if (d.peerId !== myPeer()) N.dropTaken(d); return; }
+        // pegarse entre jugadores / muertes
+        if (t === 'juego_pvp') { if (d.a === myPeer()) N.pvp(d.dmg, d.kx, d.autor); return; }
+        if (t === 'juego_muerte') {
+            if (d.peerId === myPeer()) return;
+            const msg = d.por ? tr('mpplay_death_by', '{name} was defeated by {by}').replace('{name}', String(d.autor || 'Player')).replace('{by}', String(d.por))
+                : tr('mpplay_death', '{name} died').replace('{name}', String(d.autor || 'Player'));
+            N.say('💀 ' + msg); N.flash('💀 ' + msg);
+            return;
+        }
         if (t === 'juego_mobs') { applyMobs(d); return; }
         if (t === 'juego_mobs_lista') { if (M.role === 'guest' && Number(d.s) === curScene() && Array.isArray(d.ids)) { const keep = new Set(d.ids); Object.keys(mbwom.mobs || {}).forEach(function (id) { if (!keep.has(id)) { delete mbwom.mobs[id]; M.mobT.delete(id); N.forget(id); } }); } return; }
         if (t === 'juego_golpe') { if (d.a === myPeer()) N.hurtMe(d.dmg, d.causa); return; }
@@ -277,6 +296,13 @@
         if (!p.length && !nf && !g.length && !a.length && !M.hadArrows) return;
         M.hadArrows = a.length > 0;
         send({ tipo: 'juego_mobs', s: sc, p: p, f: f, g: g, a: a });
+    }
+    function sendDropsTo(peerId) {
+        const conn = (g('misClientes') || []).find(function (c) { return c.peer === peerId; });
+        const N = window.mbwPlay && window.mbwPlay.net;
+        if (!conn || !conn.open || !N) return;
+        const l = N.dropsPack();
+        for (let i = 0; i < l.length; i += CHUNK) { try { conn.send({ tipo: 'juego_suelos', l: l.slice(i, i + CHUNK), retransmitido: true }); } catch (e) { /* nada */ } }
     }
     function sendMobListTo(peerId) {
         M.mobFullAt = 0;                                           // al que entró tarde: todo completo en el siguiente envío
@@ -420,6 +446,9 @@
             const nw = function (d) {
                 if (d && typeof d.tipo === 'string' && d.tipo.indexOf('juego_') === 0) { try { onMessage(d); } catch (e) { console.error('mp-play', e); } return; }
                 if (M.on && typeof g('mpIsWorldChange') === 'function' && g('mpIsWorldChange')(d)) { M.queue.push(JSON.parse(JSON.stringify(d))); return; }
+                if (M.on && d && d.tipo === 'chat' && d.texto != null && window.mbwPlay && window.mbwPlay.net) {
+                    try { window.mbwPlay.net.say((d.autor && d.autor !== 'System' ? '<' + d.autor + '> ' : '') + String(d.texto)); } catch (e) { /* nada */ }
+                }
                 return o.apply(this, arguments);
             };
             nw.__mpPlay = true;

@@ -244,9 +244,13 @@
     // ------------------------------------------------------------------ objetos tirados en el suelo
     function addDrop(id, x, y, count, dmg, extras) {
         if (!id || id === 'air' || id === 'na' || !(count > 0)) return;
-        if (S.lootTo) { S.lootTo.push(['d', String(id), x, y, count | 0, dmg || 0, extras || {}]); return; }
-        S.drops.push({ id: String(id), n: count | 0, dmg: dmg || 0, ex: extras || {}, x: x, y: y, vx: migSpeed(4 * Math.random() - 2), vy: migSpeed(-4), age: 0 });
+        const o = { id: String(id), n: count | 0, dmg: dmg || 0, ex: extras || {}, x: x, y: y, vx: migSpeed(4 * Math.random() - 2), vy: migSpeed(-4), age: 0 };
+        S.drops.push(o);
+        // 🎮 multijugador: todos ven el objeto (con un número para saber cuál es) y cae igual en todas las pantallas
+        if (S.mp && window.mbwMpPlay) { o.nid = window.mbwMpPlay.myId() + ':' + S.dropBase + ':' + (++S.dropSeq); mpSend({ tipo: 'juego_suelta', d: packDrop(o) }); }
     }
+    const packDrop = (o) => ({ nid: o.nid, id: o.id, n: o.n, dmg: o.dmg, ex: o.ex, x: o.x, y: o.y, vx: o.vx, vy: o.vy, age: o.age | 0 });
+    const dropIdx = (nid) => { for (let i = 0; i < S.drops.length; i++) if (S.drops[i].nid === nid) return i; return -1; };
     function tickDrops() {
         const w = W();
         for (let i = S.drops.length - 1; i >= 0; i--) {
@@ -259,8 +263,12 @@
             if (collision(d.x - .15, ny, .3, 0, .1, true, false)) { d.vy = 0; } else d.y = ny;
             if (d.age > 300 * FPS || d.y > 10) { S.drops.splice(i, 1); continue; }
             if (d.age > 25 && !(w.dead > 0) && w.gamemode != 3 && Math.abs(d.x - w.worldX) < 1.5 && Math.abs(d.y - (w.worldY - 1)) < 1.5) {
+                // 🎮 invitado: se lo pide al anfitrión (si dos lo tocan a la vez, se lo lleva el primero)
+                if (S.mp && d.nid && mpGuest()) { if (!d.pend || S.tick - d.pend > 75) { d.pend = S.tick; mpSend({ tipo: 'juego_toma', nid: d.nid }); } continue; }
+                const n0 = d.n;
                 const left = addToInventory(d.id, d.n, d.dmg, d.ex);
                 if (left <= 0) S.drops.splice(i, 1); else d.n = left;
+                if (S.mp && d.nid && left !== n0) mpSend({ tipo: 'juego_tomado', nid: d.nid, n: Math.max(0, left) });
             }
         }
     }
@@ -783,7 +791,11 @@
         const w = W();
         if (!(w.health <= 0 || (w.dead | 0) !== 0)) return;
         w.dead = (w.dead | 0) + 1;
-        if (w.dead === 1) flashMsg(tr('play_dead', '💀 You died'));
+        if (w.dead === 1) {
+            const by = (S.mp && S.lastPvp && Date.now() - S.lastPvp.t < 5000) ? S.lastPvp.name : '';
+            flashMsg(by ? tr('mpplay_killed_by', '💀 {name} defeated you').replace('{name}', by) : tr('play_dead', '💀 You died'));
+            if (S.mp) mpSend({ tipo: 'juego_muerte', autor: myNameNet(), por: by });
+        }
         if (w.dead <= 30) return;
         if (gameRule('keepinventory') != true) {                      // suelta todo (como el juego)
             const list = inv();
@@ -934,7 +946,7 @@
         const a = D.mobs[m.type] || {};
         const d = tmpOf(id);
         m.dead = 1;
-        // 🎮 si lo mató otro jugador, lo que suelta (y la experiencia) le sale a ÉL, en su pantalla
+        // 🎮 si lo mató otro jugador, la experiencia le sale a ÉL, en su pantalla (lo que suelta cae al suelo y lo ven todos)
         const lootTo = (mpHost() && isRemoteId(m.lastDamageID)) ? m.lastDamageID.slice(RP.length) : null;
         if (lootTo) S.lootTo = [];
         try { killMobLoot(id, m, a, d, !!lootTo); } finally {
@@ -1422,6 +1434,32 @@
     window.mbwPlay.hurtMob = function (id, n) { hurtMob(id, n, 'attack', PLAYER_ID); };     // (lo usan las pruebas)
     window.mbwPlay.explode = function (x, y, r) { explode(x, y, r || 3, PLAYER_ID); };
     window.mbwPlay.runCommand = function (t) { runCommand(t); };                              // (lo usan las pruebas)
+    window.mbwPlay.addDrop = function (id, x, y, n) { addDrop(id, x, y, n || 1, 0, {}); };                  // (lo usan las pruebas)
+    // 🎮 ¿hay otro jugador bajo el mouse (y a la mano: 3.5 bloques)?
+    function playerUnderMouse(mw) {
+        if (!S.mp || !window.mbwMpPlay) return null;
+        const w = W(), R = window.mbwMpPlay.remotes, gy = -mw.y;
+        let best = null, bdist = Infinity;
+        for (const k in R) {
+            const r = remoteOf(RP + k); if (!r) continue;
+            const b = plBounds(RP + k);
+            if (mw.x < b.l - .15 || mw.x > b.r + .15 || gy < b.t - .1 || gy > b.b + .1) continue;
+            const dd = Math.hypot(r.tx - w.worldX, r.ty - w.worldY);
+            if (dd <= 3.5 && dd < bdist) { bdist = dd; best = k; }
+        }
+        return best;
+    }
+    // 🎮 pegarle a otro jugador: el golpe (con la fuerza de lo que tengo en la mano, como a un mob) y un empujón le llegan a él
+    function attackPlayer(peerId) {
+        const w = W(), r = window.mbwMpPlay.remotes[peerId]; if (!r) return;
+        let b = 0, kb = 0, dmg;
+        const hs = bd(selType(), 'hitStrength');
+        if (hs == null) { if (w.ySpeed < -1) { ++b; kb += 3; } dmg = Math.max(1, 1 + b); }
+        else { if (w.ySpeed < -1) { b += Math.floor((hs + b) * ((20 * Math.random() | 0) + 30) / 100); kb += 3; } dmg = Math.max(1, hs + b | 0); damageTool(); }
+        const sprint = (S.p.leftSprinting !== 0 || S.p.rightSprinting !== 0);
+        mpSend({ tipo: 'juego_pvp', a: peerId, dmg: dmg, kx: (r.tx > w.worldX ? 1 : -1) * (5 + (sprint ? 8 : 0) + kb), autor: myNameNet() });
+    }
+    const myNameNet = () => { try { return localStorage.getItem('mbw_username') || 'Player'; } catch (e) { return 'Player'; } };
     function attackMob(mid) {
         const w = W(), m = mbwom.mobs[mid];
         if (!m) return;
@@ -1486,6 +1524,8 @@
         if (S.placeDelay < 6) return;
         const mid = mobUnderMouse(mw);
         if (mid) { attackMob(mid); buzz(15); S.swing = 15; S.placeDelay = 0; S.mine = null; return; }
+        const pid = playerUnderMouse(mw);                              // 🎮 otro jugador
+        if (pid) { attackPlayer(pid); buzz(15); S.swing = 15; S.placeDelay = 0; S.mine = null; return; }
         const bx = Math.floor(mw.x), by = Math.floor(mw.y);
         const t = fg(bx, by);
         if (t === 'air' || bd(t, 'liquid') == 1 || (t === 'br' && w.gamemode != 1) || blockDist(bx, by) > REACH + 1) { S.mine = null; return; }
@@ -2146,8 +2186,16 @@
             if (t) {
                 if (this.hist[this.hist.length - 1] !== t) this.hist.push(t);
                 if (this.hist.length > 30) this.hist.shift();
-                say('> ' + t);
-                try { runCommand(t); } catch (e) { say('[INFO] Error: ' + e.message); }
+                if (S.mp && t[0] !== '/' && t[0] !== '\\') {
+                    // 🎮 en una partida, lo que no es comando es un mensaje para los demás (también sale en el chat de la sala)
+                    const me = myNameNet();
+                    say('<' + me + '> ' + t);
+                    mpSend({ tipo: 'chat', autor: me, texto: t });
+                    if (typeof window.agregarMensajeChatPublico === 'function') { try { window.agregarMensajeChatPublico(me, t); } catch (e) { /* nada */ } }
+                } else {
+                    say('> ' + t);
+                    try { runCommand(t); } catch (e) { say('[INFO] Error: ' + e.message); }
+                }
                 hud.dirty = true;
             }
             this.close();
@@ -2333,7 +2381,7 @@
         if (w.gamemode != 1) w.fly = false;
         inv();
         for (const id in mbwom.mobs) { const m = mbwom.mobs[id]; if (m && typeof m === 'object') { m.target = null; m.focus = null; m.speedX = Number(m.speedX) || 0; m.speedY = Number(m.speedY) || 0; } }
-        S.p = newPlayer(); S.tmp = new Map(); S.drops = []; S.falling = []; S.arrows = []; S.orbs = []; S.liqFresh = new Set(); S.sandCheck = new Map(); S.tick = 0; S.acc = 0; S.last = 0; S.mine = null; S.useTimer = -1; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mobErr = false;
+        S.p = newPlayer(); S.tmp = new Map(); S.drops = []; S.falling = []; S.arrows = []; S.orbs = []; S.liqFresh = new Set(); S.sandCheck = new Map(); S.dropSeq = 0; S.dropBase = Date.now().toString(36); S.lastPvp = null; S.tick = 0; S.acc = 0; S.last = 0; S.mine = null; S.useTimer = -1; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mobErr = false;
         // arena y grava cerca: se revisan para que caigan si no tienen nada abajo
         const x0 = Math.max(0, Math.floor(px) - 60), x1 = Math.floor(px) + 60;
         for (let x = x0; x <= x1; x++) { const col = mbwom.scene[x]; if (!col) continue; for (let y = 0; y < col.length; y++) if (col[y] === 'sd' || col[y] === 'gv') S.sandCheck.set(x + ',' + y, 2); }
@@ -2567,7 +2615,40 @@
             arrows: function () { return S.arrows; },
             forget: function (id) { S.tmp.delete(id); },
             heldId: function () { return selType(); },
-            gm: function () { return W().gamemode; }
+            gm: function () { return W().gamemode; },
+            say: function (t) { say(String(t)); chat.dirty = true; },
+            flash: flashMsg,
+            // objetos en el suelo
+            dropIn: function (o) {
+                if (!S.playing || !o || !o.nid || dropIdx(o.nid) >= 0) return;
+                S.drops.push({ nid: String(o.nid), id: String(o.id), n: o.n | 0, dmg: o.dmg || 0, ex: o.ex || {}, x: Number(o.x), y: Number(o.y), vx: Number(o.vx) || 0, vy: Number(o.vy) || 0, age: o.age | 0 });
+            },
+            dropsPack: function () { return S.drops.filter(function (d) { return d.nid; }).map(packDrop); },
+            // (anfitrión) un invitado quiere recogerlo: se lo lleva si todavía está
+            dropGrant: function (nid, peerId) {
+                const i = dropIdx(nid); if (i < 0 || !peerId) return;
+                const d = S.drops[i]; S.drops.splice(i, 1);
+                mpSend({ tipo: 'juego_tomado', nid: nid, n: 0, a: peerId, item: [d.id, d.n, d.dmg, d.ex] });
+            },
+            dropTaken: function (m) {
+                if (!S.playing) return;
+                const i = dropIdx(m.nid);
+                if (i >= 0) { if (m.n > 0) { S.drops[i].n = m.n | 0; S.drops[i].pend = 0; } else S.drops.splice(i, 1); }
+                // a mí me tocó: a mi inventario (si no cabe todo, lo que sobra se vuelve a tirar)
+                if (m.a && window.mbwMpPlay && m.a === window.mbwMpPlay.myId() && Array.isArray(m.item)) {
+                    const it = m.item, left = addToInventory(String(it[0]), it[1] | 0, it[2] || 0, it[3] || {});
+                    if (left > 0) { const w = W(); addDrop(String(it[0]), w.worldX, w.worldY - .5, left, it[2] || 0, it[3] || {}); }
+                    hud.dirty = true;
+                }
+            },
+            // otro jugador me pegó
+            pvp: function (dmg, kx, name) {
+                const w = W(); if (!S.playing || w.dead > 0 || w.gamemode == 1 || w.gamemode == 3) return;
+                S.lastPvp = { name: String(name || 'Player'), t: Date.now() };
+                ouch(1, Math.max(0, Number(dmg) || 0), 'attack');
+                w.xSpeed = (Number(w.xSpeed) || 0) - (Number(kx) || 0);      // (en el juego, xSpeed positivo mueve al Player a la IZQUIERDA)
+                if (!S.p.falling) { w.ySpeed = Math.max(Number(w.ySpeed) || 0, migSpeed(5)); w.worldY -= 1 / 30; }
+            }
         };
         wrapSaves(); wrapDraw(); wrapNet();
         window.addEventListener('keydown', onKeyDown, true);
