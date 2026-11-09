@@ -3352,3 +3352,14 @@ body.phone-tools-moved #toolbar-sidebar > .toolbar-separator:last-child { displa
 body.panels-floating:not(.is-phone) #toolbar-sidebar { top: calc(var(--ws-top) + 8px); bottom: calc(var(--ws-bottom) + 8px); height: fit-content; margin: auto 0; }
 /* Paneles fijos (sin flotar): la barra va de arriba a abajo del mundo, con los botones al centro */
 body:not(.panels-floating):not(.is-phone) #toolbar-sidebar { top: var(--ws-top); height: calc(100% - var(--ws-top) - var(--ws-bottom)); box-sizing: border-box; }
+
+/* 🎮 Jugar en multijugador: aviso "el anfitrión empezó una partida · ▶ Join" (scripts/mp-play.js) */
+.mpplay-banner { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 100050; display: flex; align-items: center; gap: 10px; max-width: calc(100vw - 32px); box-sizing: border-box; padding: 10px 12px 10px 16px; background: rgba(28, 32, 38, 0.96); color: #fff; border: 2px solid #4caf50; border-radius: 10px; box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45); font: 600 14px Arial, sans-serif; }
+.mpplay-banner span { flex: 1 1 auto; min-width: 0; }
+.mpplay-join { flex: 0 0 auto; background: #4caf50; color: #fff; border: none; border-radius: 6px; padding: 8px 14px; font: bold 14px Arial, sans-serif; cursor: pointer; }
+.mpplay-join:hover { background: #43a047; }
+.mpplay-x { flex: 0 0 auto; background: transparent; color: #bbb; border: none; font-size: 16px; cursor: pointer; padding: 4px 6px; }
+.mpplay-x:hover { color: #fff; }
+.mpplay-notice { border-color: #f0b429; justify-content: center; text-align: center; }
+body.mbw-playing .mpplay-banner { display: none; }
+body.mbw-playing .mpplay-notice { display: flex; }

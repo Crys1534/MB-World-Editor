@@ -85,6 +85,10 @@
     function blockSnd(t, kind, bx, by, vol) { const X = SFX(); if (!X || !S.playing) return; const w = W(); X.block(t, kind, bx + .5 - w.worldX, -(by + .5) - w.worldY, vol); }
     function mobSnd(m, kind) { const X = SFX(); if (!X || !S.playing || !m) return; const w = W(); X.mob(m.type, kind, m.x - w.worldX, m.y - w.worldY, m.babyTimer > 0); }
     const st = (x, y) => (mbwom.states ? mbwom.states[key(x, y)] : undefined);
+    // 🎮 multijugador: un cambio que no pasa por setBlockState (nota, nivel del agua...) se apunta para mandarlo a los demás
+    const netMark = (x, y) => { const N = window.mbwMpPlay; if (S.mp && N && N.mark) N.mark(x, y); };
+    // 🎮 invitado en una partida: lo que pasa SOLO en el mundo (agua que corre, hornos) lo hace el anfitrión y le llega por la red
+    const mpGuest = () => !!(S.mp && window.mbwMpPlay && window.mbwMpPlay.role === 'guest');
     function setBlock(x, y, type, st1) {
         if (x < 0 || y < 0) return;
         const s = { type: (type && type !== 'air') ? type : null };
@@ -321,6 +325,7 @@
         if (!mbwom.water) mbwom.water = {};
         if (lv[0] == 10 && lv[1] == 10) delete mbwom.water[key(x, y)]; else mbwom.water[key(x, y)] = [lv[0], lv[1]];
         if (typeof window.renderBlock === 'function') window.renderBlock(x, y);
+        netMark(x, y);
     }
     function liqGone(x, y) { if (mbwom.water) delete mbwom.water[key(x, y)]; setBlock(x, y, null); }
     function liqStep(x, y, L) {                                     // ifWater(): devuelve false si el bloque se secó
@@ -372,19 +377,26 @@
         // columnas de burbujas: magma abajo = jala hacia abajo, arena de almas = empuja hacia arriba
         if (fullLiq(x, y) && mbwom.states) {
             const b = fg(x, y - 1), sb = st(x, y - 1), k = key(x, y);
+            const was = mbwom.states[k];
             if (b === 'magma' || (b === 'wr' && sb == -1)) mbwom.states[k] = -1;
             else if (b === 'ssd' || (b === 'wr' && sb == 1)) mbwom.states[k] = 1;
             else if (mbwom.states[k] == 1 || mbwom.states[k] == -1) delete mbwom.states[k];
+            if (was !== mbwom.states[k]) netMark(x, y);
         }
     }
     function tickLiquids() {
         if (S.tick % LIQ_EVERY !== 0) return;
+        if (mpGuest()) return;
         const w = W(), sc = mbwom.scene; if (!sc) return;
-        const px = Math.floor(w.worldX), x0 = Math.max(0, px - 48), x1 = Math.min(sc.length - 1, px + 48);
+        // alrededor del Player (en multijugador, el anfitrión también alrededor de cada jugador que está en esta dimensión)
+        const centers = [Math.floor(w.worldX)];
+        if (S.mp && window.mbwMpPlay) { const R = window.mbwMpPlay.remotes || {}, cs = mbwom.currentScene || 1; Object.keys(R).forEach(function (k) { if (R[k].s === cs && isFinite(R[k].tx)) centers.push(Math.floor(R[k].tx)); }); }
+        const cols = new Set();
+        centers.forEach(function (px) { for (let x = Math.max(0, px - 48), x1 = Math.min(sc.length - 1, px + 48); x <= x1; x++) cols.add(x); });
         const nether = (mbwom.currentScene || 1) == 2;
         S.liqFresh = new Set();
         const list = [];
-        for (let x = x0; x <= x1; x++) { const col = sc[x]; if (!col) continue; for (let y = 0; y < col.length; y++) { const t = col[y]; if (t === 'wr' || t === 'la' || t === 'ad') list.push(x, y); } }
+        Array.from(cols).sort(function (a, b) { return a - b; }).forEach(function (x) { const col = sc[x]; if (!col) return; for (let y = 0; y < col.length; y++) { const t = col[y]; if (t === 'wr' || t === 'la' || t === 'ad') list.push(x, y); } });
         for (let i = 0; i < list.length; i += 2) {
             const x = list[i], y = list[i + 1], L = fg(x, y);
             if (!isLiq(L) || S.liqFresh.has(x + ',' + y)) continue;
@@ -681,6 +693,7 @@
     // gasta (carbón = 80 vueltas, madera = 15...), y cada 10 vueltas con fuego sale 1 objeto (≈ 10 s). La cubeta de lava deja la
     // cubeta vacía. Si la salida está llena (64) o es otra cosa, se detiene. Meter TNT al horno... explota.
     function tickFurnaces() {
+        if (mpGuest()) return;
         const T = mbwom.toSmelt;
         if (!T || typeof T !== 'object') return;
         const nil = () => ['air', 0, 0, {}];
@@ -725,7 +738,7 @@
             if (emptyIt(l.input)) l.input = nil();
             if (emptyIt(l.fuel)) l.fuel = nil();
             if (emptyIt(l.output)) l.output = nil();
-            if (JSON.stringify(l) !== before) changed = true;
+            if (JSON.stringify(l) !== before) { changed = true; netMark(bx, by); }
         });
         if (changed && typeof window.playerInvFurnaceTick === 'function') window.playerInvFurnaceTick();
     }
@@ -1309,7 +1322,7 @@
         if (t === 'note') {
             if (!mbwom.states) mbwom.states = {};
             let v = (parseInt(mbwom.states[key(x, y)], 10) || 0) + 1; if (v > 25) v = 1;
-            mbwom.states[key(x, y)] = v;
+            mbwom.states[key(x, y)] = v; netMark(x, y);
             playNote(x, y);
             return true;
         }
@@ -1587,7 +1600,7 @@
         let ok = false;
         if (t === 'chest' && typeof window.openChestEditor === 'function') ok = window.openChestEditor(x, y);
         else if (t === 'oven' && typeof window.openFurnaceEditor === 'function') ok = window.openFurnaceEditor(x, y);
-        if (ok) { S.keys = {}; S.mouse.left = S.mouse.right = false; S.mine = null; }
+        if (ok) { S.keys = {}; S.mouse.left = S.mouse.right = false; S.mine = null; S.openBoxAt = { x: x, y: y }; }
         return ok;
     }
     function findBox() {                                             // el cofre / horno bajo el mouse (si está al alcance) o el más cercano
@@ -2180,7 +2193,15 @@
     function startPlay() {
         if (S.playing) return;
         if (typeof mbwom === 'undefined' || !mbwom.world || !mbwom.scene) { alert(tr('play_no_world', 'Open or create a world first')); return; }
-        if (typeof isMultiplayer !== 'undefined' && isMultiplayer) { alert(tr('play_no_mp', 'Play mode is not available inside a multiplayer room.')); return; }
+        // 🎮 en una sala de multijugador: se juega todos juntos (scripts/mp-play.js). Viendo otro mundo (otra pestaña): solo.
+        let mpMode = false;
+        if (typeof isMultiplayer !== 'undefined' && isMultiplayer) {
+            const N = window.mbwMpPlay;
+            if (!N) { alert(tr('play_no_mp', 'Play mode is not available inside a multiplayer room.')); return; }
+            const how = N.beforeStart();
+            if (!how) return;
+            mpMode = how === 'mp';
+        }
         if (!window.MB_PLAY_DATA) { alert('play-data.js missing'); return; }
         const cur = syncScene();
         let snap;
@@ -2216,7 +2237,7 @@
         // arena y grava cerca: se revisan para que caigan si no tienen nada abajo
         const x0 = Math.max(0, Math.floor(px) - 60), x1 = Math.floor(px) + 60;
         for (let x = x0; x <= x1; x++) { const col = mbwom.scene[x]; if (!col) continue; for (let y = 0; y < col.length; y++) if (col[y] === 'sd' || col[y] === 'gv') S.sandCheck.set(x + ',' + y, 2); }
-        S.playing = true;
+        S.playing = true; S.mp = mpMode; S.openBoxAt = null;
         window.mbwPlaying = true;
         document.body.classList.add('mbw-playing');
         window.smoothScroll = true;
@@ -2242,6 +2263,7 @@
         S.raf = requestAnimationFrame(frame);
         flashMsg(tr('play_started', '▶ Playing! Esc or ■ Stop to go back'));
         syncButton();
+        if (S.mp && window.mbwMpPlay) { try { window.mbwMpPlay.afterStart(); } catch (e) { console.error('mp-play start', e); } }
     }
     // Vuelve a poner la foto del mundo (en el mismo objeto "world", así lo que lo tenga guardado sigue apuntando bien)
     function restoreSnapshot() {
@@ -2260,6 +2282,9 @@
     function stopPlay() {
         if (!S.playing) return;
         closeModals();                                              // (con el juego todavía activo: lo del cofre no entra al historial)
+        const wasMp = S.mp;
+        if (wasMp && window.mbwMpPlay) { try { window.mbwMpPlay.beforeStop(); } catch (e) { console.error('mp-play stop', e); } }
+        S.mp = false; S.openBoxAt = null;
         S.playing = false;
         cancelAnimationFrame(S.raf);
         try { restoreSnapshot(); } catch (e) { console.error('play restore', e); alert('Error restoring the world: ' + e.message); }
@@ -2283,6 +2308,7 @@
         try { if (typeof window.playerInvRefresh === 'function') window.playerInvRefresh(); } catch (e) { /* nada */ }
         if (typeof worldDirty !== 'undefined') worldDirty = true;
         syncButton();
+        if (wasMp && window.mbwMpPlay) { try { window.mbwMpPlay.afterStop(); } catch (e) { console.error('mp-play after stop', e); } }
     }
     window.mbwStartPlay = startPlay;
     window.mbwStopPlay = stopPlay;
@@ -2322,7 +2348,14 @@
     function wrapNet() {
         if (typeof window.enviarMensajeEnRed !== 'function' || window.enviarMensajeEnRed.__play) return;
         const o = window.enviarMensajeEnRed;
-        const nw = function () { if (S.playing) return; return o.apply(this, arguments); };
+        // (jugando solo salen los mensajes de la partida en multijugador, el chat y el espectador; lo demás del editor no)
+        const nw = function (d) {
+            if (S.playing) {
+                const t = d && typeof d.tipo === 'string' ? d.tipo : '';
+                if (!(S.mp && t.indexOf('juego_') === 0) && t !== 'chat' && t !== 'spectator_update') return;
+            }
+            return o.apply(this, arguments);
+        };
         nw.__play = true;
         window.enviarMensajeEnRed = nw;
     }
@@ -2367,7 +2400,7 @@
         const sx = (Number(w.worldX) - camera.x) * tileSize, sy = canvas.height - (-Number(w.worldY) - camera.y) * tileSize;
         const pw = tileSize * 16 / 11, ph = tileSize * 2;           // (16×22 píxeles: 2 cuadros de alto, como el Player del editor)
         const fr = frankFrame();
-        S.frankAnim = fr.a;
+        S.frankAnim = fr.a; S.frankF = fr.f;          // (el cuadro también se manda a los demás en multijugador)
         c2.save();
         c2.imageSmoothingEnabled = false;
         c2.translate(sx, sy);
@@ -2390,6 +2423,7 @@
         const o = window.drawPlayer;
         const nw = function () {
             if (S.playing) {
+                if (S.mp && window.mbwMpPlay) { try { window.mbwMpPlay.draw(); } catch (e) { /* nada */ } }   // 🎮 los otros jugadores (debajo del mío)
                 if (!drawFrank()) o.apply(this, arguments);
                 drawExtras();
                 return;
@@ -2412,6 +2446,7 @@
         if (ic) ic.textContent = S.playing ? '■' : '▶';
     }
     function init() {
+        window.mbwPlay.flash = flashMsg;
         wrapSaves(); wrapDraw(); wrapNet();
         window.addEventListener('keydown', onKeyDown, true);
         window.addEventListener('keyup', onKeyUp, true);

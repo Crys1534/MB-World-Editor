@@ -794,6 +794,7 @@ setInterval(function () {
     if (typeof isMultiplayer === 'undefined' || !isMultiplayer || window.mpMapDownload) { mpSnap = null; return; }
     if (typeof mbwom === 'undefined' || !mbwom.world) return;
     if (typeof window.mpOnServerTab === 'function' && !window.mpOnServerTab()) { mpSnap = null; return; }   // viendo otro mundo
+    if (window.mbwPlaying) { mpSnap = null; return; }   // ▶ jugando: el Player y el inventario son de cada quien (y al parar todo regresa)
     const now = mpTakeSnap();
     if (!mpSnap) { mpSnap = now; return; }
     // Solo puedo ver: lo que cambié a mano (ajustes, Player, inventario...) regresa a como está en el servidor
