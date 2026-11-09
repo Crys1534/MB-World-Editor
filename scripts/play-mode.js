@@ -89,6 +89,29 @@
     const netMark = (x, y) => { const N = window.mbwMpPlay; if (S.mp && N && N.mark) N.mark(x, y); };
     // 🎮 invitado en una partida: lo que pasa SOLO en el mundo (agua que corre, hornos) lo hace el anfitrión y le llega por la red
     const mpGuest = () => !!(S.mp && window.mbwMpPlay && window.mbwMpPlay.role === 'guest');
+    const mpHost = () => !!(S.mp && window.mbwMpPlay && window.mbwMpPlay.role === 'host');
+    const mpSend = (d) => { if (!S.mp || typeof window.enviarMensajeEnRed !== 'function') return; if (!d.peerId && window.mbwMpPlay && window.mbwMpPlay.myId) d.peerId = window.mbwMpPlay.myId(); window.enviarMensajeEnRed(d); };
+    // 🎮 Etapa 2: los OTROS jugadores, para los mobs del anfitrión. Su id para los mobs es 'rp:' + su peerId.
+    const RP = 'rp:';
+    const isRemoteId = (id) => typeof id === 'string' && id.indexOf(RP) === 0;
+    const isPl = (id) => id === PLAYER_ID || isRemoteId(id);
+    function remoteOf(id) {
+        const N = window.mbwMpPlay; if (!S.mp || !N || !N.remotes || !isRemoteId(id)) return null;
+        const r = N.remotes[id.slice(RP.length)];
+        if (!r || r.d || r.s !== (mbwom.currentScene || 1) || Date.now() - r.t > 3000 || r.gm == 3) return null;
+        return r;
+    }
+    function plPos(id) { if (id === PLAYER_ID) { const w = W(); return { x: w.worldX, y: w.worldY }; } const r = remoteOf(id); return r ? { x: r.tx, y: r.ty } : null; }
+    function plBounds(id) { const p = plPos(id); return p ? { l: p.x - .4, r: p.x + .4, t: p.y - 1.9, b: p.y } : null; }
+    // el jugador (yo o uno de los otros) más cercano al que un mob hostil puede perseguir (no en creativo ni espectador)
+    function nearestPl(m) {
+        const w = W(); let best = null, bd2 = Infinity;
+        if (w.gamemode != 1 && w.gamemode != 3 && !(w.dead > 0)) { best = PLAYER_ID; bd2 = Math.pow(w.worldX - m.x, 2) + Math.pow(w.worldY - m.y, 2); }
+        if (mpHost()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (!r || r.gm == 1) continue; const dd = Math.pow(r.tx - m.x, 2) + Math.pow(r.ty - m.y, 2); if (dd < bd2) { bd2 = dd; best = RP + k; } } }
+        return best;
+    }
+    // golpe a otro jugador (lo manda el anfitrión; el otro se lo quita de su vida)
+    function hitRemote(id, amount, cause) { if (!isRemoteId(id)) return; mpSend({ tipo: 'juego_golpe', a: id.slice(RP.length), dmg: amount, causa: cause }); }
     function setBlock(x, y, type, st1) {
         if (x < 0 || y < 0) return;
         const s = { type: (type && type !== 'air') ? type : null };
@@ -221,6 +244,7 @@
     // ------------------------------------------------------------------ objetos tirados en el suelo
     function addDrop(id, x, y, count, dmg, extras) {
         if (!id || id === 'air' || id === 'na' || !(count > 0)) return;
+        if (S.lootTo) { S.lootTo.push(['d', String(id), x, y, count | 0, dmg || 0, extras || {}]); return; }
         S.drops.push({ id: String(id), n: count | 0, dmg: dmg || 0, ex: extras || {}, x: x, y: y, vx: migSpeed(4 * Math.random() - 2), vy: migSpeed(-4), age: 0 });
     }
     function tickDrops() {
@@ -411,10 +435,12 @@
     function gameRuleOn(name) { const v = gameRule(name); return v === undefined || v === null || v === true || v === 1 || v === '1' || v === 'true'; }
 
     // ------------------------------------------------------------------ explosión (Game.explode)
-    function explode(b, a, c, byId) {
+    function explode(b, a, c, byId, fromNet) {
         const w = W();
         sndAt('boom', b + .5, -(a + .5));
-        for (const id in mbwom.mobs) {
+        // 🎮 los demás también la sienten (cada quien se quita su vida; los mobs los lastima el anfitrión)
+        if (S.mp && !fromNet) mpSend({ tipo: 'juego_boom', x: b, y: a, c: c, s: mbwom.currentScene || 1 });
+        if (!mpGuest()) for (const id in mbwom.mobs) {
             const m = mbwom.mobs[id];
             if (!m || !(m.health > 0) || m.dead > 0) continue;
             if (Math.abs(m.x - (b + .5)) < c && Math.abs(-m.y - (a + .5)) < c) hurtMob(id, 4 * Math.max(0, c - Math.hypot(m.x - (b + .5), -m.y - (a + .5))) | 0, 'explosion', byId);
@@ -433,6 +459,17 @@
             setBlock(T, B, null);
         }
         flashMsg('💥');
+    }
+
+    function netBoom(b, a, c, by) {
+        const w = W();
+        sndAt('boom', b + .5, -(a + .5));
+        if (!mpGuest()) for (const id in mbwom.mobs) {
+            const m = mbwom.mobs[id];
+            if (!m || !(m.health > 0) || m.dead > 0) continue;
+            if (Math.abs(m.x - (b + .5)) < c && Math.abs(-m.y - (a + .5)) < c) hurtMob(id, 4 * Math.max(0, c - Math.hypot(m.x - (b + .5), -m.y - (a + .5))) | 0, 'explosion', by);
+        }
+        if (Math.abs(w.worldX - (b + .5)) < c && Math.abs(-w.worldY - (a + .5)) < c) ouch(1, Math.max(0, 4 * (c - Math.hypot(w.worldX - (b + .5), -w.worldY - (a + .5)) | 0)), 'explosion');
     }
 
     // ------------------------------------------------------------------ Player
@@ -771,6 +808,7 @@
     // ------------------------------------------------------------------ mobs (Entity_Mob.run)
     function mobBounds(id) {
         if (id === PLAYER_ID) { const w = W(); return { l: w.worldX - .4, r: w.worldX + .4, t: w.worldY - 1.9, b: w.worldY }; }
+        if (isRemoteId(id)) return plBounds(id);
         const m = mbwom.mobs[id]; if (!m) return null;
         const a = D.mobs[m.type]; const cb = (a && a.collisionBounds) || { x: -.4, y: -1.8, w: .8, h: 1.8 };
         let k = (m.babyTimer > 0) ? .7 : 1;
@@ -795,7 +833,7 @@
         const a = D.mobs[m.type] || {};
         if (alignment(m) === 'hostile' || m.aggressiveness > 0) return true;
         if (a.hostileOnFire == 1 && m.__id && tmpOf(m.__id).onFire > 0) return true;
-        const t = m.target != null && m.target !== PLAYER_ID ? mbwom.mobs[m.target] : null;
+        const t = m.target != null && !isPl(m.target) ? mbwom.mobs[m.target] : null;
         return !!(a.randomlyHostileTowards && t && a.randomlyHostileTowards[t.type]);
     }
     // (Entity_Mob.mobCalculateTarget) a quién persigue / mira cada mob:
@@ -809,8 +847,10 @@
         m.__id = id;
         if (alignment(m) === 'passive' && !isAggro(m) && (a.doFrightenedRunning != 1 || Math.random() < 1 / (30 * FPS))) { m.target = null; m.focus = null; }
         if (m.target === PLAYER_ID) { if (w.dead > 0) { m.target = null; m.aggressiveness = 0; } }
+        else if (isRemoteId(m.target)) { if (!remoteOf(m.target)) { m.target = null; m.aggressiveness = 0; if (m.focus === m.target) m.focus = null; } }
         else if (m.target != null && (!mbwom.mobs[m.target] || mbwom.mobs[m.target].dead > 0)) { m.target = null; m.aggressiveness = 0; }
-        if (m.tamed && m.target === PLAYER_ID) { m.target = null; m.aggressiveness = 0; }
+        if (m.tamed && isPl(m.target)) { m.target = null; m.aggressiveness = 0; }
+        if (isRemoteId(m.focus) && !remoteOf(m.focus)) m.focus = null;
         if (w.gamemode == 3) { if (m.target === PLAYER_ID) { m.target = null; m.aggressiveness = 0; } if (m.focus === PLAYER_ID) m.focus = null; }
         if (a.randomlyHostileTowards && !(a.tameable && m.tamed)) {
             if (m.target == null) {
@@ -825,17 +865,31 @@
         d.followMin = .5; d.followMax = 12; d.following = false; d.teleportWhenAway = 0;
         let near = true, busy = false;
         if (isAggro(m)) {
-            if (m.target == null) { if (w.gamemode != 1 && w.gamemode != 3) m.focus = m.target = PLAYER_ID; }
-            else m.focus = m.target;
+            if (m.target == null) {
+                if (!mpHost()) { if (w.gamemode != 1 && w.gamemode != 3) m.focus = m.target = PLAYER_ID; }
+                else { const np = nearestPl(m); if (np) m.focus = m.target = np; }             // 🎮 el jugador más cercano
+            } else {
+                // 🎮 si persigue a un jugador y otro le queda mucho más cerca, a veces se cambia (si no está enojado con el primero)
+                if (mpHost() && isPl(m.target) && !(m.aggressiveness > 0) && Math.random() < 1 / FPS) {
+                    const np = nearestPl(m), a1 = plPos(m.target), a2 = np && plPos(np);
+                    if (np && np !== m.target && a1 && a2 && Math.hypot(a2.x - m.x, a2.y - m.y) + 3 < Math.hypot(a1.x - m.x, a1.y - m.y)) m.target = np;
+                }
+                m.focus = m.target;
+            }
         } else {
             if (a.followItems && a.followItems[selType()] && w.gamemode != 3 && Math.pow(w.worldX - m.x, 2) + Math.pow(w.worldY - m.y, 2) < 49) { m.focus = PLAYER_ID; busy = true; }
+            else if (a.followItems && mpHost()) {                         // 🎮 también siguen a otro jugador con su comida en la mano
+                const R = window.mbwMpPlay.remotes;
+                for (const k in R) { const r = remoteOf(RP + k); if (r && r.it && a.followItems[r.it] && Math.pow(r.tx - m.x, 2) + Math.pow(r.ty - m.y, 2) < 49) { m.focus = RP + k; busy = true; break; } }
+            }
         }
         if (!busy) {
             if (a.tameable == 1 && m.tamed) { if (m.target == null) { m.focus = PLAYER_ID; near = false; d.followMin = 4; d.followMax = 20; if (!m.sitting) d.teleportWhenAway = 20; } }
             else if (alignment(m) !== 'hostile' && !(m.aggressiveness > 0) && !isAggro(m)) m.focus = null;
         }
-        if (m.focus === PLAYER_ID) {
-            d.followPoint.x = w.worldX; d.followPoint.y = w.worldY - .95; d.following = true;
+        if (isPl(m.focus)) {
+            const fp = plPos(m.focus);
+            if (fp) { d.followPoint.x = fp.x; d.followPoint.y = fp.y - .95; d.following = true; }
         } else if (m.focus != null && mbwom.mobs[m.focus]) {
             const ob = mobBounds(m.focus);
             d.followPoint.x = (ob.l + ob.r) / 2; d.followPoint.y = (ob.t + ob.b) / 2; d.following = true;
@@ -864,7 +918,7 @@
         if (cause === 'lava' || cause === 'fire') tmpOf(id).onFire = 8 * FPS;     // (si muere quemándose suelta la carne cocida)
         if ((cause === 'attack' || cause === 'projectile') && by && by !== id) {
             m.target = by;
-            if (a.groupAttack && by === PLAYER_ID) {
+            if (a.groupAttack && isPl(by)) {
                 for (const k in mbwom.mobs) { const o = mbwom.mobs[k]; if (o && o.type === m.type && !o.tamed && Math.abs(o.x - m.x) < 15 && Math.abs(o.y - m.y) < 9) { o.target = by; if (alignment(o) !== 'passive') o.aggressiveness = Math.random() * FPS * 50 + 100 * FPS; } }
             }
             if (alignment(m) !== 'passive') m.aggressiveness = Math.random() * FPS * 50 + 100 * FPS;
@@ -880,6 +934,14 @@
         const a = D.mobs[m.type] || {};
         const d = tmpOf(id);
         m.dead = 1;
+        // 🎮 si lo mató otro jugador, lo que suelta (y la experiencia) le sale a ÉL, en su pantalla
+        const lootTo = (mpHost() && isRemoteId(m.lastDamageID)) ? m.lastDamageID.slice(RP.length) : null;
+        if (lootTo) S.lootTo = [];
+        try { killMobLoot(id, m, a, d, !!lootTo); } finally {
+            if (lootTo) { const l = S.lootTo; S.lootTo = null; if (l.length) mpSend({ tipo: 'juego_botin', a: lootTo, l: l }); }
+        }
+    }
+    function killMobLoot(id, m, a, d, remoteKill) {
         mobSnd(m, 'death');
         if (m.type === 'enderdragon' && SFX()) SFX().music('enderdragondeath');
         if (gameRuleOn('domobloot')) {
@@ -924,11 +986,13 @@
             for (let i = 0; i < 4; i++) if (it(arm[i]) && Math.random() < (Number(ach[i]) || 0) + .01 * loot) addDrop(arm[i][0], m.x, m.y - .5, arm[i][1], arm[i][2], arm[i][3]);
             if (it(m.saddleItem)) addDrop(m.saddleItem[0], m.x, m.y - .5, m.saddleItem[1], m.saddleItem[2], m.saddleItem[3]);
         }
-        const byPlayer = m.lastDamageID === PLAYER_ID || (m.lastDamageID && mbwom.mobs[m.lastDamageID] && mbwom.mobs[m.lastDamageID].type === 'wolf' && mbwom.mobs[m.lastDamageID].tamed);
+        const byPlayer = m.lastDamageID === PLAYER_ID || remoteKill || (m.lastDamageID && mbwom.mobs[m.lastDamageID] && mbwom.mobs[m.lastDamageID].type === 'wolf' && mbwom.mobs[m.lastDamageID].tamed);
         if (byPlayer) dropXP(m.x, m.y - .5, a.xp || 0);
         if ((m.type === 'slime' || m.type === 'magmacube') && m.size > 1) {   // los slimes grandes se parten en chicos (y sueltan experiencia)
             dropXP(m.x, m.y - .5, Math.pow(2, m.size - 1) | 0);
+            const keep = S.lootTo; S.lootTo = null;             // (los slimes chicos sí salen en el mundo de todos)
             for (let i = 0; i < 2; i++) spawnMob(m.type, m.x + (i ? .3 : -.3), m.y, { size: m.size - 1 });
+            S.lootTo = keep;
         }
     }
 
@@ -939,6 +1003,7 @@
     function dropXP(x, y, v, extra, one) {
         v = Math.max(0, v + Math.random() * (extra || 0));
         if (!v) return;
+        if (S.lootTo) { S.lootTo.push(['x', x, y, v]); return; }
         const n = one ? 1 : Math.max(1, Math.log(v) / Math.log(2.5)) | 0;
         const each = Math.floor(v / n);
         for (let i = 0; i < n; i++) {
@@ -979,6 +1044,8 @@
         const m = Object.assign({ type: type, x: x, y: y, speedX: 0, speedY: 0, direction: 0, falling: true, health: 0 }, extra || {});
         m.health = maxHealth(m);
         mbwom.mobs[id] = m;
+        // 🎮 invitado: el mob lo crea el anfitrión (este de aquí dura un instante, para que el que lo pidió pueda ajustarlo, y se quita)
+        if (mpGuest()) setTimeout(function () { const mm = mbwom.mobs[id]; if (!mm) return; delete mbwom.mobs[id]; S.tmp.delete(id); mpSend({ tipo: 'juego_mob_nuevo', m: JSON.parse(JSON.stringify(mm)) }); }, 0);
         return id;
     }
     function shootArrow(m, target) {
@@ -994,8 +1061,15 @@
             r.vy += .25; r.vx *= .995;
             r.x += r.vx / 30; r.y += r.vy / 30;
             if (r.age > 400 || collision(r.x, r.y, 0, 0, .1, true, false)) { S.arrows.splice(i, 1); continue; }
+            if (r.ghost) continue;                                     // 🎮 (invitado: la flecha es del anfitrión, solo se ve)
+            const dmg = Math.max(1, Math.round(Math.hypot(r.vx, r.vy) / 4));
             const pb = mobBounds(PLAYER_ID);
-            if (r.x > pb.l && r.x < pb.r && r.y > pb.t && r.y < pb.b) { ouch(1, Math.max(1, Math.round(Math.hypot(r.vx, r.vy) / 4)), 'arrow'); S.arrows.splice(i, 1); }
+            if (r.x > pb.l && r.x < pb.r && r.y > pb.t && r.y < pb.b) { ouch(1, dmg, 'arrow'); S.arrows.splice(i, 1); continue; }
+            if (mpHost()) {
+                const R = window.mbwMpPlay.remotes; let hit = null;
+                for (const k in R) { const b = plBounds(RP + k); if (b && r.x > b.l && r.x < b.r && r.y > b.t && r.y < b.b) { hit = RP + k; break; } }
+                if (hit) { hitRemote(hit, dmg, 'arrow'); S.arrows.splice(i, 1); }
+            }
         }
     }
     function mobTick(id, c) {
@@ -1138,9 +1212,9 @@
             // ataques
             if (a.attackExplode == 1) {
                 if (c.target != null) {
-                    if (!(c.fuse > 0)) { if (c.target === PLAYER_ID && intersects(mobBounds(id), mobBounds(PLAYER_ID))) { c.fuse = 1; sndAt('fuse', c.x, c.y); } }
+                    if (!(c.fuse > 0)) { const tb = isPl(c.target) ? mobBounds(c.target) : null; if (tb && intersects(mobBounds(id), tb)) { c.fuse = 1; sndAt('fuse', c.x, c.y); } }
                     else {
-                        const tp = c.target === PLAYER_ID ? { x: w.worldX, y: w.worldY } : (mbwom.mobs[c.target] || c);
+                        const tp = isPl(c.target) ? (plPos(c.target) || c) : (mbwom.mobs[c.target] || c);
                         if (Math.pow(tp.x - c.x, 2) + Math.pow(tp.y - c.y, 2) >= 25) { if (c.fuse > 0) c.fuse--; }
                         else if (c.fuse < (a.fuseLength || 140)) c.fuse++;
                         else { explode(c.x, -c.y, c.charged ? 8 : 4, id); c.health = 0; delete mbwom.mobs[id]; S.tmp.delete(id); return; }
@@ -1178,7 +1252,16 @@
         if (!isAggro(c) || (c.tamed && c.sitting)) return;
         const toPlayer = (c.target == null && w.gamemode != 1 || c.target === PLAYER_ID) && w.gamemode != 3;
         let did = false, tx = 0, ty = -1e4;
-        if (toPlayer) {
+        if (isRemoteId(c.target)) {                                    // 🎮 persigue a otro jugador
+            const rb = plBounds(c.target);
+            if (rb) {
+                if (a.attackContact == 1 && intersects(mobBounds(id), rb) && (c.type !== 'slime' || (c.size || 1) > 1)) {
+                    c.attackCooldown = a.attackFrequency || 26;
+                    hitRemote(c.target, Math.max(1, c.attackDamage != null ? c.attackDamage : a.attackDamage != null ? a.attackDamage : 2), 'attack');
+                }
+                const rp = plPos(c.target); did = true; tx = rp.x; ty = rp.y;
+            }
+        } else if (toPlayer) {
             if (a.attackContact == 1 && intersects(mobBounds(id), mobBounds(PLAYER_ID)) && (c.type !== 'slime' || (c.size || 1) > 1)) {
                 c.attackCooldown = a.attackFrequency || 26;
                 ouch(1, Math.max(1, c.attackDamage != null ? c.attackDamage : a.attackDamage != null ? a.attackDamage : 2), 'attack');
@@ -1338,9 +1421,21 @@
     window.mbwPlay.useBlock = function (x, y) { return useBlock(x, y); };
     window.mbwPlay.hurtMob = function (id, n) { hurtMob(id, n, 'attack', PLAYER_ID); };     // (lo usan las pruebas)
     window.mbwPlay.explode = function (x, y, r) { explode(x, y, r || 3, PLAYER_ID); };
+    window.mbwPlay.runCommand = function (t) { runCommand(t); };                              // (lo usan las pruebas)
     function attackMob(mid) {
         const w = W(), m = mbwom.mobs[mid];
         if (!m) return;
+        if (mpGuest()) {                                               // 🎮 el mob es del anfitrión: le mando el golpe
+            let b = 0, kb = 0, dmg;
+            const hs = bd(selType(), 'hitStrength');
+            if (hs == null) { if (w.ySpeed < -1) { ++b; kb += 5; } dmg = Math.max(1, 1 + b); }
+            else { if (w.ySpeed < -1) { b += Math.floor((hs + b) * ((20 * Math.random() | 0) + 30) / 100); kb += 5; } dmg = Math.max(1, hs + b | 0); damageTool(); }
+            const sprint = (S.p.leftSprinting !== 0 || S.p.rightSprinting !== 0);
+            const ex = selExtra();
+            mpSend({ tipo: 'juego_pega', id: mid, dmg: dmg, kx: (m.x > w.worldX ? 1 : -1) * (7 + (sprint ? 15 : 0) + kb), ky: migSpeed(4 + (sprint ? 4 : 0) + kb / 4), loot: ex.looting3 != null ? 3 : ex.looting2 != null ? 2 : ex.looting1 != null ? 1 : 0 });
+            mobSnd(m, 'hurt');
+            return;
+        }
         let b = 0, kb = 0;
         const hs = bd(selType(), 'hitStrength');
         if (hs == null) {
@@ -1645,10 +1740,15 @@
         tickOrbs();
         tickArrows();
         const px = w.worldX;
-        for (const id in mbwom.mobs) {
+        // 🎮 en multijugador el anfitrión mueve también los mobs que están cerca de los otros jugadores; el invitado no los mueve: le llegan
+        const pxs = [px];
+        if (mpHost()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (r) pxs.push(r.tx); } }
+        if (mpGuest()) { if (window.mbwMpPlay.mobLerp) window.mbwMpPlay.mobLerp(); }
+        else for (const id in mbwom.mobs) {
             const m = mbwom.mobs[id];
             if (!m || !m.type) continue;
-            if (Math.abs(Number(m.x) - px) > 40) continue;                     // lejos: quieto (como el juego fuera de pantalla)
+            const mx = Number(m.x);
+            if (!pxs.some(function (q) { return Math.abs(mx - q) <= 40; })) continue;   // lejos: quieto (como el juego fuera de pantalla)
             try { mobTick(id, m); } catch (e) { if (!S.mobErr) { S.mobErr = true; console.warn('play mob', e); } }
         }
         if (S.msgT > 0) S.msgT--;
@@ -2447,6 +2547,28 @@
     }
     function init() {
         window.mbwPlay.flash = flashMsg;
+        // 🎮 Etapa 2 (scripts/mp-play.js)
+        window.mbwPlay.net = {
+            hurtMe: function (amount, cause) { if (S.playing) ouch(1, Number(amount) || 0, String(cause || 'attack')); },
+            hitMob: function (id, dmg, kx, ky, by, loot) {
+                const m = mbwom.mobs[id]; if (!S.playing || !m || m.dead > 0) return;
+                hurtMob(id, Math.max(0, Number(dmg) || 0), 'attack', by);
+                m.speedX = (Number(m.speedX) || 0) + (Number(kx) || 0);
+                const cb = cbounds(m);
+                if (ky && collision(m.x + .7 * cb.left, m.y + 1, .7 * cb.width, 0, 4, false)) { m.speedY = (Number(m.speedY) || 0) + Number(ky); m.y -= 1 / 3; }
+            },
+            boom: function (x, y, c, by) { if (S.playing) netBoom(Number(x), Number(y), Number(c), by); },
+            loot: function (list) {
+                if (!S.playing || !Array.isArray(list)) return;
+                list.forEach(function (e) { if (e[0] === 'd') addDrop(e[1], e[2], e[3], e[4], e[5], e[6]); else if (e[0] === 'x') dropXP(e[1], e[2], e[3], 0, true); });
+            },
+            newMob: function (m) { if (!S.playing || !m || !m.type || !D.mobs[m.type]) return null; const id = spawnMob(String(m.type), Number(m.x) || 0, Number(m.y) || 0); Object.keys(m).forEach(function (k) { if (k !== 'type') mbwom.mobs[id][k] = m[k]; }); return id; },
+            setArrows: function (list) { S.arrows = (list || []).map(function (r) { return { x: r[0], y: r[1], vx: r[2], vy: r[3], age: 0, ghost: true }; }); },
+            arrows: function () { return S.arrows; },
+            forget: function (id) { S.tmp.delete(id); },
+            heldId: function () { return selType(); },
+            gm: function () { return W().gamemode; }
+        };
         wrapSaves(); wrapDraw(); wrapNet();
         window.addEventListener('keydown', onKeyDown, true);
         window.addEventListener('keyup', onKeyUp, true);

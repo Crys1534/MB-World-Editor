@@ -11,8 +11,16 @@
 //   • Si alguien EDITA el mundo (sin jugar) mientras otros juegan, sus cambios se guardan y se ponen al terminar la partida.
 //   • Lo que pasa solo en el mundo (agua, lava y ácido que corren, hornos que funden, arena y grava sueltas al empezar) lo hace el
 //     anfitrión, alrededor de cada jugador, y les llega a los demás (así no sale distinto en cada pantalla).
-// TODAVÍA NO (Etapas 2 y 3): cada quien mueve sus propios mobs (no son los mismos para todos), los mobs no persiguen a los
-// otros jugadores, no se pueden pegar entre jugadores, y los objetos tirados en el suelo son de cada quien.
+// ETAPA 2 (mobs compartidos):
+//   • Los mobs los mueve SOLO el anfitrión (cerca de cualquier jugador) y les llegan a los demás 10 veces por segundo; en cada
+//     pantalla se deslizan suave entre un dato y otro. Las flechas de los esqueletos también se ven.
+//   • Los hostiles persiguen al jugador más cercano (también a los invitados); los animales siguen a quien tenga su comida.
+//   • Cuando un mob le pega a un invitado (golpe, flecha), el anfitrión le avisa y el invitado pierde vida en su pantalla.
+//   • Cuando un invitado le pega a un mob, el golpe va al anfitrión; si lo mata, lo que suelta y la experiencia le salen al invitado.
+//   • Las explosiones (creeper, TNT) lastiman a todos los que estén cerca; a los mobs los lastima el anfitrión.
+//   • Un mob que crea un invitado (huevo, /summon) lo crea el anfitrión.
+// TODAVÍA NO (Etapa 3): no se pueden pegar entre jugadores, y los objetos tirados en el suelo son de cada quien. Los mobs de una
+// dimensión donde no está el anfitrión se quedan quietos.
 // Mensajes (no son "cambios del mundo": el anfitrión los pasa a todos, aunque el jugador solo pueda ver):
 //   juego_inicio / juego_activo (anfitrión: hay partida) · juego_fin (anfitrión: se acabó) · juego_jugador (dónde estoy y cómo me veo)
 //   juego_salir (me salí) · juego_bloques (bloques que cambiaron) · juego_pedir (entré tarde: ¿qué cambió?) · juego_cambios (respuesta)
@@ -43,6 +51,10 @@
         hostName: '',
         lastAlive: 0,
         remotes: {},          // peerId -> jugador de otro
+        mobSig: new Map(),    // (anfitrión) id -> cómo estaba el mob la última vez que se mandó completo
+        mobSent: new Set(),   // (anfitrión) mobs que ya se mandaron (para avisar cuando desaparecen)
+        mobFullAt: 0,
+        mobT: new Map(),      // (invitado) id -> de dónde a dónde se desliza el mob
         dirty: new Set(),     // 'escena|x|y' que cambié yo
         known: new Map(),     // 'escena|x|y' -> cómo está (JSON), para no mandar lo mismo dos veces
         changes: new Map(),   // (anfitrión) todo lo que cambió en la partida: para los que entran tarde
@@ -51,6 +63,7 @@
         timer: 0, alive: 0, banner: null
     };
     window.mbwMpPlay = M;
+    M.myId = function () { return myPeer(); };
 
     const inMp = function () { return !!g('isMultiplayer'); };
     const amHost = function () { return !!g('isHost'); };
@@ -76,6 +89,7 @@
     M.afterStart = function () {
         M.on = true; M.role = amHost() ? 'host' : 'guest'; M.conn = g('miConexionAlHost');
         M.dirty = new Set(); M.known = new Map(); M.remotes = {}; M.queue = [];
+        M.mobSig = new Map(); M.mobSent = new Set(); M.mobFullAt = 0; M.mobT = new Map();
         hideBanner();
         if (M.role === 'host') {
             M.session = true; M.changes = new Map(); M.hostName = myName();
@@ -97,7 +111,7 @@
         if (M.role === 'host') { send({ tipo: 'juego_fin', peerId: myPeer() }); M.session = false; M.changes = new Map(); }
         else send({ tipo: 'juego_salir', peerId: myPeer() });
         clearInterval(M.timer); clearInterval(M.alive); M.timer = 0; M.alive = 0;
-        M.on = false; M.remotes = {};
+        M.on = false; M.remotes = {}; M.mobT = new Map(); M.mobSig = new Map(); M.mobSent = new Set();
     };
     // ya se puso el mundo de antes de jugar: ahora van los cambios de quien estaba editando mientras tanto
     M.afterStop = function () {
@@ -119,6 +133,7 @@
         }
         sendMe();
         flush();
+        if (M.role === 'host') sendMobs();
         const now = Date.now();
         Object.keys(M.remotes).forEach(function (k) { if (now - M.remotes[k].t > STALE_MS) delete M.remotes[k]; });
     }
@@ -135,7 +150,8 @@
             tipo: 'juego_jugador', peerId: myPeer(), autor: myName(),
             x: Math.round(Number(w.worldX) * 1000) / 1000, y: Math.round(Number(w.worldY) * 1000) / 1000,
             s: curScene(), f: (P && P.frankF) || 0, fl: (P && P.p && P.p.xScale < 0) ? 1 : 0,
-            h: (P && P.p && P.p.hurt > 0) ? 1 : 0, d: (Number(w.dead) > 0) ? 1 : 0
+            h: (P && P.p && P.p.hurt > 0) ? 1 : 0, d: (Number(w.dead) > 0) ? 1 : 0,
+            gm: Number(w.gamemode) || 0, it: (window.mbwPlay.net ? window.mbwPlay.net.heldId() : '')
         });
     }
 
@@ -222,8 +238,90 @@
         if (!M.on) return;                                            // (lo de abajo solo sirve jugando)
         if (t === 'juego_jugador') { onPlayer(d); return; }
         if (t === 'juego_bloques' || t === 'juego_cambios') { applyBlocks(Number(d.s) || 1, d.c); return; }
-        if (t === 'juego_pedir' && M.role === 'host') { sendChangesTo(d.peerId); return; }
+        if (t === 'juego_pedir' && M.role === 'host') { sendChangesTo(d.peerId); sendMobListTo(d.peerId); return; }
+        const N = window.mbwPlay && window.mbwPlay.net; if (!N) return;
+        if (t === 'juego_mobs') { applyMobs(d); return; }
+        if (t === 'juego_mobs_lista') { if (M.role === 'guest' && Number(d.s) === curScene() && Array.isArray(d.ids)) { const keep = new Set(d.ids); Object.keys(mbwom.mobs || {}).forEach(function (id) { if (!keep.has(id)) { delete mbwom.mobs[id]; M.mobT.delete(id); N.forget(id); } }); } return; }
+        if (t === 'juego_golpe') { if (d.a === myPeer()) N.hurtMe(d.dmg, d.causa); return; }
+        if (t === 'juego_botin') { if (d.a === myPeer()) N.loot(d.l); return; }
+        if (t === 'juego_pega') { if (M.role === 'host' && d.peerId) N.hitMob(String(d.id), d.dmg, d.kx, d.ky, 'rp:' + d.peerId, d.loot); return; }
+        if (t === 'juego_boom') { if (Number(d.s) === curScene() && d.peerId !== myPeer()) N.boom(d.x, d.y, d.c, d.peerId ? 'rp:' + d.peerId : null); return; }
+        if (t === 'juego_mob_nuevo') { if (M.role === 'host') N.newMob(d.m); return; }
     }
+
+    // ------------------------------------------------------------------ 🐷 mobs (Etapa 2)
+    const r3 = function (v) { return Math.round(Number(v) * 1000) / 1000; };
+    // lo que NO cuenta para decidir si el mob cambió "en serio" (esto cambia todo el tiempo y va en los datos de posición)
+    const VOLATILE = { x: 1, y: 1, speedX: 1, speedY: 1, direction: 1, falling: 1, wasFalling: 1, wasFallingSpeed: 1, hitCooldown: 1, attackCooldown: 1, aggressiveness: 1, target: 1, focus: 1, airTimer: 1, air: 1, startUnderwaterTimer: 1, fuse: 1, dead: 1, __id: 1, lastDamageID: 1, babyTimer: 1 };
+    function sigOf(m) { const o = {}; Object.keys(m).forEach(function (k) { if (!VOLATILE[k]) o[k] = m[k]; }); return jsonOf(o); }
+    // (anfitrión) los mobs que están cerca de algún jugador, 10 veces por segundo
+    function sendMobs() {
+        if (typeof mbwom === 'undefined' || !mbwom.mobs || !mbwom.world) return;
+        const sc = curScene(), now = Date.now();
+        const xs = [Number(mbwom.world.worldX)];
+        Object.keys(M.remotes).forEach(function (k) { const r = M.remotes[k]; if (r.s === sc && now - r.t < STALE_MS) xs.push(r.tx); });
+        const full = now - M.mobFullAt > 2000; if (full) M.mobFullAt = now;      // cada 2 s todo completo (por si alguien se perdió algo)
+        const p = [], f = {}, g = [];
+        let nf = 0;
+        Object.keys(mbwom.mobs).forEach(function (id) {
+            const m = mbwom.mobs[id]; if (!m || !m.type) return;
+            const mx = Number(m.x); if (!xs.some(function (q) { return Math.abs(mx - q) < 48; })) return;
+            const sig = sigOf(m);
+            M.mobSent.add(id);
+            if (full || M.mobSig.get(id) !== sig) { f[id] = JSON.parse(JSON.stringify(m)); M.mobSig.set(id, sig); nf++; }
+            else p.push([id, r3(m.x), r3(m.y), m.direction | 0, m.dead | 0, m.fuse | 0]);
+        });
+        M.mobSent.forEach(function (id) { if (!mbwom.mobs[id]) { g.push(id); M.mobSent.delete(id); M.mobSig.delete(id); } });
+        const N = window.mbwPlay.net, arr = N ? N.arrows() : [];
+        const a = (arr || []).filter(function (r) { return !r.ghost && xs.some(function (q) { return Math.abs(r.x - q) < 48; }); }).map(function (r) { return [r3(r.x), r3(r.y), r3(r.vx), r3(r.vy)]; });
+        if (!p.length && !nf && !g.length && !a.length && !M.hadArrows) return;
+        M.hadArrows = a.length > 0;
+        send({ tipo: 'juego_mobs', s: sc, p: p, f: f, g: g, a: a });
+    }
+    function sendMobListTo(peerId) {
+        M.mobFullAt = 0;                                           // al que entró tarde: todo completo en el siguiente envío
+        const conn = (g('misClientes') || []).find(function (c) { return c.peer === peerId; });
+        if (!conn || !conn.open || !mbwom.mobs) return;
+        try { conn.send({ tipo: 'juego_mobs_lista', s: curScene(), ids: Object.keys(mbwom.mobs), retransmitido: true }); } catch (e) { /* nada */ }
+    }
+    // (invitado) los mobs que mandó el anfitrión
+    function slideTo(id, m, x, y) {
+        const now = Date.now(), t = M.mobT.get(id);
+        const cur = t ? lerpPos(t, now) : { x: Number(m.x), y: Number(m.y) };
+        const far = !isFinite(cur.x) || Math.abs(x - cur.x) > 6 || Math.abs(y - cur.y) > 6;
+        M.mobT.set(id, { fx: far ? x : cur.x, fy: far ? y : cur.y, tx: x, ty: y, t0: now });
+        m.x = far ? x : cur.x; m.y = far ? y : cur.y;
+    }
+    function applyMobs(d) {
+        if (M.role !== 'guest' || Number(d.s) !== curScene() || !mbwom.mobs) return;
+        const N = window.mbwPlay.net;
+        const f = d.f || {};
+        Object.keys(f).forEach(function (id) {
+            const o = f[id]; if (!o || !o.type) return;
+            const old = mbwom.mobs[id];
+            const x = Number(o.x), y = Number(o.y);
+            if (old) { o.x = old.x; o.y = old.y; }
+            mbwom.mobs[id] = o;
+            slideTo(id, o, x, y);
+        });
+        (d.p || []).forEach(function (q) {
+            const m = mbwom.mobs[q[0]]; if (!m) return;
+            m.direction = q[3]; m.dead = q[4]; m.fuse = q[5];
+            slideTo(q[0], m, q[1], q[2]);
+        });
+        (d.g || []).forEach(function (id) { delete mbwom.mobs[id]; M.mobT.delete(id); N.forget(id); });
+        N.setArrows(d.a || []);
+        if (typeof worldDirty !== 'undefined') worldDirty = true;
+    }
+    // (invitado) en cada paso del juego: los mobs se deslizan hacia donde dijo el anfitrión
+    M.mobLerp = function () {
+        if (!M.on || M.role !== 'guest' || !mbwom.mobs) return;
+        const now = Date.now();
+        M.mobT.forEach(function (t, id) {
+            const m = mbwom.mobs[id]; if (!m) { M.mobT.delete(id); return; }
+            const p = lerpPos(t, now); m.x = p.x; m.y = p.y;
+        });
+    };
     function onPlayer(d) {
         const id = d.peerId; if (!id || id === myPeer()) return;
         const now = Date.now();
@@ -237,6 +335,7 @@
             r.fx = far ? d.x : cur.x; r.fy = far ? d.y : cur.y; r.tx = d.x; r.ty = d.y; r.t0 = now;
         }
         r.name = String(d.autor || 'Player'); r.s = Number(d.s) || 1; r.f = d.f | 0; r.fl = !!d.fl; r.h = !!d.h; r.d = !!d.d; r.t = now;
+        r.gm = Number(d.gm) || 0; r.it = String(d.it || '');
         if (typeof worldDirty !== 'undefined') worldDirty = true;
     }
     function lerpPos(r, now) {
