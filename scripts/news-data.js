@@ -67,7 +67,7 @@ gallery: https://i.imgur.com/BBBBBBB.png
 
 
 ===== NOTA
-title: v3.0 - QoL Update - November 2026
+title: v3 - QoL Update - November 2026
 date: Nov 6, 2026
 image: https://i.imgur.com/ibGCmae.png
 excerpt: [demo] Play Mode! (Solo), forms, bookmarks, clouds, darkness and more!
@@ -81,15 +81,15 @@ gallery: https://i.imgur.com/SCa9PhE.png
 gallery: https://i.imgur.com/IOvD5vS.png
 ---
 # Changelog:
-- [demo] game mode (single-player)** - you can test the map with physics similar to those in-game
+- [demo] game mode (single-player) - you can test the map with physics similar to those in-game
 - [demo] basic command book generator
 - shapes
 - bookmarks
 - clouds
-- APK and EXE! :mobile_phone:
+- APK and EXE!
 - skin browser
 - rendering for rainbow wool, rainbow carpets, magma blocks, and TNT
-- darkness view in mines (Y=90 and below)
+- darkness view in mines (Y: 90 and below)
 - structures can now be pasted onto a specific block as a filter
 - torches and other blocks now emit light
 - editable signs
@@ -234,7 +234,7 @@ gallery: https://i.imgur.com/ADpMMP5.png
 
 
 ===== NOTA
-title: v2.3 - Multiplayer Update
+title: v2.3 - Co-Op Editor Update
 date: April 25, 2026
 image: https://i.imgur.com/HLeNf8x.png
 excerpt: Create a map with friends, chat with them, and more!
@@ -244,8 +244,8 @@ gallery: https://i.imgur.com/q8VDWc4.png
 gallery: https://i.imgur.com/My2zgUi.png
 ---
 # Changelog:
-- **🌐 Multiplayer!**
-    - up to 6 players
+- **🌐 Cooperative!**
+    - up to 6 users
     - spectator mode!
     - server chat
     - server invites
