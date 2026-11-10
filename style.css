@@ -3363,3 +3363,6 @@ body:not(.panels-floating):not(.is-phone) #toolbar-sidebar { top: var(--ws-top);
 .mpplay-notice { border-color: #f0b429; justify-content: center; text-align: center; }
 body.mbw-playing .mpplay-banner { display: none; }
 body.mbw-playing .mpplay-notice { display: flex; }
+
+/* ▶ Modo Jugar: dispenser / dropper = 9 espacios en cuadro de 3×3 (como en el juego) */
+.pinv-grid.pinv-grid-3 { grid-template-columns: repeat(3, var(--ps, 64px)); }

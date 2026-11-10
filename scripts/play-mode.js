@@ -1729,12 +1729,20 @@
     window.mbwPlayCommand = runCommand;
 
     // ------------------------------------------------------------------ cofres y hornos (abrir)
-    const BOX = { chest: 1, oven: 1 };
+    const BOX = { chest: 1, oven: 1, dispense: 1, dropper: 1 };
+    // el botón "Open" dice qué se abre (con su dibujito)
+    function boxLabel(t) {
+        if (t === 'oven') return '🔥 ' + tr('play_open_furnace', 'Open furnace');
+        if (t === 'dispense') return '🎯 ' + tr('play_open_dispenser', 'Open dispenser');
+        if (t === 'dropper') return '📤 ' + tr('play_open_dropper', 'Open dropper');
+        return '📦 ' + tr('play_open_chest', 'Open chest');
+    }
     function openBox(x, y) {
         const t = fg(x, y);
         let ok = false;
         if (t === 'chest' && typeof window.openChestEditor === 'function') ok = window.openChestEditor(x, y);
         else if (t === 'oven' && typeof window.openFurnaceEditor === 'function') ok = window.openFurnaceEditor(x, y);
+        else if ((t === 'dispense' || t === 'dropper') && typeof window.openDispenserEditor === 'function') ok = window.openDispenserEditor(x, y);
         if (ok) { S.keys = {}; S.mouse.left = S.mouse.right = false; S.mine = null; S.openBoxAt = { x: x, y: y }; }
         return ok;
     }
@@ -1766,7 +1774,8 @@
         deathCheck();
         if (modalOpen()) { S.keys = {}; S.mouse.left = S.mouse.right = S.mouse.leftEdge = S.mouse.rightEdge = false; S.mine = null; }
         if (!(w.dead > 0)) { mineAndPlace(); doPlayerLogic(); }
-        if (S.tick % 10 === 0) { const b = findBox(); const k = b ? b.x + ',' + b.y : ''; if (k !== (S.box ? S.box.x + ',' + S.box.y : '')) { S.box = b; hud.dirty = true; } }
+        // el botón "Open": el bloque bajo el cursor (si se abre y está a la mano) o, si no, el más cercano; se revisa 10 veces por segundo
+        if (S.tick % 5 === 0) { const b = findBox(); const k = b ? b.x + ',' + b.y + ',' + b.t : ''; if (k !== (S.box ? S.box.x + ',' + S.box.y + ',' + S.box.t : '')) { S.box = b; hud.dirty = true; } }
         // arena / grava que hay que revisar
         if (S.sandCheck.size) {
             let n = 0;
@@ -2047,7 +2056,7 @@
             }
             const ob = this.el.querySelector('.ph-open');
             ob.style.display = S.box ? '' : 'none';
-            if (S.box) ob.textContent = (S.box.t === 'oven' ? '🔥 ' : '📦 ') + tr('play_open', 'Open');
+            if (S.box) ob.textContent = boxLabel(S.box.t);
             this.el.querySelector('.ph-inv').title = tr('play_inv', 'Inventory (E)');
             this.el.querySelector('.ph-mode').textContent = S.touchMode === 'mine' ? '⛏' : '🧱';
             this.el.querySelector('.ph-mode').title = S.touchMode === 'mine' ? tr('play_mode_mine', 'Tap = break / hit') : tr('play_mode_place', 'Tap = place / use');

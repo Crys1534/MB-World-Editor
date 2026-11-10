@@ -159,8 +159,19 @@
   F_KEYS.forEach((k) => { if (!Array.isArray(f[k])) f[k] = ['air', 0, 0, {}]; });
   return f;
  }
+ // cuántos espacios tiene lo que está abierto: cofre 27; dispenser / dropper 9 (cuadro de 3×3, como en el juego)
+ const boxSlots = () => (st.chest && st.chest.kind === 'disp') ? 9 : CHEST_SLOTS;
  function chestList() {
   if (!st.chest || typeof mbwom === 'undefined' || !mbwom) return null;
+  if (st.chest.kind === 'disp') {                               // dispenser / dropper: sus cosas van en states["blockX..Y.._2"]
+   let sd = mbwom.states;
+   if (!isObj(sd)) { sd = {}; mbwom.states = sd; if (mbwom.world && mbwom.currentScene !== undefined) mbwom.world['states' + mbwom.currentScene] = sd; }
+   const k2 = st.chest.key + '_2';
+   if (!Array.isArray(sd[k2])) sd[k2] = [];
+   const l2 = sd[k2];
+   while (l2.length < 9) l2.push(['air', 0, 0, {}]);
+   return l2;
+  }
   let d = mbwom.chests;
   if (!isObj(d)) {                                            // la dimensión no tenía diccionario de cofres (viene como 0): se crea
    d = {};
@@ -354,7 +365,8 @@
   if (chestBox) chestBox.style.display = st.chest ? '' : 'none';
   if (chestGrid) {
    chestGrid.innerHTML = '';
-   if (st.chest) for (let i = 0; i < CHEST_SLOTS; i++) chestGrid.appendChild(slotEl({ k: 'c', i: i }));
+   chestGrid.classList.toggle('pinv-grid-3', !!(st.chest && st.chest.kind === 'disp'));
+   if (st.chest) for (let i = 0; i < boxSlots(); i++) chestGrid.appendChild(slotEl({ k: 'c', i: i }));
   }
   const fbox = $('pinv-furnace-box'), fgrid = $('pinv-furnace');
   if (fbox) fbox.style.display = st.furnace ? '' : 'none';
@@ -492,7 +504,7 @@
   if (st.chest) {                                                   // modo cofre: del cofre al jugador y del jugador al cofre
    const toChest = addr.k !== 'c';
    setSlot(addr, null);
-   const left = toChest ? insertRange(it, 0, CHEST_SLOTS - 1, 'c') : insertRange(it, 0, TOTAL - 1, 'i');
+   const left = toChest ? insertRange(it, 0, boxSlots() - 1, 'c') : insertRange(it, 0, TOTAL - 1, 'i');
    if (left > 0) setSlot(addr, copy(it, left));
    return;
   }
@@ -697,9 +709,16 @@
   if (btn) { btn.style.display = ''; btn.textContent = tr(st.expanded ? 'pinv_hide_creative' : 'pinv_show_creative'); }
   const title = $('inventory-modal-title');
   if (title && st.furnace) title.innerText = tr('pinv_furnace_title', 'Furnace') + '  (X: ' + st.furnace.x + ', Y: ' + st.furnace.y + ')';
-  else if (title) title.innerText = st.chest ? (tr('pinv_chest_title', 'Chest') + '  (X: ' + st.chest.x + ', Y: ' + st.chest.y + ')') : tr('pinv_title', 'Player Inventory');
+  else if (title) title.innerText = st.chest ? (boxTitle() + '  (X: ' + st.chest.x + ', Y: ' + st.chest.y + ')') : tr('pinv_title', 'Player Inventory');
   const lbl = $('pinv-chest-label');
-  if (lbl) { lbl.textContent = tr('pinv_chest_label', 'Chest contents'); lbl.title = tr('pinv_chest_delete_hint', 'Tip: press Delete to discard the item on the cursor'); }
+  if (lbl) { lbl.textContent = !st.chest || st.chest.kind !== 'disp' ? tr('pinv_chest_label', 'Chest contents') : st.chest.type === 'dropper' ? tr('pinv_dropper_label', 'Dropper contents') : tr('pinv_dispenser_label', 'Dispenser contents'); lbl.title = tr('pinv_chest_delete_hint', 'Tip: press Delete to discard the item on the cursor'); }
+ }
+ // el título: "Chest" / "Dispenser" / "Dropper" (o el nombre que le pusieron al dispenser / dropper, como en el juego)
+ function boxTitle() {
+  if (!st.chest || st.chest.kind !== 'disp') return tr('pinv_chest_title', 'Chest');
+  let nm = '';
+  try { nm = mbwom.states && typeof mbwom.states[st.chest.key + '_3'] === 'string' ? mbwom.states[st.chest.key + '_3'] : ''; } catch (e) { nm = ''; }
+  return nm || (st.chest.type === 'dropper' ? tr('pinv_dropper_title', 'Dropper') : tr('pinv_dispenser_title', 'Dispenser'));
  }
  function resetLayout() {
   const m = $('inventory-modal');
@@ -737,7 +756,7 @@
     } else if (st.chest) {                                       // lo que se sacó del cofre vuelve primero al cofre
      const f = heldItem.from;
      if (f && f.k === 'c' && !getSlot(f)) { setSlot(f, it); heldItem = null; return; }   // a su casilla de origen, si sigue vacía
-     const back = insertRange(it, 0, CHEST_SLOTS - 1, 'c');
+     const back = insertRange(it, 0, boxSlots() - 1, 'c');
      left = back;
      if (back > 0) left = insertRange(copy(it, back), 0, TOTAL - 1, 'i');
     } else {
@@ -755,7 +774,7 @@
   if (!c || typeof mbwom === 'undefined' || !mbwom.scene) return;
   let after = null;
   try { after = mbwom.getBlockState(c.x, c.y); } catch (e) { after = null; }
-  if (!after || !after.chests) return;
+  if (!after || !(c.kind === 'disp' ? after.states2 : after.chests)) return;
   if (JSON.stringify(c.before) === JSON.stringify(after)) return;                 // no cambió nada
   if (typeof historyManager !== 'undefined') {
    historyManager.startAction();
@@ -872,6 +891,31 @@
   st.furnace = { x: x, y: y, key: 'blockX' + x + 'Y' + y, before: null };
   st.furnace.before = JSON.parse(JSON.stringify(mbwom.getBlockState(x, y)));
   furnaceData(true);                                              // completa los 3 espacios si faltaban (si queda vacío no se guarda)
+  st.open = true;
+  st.expanded = false;
+  heldItem = null;
+  refreshCursor();
+  m.style.display = 'block';
+  layout();
+  renderAll();
+  return true;
+ };
+ // Abre el dispenser o el dropper que hay en (x, y): 9 espacios (3×3), como en el juego. Devuelve true si lo abrió.
+ window.openDispenserEditor = function (x, y) {
+  const m = $('inventory-modal');
+  if (!m || typeof toggleInventory !== 'function') return false;
+  if (typeof mbwom === 'undefined' || !mbwom || !mbwom.scene) return false;
+  x = Math.floor(Number(x)); y = Math.floor(Number(y));
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+  let bs = null;
+  try { bs = mbwom.getBlockState(x, y); } catch (e) { bs = null; }
+  if (!bs || (bs.type !== 'dispense' && bs.type !== 'dropper')) return false;
+  if (!world()) return false;
+  if (m.style.display === 'block') toggleInventory();
+  st.furnace = null;
+  st.chest = { x: x, y: y, key: 'blockX' + x + 'Y' + y, before: null, kind: 'disp', type: bs.type };
+  st.chest.before = JSON.parse(JSON.stringify(mbwom.getBlockState(x, y)));
+  chestList();                                                    // completa los 9 espacios si faltaban
   st.open = true;
   st.expanded = false;
   heldItem = null;
