@@ -59,6 +59,48 @@ gallery: https://i.imgur.com/BBBBBBB.png
 
 // ⬇⬇⬇  PEGA AQUÍ LAS NOTAS NUEVAS  (la más nueva arriba de todas)  ⬇⬇⬇
 
+
+
+
+
+
+
+
+===== NOTA
+title: v3.0 - QoL Update - November 2026
+date: Nov 6, 2026
+image: https://i.imgur.com/ibGCmae.png
+excerpt: [demo] Play Mode! (Solo), forms, bookmarks, clouds, darkness and more!
+gallery: https://i.imgur.com/ibGCmae.png
+gallery: https://i.imgur.com/y433j0g.png
+gallery: https://i.imgur.com/YYyBewd.png
+gallery: https://i.imgur.com/th0Svv4.png
+gallery: https://i.imgur.com/HyHHK3v.png
+gallery: https://i.imgur.com/JghyTr4.png
+gallery: https://i.imgur.com/SCa9PhE.png
+gallery: https://i.imgur.com/IOvD5vS.png
+---
+# Changelog:
+- [demo] game mode (single-player)** - you can test the map with physics similar to those in-game
+- [demo] basic command book generator
+- shapes
+- bookmarks
+- clouds
+- APK and EXE! :mobile_phone:
+- skin browser
+- rendering for rainbow wool, rainbow carpets, magma blocks, and TNT
+- darkness view in mines (Y=90 and below)
+- structures can now be pasted onto a specific block as a filter
+- torches and other blocks now emit light
+- editable signs
+- minecarts and rafts can be placed as blocks
+- visible and editable durability bar
+- tool for selecting the aspect ratio
+- redesign for creating servers
+- improved chats
+- [fixed] improvements and fixes for multiplayer
+- and more
+
 ===== NOTA
 title: v2.5 - Custom Mobs Update
 date: Oct 22, 2026
@@ -314,7 +356,7 @@ excerpt: Structures library, improved tools, new UI, and bug fixes.
 - interface with icons to change dimensions
 
 - [Fixed] camera fixed
-- [Fixed] Fix Hardcore Mode option re-implemented
+- [Fixed] Hardcore Mode option re-implemented
 
 
 ===== NOTA
@@ -328,7 +370,7 @@ excerpt: New UI, Copy-Paste, Zoom, and more!
 - new UI
 - copy-paste structures feature (select area, Ctrl+C)
 - zoom (25, 50, 100, 150, and 200%)
-- [Beta] Inventory
+- [Beta] inventory
 - optimization improvements
 - /tp command in-app
 
