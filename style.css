@@ -3407,6 +3407,10 @@ body.is-touch #mbw-play-hud .ph-gear { opacity: .45; }
 .pm-left { flex: 1 1 auto; display: flex; flex-direction: column; gap: 10px; min-width: 0; overflow-y: auto; }
 .pm-right { flex: 0 0 250px; min-width: 0; }
 .pm-title { margin: 0 0 6px; color: #fff; font-size: 26px; text-align: center; text-shadow: 2px 2px 0 #000; }
+.pm-skin { display: flex; align-items: center; gap: 8px; }
+.pm-skin .pm-btn { flex: 1 1 auto; width: auto; }
+.pm-skin .pm-skin-def { flex: 0 0 auto; font-size: 14px; padding-left: 10px; padding-right: 10px; }
+.pm-skin-pv { width: 32px; height: 44px; image-rendering: pixelated; background: rgba(0,0,0,.35); border: 2px solid #000; flex: 0 0 auto; }
 .pm-btn { display: block; width: 100%; padding: 12px; font-size: 17px; font-weight: 700; color: #fff; background: #6f6f6f; border: 2px solid #000; box-shadow: inset 2px 2px 0 rgba(255,255,255,.35), inset -2px -2px 0 rgba(0,0,0,.35); cursor: pointer; text-shadow: 1px 1px 0 #222; }
 .pm-btn:hover, .pm-btn:focus-visible { background: #7e8fb8; outline: none; }
 .pm-btn.pm-primary { background: #4c7f3a; } .pm-btn.pm-primary:hover { background: #5c9a47; }

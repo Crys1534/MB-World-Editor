@@ -1062,7 +1062,7 @@ function drawMobs() {
                 // Si quieres que la barra de vida siempre se vea, déjalo afuera de este IF.
             }
             
-            if (mob.health !== undefined) {
+            if (mob.health !== undefined && !window.mbwPlaying) {   // (jugando, la vida sale en corazones: scripts/play-mode.js)
                 let maxHp = mob.maxHealth || (typeof getMobMaxHealth === 'function' ? getMobMaxHealth(mob) : (typeof MOBS_HP_DB !== 'undefined' ? MOBS_HP_DB[mob.type] : 20)) || 20;
                 let currentHealth = Math.ceil(Number(mob.health));
                 let hpPercent = Math.max(0, Math.min(1, currentHealth / maxHp)); 

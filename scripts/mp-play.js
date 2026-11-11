@@ -74,6 +74,8 @@
     const amHost = function () { return !!g('isHost'); };
     const myPeer = function () { const p = g('peer'); return p && p.id ? p.id : 'me'; };
     const myUid = function () { try { return localStorage.getItem('mbw_uid') || ''; } catch (e) { return ''; } };
+    // 🧑 mi skin (de la galería de skins; se elige en el menú de pausa y se recuerda en este navegador para todos los mundos)
+    const mySkin = function () { try { if (window.mbwPlay && window.mbwPlay.skin) return window.mbwPlay.skin() || ''; const v = localStorage.getItem('mbw_play_skin') || ''; return /^[0-9]{1,12}$/.test(v) ? v : ''; } catch (e) { return ''; } };
     const myName = function () { try { return localStorage.getItem('mbw_username') || 'Player'; } catch (e) { return 'Player'; } };
     const onServerTab = function () { return typeof window.mpOnServerTab !== 'function' || window.mpOnServerTab(); };
     const curScene = function () { return (typeof mbwom !== 'undefined' && (mbwom.currentScene || 1)) || 1; };
@@ -205,7 +207,8 @@
             s: curScene(), f: (P && P.frankF) || 0, fl: (P && P.p && P.p.xScale < 0) ? 1 : 0,
             h: (P && P.p && P.p.hurt > 0) ? 1 : 0, d: (Number(w.dead) > 0) ? 1 : 0,
             gm: Number(w.gamemode) || 0, it: (window.mbwPlay.net ? window.mbwPlay.net.heldId() : ''),
-            uid: myUid(), p: M.role === 'host' ? 0 : (M.ping | 0), sel: w.selectedInventoryItem | 0
+            uid: myUid(), p: M.role === 'host' ? 0 : (M.ping | 0), sel: w.selectedInventoryItem | 0,
+            hp: Math.max(0, Math.round(Number(w.health) || 0)), fd: Math.max(0, Math.round(Number(w.food) || 0)), sk: mySkin()
         });
     }
 
@@ -457,6 +460,7 @@
         }
         r.name = String(d.autor || 'Player'); r.s = Number(d.s) || 1; r.f = d.f | 0; r.fl = !!d.fl; r.h = !!d.h; r.d = !!d.d; r.t = now;
         r.gm = Number(d.gm) || 0; r.it = String(d.it || ''); r.uid = d.uid ? String(d.uid) : r.uid; r.ping = Number(d.p) || 0;
+        r.hp = Number(d.hp); r.fd = Number(d.fd); r.sk = /^[0-9]{1,12}$/.test(String(d.sk || '')) ? String(d.sk) : '';
         if (r.sel !== (d.sel | 0)) { r.selT = now; r.sel = d.sel | 0; }                  // (cambió de casilla: se muestra arriba de él un ratito)
         if (M.role === 'host' && r.uid && mbwom.world && mbwom.world.mbwePlayers && mbwom.world.mbwePlayers[r.uid]) {   // (dónde está, al momento)
             const rec = mbwom.world.mbwePlayers[r.uid];
@@ -465,6 +469,7 @@
         }
         if (typeof worldDirty !== 'undefined') worldDirty = true;
     }
+    M.posOf = function (id) { const r = M.remotes[id]; return r ? lerpPos(r, Date.now()) : null; };
     function lerpPos(r, now) {
         const k = Math.max(0, Math.min(1, (now - r.t0) / (SEND_MS * 1.2)));
         return { x: r.fx + (r.tx - r.fx) * k, y: r.fy + (r.ty - r.fy) * k };
@@ -492,7 +497,9 @@
             c2.save();
             if (r.fl) c2.scale(-1, 1);
             if (r.h) c2.globalAlpha = 0.85;
-            c2.drawImage(frank, Math.max(0, Math.min(16, r.f)) * 16, 0, 16, 22, -pw / 2, -ph, pw, ph);
+            const sk = r.sk && window.mbwPlaySkinSheet ? window.mbwPlaySkinSheet(r.sk) : null, sheet = sk || frank;   // (su skin, si eligió una)
+            const nf = Math.max(1, Math.floor((sheet.naturalWidth || sheet.width) / 16)), fi = Math.max(0, Math.min(16, r.f));
+            c2.drawImage(sheet, (fi < nf ? fi : 0) * 16, 0, 16, 22, -pw / 2, -ph, pw, ph);
             if (r.h) { c2.globalCompositeOperation = 'source-atop'; c2.fillStyle = 'rgba(255,0,0,0.35)'; c2.fillRect(-pw / 2, -ph, pw, ph); }
             c2.restore();
             // el nombre arriba de la cabeza

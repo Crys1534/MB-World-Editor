@@ -500,33 +500,44 @@ window.agregarMensajeChatPublico = function(autor, texto) {
     if (!messagesDiv || !container) return;
 
     const msgDiv = document.createElement('div');
-    // Le forzamos el estilo base para que no dependa de otras clases
-    msgDiv.style.cssText = "margin-bottom: 4px; font-family: 'Pixeltype', sans-serif; font-size: 20px; text-shadow: 1px 1px 0 #000;";
+    // Le forzamos el estilo base para que no dependa de otras clases (letra: rainyhearts, la del chat de la sala)
+    msgDiv.style.cssText = "margin-bottom: 4px; font-family: 'RainyHearts', 'Pixeltype', sans-serif; font-size: 16px; line-height: 1.15; text-shadow: 1px 1px 0 #000;";
+    // 🔒 Todo lo que escribe la gente entra como TEXTO (nunca como HTML): así nadie puede meter código en el chat de los demás.
+    const span = function (text, css) { const e = document.createElement('span'); e.style.cssText = css; e.textContent = text; return e; };
 
     // Limpiamos la palabra por si se coló un espacio en blanco ("Sistema " en vez de "Sistema")
-    const cleanAutor = autor.trim();
+    const cleanAutor = String(autor == null ? '' : autor).trim();
+    texto = String(texto == null ? '' : texto);
 
     // Aceptamos "Sistema" y "System" (commands.js y los avisos del host usan "System")
     const autorLower = cleanAutor.toLowerCase();
     if (autorLower === "sistema" || autorLower === "system") {
-        // ✨ FUERZA BRUTA: Usamos !important para obligar al navegador a pintarlo gris
-        msgDiv.innerHTML = `<span style="color: gray !important; font-style: italic;">[Sistema] ${texto}</span>`;
+        msgDiv.appendChild(span('[Sistema] ' + texto, 'color: gray !important; font-style: italic;'));
     } 
     else if (cleanAutor === "Error") {
-        msgDiv.innerHTML = `<span style="color: #ff5555 !important; font-style: italic;">[Error] ${texto}</span>`;
+        msgDiv.appendChild(span('[Error] ' + texto, 'color: #ff5555 !important; font-style: italic;'));
     } 
     else {
         // Mensajes de jugadores normales
         const isCommand = texto.startsWith('/');
         const textColor = isCommand ? '#f1c40f' : 'white'; 
-        
-        // ✨ Convertir links en el chat público
-        let textoConLinks = texto.replace(
-            /(https?:\/\/[^\s<]+)/g,
-            '<a href="$1" target="_blank" style="color: #3498db; text-decoration: underline; cursor: pointer;" onclick="event.stopPropagation();">$1</a>'
-        );
-
-        msgDiv.innerHTML = `<span style="color: #4DA6FF !important; font-weight:bold;">&lt;${cleanAutor}&gt;</span> <span style="color: ${textColor} !important;">${textoConLinks}</span>`;
+        msgDiv.appendChild(span('<' + cleanAutor + '>', 'color: #4DA6FF !important; font-weight:bold;'));
+        msgDiv.appendChild(document.createTextNode(' '));
+        const body = span('', 'color: ' + textColor + ' !important;');
+        // ✨ Los links (solo http / https) se pueden abrir; el resto es texto
+        const re = /(https?:\/\/[^\s<]+)/g;
+        let last = 0, m;
+        while ((m = re.exec(texto))) {
+            if (m.index > last) body.appendChild(document.createTextNode(texto.slice(last, m.index)));
+            const a = document.createElement('a');
+            a.href = m[1]; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = m[1];
+            a.style.cssText = 'color: #3498db; text-decoration: underline; cursor: pointer;';
+            a.addEventListener('click', function (e) { e.stopPropagation(); });
+            body.appendChild(a);
+            last = m.index + m[1].length;
+        }
+        if (last < texto.length) body.appendChild(document.createTextNode(texto.slice(last)));
+        msgDiv.appendChild(body);
     }
 
     messagesDiv.appendChild(msgDiv);

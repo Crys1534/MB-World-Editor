@@ -112,6 +112,21 @@
         return { x: px, y: py + 1 };       // el centro del cuerpo (los pies + 1 cuadro)
     }
 
+    // 🎮 los otros jugadores de la partida (Modo Jugar en multijugador): cada uno también lleva su aura de luz
+    function remoteTiles() {
+        const M = window.mbwMpPlay;
+        if (!window.mbwPlaying || !M || !M.on || !M.remotes) return [];
+        const out = [], now = Date.now(), sc = scene();
+        Object.keys(M.remotes).forEach(function (k) {
+            const r = M.remotes[k];
+            if (!r || r.s !== sc || r.d || now - r.t > 3500) return;
+            const x = Number(r.tx), y = -Number(r.ty);
+            if (isFinite(x) && isFinite(y)) out.push({ x: x, y: y + 1 });
+        });
+        return out;
+    }
+    D.remoteTiles = remoteTiles;
+
     // ---------------------------------------------------------
     // La imagen de la oscuridad (1 píxel = 1 cuadro)
     // ---------------------------------------------------------
@@ -161,6 +176,7 @@
         }
         const pt = playerTile();
         if (pt) found.push({ x: pt.x, y: pt.y, kind: 'player' });
+        remoteTiles().forEach(function (q) { found.push({ x: q.x, y: q.y, kind: 'player' }); });
         if (!far) { D.lastA = A; D.lastX0 = X0; D.lastY1 = Y1; D.lastW = w; D.lastH = h; }   // (para decir el % de luz bajo el mouse)
         D.stats.lights = found.length;
         // primero las que quitan oscuridad, después las odd torch (su oscuridad gana)
@@ -255,7 +271,8 @@
         const w = Math.ceil(canvas.width / ts) + 3, h = Math.ceil(canvas.height / ts) + 3;
         if (w * h > 1200000) { D.stats.drawn = false; return; }            // zoom tan alejado que no vale la pena
         const pt = playerTile();
-        const key = [X0, Y0, w, h, ts, D.rev, D.map ? 'm' : '', cacheId(window.worldCache), pt ? Math.floor(pt.x * 2) + ',' + Math.floor(pt.y * 2) : '-'].join('|');
+        const rk = remoteTiles().map(function (q) { return Math.floor(q.x * 2) + ',' + Math.floor(q.y * 2); }).join(';');
+        const key = [X0, Y0, w, h, ts, D.rev, D.map ? 'm' : '', cacheId(window.worldCache), pt ? Math.floor(pt.x * 2) + ',' + Math.floor(pt.y * 2) : '-', rk].join('|');
         const now = performance.now();
         if (key !== maskKey || !maskInfo || now - lastForce > 1500) {
             maskInfo = build(X0, Y0, w, h);

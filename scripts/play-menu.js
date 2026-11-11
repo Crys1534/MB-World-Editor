@@ -80,6 +80,7 @@
             left.appendChild(el('h2', 'pm-title', hostOfRoom() ? tr('pm_title_host', 'Game menu (host)') : tr('pm_title', 'Game menu')));
             left.appendChild(btn(tr('pm_back', 'Back to Game'), 'pm-primary', close));
             left.appendChild(btn(tr('pm_options', 'Options'), '', function () { show('options'); }));
+            left.appendChild(skinRow());
             if (hostOfRoom()) left.appendChild(btn(tr('pm_server', 'Server settings'), '', function () { show('server'); }));
             const guest = M() && M().on && M().role === 'guest';
             left.appendChild(btn(guest ? tr('pm_quit_guest', 'Save and Quit (leave the game)') : tr('pm_quit', 'Save and Quit'), 'pm-quit', function () { closeNow(); if (P() && P().saveAndQuit) P().saveAndQuit(); }));
@@ -100,6 +101,35 @@
         tabTimer = setInterval(function () { if (root && root.style.display !== 'none') playerRows(pl, true); }, 2000);
         const first = left.querySelector('button'); if (first && !document.body.classList.contains('is-touch')) setTimeout(function () { try { first.focus(); } catch (e) { /* nada */ } }, 0);
     }
+    // 🧑 Skin: se elige de la galería de skins (la ven todos; se recuerda en este navegador para todos los mundos)
+    function skinRow() {
+        const r = el('div', 'pm-skin');
+        const cur = (P() && P().skin) ? P().skin() : '';
+        const pv = el('canvas', 'pm-skin-pv'); pv.width = 16; pv.height = 22;
+        const drawPv = function () {
+            const cx = pv.getContext('2d'); cx.clearRect(0, 0, 16, 22); cx.imageSmoothingEnabled = false;
+            const id = (P() && P().skin) ? P().skin() : '';
+            const sk = id && window.mbwPlaySkinSheet ? window.mbwPlaySkinSheet(id) : null;
+            const im = sk || (P() && P().frank);
+            if (im && (im.naturalWidth || im.width)) cx.drawImage(im, 0, 0, 16, 22, 0, 0, 16, 22);
+            else if (id) setTimeout(drawPv, 400);
+        };
+        drawPv();
+        r.appendChild(pv);
+        r.appendChild(btn('🧑 ' + tr('pm_skin', 'Skin'), 'pm-skin-btn', function () {
+            if (typeof window.openSkinGallery !== 'function') return;
+            window.openSkinGallery({ pick: function (id) {
+                if (P() && P().setSkin) P().setSkin(id);
+                try { if (typeof window.closeSkinGallery === 'function') window.closeSkinGallery(); } catch (e) { /* nada */ }
+                if (root && root.style.display !== 'none') show(page);
+            } });
+            const m = document.getElementById('sg-modal'); if (m) m.style.zIndex = '100080';   // (encima del menú)
+        }));
+        if (cur) r.appendChild(btn('↺ ' + tr('pm_skin_default', 'Default'), 'pm-skin-def', function () { if (P() && P().setSkin) P().setSkin(''); show(page); }));
+        r.title = tr('pm_skin_tip', 'Choose a skin from the skin gallery. Everyone in the game sees it, in every world.');
+        return r;
+    }
+    function galleryOpen() { try { return !!(window.mbwSkinGallery && window.mbwSkinGallery.state && window.mbwSkinGallery.state.open); } catch (e) { return false; } }
     function row(label, input, hint) {
         const r = el('label', 'pm-row');
         r.appendChild(el('span', 'pm-row-l', label));
@@ -165,10 +195,13 @@
         root.style.display = 'flex';
         hideTab();
     }
-    function closeNow() { if (root) root.style.display = 'none'; clearInterval(tabTimer); if (P() && P().setPaused) P().setPaused(false); }
+    function closeNow() { if (galleryOpen()) { try { window.closeSkinGallery(); } catch (e) { /* nada */ } } if (root) root.style.display = 'none'; clearInterval(tabTimer); if (P() && P().setPaused) P().setPaused(false); }
     function close() { closeNow(); }
     function isOpen() { return !!(root && root.style.display !== 'none' && root.parentNode); }
-    function back() { if (page !== 'main') show('main'); else close(); }
+    function back() {
+        if (galleryOpen()) { try { window.closeSkinGallery(); } catch (e) { /* nada */ } return; }   // (Esc: primero se cierra la galería)
+        if (page !== 'main') show('main'); else close();
+    }
 
     // ------------------------------------------------------------------ Tab: lista de jugadores
     function showTab() {

@@ -1723,7 +1723,7 @@
         if (typeof mbwom.mobs !== 'object' || !mbwom.mobs) { mbwom.mobs = {}; w['mobs' + n] = mbwom.mobs; }
         const st = S.dimStash[n] || {}; delete S.dimStash[n];
         S.drops = st.drops || []; S.orbs = st.orbs || []; S.falling = st.falling || []; S.arrows = st.arrows || [];
-        S.tmp = new Map(); S.liqFresh = new Set(); S.sandCheck = new Map();
+        S.tmp = new Map(); S.liqFresh = new Set(); S.sandCheck = new Map(); S.parts = []; S.wetWas = {}; S.spawnT = new Map(); S.spawnOn = new Set();
         // a dónde llega (Game.usePortal): Overworld = donde se entró al portal (o el spawn); Nether = mitad del mundo, y 30; End = un sexto, y 53
         const wd = dimWidth();
         let to;
@@ -2054,8 +2054,229 @@
         tickSign();
         if (S.iname.t > 0) S.iname.t--;
         if (S.tick % 10 === 0) tickAmbience();
+        if (S.tick % 10 === 5) tickSpawners();
+        tickParticles();
         if (S.portalGo) { const k = S.portalGo; S.portalGo = 0; usePortal(k); }
     }
+    // ✨ PARTÍCULAS (menú de pausa > Options > Particles: All / Some / None), como el juego:
+    //   · lava y ácido con aire arriba: de vez en cuando "revienta" una burbujita (Block_Lava: lavabubble) — naranja / verde
+    //   · antorchas: flamita y humo (la de redstone: polvito rojo) · spawner de monstruos encendido: humo y flamitas
+    //   · agua: al entrar o salir del agua (tú y los otros jugadores) salpica; debajo del agua salen burbujas
+    // Solo se ven: no cambian nada del mundo. "Some" = menos y sin las de los bloques del fondo.
+    S.parts = [];
+    function partLevel() { return OPTS.particles === 'none' ? 0 : OPTS.particles === 'some' ? 1 : 2; }
+    function addPart(o) { if (S.parts.length >= 500) return; const life = o.life || 25; S.parts.push(Object.assign({ vx: 0, vy: 0, g: 0, drag: 1, size: .1, col: '#fff', max: life, life: life }, o)); }
+    const TORCHES = { th: 'fire', ortorch: 'fire', rstorch: 'red' };
+    const isWet = function (t) { return t === 'wr' || t === 'sw'; };
+    function openAbove(x, y) { const t = fg(x, y + 1); return t === 'air' || (bd(t, 'walkThroughBlockHit') == 1 && bd(t, 'liquid') == null && !isWet(t)); }
+    function torchTip(x, y) { const o = Number(st(x, y)); return o === 2 ? { x: x + .68, y: y + .72 } : o === 3 ? { x: x + .32, y: y + .72 } : { x: x + .5, y: y + .66 }; }
+    function liquidPop(x, y, t) {
+        const acid = t === 'ad';
+        const col = acid ? ['#9dff5a', '#54d62c', '#d8ffb0'] : ['#ffb02e', '#ff7a12', '#ffe07a'];
+        const n = 1 + (Math.random() * 3 | 0);
+        for (let i = 0; i < n; i++) addPart({ x: x + .2 + Math.random() * .6, y: y + 1, vx: (Math.random() - .5) * .05, vy: .06 + Math.random() * .08, g: .006, life: 30 + (Math.random() * 25 | 0), size: .08 + Math.random() * .06, col: col[i % 3], glow: true });
+    }
+    function torchPuff(x, y, kind) {
+        const p = torchTip(x, y);
+        if (kind === 'red') { addPart({ x: p.x + (Math.random() - .5) * .15, y: p.y, vx: (Math.random() - .5) * .006, vy: .008 + Math.random() * .01, life: 30, size: .07, col: '#ff3b2f', glow: true }); return; }
+        if (Math.random() < .5) addPart({ x: p.x + (Math.random() - .5) * .1, y: p.y, vy: .004, life: 12, size: .08, col: '#ffd24a', glow: true });
+        addPart({ x: p.x + (Math.random() - .5) * .1, y: p.y + .08, vx: (Math.random() - .5) * .006, vy: .018 + Math.random() * .01, drag: .97, life: 40, size: .09, col: 'rgba(70,70,70,.8)' });
+    }
+    function splash(x, y, n) {
+        for (let i = 0; i < n; i++) addPart({ x: x + (Math.random() - .5) * .9, y: y, vx: (Math.random() - .5) * .12, vy: .08 + Math.random() * .12, g: .012, life: 28 + (Math.random() * 14 | 0), size: .07 + Math.random() * .05, col: i % 3 ? '#4f8dff' : '#a9d0ff' });
+    }
+    function bubble(x, y) { addPart({ kind: 'bubble', x: x + (Math.random() - .5) * .5, y: y, vx: (Math.random() - .5) * .01, vy: .03 + Math.random() * .02, life: 70, size: .08 + Math.random() * .05, col: 'rgba(200,230,255,.9)', ring: true }); }
+    function emitBlockParts(L) {
+        if (typeof camera === 'undefined' || !mbwom.scene) return;
+        const x0 = Math.floor(camera.x) - 1, x1 = Math.ceil(camera.x + canvas.width / tileSize) + 1;
+        const y0 = Math.max(0, Math.floor(camera.y) - 1), y1 = Math.ceil(camera.y + canvas.height / tileSize) + 1;
+        if ((x1 - x0) * (y1 - y0) > 9000) return;                      // (zoom muy alejado: no)
+        const k = L === 2 ? 1 : .3;
+        for (let x = x0; x <= x1; x++) {
+            const col = mbwom.scene[x]; if (!col) continue;
+            const top = Math.min(y1, col.length - 1);
+            for (let y = y0; y <= top; y++) {
+                const t = col[y]; if (!t) continue;
+                if (t === 'la' || t === 'ad') { if (L === 2 && Math.random() < .006 && openAbove(x, y)) liquidPop(x, y, t); }
+                else if (TORCHES[t]) { if (Math.random() < .14 * k) torchPuff(x, y, TORCHES[t]); }
+                else if (t === 'mobSpawner') { if (Math.random() < .25 * k && S.spawnOn && S.spawnOn.has(x + ',' + y)) { addPart({ x: x + .2 + Math.random() * .6, y: y + .2 + Math.random() * .6, vy: .012, life: 18, size: .09, col: '#ffcf4a', glow: true }); addPart({ x: x + Math.random(), y: y + .5 + Math.random() * .5, vy: .02, drag: .97, life: 35, size: .1, col: 'rgba(60,60,60,.75)' }); } }
+            }
+        }
+    }
+    // ¿entró o salió del agua? (el Player y los otros jugadores) — salpicada; debajo del agua, burbujas
+    function waterParts(L) {
+        const w = W();
+        const bodies = [{ k: 'me', x: Number(w.worldX), y: -Number(w.worldY), ok: !(w.dead > 0) && w.gamemode != 3 }];
+        if (S.mp && window.mbwMpPlay) { const R = window.mbwMpPlay.remotes || {}; Object.keys(R).forEach(function (q) { const r = remoteOf(RP + q); if (r) bodies.push({ k: q, x: Number(r.tx), y: -Number(r.ty), ok: true }); }); }
+        S.wetWas = S.wetWas || {};
+        bodies.forEach(function (b) {
+            if (!b.ok || !isFinite(b.x) || !isFinite(b.y)) return;
+            const bx = Math.floor(b.x), by = Math.floor(b.y);
+            const wet = isWet(fg(bx, by)) || isWet(fg(bx, by + 1));
+            const was = S.wetWas[b.k];
+            if (was !== undefined && wet !== was) {
+                let sy = by; for (let i = 0; i < 4 && isWet(fg(bx, sy + 1)); i++) sy++;      // (la superficie del agua)
+                splash(b.x, (wet ? sy : by) + (wet ? 1 : .2), L === 2 ? 10 : 4);
+            }
+            S.wetWas[b.k] = wet;
+            if (isWet(fg(bx, by + 1)) && Math.random() < (L === 2 ? .08 : .03)) bubble(b.x, b.y + 1.5);   // (la cabeza debajo del agua)
+        });
+    }
+    function tickParticles() {
+        const L = partLevel();
+        if (!L) { if (S.parts.length) S.parts.length = 0; return; }
+        if (S.tick % 2 === 0) emitBlockParts(L);
+        waterParts(L);
+        for (let i = S.parts.length - 1; i >= 0; i--) {
+            const p = S.parts[i];
+            p.vy -= p.g; p.vx *= p.drag; p.vy *= p.drag;
+            p.x += p.vx; p.y += p.vy; p.life--;
+            if (p.kind === 'bubble' && !isWet(fg(Math.floor(p.x), Math.floor(p.y)))) p.life = 0;   // (la burbuja revienta al salir del agua)
+            if (p.life <= 0) S.parts.splice(i, 1);
+        }
+    }
+    function drawParticles(c2) {
+        if (!S.parts.length) return;
+        const ts = tileSize;
+        for (let i = 0; i < S.parts.length; i++) {
+            const p = S.parts[i];
+            const q = toScreen(p.x, -p.y), sz = Math.max(2, p.size * ts);
+            c2.globalAlpha = Math.max(0, Math.min(1, (p.life / p.max) * 1.6));
+            if (p.ring) { c2.strokeStyle = p.col; c2.lineWidth = Math.max(1, sz / 4); c2.strokeRect(Math.round(q.x - sz / 2), Math.round(q.y - sz / 2), Math.round(sz), Math.round(sz)); }
+            else { c2.fillStyle = p.col; c2.fillRect(Math.round(q.x - sz / 2), Math.round(q.y - sz / 2), Math.round(sz), Math.round(sz)); }
+        }
+        c2.globalAlpha = 1;
+    }
+    window.mbwPlay.particles = function () { return S.parts; };
+    // ❤ La vida de los mobs y de los otros jugadores en corazones (a los jugadores también el hambre) y 🎒 la casilla con lo que
+    // agarró un jugador cuando cambia de casilla (yo y los demás), arriba de la cabeza
+    const heartImg = new Image(); heartImg.src = 'assets/HEALTH.png';
+    const foodImg = new Image(); foodImg.src = 'assets/HUNGER.png';
+    function iconSet(img) {
+        if (!(img.complete && img.naturalWidth)) return null;
+        if (img.__set) return img.__set;
+        const mk = function (fn) { const c = document.createElement('canvas'); c.width = c.height = 32; const x = c.getContext('2d'); x.imageSmoothingEnabled = false; fn(x); return c; };
+        const empty = mk(function (x) { x.drawImage(img, 0, 0, 32, 32); x.globalCompositeOperation = 'source-in'; x.fillStyle = 'rgba(25,25,25,.6)'; x.fillRect(0, 0, 32, 32); });
+        const full = mk(function (x) { x.drawImage(img, 0, 0, 32, 32); });
+        const half = mk(function (x) { x.drawImage(empty, 0, 0); x.drawImage(img, 0, 0, 16, 32, 0, 0, 16, 32); });
+        return (img.__set = { f: full, h: half, e: empty });
+    }
+    // una fila (o dos) de corazones / muslos: val y max en medios (como la vida: 20 = 10 corazones). Devuelve cuánto ocupó de alto.
+    function iconRows(c2, set, val, max, cx, bottom, sz) {
+        const n = Math.ceil(max / 2);
+        if (n > 20) {                                                  // muchísima vida (el dragón): un corazón y el número
+            const fs = Math.max(9, Math.round(sz * 1.05));
+            c2.font = 'bold ' + fs + 'px Arial, sans-serif'; c2.textAlign = 'left'; c2.textBaseline = 'middle';
+            const txt = Math.max(0, Math.ceil(val)) + ' / ' + max, tw = c2.measureText(txt).width;
+            const x = cx - (sz + 3 + tw) / 2, y = bottom - sz;
+            c2.drawImage(set.f, x, y, sz, sz);
+            c2.fillStyle = 'rgba(0,0,0,.6)'; c2.fillText(txt, x + sz + 4, y + sz / 2 + 1); c2.fillStyle = '#fff'; c2.fillText(txt, x + sz + 3, y + sz / 2);
+            return sz;
+        }
+        const rows = n > 10 ? 2 : 1, per = Math.min(10, n);
+        for (let i = 0; i < n; i++) {
+            const row = Math.floor(i / 10), col = i % 10;
+            const k = val >= (i + 1) * 2 ? 'f' : val >= i * 2 + 1 ? 'h' : 'e';
+            c2.drawImage(set[k], Math.round(cx - per * sz / 2 + col * sz), Math.round(bottom - sz * (row + 1)), sz, sz);
+        }
+        return rows * sz;
+    }
+    function slotBox(c2, id, cx, bottom, sz, a) {
+        c2.globalAlpha = a;
+        c2.fillStyle = 'rgba(30,30,30,.85)'; c2.fillRect(Math.round(cx - sz / 2), Math.round(bottom - sz), sz, sz);
+        c2.strokeStyle = '#d8d8d8'; c2.lineWidth = Math.max(1, sz / 14); c2.strokeRect(Math.round(cx - sz / 2) + .5, Math.round(bottom - sz) + .5, sz - 1, sz - 1);
+        if (id && id !== 'air') { const p = Math.round(sz * .14); c2.drawImage(iconFor(id), Math.round(cx - sz / 2) + p, Math.round(bottom - sz) + p, sz - 2 * p, sz - 2 * p); }
+        c2.globalAlpha = 1;
+    }
+    function drawBars(c2) {
+        const hs = iconSet(heartImg), fs2 = iconSet(foodImg);
+        const ts = tileSize, sz = Math.max(6, Math.round(ts * .24)), now = Date.now();
+        const vx0 = camera.x - 2, vx1 = camera.x + canvas.width / ts + 2;
+        c2.imageSmoothingEnabled = false;
+        // los mobs
+        if (hs) for (const id in mbwom.mobs) {
+            const m = mbwom.mobs[id];
+            if (!m || !m.type || m.dead > 0 || m.x < vx0 || m.x > vx1) continue;
+            const mx = maxHealth(m), hp = Math.max(0, Math.min(mx, Number(m.health)));
+            if (!isFinite(hp)) continue;
+            // arriba del dibujo del mob y de su nombre (main.js drawMobs: el nombre va 8 px arriba del dibujo)
+            let dh = 2; try { if (typeof getMobDrawInfo === 'function') dh = getMobDrawInfo(m, true).h || 2; } catch (e) { /* nada */ }
+            const top = toScreen(m.x, m.y).y - dh * ts;
+            iconRows(c2, hs, hp, mx, (m.x - camera.x) * ts, top - (window.hideMobNames ? 4 : 22), sz);
+        }
+        // los otros jugadores: vida y hambre arriba de su nombre (en supervivencia y aventura), y su casilla al cambiarla
+        const fsN = Math.max(10, Math.round(ts * .42)), ph = ts * 2;
+        if (S.mp && window.mbwMpPlay) {
+            const MP = window.mbwMpPlay, R = MP.remotes || {};
+            Object.keys(R).forEach(function (k) {
+                const r = remoteOf(RP + k); if (!r) return;
+                const pos = MP.posOf ? MP.posOf(k) : { x: r.tx, y: r.ty };
+                const sx = (pos.x - camera.x) * ts, feet = canvas.height - (-pos.y - camera.y) * ts;
+                let bottom = feet - ph - fsN - 11;
+                if ((r.gm == 0 || r.gm == 2) && hs && isFinite(Number(r.hp))) {
+                    bottom -= iconRows(c2, hs, Number(r.hp), 20, sx, bottom, sz) + 2;
+                    if (fs2 && isFinite(Number(r.fd))) bottom -= iconRows(c2, fs2, Number(r.fd) / 50, 20, sx, bottom, sz) + 2;
+                }
+                if (r.selT && now - r.selT < 1500) slotBox(c2, r.it, sx, bottom - 2, Math.round(ts * .7), Math.min(1, (1500 - (now - r.selT)) / 400));
+            });
+        }
+        // yo: la casilla nueva arriba de la cabeza
+        const w = W(), si = selIndex();
+        if (S.selPrev === undefined || S.selPrev === null) S.selPrev = si;
+        else if (S.selPrev !== si) { S.selPrev = si; S.selShow = now; }
+        if (S.selShow && now - S.selShow < 1500 && !(w.dead > 0) && w.gamemode != 3) {
+            const sx = (Number(w.worldX) - camera.x) * ts, feet = canvas.height - (-Number(w.worldY) - camera.y) * ts;
+            slotBox(c2, selType(), sx, feet - ph - 6, Math.round(ts * .7), Math.min(1, (1500 - (now - S.selShow)) / 400));
+        }
+    }
+
+
+    // 👾 SPAWNER DE MONSTRUOS ("mobSpawner", los de los calabozos): con un jugador a menos de 16 cuadros, cada 10 a 40 segundos
+    // saca de 1 a 4 monstruos del Overworld (zombi, esqueleto, araña o creeper; nunca lobos) cerca de él, en un lugar libre,
+    // si no hay ya 6 monstruos alrededor. Solo lo hace quien mueve los mobs (solo o el anfitrión de la partida).
+    const SPAWNER_MOBS = ['zombie', 'skeleton', 'spider', 'creeper'];
+    function tickSpawners() {
+        if (mpGuest() || !mbwom.scene) return;
+        const w = W(), pl = [{ x: Number(w.worldX), y: -Number(w.worldY) }];
+        if (mpHost()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (r) pl.push({ x: Number(r.tx), y: -Number(r.ty) }); } }
+        const seen = new Set(), on = new Set();
+        S.spawnT = S.spawnT || new Map();
+        pl.forEach(function (p) {
+            const px = Math.floor(p.x), py = Math.floor(p.y);
+            for (let x = px - 16; x <= px + 16; x++) {
+                const col = mbwom.scene[x]; if (!col) continue;
+                for (let y = Math.max(0, py - 16); y <= Math.min(col.length - 1, py + 16); y++) {
+                    if (col[y] !== 'mobSpawner') continue;
+                    const k = x + ',' + y; if (seen.has(k)) continue; seen.add(k); on.add(k);
+                    let t = S.spawnT.get(k); if (t === undefined) t = Math.round(FPS * (10 + Math.random() * 30));
+                    t -= 10;                                           // (se revisa cada 10 pasos)
+                    if (t <= 0) { spawnerFire(x, y); t = Math.round(FPS * (10 + Math.random() * 30)); }
+                    S.spawnT.set(k, t);
+                }
+            }
+        });
+        S.spawnOn = on;
+    }
+    function spawnerFire(x, y) {
+        let near = 0;
+        for (const id in mbwom.mobs) { const m = mbwom.mobs[id]; if (m && SPAWNER_MOBS.indexOf(m.type) >= 0 && Math.abs(m.x - x) < 9 && Math.abs(-m.y - y) < 9) near++; }
+        if (near >= 6) return;
+        const n = Math.min(6 - near, 1 + (Math.random() * 4 | 0));
+        for (let i = 0; i < n; i++) {
+            const type = SPAWNER_MOBS[Math.random() * SPAWNER_MOBS.length | 0];
+            if (!D.mobs[type]) continue;
+            for (let tries = 0; tries < 8; tries++) {
+                const sx = x + Math.round((Math.random() * 2 - 1) * 4), sy = y + Math.round(Math.random() * 2 - 1);
+                if (sx === x && sy === y) continue;
+                if (!standable(sx, sy)) continue;
+                spawnMob(type, sx + .5, -sy);
+                for (let j = 0; j < 6; j++) addPart({ x: sx + Math.random(), y: sy + Math.random() * 1.6, vy: .02, drag: .96, life: 30, size: .14, col: 'rgba(90,90,90,.8)' });
+                break;
+            }
+        }
+    }
+    window.mbwPlay.spawnerFire = spawnerFire;
+
     // 🎵🌧 Música (Game.onCertainInterval: en el Overworld, una canción al azar cada 4 a 6 minutos), lluvia, el sonido del Nether
     // y del End, y el fuego / los portales que estén cerca (Block_Fire, Block_Portal: de vez en cuando, desde donde están)
     function tickAmbience() {
@@ -2172,6 +2393,8 @@
             c2.fillStyle = 'rgba(255,255,170,' + pulse + ')'; c2.beginPath(); c2.arc(p.x - r * .3, p.y - r * 1.3, r * .35, 0, Math.PI * 2); c2.fill();
         });
         S.arrows.forEach(function (r) { const p = toScreen(r.x, r.y); const a = Math.atan2(r.vy, r.vx); c2.beginPath(); c2.moveTo(p.x, p.y); c2.lineTo(p.x - Math.cos(a) * tileSize * .6, p.y - Math.sin(a) * tileSize * .6); c2.stroke(); });
+        drawParticles(c2);
+        drawBars(c2);
         if (S.mine && S.mine.total > 1) {                       // grietas del bloque que se pica
             const k = 1 - S.mine.left / S.mine.total;
             const p = toScreen(S.mine.x, -S.mine.y);
@@ -2685,7 +2908,7 @@
         if (w.gamemode != 1) w.fly = false;
         inv();
         for (const id in mbwom.mobs) { const m = mbwom.mobs[id]; if (m && typeof m === 'object') { m.target = null; m.focus = null; m.speedX = Number(m.speedX) || 0; m.speedY = Number(m.speedY) || 0; } }
-        S.p = newPlayer(); S.tmp = new Map(); S.drops = []; S.falling = []; S.arrows = []; S.orbs = []; S.liqFresh = new Set(); S.sandCheck = new Map(); S.dropSeq = 0; S.dropBase = Date.now().toString(36); S.lastPvp = null; S.portalLock = true; S.portalGo = 0; S.dimStash = {}; S.spect = null; S.tick = 0; S.acc = 0; S.last = 0; S.mine = null; S.useTimer = -1; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mobErr = false;
+        S.p = newPlayer(); S.tmp = new Map(); S.drops = []; S.falling = []; S.arrows = []; S.orbs = []; S.liqFresh = new Set(); S.sandCheck = new Map(); S.dropSeq = 0; S.dropBase = Date.now().toString(36); S.lastPvp = null; S.parts = []; S.wetWas = {}; S.spawnT = new Map(); S.spawnOn = new Set(); S.selShow = null; S.selPrev = null; S.portalLock = true; S.portalGo = 0; S.dimStash = {}; S.spect = null; S.tick = 0; S.acc = 0; S.last = 0; S.mine = null; S.useTimer = -1; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mobErr = false;
         // arena y grava cerca: se revisan para que caigan si no tienen nada abajo
         const x0 = Math.max(0, Math.floor(px) - 60), x1 = Math.floor(px) + 60;
         for (let x = x0; x <= x1; x++) { const col = mbwom.scene[x]; if (!col) continue; for (let y = 0; y < col.length; y++) if (col[y] === 'sd' || col[y] === 'gv') S.sandCheck.set(x + ',' + y, 2); }
@@ -2880,6 +3103,25 @@
         else if (a === 'mine') i = Math.floor(S.tick / 3) % L.length;
         return { a: a, f: L[i] };
     }
+    // 🧑 la skin del Player jugando (de la galería de skins; misma tira de 17 cuadros de 16×22 que Frank). Se recuerda en este
+    // navegador para todos los mundos ('mbw_play_skin') y los demás la ven (va en juego_jugador).
+    const SKIN_KEY = 'mbw_play_skin';
+    S.skin = (function () { try { const v = localStorage.getItem(SKIN_KEY) || ''; return /^[0-9]{1,12}$/.test(v) ? v : ''; } catch (e) { return ''; } })();
+    function skinSheet(id) {
+        if (!id || typeof window.getSpawnskinImage !== 'function') return null;
+        const im = window.getSpawnskinImage(id);
+        const wd = im ? (im.naturalWidth || im.width || 0) : 0;
+        return (im && !im.hasFailed && wd >= 16 && (im.complete !== false)) ? im : null;
+    }
+    window.mbwPlaySkinSheet = skinSheet;
+    window.mbwPlay.skin = function () { return S.skin; };
+    window.mbwPlay.setSkin = function (id) {
+        id = /^[0-9]{1,12}$/.test(String(id || '')) ? String(id) : '';
+        S.skin = id;
+        try { if (id) localStorage.setItem(SKIN_KEY, id); else localStorage.removeItem(SKIN_KEY); } catch (e) { /* nada */ }
+        if (id) skinSheet(id);                                         // (que empiece a bajarse)
+        hud.dirty = true; if (typeof worldDirty !== 'undefined') worldDirty = true;
+    };
     function drawFrank() {
         if (!(frank.complete && frank.naturalWidth >= 272)) return false;
         const w = W();
@@ -2897,7 +3139,9 @@
         c2.translate(sx, sy);
         if (S.p && S.p.xScale < 0) c2.scale(-1, 1);
         if (S.p && S.p.hurt > 0) c2.globalAlpha = 0.85;
-        c2.drawImage(frank, fr.f * 16, 0, 16, 22, -pw / 2, -ph, pw, ph);
+        const sk = skinSheet(S.skin), sheet = sk || frank;
+        const nf = Math.max(1, Math.floor((sheet.naturalWidth || sheet.width) / 16)), fi = fr.f < nf ? fr.f : 0;
+        c2.drawImage(sheet, fi * 16, 0, 16, 22, -pw / 2, -ph, pw, ph);
         c2.globalAlpha = 1;
         try {
             const pArmor = window.mbwPlayerArmorMob && window.mbwPlayerArmorMob();

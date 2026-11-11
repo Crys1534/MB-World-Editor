@@ -27,6 +27,14 @@
         font-weight: normal;
         font-style: normal;
     }
+    /* 💬 el chat de la sala usa rainyhearts (pixel art, se ve nítida en 16 px) */
+    @font-face {
+        font-family: 'RainyHearts';
+        src: url('assets/rainyhearts.ttf') format('truetype');
+        font-weight: normal;
+        font-style: normal;
+        font-display: swap;
+    }
     
     /* --- ESTILOS GENERALES Y CORRECCIONES --- */
     #inventory-modal .modal-content {
@@ -1725,10 +1733,10 @@
 
 <div id="float-hotbar"><button id="float-inv-btn" onclick="toggleInventory()" data-i18n-title="tooltip_inventory" title="Open Inventory (E)">»</button></div>
 
-<div id="chat-container" style="display: none; position: absolute; bottom: 48px; left: 64px; width: 300px; z-index: 5000; font-family: 'Pixeltype', sans-serif;">
-    <div id="chat-messages" style="height: 150px; overflow-y: auto; background: rgba(0,0,0,0.6); color: white; padding: 10px; border-radius: 5px 5px 0 0; font-size: 20px; display: flex; flex-direction: column; gap: 4px; text-shadow: 1px 1px 0 #000; pointer-events: auto;">
+<div id="chat-container" style="display: none; position: absolute; bottom: 48px; left: 64px; width: 300px; z-index: 5000; font-family: 'RainyHearts', 'Pixeltype', sans-serif;">
+    <div id="chat-messages" style="height: 150px; overflow-y: auto; background: rgba(0,0,0,0.6); color: white; padding: 10px; border-radius: 5px 5px 0 0; font-size: 16px; line-height: 1.15; display: flex; flex-direction: column; gap: 4px; text-shadow: 1px 1px 0 #000; pointer-events: auto;">
         </div>
-    <input type="text" id="chat-input" data-i18n-placeholder="pl_chat" placeholder="Press Enter to chat..." style="width: 284px; padding: 8px; border: none; background: rgba(255,255,255,0.9); border-radius: 0 0 5px 5px; outline: none; font-size: 24px; font-family: Pixeltpe; pointer-events: auto;">
+    <input type="text" id="chat-input" data-i18n-placeholder="pl_chat" placeholder="Press Enter to chat..." style="width: 284px; padding: 8px; border: none; background: rgba(255,255,255,0.9); border-radius: 0 0 5px 5px; outline: none; font-size: 16px; font-family: 'RainyHearts', 'Pixeltype', sans-serif; pointer-events: auto;">
 </div>
 
 
@@ -1830,7 +1838,7 @@
             
             <div style="position: absolute; bottom: 10px; left: 15px; font-size: 11px; color: gray; font-family: monospace;">
                 <span data-i18n="about_last_update">Last Update:</span> Nov 10, 2026<br>
-                v4 - Snapshot 5
+                v4 - Snapshot 6
             </div>
             <div style="position: absolute; bottom: 10px; right: 15px; font-size: 12px; color: gray; font-weight: bold;">
                 2026
