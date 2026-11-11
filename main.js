@@ -307,9 +307,11 @@ function makeWorldCacheBuilder() {
         const col = scene[x];
         if (!col || !col.length) return;   // igual que antes: una columna vacía no crea nada en la foto
         const out = cache[x] = [];
+        const hideBarrier = !!window.mbwPlaying;   // ▶ en Modo Jugar el bloque Barrier no se ve (como en el juego)
         for (let y = 0; y < col.length; y++) {
             const type = col[y];
             if (type == null) continue;
+            if (type === 'b' && hideBarrier) continue;
             const renderer = specialRenderers[type] || defaultRenderer;
             let texture;
             if (type === 'fnc') {
@@ -376,7 +378,9 @@ function initializeWorldCacheAsync(onProgress) {
 function renderBlock(x, y) {
     if (!worldCache[x]) worldCache[x] = [];
     const states = mbwom.getBlockState(x, y);
-    if (states.type != null) {
+    if (states.type === 'b' && window.mbwPlaying) {
+        delete worldCache[x][y];                                   // ▶ Modo Jugar: el Barrier no se ve
+    } else if (states.type != null) {
         worldCache[x][y] = window.rainbowAnim.map(getBlockObject(states));
         if (states.type === 'fnc') worldCache[x][y] = window.fenceVisual.pick(mbwom.scene, x, y, worldCache[x][y]);
     } else {
@@ -1233,7 +1237,8 @@ function drawUI() {
         }
     }
     
-    if (typeof currentTool !== 'undefined' && currentTool !== 'paste' && currentTool !== 'select' && currentTool !== 'lasso' && currentTool !== 'aspect' && currentTool !== 'transform') {
+    // (en ▶ Modo Jugar no: ahí el juego dibuja su propio cuadro en el bloque bajo el cursor)
+    if (!window.mbwPlaying && typeof currentTool !== 'undefined' && currentTool !== 'paste' && currentTool !== 'select' && currentTool !== 'lasso' && currentTool !== 'aspect' && currentTool !== 'transform') {
         // Solo el Lápiz y el Borrador usan el tamaño del pincel; Move, Cubeta y Varita actúan sobre 1 sola casilla
         const size = ((currentTool === 'pencil' || currentTool === 'eraser') && typeof toolSize !== 'undefined') ? toolSize : 1;
         

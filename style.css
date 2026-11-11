@@ -3306,7 +3306,7 @@ body.is-touch #mbw-play-hud .ph-chat.open { top: 50px; bottom: auto; left: 60px;
 body.is-touch #mbw-play-hud .ph-chat.open .ph-chat-log { max-height: 30vh; }
 body.is-touch #mbw-play-hud .ph-chat-log { font-size: 15px; }
 #mbw-play-hud .ph-inv { position: absolute; bottom: 10px; left: calc(50% + 208px); width: 44px; height: 44px; border: 2px solid #555; background: rgba(0,0,0,.45); color: #fff; font-size: 22px; cursor: pointer; }
-#mbw-play-hud .ph-open { position: absolute; left: 50%; transform: translateX(-50%); bottom: 112px; padding: 7px 16px; border-radius: 999px; border: 2px solid rgba(255,255,255,.55); background: rgba(139,90,43,.95); color: #fff; font-weight: 700; font-size: 15px; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.45); }
+#mbw-play-hud .ph-open { position: absolute; left: 50%; transform: translateX(-50%); bottom: 112px; padding: 4px 12px; border-radius: 6px; background: rgba(0,0,0,.45); color: #fff; font-weight: 600; font-size: 13px; text-shadow: 1px 1px 0 #000; white-space: nowrap; pointer-events: none; }
 body.is-touch #mbw-play-hud .ph-inv { left: calc(50% + 178px); width: 38px; height: 38px; bottom: 6px; font-size: 19px; }
 body.is-touch #mbw-play-hud .ph-open { bottom: 92px; }
 

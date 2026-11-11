@@ -418,10 +418,12 @@
  // Columna de la izquierda (solo en el horno): los objetos que sirven de combustible. Clic = tomar una pila en el cursor.
  function renderFuelPalette() {
   const box = $('pinv-fuel-box'), grid = $('pinv-fuel-grid');
-  if (box) box.style.display = st.furnace ? '' : 'none';
+  const show = !!st.furnace && !window.mbwPlaying;                 // ▶ en Modo Jugar no hay combustible gratis: se usa el del inventario
+  if (box) box.style.display = show ? '' : 'none';
+  document.body.classList.toggle('pinv-no-fuel', !!st.furnace && !show);
   if (!grid) return;
   grid.innerHTML = '';
-  if (!st.furnace) return;
+  if (!show) return;
   FUEL_IDS.forEach((id) => {
    const it = { id: id, qty: 1, dmg: 0, extras: {}, legacy: undefined };
    const d = document.createElement('div');

@@ -788,13 +788,14 @@
 
         <!-- ☁ Nubes en el cielo, como en el juego (scripts/clouds.js) -->
         <div class="ribbon-group">
-            <div class="ribbon-group-content rg-col-start gap-4 view-toggles">
-                <label class="rg-row-center gap-5 lbl-small pointer" data-i18n-title="clouds_toggle_tip" title="Shows clouds drifting in the sky, like in the game.">
-                    <svg class="mbw-ic vt-ic" aria-hidden="true" focusable="false"><use href="#ic-weather"></use></svg>
+            <!-- (igual que "Weather Animation": el dibujito arriba y la casilla con el texto abajo) -->
+            <label class="ribbon-group-content rg-col-center gap-2 pointer" data-i18n-title="clouds_toggle_tip" title="Shows clouds drifting in the sky, like in the game.">
+                <span class="icon-24 m-auto"><svg class="mbw-ic" aria-hidden="true" focusable="false"><use href="#ic-weather"></use></svg></span>
+                <div class="rg-row-center gap-5 lbl-small">
                     <input type="checkbox" id="clouds-toggle" checked onchange="mbwClouds.set(this.checked)">
                     <span data-i18n="lbl_clouds_toggle">Clouds</span>
-                </label>
-            </div>
+                </div>
+            </label>
             <div class="ribbon-group-label" data-i18n="lbl_sky_group">Sky</div>
         </div>
         <div class="separator"></div>
@@ -1796,7 +1797,7 @@
             
             <div style="position: absolute; bottom: 10px; left: 15px; font-size: 11px; color: gray; font-family: monospace;">
                 <span data-i18n="about_last_update">Last Update:</span> Nov 10, 2026<br>
-                v4 - Snapshot 1
+                v4 - Snapshot 2
             </div>
             <div style="position: absolute; bottom: 10px; right: 15px; font-size: 12px; color: gray; font-weight: bold;">
                 2026

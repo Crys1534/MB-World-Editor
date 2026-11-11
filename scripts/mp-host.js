@@ -226,9 +226,11 @@
     // =====================================================================
     // mensajes nuevos
     // =====================================================================
+    let recvHooked = false;      // (una sola vez: si otro archivo se engancha después, aquí no se vuelve a envolver; antes los mensajes pasaban 2 o 3 veces)
     function hookReceive() {
         const orig = window.recibirMensajeDeRed;
-        if (typeof orig !== 'function' || orig.__mpHost) return;
+        if (recvHooked || typeof orig !== 'function' || orig.__mpHost) return;
+        recvHooked = true;
         const w = function (d) {
             if (d && d.tipo === 'room_cfg') { if (!amHost() && d.cfg) { window.mpRoomCfg = d.cfg; window.mpGen = d.cfg.gen || 0; } return; }
             if (d && d.tipo === 'host_migra') return;

@@ -716,9 +716,32 @@
         if (w.food <= 300) P.leftSprinting = P.rightSprinting = 0;
     }
 
+    // 🍗 ¿se puede comer? (Game.canEatFood: con hambre (≤ 900), o si cura y falta vida, o si tiene efectos)
+    function canEat(id) {
+        const f = bd(id, 'food'), w = W(); if (!f) return false;
+        return w.food <= 900 || (f.health != null && w.health < 20) || f.effects != null;
+    }
+    // ✨ efectos en el Player (Game.addEffect / manageEffects): regeneración, hambre, veneno
+    function addEffect(type, duration, level) {
+        const w = W(); if (!w.effects || typeof w.effects !== 'object') w.effects = {};
+        w.effects[type] = { duration: duration, level: level || 1, potency: 1 };
+    }
+    function tickEffects() {
+        const w = W(), E = w.effects; if (!E || typeof E !== 'object') return;
+        Object.keys(E).forEach(function (k) {
+            const e = E[k]; if (!e || typeof e !== 'object') { delete E[k]; return; }
+            if (S.tick % FPS === 0) { if (!(e.duration > 0)) { delete E[k]; return; } e.duration--; }
+            const lv = e.level || 1;
+            if (k === 'hunger') { if (w.food > 20 && S.tick % FPS === 0) w.food -= Math.floor(6.25 * lv); }
+            else if (k === 'poison') { if (S.tick % Math.max(1, Math.floor(2 * FPS / Math.pow(2, lv))) === 0 && w.health > 1) ouch(1, 1, 'poison'); }
+            else if (k === 'regeneration') { if (S.tick % Math.max(1, Math.floor(2.5 * FPS / Math.pow(2, lv))) === 0) { if (w.health < 20) w.health += 1; if (w.food < 1000) w.food += 50; hud.dirty = true; } }
+        });
+    }
+
     // hambre, curarse, vacío (Game.onCertainInterval)
     function intervals() {
         const w = W(), P = S.p, t = S.tick;
+        if (!(w.dead > 0)) tickEffects();
         if (t % (300 * FPS / 25 | 0) === 0) { if (w.food / 100 < 1 && w.health > 5 && w.difficulty !== 'peaceful') ouch(1, 1, 'hunger'); }
         if (t % (156 * FPS / 25 | 0) === (45 * FPS / 25 | 0)) { w.food -= 3; if (w.food / 100 >= 6 && w.food / 100 <= 9) w.health += 1; hud.dirty = true; }
         if (t % (63 * FPS / 25 | 0) === (33 * FPS / 25 | 0)) { if (w.food / 100 > 9 || w.difficulty === 'peaceful') { w.health += 1; hud.dirty = true; } }
@@ -1337,17 +1360,21 @@
         if (drop) addDrop(drop, x + .5, -y - .5, 1, 0, ex);
         if (chestItems) chestItems.forEach(function (it) { if (!isEmpty(it)) addDrop(it[0], x + .5, -y - .5, it[1], it[2], it[3]); });
     }
+    const WALLY = { lant: 1, th: 1, ortorch: 1, rstorch: 1, button: 1, lever: 1 };
     function placeBlock(mw) {
         const w = W();
         const bx = Math.floor(mw.x), by = Math.floor(mw.y);
         const it = selItem();
         if (!it) return false;
-        const id = String(it[0]);
+        let id = String(it[0]);
+        // el inventario del editor guarda algunos bloques con su variante ("lant_1", "th_2"...): se pone el bloque normal con esa variante
+        let varS1;
+        if (bd(id, 'placeable') != 1) { const mv = /^(.+)_([0-9]+)$/.exec(id); if (mv && bd(mv[1], 'placeable') == 1) { id = mv[1]; varS1 = Number(mv[2]); } }
         const here = fg(bx, by);
         // usar un objeto
         if (here === 'TNT' && id === 'fas') { igniteTNT(bx, by); damageTool(); return true; }
         const food = bd(id, 'food');
-        if (food && bd(id, 'placeable') != 1) { if (w.food < 1000 && S.useTimer < 0) S.useTimer = ((bd(id, 'timerToUse') || 50) / 25 * FPS) | 0; return false; }
+        if (food && bd(id, 'placeable') != 1) { if (canEat(id) && S.useTimer < 0) S.useTimer = ((bd(id, 'timerToUse') || 50) / 25 * FPS) | 0; return false; }
         if (id === 'megg' && it[3] && it[3].type) { if (blockDist(bx, by) <= REACH) { spawnMob(String(it[3].type), bx + .5, -by - .01); reduceSelected(1); return true; } return false; }
         // 🪣 cubetas: la vacía recoge una fuente de agua / lava / ácido; la llena la pone
         const BUCKET = { wbk: 'wr', lbk: 'la', abk: 'ad' }, FILL = { wr: 'wbk', la: 'lbk', ad: 'abk' };
@@ -1387,8 +1414,16 @@
             if ((bx === pxL || bx === pxR) && (by === P.blockY + 1 || by === P.blockY + 2)) return false;
             for (const k in mbwom.mobs) { const b2 = mobBounds(k); if (b2 && bx + 1 > b2.l && bx < b2.r && -by > b2.t && -by - 1 < b2.b) return false; }
         }
-        let s1;
+        let s1 = varS1;
         if (it[3] && typeof it[3].type === 'string') s1 = it[3].type;   // color de la lana, de la cama, etc.
+        // antorchas, coral lantern, palanca, botón: se pegan al piso (1) o a la pared de la izquierda (2) / derecha (3), como Game.placeBlock
+        if (WALLY[id]) {
+            const solid = function (x, y) { const t = fg(x, y); return t !== 'air' && bd(t, 'walkThroughBlock') == null; };
+            const px = Math.floor(w.worldX), order = px === bx ? [[0, -1, 1], [-1, 0, 2], [1, 0, 3]] : px < bx ? [[1, 0, 3], [0, -1, 1], [-1, 0, 2]] : [[-1, 0, 2], [0, -1, 1], [1, 0, 3]];
+            const o = order.find(function (q) { return solid(bx + q[0], by + q[1]); });
+            if (!o) return false;
+            s1 = o[2];
+        }
         setBlock(bx, by, id, s1);
         blockSnd(id, 'place', bx, by);
         reduceSelected(1);
@@ -1435,6 +1470,7 @@
     window.mbwPlay.explode = function (x, y, r) { explode(x, y, r || 3, PLAYER_ID); };
     window.mbwPlay.runCommand = function (t) { runCommand(t); };                              // (lo usan las pruebas)
     window.mbwPlay.addDrop = function (id, x, y, n) { addDrop(id, x, y, n || 1, 0, {}); };                  // (lo usan las pruebas)
+    window.mbwPlay.openBox = function (x, y) { return openBox(x, y); };                                       // (lo usan las pruebas)
     // 🎮 ¿hay otro jugador bajo el mouse (y a la mano: 3.5 bloques)?
     function playerUnderMouse(mw) {
         if (!S.mp || !window.mbwMpPlay) return null;
@@ -1500,8 +1536,17 @@
                 const fd = bd(selType(), 'food');
                 // 🔊 al terminar: "drink" para lo que se bebe, si no uno de los 4 "eat"
                 if (bd(selType(), 'drink') != null || selType() === 'potion') snd('drink' + ((Math.random() * 2 | 0) + 1)); else snd('eat' + ((Math.random() * 4 | 0) + 1));
+                const ate = selType();
                 if (fd && fd.hunger != null) w.food = Math.min(1000, w.food + fd.hunger);
+                if (fd && fd.health != null) w.health = Math.min(20, w.health + fd.health);
+                // efectos (como el juego: la manzana dorada regenera, la carne cruda da hambre, la papa venenosa envenena...)
+                if (fd && fd.effects) Object.keys(fd.effects).forEach(function (k) { const e = fd.effects[k]; if (e.chance == null || Math.random() < 1 / e.chance) addEffect(k, e.duration == null ? 10 : e.duration, 1); });
                 reduceSelected(1); S.useTimer = -1; hud.dirty = true;
+                // las sopas y el helado dejan el plato; los jugos, la botella vacía (Game.useUpItem)
+                if (w.gamemode != 1) {
+                    if (ate === 'rabbitsoup' || ate === 'beetsoup' || ate === 'soup' || ate === 'icec') addDrop('bowl', w.worldX, w.worldY, 1, 0, {});
+                    else if (ate === 'lade' || ate === 'orade' || ate === 'apade') addDrop('potion', w.worldX, w.worldY, 1, 0, { type: 'empty' });
+                }
             } else if (S.useTimer % 20 === 0) snd('eat' + ((Math.random() * 2 | 0) + 1), { vol: .3 });   // (mientras come: mordiditas suaves)
             return;
         }
@@ -1730,12 +1775,11 @@
 
     // ------------------------------------------------------------------ cofres y hornos (abrir)
     const BOX = { chest: 1, oven: 1, dispense: 1, dropper: 1 };
-    // el botón "Open" dice qué se abre (con su dibujito)
+    // el aviso de abajo: "Doble clic para abrir el cofre" (en el celular, "Toca dos veces..."), según el bloque bajo el cursor
     function boxLabel(t) {
-        if (t === 'oven') return '🔥 ' + tr('play_open_furnace', 'Open furnace');
-        if (t === 'dispense') return '🎯 ' + tr('play_open_dispenser', 'Open dispenser');
-        if (t === 'dropper') return '📤 ' + tr('play_open_dropper', 'Open dropper');
-        return '📦 ' + tr('play_open_chest', 'Open chest');
+        const touch = document.body.classList.contains('is-touch');
+        const what = t === 'oven' ? tr('play_box_furnace', 'the furnace') : t === 'dispense' ? tr('play_box_dispenser', 'the dispenser') : t === 'dropper' ? tr('play_box_dropper', 'the dropper') : tr('play_box_chest', 'the chest');
+        return (touch ? tr('play_dbl_tap_open', 'Double-tap to open {what}') : tr('play_dbl_click_open', 'Double-click to open {what}')).replace('{what}', what);
     }
     function openBox(x, y) {
         const t = fg(x, y);
@@ -1743,7 +1787,16 @@
         if (t === 'chest' && typeof window.openChestEditor === 'function') ok = window.openChestEditor(x, y);
         else if (t === 'oven' && typeof window.openFurnaceEditor === 'function') ok = window.openFurnaceEditor(x, y);
         else if ((t === 'dispense' || t === 'dropper') && typeof window.openDispenserEditor === 'function') ok = window.openDispenserEditor(x, y);
-        if (ok) { S.keys = {}; S.mouse.left = S.mouse.right = false; S.mine = null; S.openBoxAt = { x: x, y: y }; }
+        if (ok) {
+            S.keys = {}; S.mouse.left = S.mouse.right = false; S.mine = null; S.openBoxAt = { x: x, y: y };
+            // el último clic (o toque) del doble clic cae sobre la ventana que se acaba de abrir: ese no cuenta (si no, tomaba un objeto)
+            const until = performance.now() + 450;
+            const eat = function (e) { if (performance.now() > until) { off(); return; } e.stopImmediatePropagation(); e.preventDefault(); };
+            const names = ['pointerup', 'mouseup', 'click', 'dblclick', 'touchend', 'contextmenu'];
+            const off = function () { names.forEach(function (n) { window.removeEventListener(n, eat, true); }); };
+            names.forEach(function (n) { window.addEventListener(n, eat, true); });
+            setTimeout(off, 500);
+        }
         return ok;
     }
     function findBox() {                                             // el cofre / horno bajo el mouse (si está al alcance) o el más cercano
@@ -1856,8 +1909,11 @@
         return id.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, function (c) { return c.toUpperCase(); });
     }
     window.mbwPlayItemName = itemDisplayName;
-    function camSnap() { camFollow(1); }
-    function camFollow(k) {
+    function camSnap() { camFollow(1, 1); }
+    // la cámara sigue al Player: de lado se desliza suave (kx); de arriba a abajo va pegada (ky = 1), así al caer rápido
+    // el Player no se queda más abajo del centro de la pantalla
+    function camFollow(k, ky) {
+        if (ky == null) ky = 1;
         const w = W();
         let tx = w.worldX - (canvas.width / tileSize) / 2, ty = (-w.worldY + 1) - (canvas.height / tileSize) / 2;
         const A = window.mbwAspect;
@@ -1865,7 +1921,7 @@
             const o = A.offsets();
             tx = w.worldX - A.w / 2 - o.offX; ty = (-w.worldY + 1) - A.h / 2 - o.offY;
         }
-        camera.x += (tx - camera.x) * k; camera.y += (ty - camera.y) * k;
+        camera.x += (tx - camera.x) * k; camera.y += (ty - camera.y) * ky;
         camera._tx = camera.x; camera._ty = camera.y; camera.velX = 0; camera.velY = 0;
     }
     function frame(ts) {
@@ -1929,7 +1985,8 @@
             const mw = mouseWorld(); const bx = Math.floor(mw.x), by = Math.floor(mw.y);
             const ok = blockDist(bx, by) <= REACH + 1;
             const p = toScreen(bx, -by);
-            c2.strokeStyle = ok ? 'rgba(255,255,255,.85)' : 'rgba(255,80,80,.6)'; c2.lineWidth = 2;
+            const barrier = mbwom.getBlock(bx, by) === 'b';            // un Barrier (no se ve): el recuadro sale azul
+            c2.strokeStyle = barrier ? 'rgba(60,150,255,.95)' : ok ? 'rgba(255,255,255,.85)' : 'rgba(255,80,80,.6)'; c2.lineWidth = 2;
             c2.strokeRect(p.x + 1, p.y - tileSize + 1, tileSize - 2, tileSize - 2);
         }
         const w = W();
@@ -1953,7 +2010,7 @@
                 '<div class="ph-hotbar"></div>' +
                 '<div class="ph-sign"><div class="ph-sign-t"></div></div>' +
                 '<button type="button" class="ph-inv">🎒</button>' +
-                '<button type="button" class="ph-open" style="display:none"></button>' +
+                '<div class="ph-open" style="display:none"></div>' +
                 '<div class="ph-joy"><div class="ph-knob"></div></div>' +
                 '<div class="ph-pad2"><button type="button" data-k="down" class="ph-sneak">⇩</button><button type="button" data-k="up" class="ph-jump">⇧</button><button type="button" class="ph-mode">⛏</button></div>';
             document.body.appendChild(el);
@@ -1975,7 +2032,6 @@
             el.querySelector('.ph-inv').addEventListener('click', function (e) { e.stopPropagation(); toggleInv(); });
             chat.build(el);
             el.querySelector('.ph-chat-btn').addEventListener('click', function (e) { e.stopPropagation(); if (chat.open) chat.close(); else chat.show(''); });
-            el.querySelector('.ph-open').addEventListener('click', function (e) { e.stopPropagation(); if (S.box) openBox(S.box.x, S.box.y); });
             const mb = el.querySelector('.ph-mode');
             mb.addEventListener('click', function (e) { e.stopPropagation(); S.touchMode = S.touchMode === 'mine' ? 'place' : 'mine'; hud.dirty = true; });
             el.querySelector('.ph-hotbar').addEventListener('click', function (e) {
@@ -2397,6 +2453,8 @@
         S.playing = true; S.mp = mpMode; S.openBoxAt = null;
         window.mbwPlaying = true;
         document.body.classList.add('mbw-playing');
+        // el bloque Barrier no se ve jugando: si el mundo tiene alguno, el dibujo del mundo se rehace sin ellos
+        try { if ((mbwom.scene || []).some(function (c) { return c && c.indexOf('b') >= 0; }) && typeof initializeWorldCache === 'function') initializeWorldCache(); } catch (e) { /* nada */ }
         window.smoothScroll = true;
         // pantalla completa + solo el mapa (el CSS de body.mbw-playing esconde todo el editor) + la vista del juego (Aspect, medidas de fábrica)
         S.old.fs = !!(document.fullscreenElement || document.webkitFullscreenElement);

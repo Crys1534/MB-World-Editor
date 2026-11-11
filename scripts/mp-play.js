@@ -441,7 +441,8 @@
     // ------------------------------------------------------------------ enganches
     function hook() {
         // 1) los mensajes de la partida + guardar para después lo que edita alguien mientras se juega
-        if (typeof window.recibirMensajeDeRed === 'function' && !window.recibirMensajeDeRed.__mpPlay) {
+        if (!M.recvHooked && typeof window.recibirMensajeDeRed === 'function' && !window.recibirMensajeDeRed.__mpPlay) {
+            M.recvHooked = true;            // (una sola vez: antes, con mp-host.js, se envolvían uno al otro y los mensajes salían 2 o 3 veces)
             const o = window.recibirMensajeDeRed;
             const nw = function (d) {
                 if (d && typeof d.tipo === 'string' && d.tipo.indexOf('juego_') === 0) { try { onMessage(d); } catch (e) { console.error('mp-play', e); } return; }
@@ -455,7 +456,8 @@
             window.recibirMensajeDeRed = nw;
         }
         // 2) cada bloque que cambio yo jugando se apunta para mandarlo
-        if (typeof mbwom !== 'undefined' && typeof mbwom.setBlockState === 'function' && !mbwom.setBlockState.__mpPlay) {
+        if (!M.sbsHooked && typeof mbwom !== 'undefined' && typeof mbwom.setBlockState === 'function' && !mbwom.setBlockState.__mpPlay) {
+            M.sbsHooked = true;
             const o2 = mbwom.setBlockState;
             const nw2 = function (x, y) { const r = o2.apply(this, arguments); if (M.on && !M.applying) M.mark(x, y); return r; };
             nw2.__mpPlay = true;
