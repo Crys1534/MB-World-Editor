@@ -116,7 +116,7 @@
     M.beforeStop = function () {
         if (!M.on) return;
         try { flush(); } catch (e) { /* nada */ }
-        if (M.role === 'host') { send({ tipo: 'juego_fin', peerId: myPeer() }); M.session = false; M.changes = new Map(); }
+        if (M.role === 'host') { send({ tipo: 'juego_fin', peerId: myPeer(), test: (window.mbwPlay && window.mbwPlay.isTest && window.mbwPlay.isTest()) ? 1 : 0 }); M.session = false; M.changes = new Map(); }
         else { M.saveMine(); send({ tipo: 'juego_salir', peerId: myPeer() }); }
         clearInterval(M.timer); clearInterval(M.alive); M.timer = 0; M.alive = 0;
         M.on = false; M.remotes = {}; M.mobT = new Map(); M.mobSig = new Map(); M.mobSent = new Set();
@@ -197,6 +197,11 @@
         if (msg) setTimeout(function () { notice(msg); }, 50);
     }
 
+    // 🛡 la armadura que llevo puesta (los demás la ven): [id, color o tipo] de casco, peto, pantalón y botas
+    function armorOf(w) {
+        const a = Array.isArray(w.armors) ? w.armors : [];
+        return [0, 1, 2, 3].map(function (i) { const q = a[i]; if (!Array.isArray(q) || !q[0] || q[0] === 'air') return null; const ex = (q[2] && typeof q[2] === 'object') ? q[2] : ((q[3] && typeof q[3] === 'object') ? q[3] : {}); return [String(q[0]), ex.type != null ? String(ex.type) : (ex.color != null ? String(ex.color) : null)]; });
+    }
     // dónde estoy y cómo me veo (el cuadro del dibujo del Player)
     function sendMe() {
         if (typeof mbwom === 'undefined' || !mbwom.world) return;
@@ -208,7 +213,8 @@
             h: (P && P.p && P.p.hurt > 0) ? 1 : 0, d: (Number(w.dead) > 0) ? 1 : 0,
             gm: Number(w.gamemode) || 0, it: (window.mbwPlay.net ? window.mbwPlay.net.heldId() : ''),
             uid: myUid(), p: M.role === 'host' ? 0 : (M.ping | 0), sel: w.selectedInventoryItem | 0,
-            hp: Math.max(0, Math.round(Number(w.health) || 0)), fd: Math.max(0, Math.round(Number(w.food) || 0)), sk: mySkin()
+            hp: Math.max(0, Math.round(Number(w.health) || 0)), fd: Math.max(0, Math.round(Number(w.food) || 0)), sk: mySkin(),
+            ar: armorOf(w), iv: (window.mbwPlay && window.mbwPlay.effect && window.mbwPlay.effect('invisibility')) ? 1 : 0
         });
     }
 
@@ -293,7 +299,7 @@
         }
         if (t === 'juego_fin') {
             M.session = false; M.autoJoin = false; hideBanner();
-            if (M.on && M.role === 'guest') stopGame(tr('mpplay_ended2', 'The host ended the game. Everything that happened was saved.'));
+            if (M.on && M.role === 'guest') stopGame(d.test ? tr('mpplay_ended_test', 'The host ended the test. Nothing was saved: the world is back to how it was.') : tr('mpplay_ended2', 'The host ended the game. Everything that happened was saved.'));
             return;
         }
         if (t === 'juego_salir') {
@@ -461,6 +467,8 @@
         r.name = String(d.autor || 'Player'); r.s = Number(d.s) || 1; r.f = d.f | 0; r.fl = !!d.fl; r.h = !!d.h; r.d = !!d.d; r.t = now;
         r.gm = Number(d.gm) || 0; r.it = String(d.it || ''); r.uid = d.uid ? String(d.uid) : r.uid; r.ping = Number(d.p) || 0;
         r.hp = Number(d.hp); r.fd = Number(d.fd); r.sk = /^[0-9]{1,12}$/.test(String(d.sk || '')) ? String(d.sk) : '';
+        r.ar = Array.isArray(d.ar) ? d.ar.slice(0, 4).map(function (q) { return Array.isArray(q) && typeof q[0] === 'string' ? [q[0].slice(0, 40), q[1] == null ? null : String(q[1]).slice(0, 40)] : null; }) : null;
+        r.iv = !!d.iv;
         if (r.sel !== (d.sel | 0)) { r.selT = now; r.sel = d.sel | 0; }                  // (cambió de casilla: se muestra arriba de él un ratito)
         if (M.role === 'host' && r.uid && mbwom.world && mbwom.world.mbwePlayers && mbwom.world.mbwePlayers[r.uid]) {   // (dónde está, al momento)
             const rec = mbwom.world.mbwePlayers[r.uid];
@@ -499,9 +507,18 @@
             if (r.h) c2.globalAlpha = 0.85;
             const sk = r.sk && window.mbwPlaySkinSheet ? window.mbwPlaySkinSheet(r.sk) : null, sheet = sk || frank;   // (su skin, si eligió una)
             const nf = Math.max(1, Math.floor((sheet.naturalWidth || sheet.width) / 16)), fi = Math.max(0, Math.min(16, r.f));
+            if (r.iv) c2.globalAlpha = 0.18;                                // (invisible: apenas se ve)
             c2.drawImage(sheet, (fi < nf ? fi : 0) * 16, 0, 16, 22, -pw / 2, -ph, pw, ph);
+            // 🛡 su armadura (la misma que se dibuja en mi Player)
+            if (r.ar && !r.iv && typeof drawMobArmorOverlay === 'function') {
+                try {
+                    const mob = { armor: r.ar.map(function (q) { if (!q) return ['air', 0, 0, {}]; const ex = {}; if (q[1] != null) { ex.type = q[1]; ex.color = q[1]; } return { id: q[0], extras: ex }; }) };
+                    drawMobArmorOverlay(c2, mob, -pw / 2, -ph, pw, ph);
+                } catch (e) { /* nada */ }
+            }
             if (r.h) { c2.globalCompositeOperation = 'source-atop'; c2.fillStyle = 'rgba(255,0,0,0.35)'; c2.fillRect(-pw / 2, -ph, pw, ph); }
             c2.restore();
+            if (r.iv) { c2.restore(); return; }                                // (invisible: sin nombre)
             // el nombre arriba de la cabeza
             const fs = Math.max(10, Math.round(tileSize * 0.42));
             c2.font = 'bold ' + fs + 'px Arial, sans-serif';

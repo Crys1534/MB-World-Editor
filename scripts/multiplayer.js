@@ -732,11 +732,8 @@ async function mpFinishMap(dl) {
         window.mpMapDownload = null;
         dl.queue.forEach(d => { try { recibirMensajeDeRed(d); } catch (e) { /* nada */ } });
         if (typeof window.mpResetWorldWatch === 'function') window.mpResetWorldWatch();
-        // (el mundo que manda el anfitrión al terminar una partida llega callado: sin el aviso de bienvenida)
-        if (!dl.q) {
-            if (typeof closeFileMenu === 'function') closeFileMenu();
-            alert(tmsg('msg_map_downloaded', "Map downloaded successfully! Welcome to the server."));
-        }
+        // (ya no sale la ventana de "mapa descargado": el mundo simplemente aparece)
+        if (!dl.q && typeof closeFileMenu === 'function') closeFileMenu();
     } catch (e) {
         window.mpMapDownload = null;
         console.error("No se pudo abrir el mapa del servidor:", e);
@@ -1014,7 +1011,7 @@ function recibirMensajeDeRed(datos) {
         if (filenameDisplay && mbwom.world.fileInfo) filenameDisplay.value = mbwom.world.fileInfo.name || "Multiplayer World";
         if (typeof window.mpMarkServerTab === 'function') window.mpMarkServerTab();
         if (typeof closeFileMenu === 'function') closeFileMenu();
-        alert(tmsg('msg_map_downloaded', "Map downloaded successfully! Welcome to the server."));
+        // (sin la ventana de "mapa descargado")
     }
     if (datos.tipo === "accion_lote" && Array.isArray(datos.cambios)) {
         if (typeof mbwom !== 'undefined' && mbwom.scene) {

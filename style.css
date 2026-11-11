@@ -1334,6 +1334,7 @@ button:hover {
 .canvas-thunder {
     filter: brightness(0.33) saturate(0.99); 
 }
+body.mbw-no-rain .canvas-raining, body.mbw-no-rain .canvas-thunder { filter: none; }   /* (Nether / End: sin lluvia) */
 
 /* --- BOTÓN WORLD INFO --- */
 #btn-world-info {
@@ -3393,9 +3394,9 @@ body.mbw-playing .mpplay-notice { display: flex; }
 @media (max-width: 640px) { #backups-modal .bk-cols { grid-template-columns: 1fr; overflow-y: auto; } #backups-modal .bk-list { max-height: none; } }
 
 /* ▶ Botón Play flotante: arriba a la derecha DENTRO del mapa, más grande */
-#workspace > .btn-play-mode.play-float { position: absolute; top: 12px; right: 12px; z-index: 40; margin: 0; padding: 10px 22px; font-size: 19px; gap: 8px; border-radius: 10px; border: 2px solid #1e7d3a; box-shadow: 0 4px 14px rgba(0,0,0,.45); }
-#workspace > .btn-play-mode.play-float .pb-ic { font-size: 16px; }
-body.is-phone #workspace > .btn-play-mode.play-float { top: 8px; right: 8px; padding: 8px 16px; font-size: 16px; }
+#workspace .btn-play-mode.play-float { position: absolute; top: 12px; right: 12px; z-index: 40; margin: 0; padding: 10px 22px; font-size: 19px; gap: 8px; border-radius: 10px; border: 2px solid #1e7d3a; box-shadow: 0 4px 14px rgba(0,0,0,.45); }
+#workspace .btn-play-mode.play-float .pb-ic { font-size: 16px; }
+body.is-phone #workspace .btn-play-mode.play-float { top: 8px; right: 8px; padding: 8px 16px; font-size: 16px; }
 
 /* ⏸ Modo Jugar: engranaje (abre el menú de pausa) — casi invisible, al pasar el mouse se ve completo */
 #mbw-play-hud .ph-gear { width: 42px; height: 42px; border-radius: 10px; border: 1px solid rgba(255,255,255,.5); background: rgba(0,0,0,.55); color: #fff; font-size: 24px; line-height: 1; cursor: pointer; opacity: .2; transition: opacity .15s; pointer-events: auto; }
@@ -3470,3 +3471,30 @@ body.play-no-trans #mbw-play-hud *, body.play-no-trans .pm-overlay *, body.play-
 .pe-n { position: absolute; right: 2px; bottom: 0; color: #fff; font-size: 12px; font-weight: 700; text-shadow: 1px 1px 0 #000; }
 .pe-hint { font-size: 12px; color: #555; padding: 4px 2px; }
 .pe-done { margin-top: 8px; font-size: 13px; font-weight: 700; color: #5b2a9a; }
+
+/* la cinta: captura, Download, Publish y World Info a la derecha (el botón Play ahora flota sobre el mapa) */
+#tool-screenshot.tool-in-topbar { margin-left: auto !important; }
+#export-dropdown-container { margin-left: auto !important; }
+#tool-screenshot.tool-in-topbar ~ #export-dropdown-container { margin-left: 6px !important; }
+/* ▶ Play / 🧪 Test: solo el texto más grande */
+#workspace > .play-float-wrap { position: absolute; top: 12px; right: 12px; z-index: 40; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+#workspace > .play-float-wrap > .btn-play-mode.play-float { position: static; padding: 8px 20px; }
+#workspace > .play-float-wrap .btn-play-test { display: none; background: #2f6fb5; border-color: #1d4f86; }
+#workspace > .play-float-wrap .btn-play-test:hover { background: #3a83d4; }
+#workspace > .play-float-wrap:hover .btn-play-test, body.is-touch #workspace > .play-float-wrap .btn-play-test { display: inline-flex; }
+body.is-phone #workspace > .play-float-wrap { top: 8px; right: 8px; }
+body.mbw-playing #workspace > .play-float-wrap { display: none; }
+.play-float-wrap .btn-play-mode > span { font-size: 24px; line-height: 1; }
+body.is-phone .play-float-wrap .btn-play-mode > span { font-size: 19px; }
+/* ⏸ / 💬 jugando: sin borde, más grandes y dentro del recuadro de la cámara */
+#mbw-play-hud .ph-area { position: absolute; pointer-events: none; overflow: hidden; }
+#mbw-play-hud .ph-vig { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,.10) 100%); pointer-events: none; }
+#mbw-play-hud .ph-area .ph-top { top: 10px; right: 10px; }
+#mbw-play-hud .ph-area .ph-chat-btn { top: 10px; left: 10px; width: 54px; height: 50px; border: none; border-radius: 10px; background: rgba(0,0,0,.35); font-size: 28px; pointer-events: auto; }
+#mbw-play-hud .ph-area .ph-gear { width: 56px; height: 56px; border: none; border-radius: 12px; background: rgba(0,0,0,.35); font-size: 34px; }
+body.is-touch #mbw-play-hud .ph-area .ph-chat-btn { width: 48px; height: 44px; font-size: 24px; }
+body.is-touch #mbw-play-hud .ph-area .ph-gear { width: 48px; height: 48px; font-size: 28px; }
+#mbw-play-hud .ph-coords { position: absolute; top: 68px; left: 12px; color: #fff; font: 700 14px/1.3 'Segoe UI', Arial, sans-serif; text-shadow: 0 1px 2px #000, 0 0 2px #000; display: none; }
+#mbw-play-hud .ph-effects { position: absolute; top: 90px; left: 12px; display: flex; flex-direction: column; gap: 3px; }
+#mbw-play-hud .ph-effects span { background: rgba(0,0,0,.45); color: #fff; font: 600 12px/1 'Segoe UI', Arial, sans-serif; padding: 4px 7px; border-radius: 6px; width: max-content; }
+#mbw-play-hud .ph-portal { position: absolute; inset: 0; pointer-events: none; opacity: 0; }

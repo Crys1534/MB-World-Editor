@@ -83,8 +83,9 @@
             left.appendChild(skinRow());
             if (hostOfRoom()) left.appendChild(btn(tr('pm_server', 'Server settings'), '', function () { show('server'); }));
             const guest = M() && M().on && M().role === 'guest';
-            left.appendChild(btn(guest ? tr('pm_quit_guest', 'Save and Quit (leave the game)') : tr('pm_quit', 'Save and Quit'), 'pm-quit', function () { closeNow(); if (P() && P().saveAndQuit) P().saveAndQuit(); }));
-            left.appendChild(el('p', 'pm-hint', guest ? tr('pm_quit_guest_hint', 'Your Player (inventory and position) stays saved in this world for next time.') : tr('pm_quit_hint', 'Everything that happened while playing is saved. How the world was before playing stays in the version history (Play mode column).')));
+            const test = !!(P() && P().isTest && P().isTest());
+            left.appendChild(btn(test ? '🧪 ' + tr('pm_quit_test', 'Quit test (nothing is saved)') : guest ? tr('pm_quit_guest', 'Save and Quit (leave the game)') : tr('pm_quit', 'Save and Quit'), 'pm-quit', function () { closeNow(); if (P() && P().saveAndQuit) P().saveAndQuit(); }));
+            left.appendChild(el('p', 'pm-hint', test ? tr('pm_quit_test_hint', 'This is a test: when you leave, the world goes back to how it was before playing.') : guest ? tr('pm_quit_guest_hint', 'Your Player (inventory and position) stays saved in this world for next time.') : tr('pm_quit_hint', 'Everything that happened while playing is saved. How the world was before playing stays in the version history (Play mode column).')));
         } else if (p === 'options') {
             left.appendChild(el('h2', 'pm-title', tr('pm_options', 'Options')));
             left.appendChild(optionsForm());
@@ -155,6 +156,7 @@
         const o = (P() && P().opts) ? P().opts() : {};
         const set = function (k) { return function (v) { if (P() && P().setOpt) P().setOpt(k, v); }; };
         f.appendChild(row(tr('pm_autojump', 'Auto-jump (1 block)'), check(o.autoJump, set('autoJump')), tr('pm_autojump_tip', 'Walking into a 1-block step jumps by itself, like in Minecraft')));
+        f.appendChild(row(tr('pm_coords', 'Show coordinates'), check(o.coords, set('coords'))));
         f.appendChild(row(tr('pm_res', 'Screen size (blocks you see)'), select([['default', tr('pm_res_default', 'Game (18 × 14)')], ['4:3', '4:3 (20 × 15)'], ['16:9', '16:9 (27 × 15)']], o.res || 'default', set('res'))));
         f.appendChild(row(tr('pm_particles', 'Particles'), select([['all', tr('pm_all', 'All')], ['some', tr('pm_some', 'Some')], ['none', tr('pm_none', 'None')]], o.particles || 'all', set('particles'))));
         f.appendChild(row(tr('pm_anims', 'Block animations'), check(o.anims !== false, set('anims'))));

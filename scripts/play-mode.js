@@ -106,7 +106,7 @@
     // el jugador (yo o uno de los otros) más cercano al que un mob hostil puede perseguir (no en creativo ni espectador)
     function nearestPl(m) {
         const w = W(); let best = null, bd2 = Infinity;
-        if (w.gamemode != 1 && w.gamemode != 3 && !(w.dead > 0)) { best = PLAYER_ID; bd2 = Math.pow(w.worldX - m.x, 2) + Math.pow(w.worldY - m.y, 2); }
+        if (w.gamemode != 1 && w.gamemode != 3 && !(w.dead > 0) && !effLv('invisibility')) { best = PLAYER_ID; bd2 = Math.pow(w.worldX - m.x, 2) + Math.pow(w.worldY - m.y, 2); }
         if (mpHost()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (!r || r.gm == 1) continue; const dd = Math.pow(r.tx - m.x, 2) + Math.pow(r.ty - m.y, 2); if (dd < bd2) { bd2 = dd; best = RP + k; } } }
         return best;
     }
@@ -494,6 +494,7 @@
     function ouch(b, a, c) {
         const w = W();
         if (w.dead > 0 || w.gamemode == 1 || w.gamemode == 3) return;
+        if (effLv('fireresistance') && (c === 'fire' || c === 'lava' || c === 'burning')) return;   // (poción de resistencia al fuego)
         if (['anvil', 'fall', 'lava', 'acid', 'explosion', 'fire', 'lightning', 'attack', 'arrow', 'cactus'].indexOf(c) >= 0) {
             let d = 1;
             for (let p = 0; p < w.armors.length; p++) {
@@ -521,7 +522,7 @@
     const key2 = (n) => !!S.keys[n];
     // ⚙ Opciones del Modo Jugar (menú de pausa > Options; se recuerdan en este navegador). scripts/play-menu.js las cambia.
     const OPT_KEY = 'mbw_play_opts';
-    const OPT_DEF = { autoJump: false, res: 'default', particles: 'all', anims: true, effects: true, transitions: true };
+    const OPT_DEF = { autoJump: true, res: 'default', particles: 'all', anims: true, effects: true, transitions: true, coords: false };
     const OPTS = (function () { let o = {}; try { o = JSON.parse(localStorage.getItem(OPT_KEY) || '{}') || {}; } catch (e) { o = {}; } return Object.assign({}, OPT_DEF, o); })();
     const RES = { default: null, '4:3': { w: 20, h: 15 }, '16:9': { w: 27, h: 15 } };   // cuántos bloques se ven (ancho x alto)
     function applyOpts() {
@@ -536,13 +537,14 @@
     function setOpt(k, v) { if (!(k in OPT_DEF)) return; OPTS[k] = v; try { localStorage.setItem(OPT_KEY, JSON.stringify(OPTS)); } catch (e) { /* nada */ } applyOpts(); }
     // 🦘 salto automático de 1 bloque: caminando contra un escalón de 1 bloque (con lugar arriba), salta solo
     function autoJumpNow(bx, by) {
-        if (!OPTS.autoJump || S.p.falling) return false;
+        if (!OPTS.autoJump || S.p.falling || S.p.sneaking || key2('down')) return false;   // (agachado: nunca)
         const dir = key2('right') ? 1 : key2('left') ? -1 : 0;
         if (!dir) return false;
-        const w = W(), fx = Math.floor(w.worldX + dir * .55);
+        const w = W(), fx = Math.floor(w.worldX + dir * .9);              // (el bloque que está a 0.9 cuadros adelante)
         if (fx === bx) return false;
+        const fy = Math.floor(-w.worldY + .1);                            // (la fila de los pies: parado, el Player se hunde 1/15 en el piso)
         const solid = function (x, y) { const t = fg(x, y); return t !== 'air' && bd(t, 'walkThroughBlockHit') != 1 && bd(t, 'liquid') == null; };
-        return solid(fx, by) && !solid(fx, by + 1) && !solid(fx, by + 2) && !solid(bx, by + 2);
+        return solid(fx, fy) && !solid(fx, fy + 1) && !solid(fx, fy + 2) && !solid(bx, fy + 2);
     }
     function doPlayerLogic() {
         const w = W(), P = S.p;
@@ -658,6 +660,7 @@
         if (head2 === 'sw' || head2 === 'wr' && (!(mbwom.water && mbwom.water[key(bx, by + 2)]) || getWater(bx, by + 2)[0] >= 9 || getWater(bx, by + 2)[1] >= 9)) {
             P.startUnderwaterTimer = 5;
             P.airTimer--;
+            if (effLv('waterbreathing')) { P.airTimer = 60; w.air = 11; }        // (poción de respirar bajo el agua)
             if (P.airTimer <= 0) { P.airTimer = 60; if (!(w.air > 0)) ouch(1, 1, 'water'); else w.air--; hud.dirty = true; }
             P.inWater = true;
         } else {
@@ -686,7 +689,8 @@
         }
         P.keysX = false;
         if (!cantMove) {                                           // caminar y correr
-            const sp = 2.2, spr = sp + 2.2;
+            const ek = Math.max(.2, 1 + .2 * effLv('speed') - .15 * effLv('slowness'));      // (pociones de velocidad / lentitud)
+            const sp = 2.2 * ek, spr = sp + 2.2 * ek;
             if (key2('right')) {
                 if (P.rightable) {
                     P.xScale = -1;
@@ -721,7 +725,7 @@
                     if (c) {
                         if (fg(bx, by).substr(0, 3) === 'bed' && !P.falling) jb = 17;
                         else if (fg(bx, by) === 'web' || fg(bx, by + 1) === 'web') jb = 2;
-                        else if (!P.falling) jb = 15;
+                        else if (!P.falling) jb = 15 + 3 * effLv('jumpboost');    // (poción de salto)
                     }
                     if (jb > 0 && jb > w.ySpeed) { w.ySpeed = migSpeed(jb); w.worldY -= jb / 2 / 30; }
                 } else if (w.fly && c && !P.falling) { w.ySpeed = migSpeed(7); w.worldY -= .1167; }
@@ -753,6 +757,50 @@
     function addEffect(type, duration, level) {
         const w = W(); if (!w.effects || typeof w.effects !== 'object') w.effects = {};
         w.effects[type] = { duration: duration, level: level || 1, potency: 1 };
+        // vida al instante (pociones de curación / daño): como Game.manageEffects "heartsexponential", perLevel 2 / −3
+        if (type === 'instanthealth' || type === 'instantdamage') {
+            const per = type === 'instanthealth' ? 2 : -3, amt = per * 2 * Math.pow(2, Math.min(15, Math.max(0, (level || 1) - 1)));
+            const nv = Math.floor(Math.min(20, w.health + amt));
+            if (nv < Math.min(20, w.health)) ouch(1, w.health - nv, 'potion'); else w.health = nv;
+            delete w.effects[type]; hud.dirty = true;
+        }
+    }
+    // nivel de un efecto que tengo puesto (0 = no lo tengo)
+    function effLv(type) { const E = W().effects; const e = E && E[type]; return (e && e.duration > 0) ? (e.level || 1) : 0; }
+    window.mbwPlay.effect = effLv;
+    const EFFECT_NAMES = { speed: 'Speed', slowness: 'Slowness', jumpboost: 'Jump Boost', fireresistance: 'Fire Resistance', waterbreathing: 'Water Breathing', nightvision: 'Night Vision', invisibility: 'Invisibility', strength: 'Strength', weakness: 'Weakness', poison: 'Poison', regeneration: 'Regeneration', hunger: 'Hunger' };
+    // 🧪 tomar una poción (Game.useItem con "potion"): sus efectos y queda la botella vacía
+    function potionOf(it) { const ex = it && it[3] && typeof it[3] === 'object' ? it[3] : {}; return { type: String(ex.type || 'empty'), splash: String(ex.category || '').toLowerCase() === 'splash', custom: Array.isArray(ex.effects) ? ex.effects : null }; }
+    function potionEffects(po) {
+        if (po.custom) return po.custom.map(function (e) { return [String(e.type), Number(e.duration) || 0, Number(e.level) || 1]; });
+        const P = (D.potions || {})[po.type]; return P ? P.e : [];
+    }
+    function drinkable(it) { if (!it || it[0] !== 'potion') return false; const po = potionOf(it); return po.type !== 'empty'; }
+    function applyPotion(po, who) {
+        potionEffects(po).forEach(function (e) {
+            if (who === PLAYER_ID) addEffect(e[0], e[1], e[2]);
+            else {                                                     // a un mob: curación / daño al instante y veneno
+                const m = mbwom.mobs[who]; if (!m) return;
+                const und = m.type === 'zombie' || m.type === 'skeleton' || m.type === 'zombiepigman';
+                if (e[0] === 'instanthealth' || e[0] === 'instantdamage') {
+                    const per = (e[0] === 'instanthealth' ? 2 : -3) * (und ? -1 : 1), amt = per * 2 * Math.pow(2, Math.max(0, e[2] - 1));
+                    if (amt < 0) hurtMob(who, -amt, 'potion', PLAYER_ID); else m.health = Math.min(maxHealth(m), (Number(m.health) || 0) + amt);
+                } else if (e[0] === 'poison' && !und) hurtMob(who, Math.min(Math.max(0, (Number(m.health) || 0) - 1), 2 * e[2]), 'potion', PLAYER_ID);
+            }
+        });
+    }
+    // 💥 poción arrojadiza: se rompe un poco adelante y le pega a todo lo que está cerca (también a ti si estás cerca)
+    function splashPotion(it) {
+        const w = W(), po = potionOf(it), mw = mouseWorld();
+        const dx = mw.x - w.worldX, dy = mw.y - (-w.worldY + 1.5), d = Math.max(.01, Math.hypot(dx, dy)), r = Math.min(4, d);
+        const px = w.worldX + dx / d * r, py = -w.worldY + 1.5 + dy / d * r;
+        if (Math.hypot(px - w.worldX, py - (-w.worldY + 1)) < 2.5) applyPotion(po, PLAYER_ID);
+        for (const id in mbwom.mobs) { const m = mbwom.mobs[id]; if (m && Math.hypot(m.x - px, -m.y + .5 - py) < 2.5) applyPotion(po, id); }
+        const P = (D.potions || {})[po.type], c = P && P.c ? 'rgb(' + P.c.map(function (v) { return Math.round(Math.min(1, v) * 255); }).join(',') + ')' : '#7fb2ff';
+        for (let i = 0; i < 18; i++) addPart({ x: px + (Math.random() - .5) * .4, y: py, vx: (Math.random() - .5) * .14, vy: Math.random() * .12, g: .008, life: 30, size: .1, col: c });
+        snd('glass' + ((Math.random() * 3 | 0) + 1));
+        if (w.gamemode != 1) reduceSelected(1);
+        hud.dirty = true;
     }
     function tickEffects() {
         const w = W(), E = w.effects; if (!E || typeof E !== 'object') return;
@@ -983,6 +1031,7 @@
     function maxHealth(m) { const a = D.mobs[m.type] || {}; if ((m.type === 'slime' || m.type === 'magmacube') && m.size > 0) return Math.pow(2, m.size) * (a.health || 4) / 2; return a.health || 10; }
     function hurtMob(id, amount, cause, by) {
         const m = mbwom.mobs[id]; if (!m || m.dead > 0) return;
+        if (by === PLAYER_ID && cause === 'attack') amount = Math.max(.5, amount + 3 * effLv('strength') - 4 * effLv('weakness'));   // (pociones de fuerza / debilidad)
         const a = D.mobs[m.type] || {};
         if (!isFinite(Number(m.health))) m.health = maxHealth(m);
         if (m.type === 'cow' && m.variant === 'cowctus' && cause === 'cactus') return;
@@ -1417,6 +1466,11 @@
         const here = fg(bx, by);
         // usar un objeto
         if (here === 'TNT' && id === 'fas') { igniteTNT(bx, by); damageTool(); return true; }
+        if (id === 'potion' && drinkable(it)) {                        // 🧪 pociones: arrojadiza = se lanza; normal = se toma (como comer)
+            if (potionOf(it).splash) { splashPotion(it); return true; }
+            if (S.useTimer < 0) S.useTimer = ((bd(id, 'timerToUse') || 50) / 25 * FPS) | 0;
+            return false;
+        }
         const food = bd(id, 'food');
         if (food && bd(id, 'placeable') != 1) { if (canEat(id) && S.useTimer < 0) S.useTimer = ((bd(id, 'timerToUse') || 50) / 25 * FPS) | 0; return false; }
         if (id === 'megg' && it[3] && it[3].type) { if (blockDist(bx, by) <= REACH) { spawnMob(String(it[3].type), bx + .5, -by - .01); reduceSelected(1); return true; } return false; }
@@ -1477,6 +1531,18 @@
     // la puerta tiene 2 partes (1 = abajo, 2 = arriba abiertas; 3 = abajo, 4 = arriba cerradas). Las de hierro no se abren a mano.
     function useBlock(x, y) {
         const t = fg(x, y);
+        // 🎂 pastel (y pastel de cactus): una rebanada (+1 muslito); son 7 rebanadas (maxState 7); la de cactus pica un poco
+        if (t === 'cake' || t === 'ccake') {
+            const w = W();
+            if (w.food >= 1000 && w.gamemode != 1) return true;               // (lleno: no come)
+            const n = (Number(st(x, y)) || 0) + 1;
+            w.food = Math.min(1000, (Number(w.food) || 0) + 100);
+            if (t === 'ccake') ouch(1, 1, 'cactus');
+            snd('eat' + ((Math.random() * 4 | 0) + 1));
+            if (n >= 7) setBlock(x, y, null); else setBlock(x, y, t, n);
+            hud.dirty = true;
+            return true;
+        }
         let m = /^(dr|bdr)([1-4])$/.exec(t);
         if (m) {
             const b = m[1], n = +m[2];
@@ -1593,8 +1659,15 @@
         S.placeDelay++;
         if (w.gamemode == 1 && selType().substr(-5) !== 'Sword') S.placeDelay += 6;
         if (S.useTimer > -1) {                                    // comiendo
-            if (!(S.mouse.right || S.mouse.rightEdge) || bd(selType(), 'food') == null) S.useTimer = -1;
-            else if (--S.useTimer === 0) {
+            if (!(S.mouse.right || S.mouse.rightEdge) || (bd(selType(), 'food') == null && !drinkable(selItem()))) S.useTimer = -1;
+            else if (--S.useTimer === 0 && selType() === 'potion') {     // 🧪 se terminó de tomar la poción
+                const po = potionOf(selItem());
+                snd('drink' + ((Math.random() * 2 | 0) + 1));
+                applyPotion(po, PLAYER_ID);
+                if (w.gamemode != 1) { reduceSelected(1); if (addToInventory('potion', 1, 0, { type: 'empty' }) > 0) addDrop('potion', w.worldX, w.worldY, 1, 0, { type: 'empty' }); }
+                S.useTimer = -1; hud.dirty = true;
+            }
+            else if (S.useTimer === 0) {
                 const fd = bd(selType(), 'food');
                 // 🔊 al terminar: "drink" para lo que se bebe, si no uno de los 4 "eat"
                 if (bd(selType(), 'drink') != null || selType() === 'potion') snd('drink' + ((Math.random() * 2 | 0) + 1)); else snd('eat' + ((Math.random() * 4 | 0) + 1));
@@ -2155,8 +2228,9 @@
             const nether = isP(bx, by) || isP(bx, by + 1) || isP(Math.floor(w.worldX - .3), by) || isP(Math.floor(w.worldX + .3), by);
             const isF = function (x, y) { return fg(x, y) === 'pf' && Number(st(x, y)) === 2; };
             const end = !nether && (isF(bx, by) || isF(bx, by - 1));
-            if (nether || end) { if (!S.portalLock) { S.portalLock = true; S.portalGo = nether ? 1 : 2; } }
-            else S.portalLock = false;
+            // (como pediste: hay que quedarse 4 segundos en el portal; la pantalla se va poniendo morada)
+            if (nether || end) { if (!S.portalLock) { S.portalT = (S.portalT || 0) + 1; S.portalKind = nether ? 1 : 2; if (S.portalT === 1) sndAt('Portal' + ((Math.random() * 5 | 0) + 1)); if (S.portalT >= 4 * FPS) { S.portalLock = true; S.portalT = 0; S.portalGo = S.portalKind; } } }
+            else { S.portalLock = false; S.portalT = 0; }
         }
         // el botón "Open": el bloque bajo el cursor (si se abre y está a la mano) o, si no, el más cercano; se revisa 10 veces por segundo
         if (S.tick % 5 === 0) { const b = findBox(); const k = b ? b.x + ',' + b.y + ',' + b.t : ''; if (k !== (S.box ? S.box.x + ',' + S.box.y + ',' + S.box.t : '')) { S.box = b; hud.dirty = true; } }
@@ -2343,7 +2417,7 @@
         if (S.mp && window.mbwMpPlay) {
             const MP = window.mbwMpPlay, R = MP.remotes || {};
             Object.keys(R).forEach(function (k) {
-                const r = remoteOf(RP + k); if (!r) return;
+                const r = remoteOf(RP + k); if (!r || r.iv) return;
                 const pos = MP.posOf ? MP.posOf(k) : { x: r.tx, y: r.ty };
                 const sx = (pos.x - camera.x) * ts, feet = canvas.height - (-pos.y - camera.y) * ts;
                 let bottom = feet - ph - fsN - 11;
@@ -2557,9 +2631,12 @@
         build: function () {
             const el = this.el = document.createElement('div');
             el.id = 'mbw-play-hud';
+            this.areaKey = null; this.effKey = null;                       // (HUD nuevo: se vuelve a acomodar)
             el.innerHTML =
+                // (lo de la cámara: viñeta, ⏸ y 💬, coordenadas, efectos y el morado del portal van DENTRO del recuadro de la cámara)
+                '<div class="ph-area"><div class="ph-vig"></div><div class="ph-portal"></div>' +
                 '<div class="ph-top"><button type="button" class="ph-gear" aria-label="Menu">⚙</button><div class="ph-msg"></div></div>' +
-                '<button type="button" class="ph-chat-btn">💬</button>' +
+                '<button type="button" class="ph-chat-btn">💬</button><div class="ph-coords"></div><div class="ph-effects"></div></div>' +
                 '<div class="ph-bars"><div class="ph-hearts"></div><div class="ph-right"><div class="ph-air"></div><div class="ph-food"></div></div></div>' +
                 '<div class="ph-xp"><div class="ph-xp-fill"></div><b class="ph-xp-lv"></b></div>' +
                 '<div class="ph-iname"></div>' +
@@ -2596,10 +2673,33 @@
             });
             this.texts();
         },
+        // el recuadro de la cámara (Aspect) en la pantalla: ahí van los botones, la viñeta, las coordenadas...
+        place: function (w) {
+            const ar = this.el.querySelector('.ph-area'); if (!ar || typeof canvas === 'undefined') return;
+            const br = canvas.getBoundingClientRect(), k = canvas.width ? br.width / canvas.width : 1, A = window.mbwAspect;
+            let r = { x: 0, y: 0, w: canvas.width, h: canvas.height };
+            try { if (A && A.active && A.screen) r = A.screen(); } catch (e) { /* nada */ }
+            const key = [br.left, br.top, k, r.x, r.y, r.w, r.h].map(Math.round).join(',');
+            if (key !== this.areaKey) { this.areaKey = key; ar.style.left = (br.left + r.x * k) + 'px'; ar.style.top = (br.top + r.y * k) + 'px'; ar.style.width = (r.w * k) + 'px'; ar.style.height = (r.h * k) + 'px'; }
+            // coordenadas (Options > Coordinates)
+            const co = ar.querySelector('.ph-coords');
+            co.style.display = OPTS.coords ? 'block' : 'none';
+            if (OPTS.coords) { const t = 'X: ' + Math.floor(Number(w.worldX)) + '   Y: ' + Math.floor(-Number(w.worldY)); if (co.textContent !== t) co.textContent = t; }
+            // efectos que tengo puestos (pociones, comida...) con el tiempo que les queda
+            const ef = ar.querySelector('.ph-effects'), E = w.effects || {};
+            const et = Object.keys(E).filter(function (q) { return E[q] && E[q].duration > 0 && EFFECT_NAMES[q]; }).map(function (q) { const e = E[q], sec = Math.max(0, e.duration | 0); return EFFECT_NAMES[q] + (e.level > 1 ? ' ' + ['', 'I', 'II', 'III', 'IV'][Math.min(4, e.level)] : '') + '  ' + Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); }).join('|');
+            if (et !== this.effKey) { this.effKey = et; ef.textContent = ''; et.split('|').forEach(function (q) { if (!q) return; const sp = document.createElement('span'); sp.textContent = q; ef.appendChild(sp); }); }
+            ef.style.top = OPTS.coords ? '90px' : '68px';
+            // 🌀 parado en un portal: la pantalla se pone morada poco a poco (4 segundos)
+            const pt = ar.querySelector('.ph-portal'), pk = Math.min(1, (S.portalT || 0) / (4 * FPS));
+            const po = (pk * (S.portalKind === 2 ? .7 : .55)).toFixed(2);
+            if (pt.style.opacity !== po) { pt.style.opacity = po; pt.style.background = S.portalKind === 2 ? 'radial-gradient(ellipse at center, rgba(10,0,30,.6), rgba(0,0,0,.95))' : 'radial-gradient(ellipse at center, rgba(150,40,220,.35), rgba(90,0,160,.85))'; }
+        },
         texts: function () { if (!this.el) return; chat.texts(); this.el.querySelector('.ph-chat-btn').title = tr('play_chat_tip', 'Chat / commands (T)'); this.el.querySelector('.ph-gear').title = tr('play_menu_tip', 'Menu (Esc)'); },
         update: function () {
             if (!this.el) return;
             const w = W();
+            this.place(w);
             const um = modalOpen();                                   // con el inventario / un cofre / un horno abierto, el HUD se esconde (no tapa la ventana)
             if (um !== this.underModal) { this.underModal = um; this.el.classList.toggle('under-modal', um); }
             const msg = this.el.querySelector('.ph-msg');
@@ -2998,8 +3098,9 @@
         mbwom.sceneList.forEach(function (k) { if (mbwom[k] !== undefined) mbwom.world[k + cur] = mbwom[k]; });
         return cur;
     }
-    function startPlay() {
+    function startPlay(sopts) {
         if (S.playing) return;
+        S.test = !!(sopts && sopts.test);                                 // 🧪 Test: nada se guarda
         if (typeof mbwom === 'undefined' || !mbwom.world || !mbwom.scene) { alert(tr('play_no_world', 'Open or create a world first')); return; }
         // 🎮 en una sala de multijugador: se juega todos juntos (scripts/mp-play.js). Viendo otro mundo (otra pestaña): solo.
         let mpMode = false;
@@ -3073,7 +3174,7 @@
         applyOpts();
         camSnap();
         S.raf = requestAnimationFrame(frame);
-        flashMsg(tr('play_started2', '▶ Playing! Esc or ⚙ opens the menu'));
+        flashMsg(S.test ? tr('play_test_started', '🧪 Testing: nothing you do will be saved. Esc or ⚙ opens the menu') : tr('play_started2', '▶ Playing! Esc or ⚙ opens the menu'));
         syncButton();
         if (S.mp && window.mbwMpPlay) { try { window.mbwMpPlay.afterStart(); } catch (e) { console.error('mp-play start', e); } }
     }
@@ -3102,6 +3203,7 @@
     // Un invitado de una partida: guarda su Player en el mundo del anfitrión y sale (su copia del mundo se la manda el anfitrión).
     function saveAndQuit() {
         if (!S.playing) return;
+        if (S.test) { stopPlay({ keep: false }); flashToast('🧪 ' + tr('play_test_done', 'Test finished: nothing was saved')); return; }
         if (mpGuest()) { try { if (window.mbwMpPlay && window.mbwMpPlay.saveMine) window.mbwMpPlay.saveMine(); } catch (e) { /* nada */ } stopPlay({ keep: false }); return; }
         let pre = null;
         const fm = window.fileManager || (typeof fileManager !== 'undefined' ? fileManager : null);
@@ -3115,6 +3217,8 @@
         }
     }
     window.mbwPlay.saveAndQuit = saveAndQuit;
+    window.mbwPlay.isTest = function () { return !!(S.playing && S.test); };
+    function flashToast(text) { const t = document.createElement('div'); t.className = 'play-saved-toast'; t.textContent = text; document.body.appendChild(t); setTimeout(function () { t.remove(); }, 2600); }
     window.mbwPlay.setMp = function (on) { S.mp = !!on; };
     window.mbwPlay.setPaused = function (on) { S.paused = !!on; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mine = null; hud.dirty = true; };
     window.mbwPlay.opts = function () { return Object.assign({}, OPTS); };
@@ -3124,7 +3228,7 @@
         if (!S.playing) return;
         // ¿lo que pasó jugando se queda? Sí (todo se guarda), menos para un invitado de una partida: su copia vuelve a como estaba
         // y el anfitrión le manda el mundo nuevo
-        const keep = (opts && opts.keep != null) ? !!opts.keep : !mpGuest();
+        const keep = (opts && opts.keep != null) ? !!opts.keep : (!mpGuest() && !S.test);
         S.paused = false;
         if (window.mbwPlayMenu && window.mbwPlayMenu.close) { try { window.mbwPlayMenu.close(true); } catch (e) { /* nada */ } }
         closeModals();                                              // (con el juego todavía activo: lo del cofre no entra al historial)
@@ -3316,12 +3420,22 @@
         if (ic) ic.textContent = S.playing ? '■' : '▶';
     }
     // ▶ el botón Play flota sobre el mapa, arriba a la derecha (más grande); jugando se esconde (arriba sale el ⚙ del menú)
+    // 🧪 al pasar el mouse por Play sale "Test": jugar SIN guardar nada (al salir, el mundo queda como estaba)
     function floatButton() {
         const b = document.getElementById('btn-play-mode'), ws = document.getElementById('workspace');
-        if (!b || !ws || b.parentNode === ws) return;
+        if (!b || !ws || (b.parentNode && b.parentNode.classList && b.parentNode.classList.contains('play-float-wrap'))) return;
+        const wrap = document.createElement('div'); wrap.className = 'play-float-wrap';
         b.classList.add('play-float');
-        ws.appendChild(b);
+        const t = document.createElement('button'); t.type = 'button'; t.id = 'btn-play-test'; t.className = 'btn-play-mode play-float btn-play-test';
+        const ic = document.createElement('b'); ic.className = 'pb-ic'; ic.textContent = '🧪';
+        const sp = document.createElement('span'); sp.setAttribute('data-i18n', 'play_test_btn'); sp.textContent = tr('play_test_btn', 'Test');
+        t.appendChild(ic); t.appendChild(document.createTextNode(' ')); t.appendChild(sp);
+        t.title = tr('play_test_tip', 'Test: play without saving anything. When you leave, the world stays as it was.');
+        t.addEventListener('click', function (e) { e.stopPropagation(); startPlay({ test: true }); });
+        wrap.appendChild(b); wrap.appendChild(t);
+        ws.appendChild(wrap);
     }
+    window.mbwStartTest = function () { startPlay({ test: true }); };
     function init() {
         window.mbwPlay.flash = flashMsg;
         floatButton();

@@ -1821,8 +1821,13 @@ function animateWeather() {
     // 1. Siempre limpiamos el canvas en cada frame
     wCtx.clearRect(0, 0, weatherCanvas.width, weatherCanvas.height);
 
+    // 🌍 Nether / End: nunca llueve. En el Nether, eso sí, el cielo parpadea como en tormenta (sin agua); en el End nada.
+    const wSc = (typeof mbwom !== 'undefined' && mbwom.currentScene) || 1;
+    document.body.classList.toggle('mbw-no-rain', wSc !== 1);
+    const rainHere = isRaining && wSc === 1;
+    const netherFlash = wSc === 2;
     // ✨ 2. LA LLAVE MAESTRA: Solo dibuja si hay clima Y la animación está permitida
-    if (isRaining && allowWeatherAnimation) {
+    if ((rainHere || netherFlash) && allowWeatherAnimation) {
         
         // --- APLICAR ZOOM ---
         const zoomSlider = document.getElementById('zoom-slider');
@@ -1856,7 +1861,7 @@ function animateWeather() {
         wCtx.lineCap = 'round';
         wCtx.beginPath();
 
-        for (let i = 0; i < rainDrops.length; i++) {
+        for (let i = 0; rainHere && i < rainDrops.length; i++) {
             let p = rainDrops[i];
             
             wCtx.lineWidth = p.thickness * zoomScale;
@@ -1874,10 +1879,10 @@ function animateWeather() {
         wCtx.stroke();
 
         // --- DIBUJAR RELÁMPAGOS ---
-        if (isThunder) {
+        if ((isThunder && rainHere) || netherFlash) {
             const mainCanvas = document.getElementById('canvas');
 
-            if (flashSequence.length === 0 && Math.random() < 0.005) {
+            if (flashSequence.length === 0 && Math.random() < (netherFlash ? 0.0025 : 0.005)) {
                 const patterns = [
                     [0.8, 0.8, 0.0, 0.0, 0.6, 0.6, 0.0, 0.0, 0.0, 0.3, 0.3], 
                     [0.5, 0.5, 0.0, 0.9, 0.9, 0.2, 0.2, 0.0, 0.0, 0.4, 0.4], 

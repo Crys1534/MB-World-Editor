@@ -336,6 +336,7 @@
 
     function drawDarkness(c) {
         if ((!D.on && !D.map) || (scene() !== 1 && !D.map)) { D.stats.drawn = false; return; }
+        if (!D.map && window.mbwPlaying && window.mbwPlay && window.mbwPlay.effect && window.mbwPlay.effect('nightvision')) { D.stats.drawn = false; return; }   // (poción de visión nocturna)
         const ts = tileSize;
         if (ts < 4) { drawFar(c, ts); return; }          // zoom de lejos (3 % a 10 %): la oscuridad del mundo entero, hecha una sola vez
         const X0 = Math.floor(camera.x) - 1, Y0 = Math.floor(camera.y) - 1;
