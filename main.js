@@ -309,9 +309,10 @@ function makeWorldCacheBuilder() {
         const out = cache[x] = [];
         const hideBarrier = !!window.mbwPlaying;   // ▶ en Modo Jugar el bloque Barrier no se ve (como en el juego)
         for (let y = 0; y < col.length; y++) {
-            const type = col[y];
+            let type = col[y];
             if (type == null) continue;
             if (type === 'b' && hideBarrier) continue;
+            if (type === 'wd1' && hideBarrier) type = 'wd';   // ▶ en Modo Jugar el tronco del árbol se ve como la madera
             const renderer = specialRenderers[type] || defaultRenderer;
             let texture;
             if (type === 'fnc') {
@@ -377,7 +378,8 @@ function initializeWorldCacheAsync(onProgress) {
 
 function renderBlock(x, y) {
     if (!worldCache[x]) worldCache[x] = [];
-    const states = mbwom.getBlockState(x, y);
+    let states = mbwom.getBlockState(x, y);
+    if (states.type === 'wd1' && window.mbwPlaying) states = Object.assign({}, states, { type: 'wd' });   // ▶ Modo Jugar: el tronco con la textura de la madera
     if (states.type === 'b' && window.mbwPlaying) {
         delete worldCache[x][y];                                   // ▶ Modo Jugar: el Barrier no se ve
     } else if (states.type != null) {
@@ -710,6 +712,14 @@ function getBlockObject(states) {
 
 // Tamaño (en cuadros) y dibujo de cada mob. Lo usan drawMobs() y la selección con el mouse (input.js).
 // Devuelve { w, h, img, isCustomSkin }: w y h son el ancho y alto con que se DIBUJA el mob, en cuadros.
+const MOB_GAME_SCALE = {
+    zombie: [13, 21, 2.858276], skeleton: [13, 21, 2.858276], creeper: [12, 21, 2.858276], zombiepigman: [13, 22, 2.858276],
+    snowgolem: [15, 21, 2.858276], blaze: [15, 19, 2.858337], enderman: [11, 27, 3], ghast: [16, 22, 9.308592],
+    cow: [22, 16, 3], mushroom: [22, 19, 3], cowctus: [26, 18, 3], pig: [20, 15, 3], sheep: [22, 16, 2.4],
+    wolf: [28, 15, 2.7], dog: [28, 15, 2.7], spider: [24, 16, 2.471039], chicken: [15, 20, 2], rabbit: [12, 12, 1.919922],
+    bat: [16, 12, 1.5], squid: [11, 26, 2.4], nethereye: [10, 10, 3]
+};
+window.MOB_GAME_SCALE = MOB_GAME_SCALE;
 function getMobDrawInfo(mob, noFetch) {
     let w = 1, h = 2;
     const t = mob.type;
@@ -729,6 +739,10 @@ function getMobDrawInfo(mob, noFetch) {
     } else if (t === 'cow' || t === 'cowctus' || t === 'mushroom') {
         w = 2.6; h = 2;
     }
+    // 📏 Tamaño fiel al juego: Mine Blocks dibuja cada mob a una escala fija (Entity_Mob_*.render: scale(k) con 30 píxeles por
+    // unidad), así que su tamaño en bloques = píxeles del dibujo × escala / 30. Aquí: [ancho, alto] del dibujo y esa escala.
+    const GS = MOB_GAME_SCALE[t === 'cow' && mob.variant === 'mooshroom' ? 'mushroom' : t === 'cow' && mob.variant === 'cowctus' ? 'cowctus' : (t === 'wolf' && mob.tamed === true ? 'dog' : t)];
+    if (GS) { w = GS[0] * GS[2] / 30; h = GS[1] * GS[2] / 30; }
 
     let img = null;
     let isCustomSkin = false;

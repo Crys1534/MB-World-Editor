@@ -193,7 +193,11 @@
   if (a.k === 'o') { const o = craftOut(); return o ? readItem(o, false) : null; }  // 🛠 lo que sale (no se puede poner nada)
   return readItem(slotArr(a), a.k === 'a');
  }
- function craftOut() { return (st.craft && window.mbwCraft) ? window.mbwCraft.match(st.craft.grid, st.craft.size) : null; }
+ function craftOut() {
+  if (!st.craft || !window.mbwCraft) return null;
+  if (st.craft.grid.some((it) => it && it.missing)) return null;      // 📖 falta algo (en rojo): no se puede crear
+  return window.mbwCraft.match(st.craft.grid, st.craft.size);
+ }
  function setSlot(a, it) {
   if (a.k === 'k') { if (st.craft) st.craft.grid[a.i] = it ? copy(it, it.qty) : null; return; }
   if (a.k === 'o') return;
@@ -250,7 +254,7 @@
   if (id === 'book' && Object.keys(ex).some((k) => ex[k] === 'enchant')) id = 'ebook'; // libro con encantamientos = libro encantado
   return { id: id, qty: Math.max(1, Math.floor(num(h.count)) || 1), dmg: num(h.dmg), extras: ex, legacy: undefined };
  }
- function refreshCursor() { if (typeof updateFloatingItem === 'function') updateFloatingItem(); }
+ function refreshCursor() { if (typeof updateFloatingItem === 'function') updateFloatingItem(); try { document.body.classList.toggle('pinv-holding', !!heldItem); } catch (e) { /* nada */ } }
 
  // ------------------------------------------------------------------ dibujo
  function ready() { return !!(window.images && window.images.blocks && window.images.blocks.complete); }
@@ -331,8 +335,11 @@
   const it = getSlot(addr);
   const d = document.createElement('div');
   d.className = 'pinv-slot';
-  d.onclick = (e) => onSlot(addr, e, false);
-  d.oncontextmenu = (e) => { e.preventDefault(); onSlot(addr, e, true); };
+  d.__addr = addr;
+  d.onclick = (e) => { if (dragEat(e)) return; onSlot(addr, e, false); };
+  d.oncontextmenu = (e) => { e.preventDefault(); ctxFired = true; if (dragEat(e)) return; onSlot(addr, e, true); };
+  d.addEventListener('pointerdown', (e) => dragStart(addr, d, e));
+  if (it && it.missing) d.classList.add('pinv-missing');             // 📖 (recetario) falta este material
   if (it) {
    const c = document.createElement('canvas');
    c.width = 48; c.height = 48;
@@ -399,6 +406,8 @@
   }
   renderCraft();
   renderFuelPalette();
+  renderSkin();
+  bookSetup(); renderBook();
   for (let i = 0; i < 4; i++) armor.appendChild(slotEl({ k: 'a', i: i }, PARTS[i]));
   for (let i = HOTBAR; i < TOTAL; i++) main.appendChild(slotEl({ k: 'i', i: i }));
   const sel = w ? num(w.selectedInventoryItem) : -1;
@@ -474,7 +483,7 @@
   const g = st.craft.grid;
   st.craft = null;
   g.forEach((it) => {
-   if (!it) return;
+   if (!it || it.missing) return;
    const left = insertRange(it, 0, TOTAL - 1);
    if (left > 0 && window.mbwPlay && typeof window.mbwPlay.dropItem === 'function') window.mbwPlay.dropItem(it.id, left, it.dmg || 0, it.extras || {});
   });
@@ -689,6 +698,196 @@
   return true;
  }
 
+ // ------------------------------------------------------------------ 🖱 arrastrar para repartir (como en Minecraft)
+ // Con un objeto en el cursor: mantener el clic IZQUIERDO y pasar por varias casillas = se reparte en partes iguales;
+ // mantener el clic DERECHO = 1 en cada casilla. En el celular: mantener el dedo y deslizarlo = partes iguales.
+ // Sirve en la cuadrícula de crafteo, el inventario y los cofres.
+ let drag = null, eatUntil = 0, ctxFired = false;
+ const DRAG_KINDS = { k: 1, i: 1, c: 1 };
+ function dragEat(e) { if (performance.now() < eatUntil) { e.preventDefault(); e.stopPropagation(); return true; } return false; }
+ function slotAt(x, y) { const el = document.elementFromPoint(x, y); const s = el && el.closest ? el.closest('.pinv-slot') : null; return s && s.__addr ? s : null; }
+ function dragStart(addr, el, e) {
+  if (!heldItem || !DRAG_KINDS[addr.k] || !st.open) return;
+  const held = fromHeld(heldItem); if (!held) return;
+  ctxFired = false;
+  drag = { btn: e.pointerType === 'touch' ? 0 : e.button, touch: e.pointerType === 'touch', slots: [addr], els: [el], id: e.pointerId };
+  el.classList.add('pinv-drag');
+  window.addEventListener('pointermove', dragMove, true);
+  window.addEventListener('pointerup', dragEnd, true);
+  window.addEventListener('pointercancel', dragCancel, true);
+ }
+ function dragMove(e) {
+  if (!drag || e.pointerId !== drag.id) return;
+  const s = slotAt(e.clientX, e.clientY); if (!s) return;
+  const a = s.__addr;
+  if (!DRAG_KINDS[a.k] || drag.slots.some((q) => q.k === a.k && q.i === a.i)) return;
+  const held = fromHeld(heldItem), cur = getSlot(a);
+  if (!held || (cur && (!same(cur, held) || cur.qty >= maxStack(held)))) return;       // (otra cosa o ya está llena)
+  if (drag.btn === 2 ? drag.slots.length >= held.qty : drag.slots.length >= held.qty) return;   // (ya no alcanza para más casillas)
+  drag.slots.push(a); drag.els.push(s); s.classList.add('pinv-drag');
+  if (drag.touch) e.preventDefault();
+ }
+ function dragOff() {
+  window.removeEventListener('pointermove', dragMove, true);
+  window.removeEventListener('pointerup', dragEnd, true);
+  window.removeEventListener('pointercancel', dragCancel, true);
+  if (drag) drag.els.forEach((el) => el.classList.remove('pinv-drag'));
+ }
+ function dragCancel() { dragOff(); drag = null; }
+ function dragEnd(e) {
+  if (!drag || e.pointerId !== drag.id) return;
+  const d = drag; dragOff(); drag = null;
+  if (d.slots.length < 2) return;                                     // una sola casilla: es un clic normal
+  const held = fromHeld(heldItem); if (!held) return;
+  let left = held.qty;
+  const one = d.btn === 2;
+  const firstDone = one && ctxFired;                                  // (en Linux / Mac el clic derecho ya puso 1 en la primera)
+  const list = firstDone ? d.slots.slice(1) : d.slots;
+  if (firstDone) { /* la primera ya tiene la suya */ }
+  const per = one ? 1 : Math.max(1, Math.floor(left / list.length));
+  list.forEach((a) => {
+   if (left <= 0) return;
+   const cur = getSlot(a), room = cur ? maxStack(held) - cur.qty : maxStack(held);
+   const n = Math.min(per, left, room); if (n <= 0) return;
+   setSlot(a, cur ? copy(cur, cur.qty + n) : copy(held, n));
+   left -= n;
+  });
+  if (left > 0) heldItem.count = left; else heldItem = null;
+  eatUntil = performance.now() + 350;                                 // (el clic que viene al soltar no cuenta)
+  refreshCursor();
+  renderAll();
+ }
+ window.playerInvDragTest = function (addrs, button) {              // (lo usan las pruebas: reparte como si se arrastrara)
+  if (!heldItem) return false;
+  drag = { btn: button || 0, touch: false, slots: addrs.slice(), els: [], id: -7 }; ctxFired = false;
+  dragEnd({ pointerId: -7 });
+  return true;
+ };
+
+ // ------------------------------------------------------------------ 📖 recetario (celular, mesa de crafteo, supervivencia)
+ // Una lista de lo que se puede fabricar, con buscador. Al tocar uno, se buscan los materiales en el inventario y se ponen
+ // en la mesa; si falta alguno, se pone igual pero en rojo y no se puede crear (como el libro de recetas de Minecraft).
+ const BOOK_TYPES = { relative: 1, absolute: 1, contains: 1, 'large box': 1 };
+ function bookOn() {
+  return !!(st.open && st.craft && st.craft.table && window.mbwPlaying && document.body.classList.contains('is-touch') && document.body.classList.contains('play-survival'));
+ }
+ // cómo va cada receta en la cuadrícula: [{ i: casilla, ty, ty2, damage, type, extra }] o null si no cabe
+ function recipeCells(rc, size) {
+  if (rc.t === 'large box') { if (size < 3) return null; const out = []; for (let i = 0; i < 9; i++) out.push({ i: i, ty: rc.i }); return out; }
+  if (rc.t === 'contains') {
+   if (rc.i.length > size * size) return null;
+   return rc.i.map((q, k) => typeof q === 'string' ? { i: k, ty: q } : { i: k, ty: q.ty, extra: q.extra, exact: q.exactExtras == 1 });
+  }
+  let mx = 0, my = 0;
+  if (rc.t === 'relative') { mx = Math.min.apply(null, rc.i.map((q) => q.x)); my = Math.min.apply(null, rc.i.map((q) => q.y)); }
+  const out = [];
+  for (let k = 0; k < rc.i.length; k++) {
+   const q = rc.i[k], x = q.x - mx, y = q.y - my;
+   if (x < 0 || y < 0 || x >= size || y >= size) return null;
+   out.push({ i: y * size + x, ty: q.ty, ty2: q.ty2, damage: q.damage, type: q.type });
+  }
+  return out;
+ }
+ function fitsCell(it, c) {
+  if (!it || it.missing) return false;
+  const okExtra = (o) => !c.extra || Object.keys(c.extra).every((k) => (o.extras || {})[k] == c.extra[k]);
+  const okOne = (id, dmg, type) => it.id === id && (dmg == null || (it.dmg || 0) == dmg) && (type == null || (it.extras || {}).type == type);
+  return (okOne(c.ty, c.damage, c.type) || (c.ty2 != null && okOne(c.ty2, null, null))) && okExtra(it);
+ }
+ function bookList() {
+  const R = window.MB_RECIPES || [], seen = {}, out = [];
+  R.forEach((rc, n) => {
+   if (!BOOK_TYPES[rc.t] || !recipeCells(rc, 3)) return;
+   const o = rc.o, k = o[0] + '|' + JSON.stringify(o[3] || {});
+   if (seen[k]) return; seen[k] = 1;
+   out.push({ n: n, id: o[0], qty: o[1], extras: o[3] || {} });
+  });
+  return out;
+ }
+ // ¿tengo todo para esta receta? (cuenta lo del inventario y lo que ya está en la mesa)
+ function haveFor(rc) {
+  const cells = recipeCells(rc, st.craft ? st.craft.size : 3); if (!cells) return false;
+  const pool = [];
+  for (let i = 0; i < TOTAL; i++) { const it = getSlot({ k: 'i', i: i }); if (it) pool.push(copy(it, it.qty)); }
+  (st.craft ? st.craft.grid : []).forEach((it) => { if (it && !it.missing) pool.push(copy(it, it.qty)); });
+  for (let k = 0; k < cells.length; k++) { const p = pool.find((it) => it.qty > 0 && fitsCell(it, cells[k])); if (!p) return false; p.qty--; }
+  return true;
+ }
+ window.playerInvBookFill = function (n) {                           // pone la receta n en la mesa (lo usa el recetario)
+  const rc = (window.MB_RECIPES || [])[n]; if (!rc || !st.craft) return false;
+  const cells = recipeCells(rc, st.craft.size); if (!cells) return false;
+  if (heldItem) { giveBackCursor(); heldItem = null; refreshCursor(); }
+  // lo que había en la mesa vuelve al inventario
+  const g = st.craft.grid;
+  for (let i = 0; i < g.length; i++) { const it = g[i]; g[i] = null; if (it && !it.missing) { const left = insertRange(it, 0, TOTAL - 1); if (left > 0 && window.mbwPlay && window.mbwPlay.dropItem) window.mbwPlay.dropItem(it.id, left, it.dmg || 0, it.extras || {}); } }
+  let missing = 0;
+  cells.forEach((c) => {
+   let got = null;
+   for (let i = 0; i < TOTAL && !got; i++) {
+    const a = { k: 'i', i: i }, it = getSlot(a);
+    if (fitsCell(it, c)) { got = copy(it, 1); setSlot(a, it.qty > 1 ? copy(it, it.qty - 1) : null); }
+   }
+   if (got) g[c.i] = got;
+   else { g[c.i] = { id: c.ty, qty: 1, dmg: c.damage || 0, extras: c.type != null ? { type: c.type } : clone(c.extra || {}), missing: true }; missing++; }
+  });
+  renderAll();
+  return missing === 0;
+ };
+ function renderBook() {
+  const box = $('pinv-book');
+  const on = bookOn();
+  document.body.classList.toggle('pinv-book-open', on);
+  if (!box) return;
+  box.style.display = on ? '' : 'none';
+  if (!on) return;
+  const inp = box.querySelector('.pinv-book-q'), grid = box.querySelector('.pinv-book-grid');
+  box.querySelector('.pinv-book-t').textContent = '📖 ' + tr('pinv_book', 'Recipes');
+  inp.placeholder = tr('pinv_book_search', 'Search items...');
+  const q = (inp.value || '').trim().toLowerCase();
+  grid.innerHTML = '';
+  const R = window.MB_RECIPES || [];
+  const list = bookList().map((r) => ({ r: r, ok: haveFor(R[r.n]), name: prettyName({ id: r.id, qty: 1, dmg: 0, extras: r.extras }) }))
+   .filter((x) => !q || x.name.toLowerCase().indexOf(q) >= 0 || x.r.id.toLowerCase().indexOf(q) >= 0)
+   .sort((a, b) => (b.ok - a.ok));
+  list.forEach((x) => {
+   const d = document.createElement('div');
+   d.className = 'pinv-slot pinv-book-it' + (x.ok ? '' : ' pinv-book-no');
+   const c = document.createElement('canvas'); c.width = c.height = 48;
+   paintId(c, x.r.id, undefined, 48, x.r.extras, 0); d.appendChild(c);
+   if (x.r.qty > 1) { const k = document.createElement('span'); k.className = 'pinv-count'; k.textContent = x.r.qty; d.appendChild(k); }
+   d.title = x.name;
+   d.onclick = () => window.playerInvBookFill(x.r.n);
+   grid.appendChild(d);
+  });
+  if (!list.length) { const e = document.createElement('div'); e.className = 'pinv-book-empty'; e.textContent = tr('pinv_book_none', 'Nothing found'); grid.appendChild(e); }
+ }
+ function bookSetup() {
+  let box = $('pinv-book');
+  if (box) return box;
+  const cols = document.querySelector('#inventory-modal .inv-main-columns'); if (!cols) return null;
+  box = document.createElement('div'); box.id = 'pinv-book'; box.className = 'pinv-book'; box.style.display = 'none';
+  box.innerHTML = '<div class="pinv-label pinv-book-t"></div><input type="text" class="pinv-book-q" autocomplete="off" spellcheck="false"><div class="pinv-book-grid"></div>';
+  cols.insertBefore(box, cols.firstChild);
+  const inp = box.querySelector('.pinv-book-q');
+  ['keydown', 'keyup', 'keypress'].forEach((n) => inp.addEventListener(n, (e) => e.stopPropagation()));   // (las teclas no mueven al jugador)
+  inp.addEventListener('input', () => renderBook());
+  return box;
+ }
+
+ // ------------------------------------------------------------------ 🧍 la skin del jugador con su armadura (▶ Modo Jugar)
+ function renderSkin() {
+  const top = document.querySelector('#inventory-modal .pinv-top'); if (!top) return;
+  let c = $('pinv-skin');
+  const on = !!(window.mbwPlaying && st.open && !st.chest && !st.furnace && !(st.craft && st.craft.table));
+  if (!on) { if (c) c.style.display = 'none'; return; }
+  if (!c) { c = document.createElement('canvas'); c.id = 'pinv-skin'; c.className = 'pinv-skin'; c.width = 160; c.height = 220; }
+  const armorBox = $('pinv-armor'); const after = armorBox && armorBox.parentNode;
+  if (after && after.parentNode === top && after.nextSibling !== c) top.insertBefore(c, after.nextSibling);
+  c.style.display = '';
+  const ok = window.mbwPlay && typeof window.mbwPlay.drawPreview === 'function' && window.mbwPlay.drawPreview(c);
+  if (!ok) setTimeout(() => { if (st.open) renderSkin(); }, 400);     // (la skin todavía se está bajando)
+ }
+
  function onSlot(addr, ev, right) {
   if (!ensure()) return;
   if (addr.k === 'o') { takeCraft(ev); return; }
@@ -704,6 +903,7 @@
   const freeArmor = !window.mbwPlaying || document.body.classList.contains('play-survival') === false;
   if (!held && armor && !right && !ev.shiftKey && freeArmor && openArmorMenu(addr, ev, cur)) return;
 
+  if (cur && cur.missing) { setSlot(addr, null); renderAll(); return; }   // 📖 un material que falta (rojo): se quita
   if (!held) {                                                         // cursor vacío: recoger
    if (!cur) return;
    if (ev.shiftKey && !right) {
@@ -785,6 +985,16 @@
   if (panel) panel.style.display = 'block';
   const top = m.querySelector('.pinv-top');                       // armadura + papelera: no se muestran al editar un cofre
   if (top) top.style.display = (st.chest || st.furnace || (st.craft && st.craft.table)) ? 'none' : '';
+  // ▶ Modo Jugar: se ve como el inventario del juego (blanco, letra de píxeles); la armadura en columna, la skin y a la derecha
+  // el crafteo 2×2; sin papelera (en el juego no hay)
+  const game = !!window.mbwPlaying;
+  m.classList.toggle('pinv-game', game);
+  const cbox = $('pinv-craft-box'), ppanel = $('player-inv-panel'), trashEl = $('pinv-trash');
+  if (cbox && top && ppanel) {
+   if (game && st.craft && !st.craft.table) { if (cbox.parentNode !== top) top.appendChild(cbox); }
+   else if (cbox.parentNode !== ppanel) ppanel.insertBefore(cbox, top);
+  }
+  if (trashEl && trashEl.parentNode) trashEl.parentNode.style.display = game ? 'none' : '';
   document.body.classList.toggle('pinv-craft-open', !!st.craft);
   const search = $('inventory-search');
   if (search) search.style.display = st.expanded ? '' : 'none';
@@ -813,7 +1023,9 @@
   if (content) content.style.height = '';
   if (left) left.style.display = '';
   if (wrap) { wrap.style.height = ''; wrap.style.flex = ''; wrap.style.minHeight = ''; }
-  document.body.classList.remove('pinv-furnace-open', 'pinv-chest-open', 'pinv-open', 'pinv-craft-open');
+  document.body.classList.remove('pinv-furnace-open', 'pinv-chest-open', 'pinv-open', 'pinv-craft-open', 'pinv-book-open');
+  m.classList.remove('pinv-game');
+  const bk = $('pinv-book'); if (bk) { bk.style.display = 'none'; const q = bk.querySelector('.pinv-book-q'); if (q) q.value = ''; }
   const ccb = $('pinv-craft-box'); if (ccb) ccb.style.display = 'none';
   const panel = $('player-inv-panel');
   if (panel) panel.style.display = 'none';

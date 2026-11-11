@@ -263,24 +263,43 @@
         return true;
     }
     window.mbwPlay.simFar = function (x, r) { return simFar(x, r); };   // (lo usan las pruebas)
+    // 🫳 los objetos se toman casi enseguida (4 pasos = 0.08 s); los que tiras tú esperan un poco (si no, los vuelves a tomar)
+    const PICKUP_DELAY = 4, THROW_DELAY = 40;
+    let lastPop = 0;
+    function pickSnd() { const n = performance.now(); if (n - lastPop < 60) return; lastPop = n; snd('pop', { vary: .45 }); }   // 🔊 el "pop" del juego
+    window.mbwPlay.pickSnd = pickSnd;
+    function solidAt(x, y) { const t = fg(x, y); return t !== 'air' && bd(t, 'walkThroughBlock') != 1; }
+    function dropStuck(d) { return solidAt(Math.floor(d.x), Math.floor(-d.y)); }
+    function freeNear(bx, by) {                                    // el hueco libre más cercano (primero arriba, luego a los lados)
+        for (let r = 1; r <= 4; r++) {
+            const c = [[0, r], [-r, 0], [r, 0], [-r, r], [r, r], [0, -r], [-r, -r], [r, -r]];
+            for (let i = 0; i < c.length; i++) { const x = bx + c[i][0], y = by + c[i][1]; if (y >= 0 && !solidAt(x, y)) return [x, y]; }
+        }
+        return null;
+    }
+    window.mbwPlay.mineBlock = function (x, y) { mineBlock(x, y); };   // (lo usan las pruebas)
+    window.mbwPlay.dropStuck = function (i) { const d = S.drops[i]; return d ? dropStuck(d) : null; };
     function tickDrops() {
         const w = W();
         for (let i = S.drops.length - 1; i >= 0; i--) {
             const d = S.drops[i];
             if (simFar(d.x)) continue;                              // 🧭 lejos de todos los jugadores: quieto
             d.age++;
+            // 🧱 atrapado dentro de un bloque sólido (p. ej. rompiste grava y cayó la de arriba): sale al hueco libre más cercano
+            if (d.age % 4 === 1 && dropStuck(d)) { const f = freeNear(Math.floor(d.x), Math.floor(-d.y)); if (f) { d.x = f[0] + .5; d.y = -(f[1] + .5); d.vx = 0; d.vy = 0; } }
             d.vy = Math.min(migSpeed(14), d.vy + .5);
             d.vx *= .9;
             const nx = d.x + d.vx / 30, ny = d.y + d.vy / 30;
             if (!collision(nx - .15, ny - .25, .3, 0, .1, true, false)) d.x = nx; else d.vx = 0;
             if (collision(d.x - .15, ny, .3, 0, .1, true, false)) { d.vy = 0; } else d.y = ny;
             if (d.age > 300 * FPS || d.y > 10) { S.drops.splice(i, 1); continue; }
-            if (d.age > 25 && !(w.dead > 0) && w.gamemode != 3 && Math.abs(d.x - w.worldX) < 1.5 && Math.abs(d.y - (w.worldY - 1)) < 1.5) {
+            if (d.age > (d.pd != null ? d.pd : PICKUP_DELAY) && !(w.dead > 0) && w.gamemode != 3 && Math.abs(d.x - w.worldX) < 1.5 && Math.abs(d.y - (w.worldY - 1)) < 1.5) {
                 // 🎮 invitado: se lo pide al anfitrión (si dos lo tocan a la vez, se lo lleva el primero)
                 if (S.mp && d.nid && mpGuest()) { if (!d.pend || S.tick - d.pend > 75) { d.pend = S.tick; mpSend({ tipo: 'juego_toma', nid: d.nid }); } continue; }
                 const n0 = d.n;
                 const left = addToInventory(d.id, d.n, d.dmg, d.ex);
                 if (left <= 0) S.drops.splice(i, 1); else d.n = left;
+                if (left !== n0) pickSnd();
                 if (S.mp && d.nid && left !== n0) mpSend({ tipo: 'juego_tomado', nid: d.nid, n: Math.max(0, left) });
             }
         }
@@ -502,6 +521,22 @@
             inWater: false, airTimer: 30, startUnderwaterTimer: 0, distanceX: 0, xScale: 1, hurt: 0, keysX: false
         };
     }
+    // 🛡 cuánto protege lo que traes puesto, de 0 a 20 (10 iconos). Sale de cómo el juego quita el daño (ouch): cada pieza
+    // quita 25 % × (1 − B) del daño, con B según el material (cuero .68, oro .52, hierro .38, diamante .26, dragón .2, en promedio).
+    // Las piezas rotas o que no protegen (gorro de fiesta, lentes...) no cuentan.
+    const ARMOR_B = [['Leather', .68], ['Gold', .52], ['Iron', .38], ['Diamond', .26], ['Dragon', .2]];
+    function armorPoints(w) {
+        let f = 0;
+        const A = (w && w.armors) || [];
+        for (let p = 0; p < A.length && p < 4; p++) {
+            const ar = A[p]; if (!ar || !ar[0] || ar[0] === 'air') continue;
+            const id = String(ar[0]), life = bd(id, 'life');
+            if (life == null || (Number(ar[1]) || 0) > life) continue;
+            for (let k = 0; k < ARMOR_B.length; k++) if (id.indexOf(ARMOR_B[k][0]) === 0) { f += .25 * (1 - ARMOR_B[k][1]); break; }
+        }
+        return Math.min(20, Math.round(f * 20));
+    }
+    window.mbwPlay.armorPoints = function () { return armorPoints(W()); };
     function sneakOrUse() { return S.p.sneaking || S.useTimer > -1; }
     function ouch(b, a, c) {
         const w = W();
@@ -1461,7 +1496,11 @@
         if (dw && !dw[tool]) return;                               // hace falta la herramienta correcta para que suelte algo
         let drop = bd(t, 'dropDifferent');
         if (drop === 'na') drop = null; else if (drop == null) drop = t;
-        if (t === 'lv' || t.substr(0, 2) === 'lv') drop = Math.random() < 1 / 12 ? 'sl' : null;   // (hojas: aproximado)
+        if (t === 'lv' || t.substr(0, 2) === 'lv') {                // hojas: a veces un brote; 🍎 las que tienen fruta sueltan su fruta
+            const fruit = { lv1: 'ap', lv2: 'or', lv3: 'gap', lv4: 'lemon' }[t];
+            if (fruit) addDrop(fruit, x + .5, -y - .5, 1, 0, {});
+            drop = Math.random() < 1 / 12 ? 'sl' : null;
+        }
         if (Array.isArray(drop)) drop = drop[0];
         const ex = (typeof s1 === 'string' && s1 && (t === 'cloth' || t === 'carpet' || t === 'bdcloth' || t === 'bed')) ? { type: s1 } : {};
         if (drop) addDrop(drop, x + .5, -y - .5, 1, 0, ex);
@@ -2886,7 +2925,7 @@
                 '<div class="ph-area"><div class="ph-vig"></div><div class="ph-portal"></div>' +
                 '<div class="ph-top"><button type="button" class="ph-gear" aria-label="Menu">⚙</button><div class="ph-msg"></div></div>' +
                 '<button type="button" class="ph-chat-btn">💬</button><div class="ph-coords"></div><div class="ph-effects"></div></div>' +
-                '<div class="ph-bars"><div class="ph-hearts"></div><div class="ph-right"><div class="ph-air"></div><div class="ph-food"></div></div></div>' +
+                '<div class="ph-bars"><div class="ph-left"><div class="ph-armor"></div><div class="ph-hearts"></div></div><div class="ph-right"><div class="ph-air"></div><div class="ph-food"></div></div></div>' +
                 '<div class="ph-xp"><div class="ph-xp-fill"></div><b class="ph-xp-lv"></b></div>' +
                 '<div class="ph-iname"></div>' +
                 '<div class="ph-hotbar"></div>' +
@@ -2983,6 +3022,8 @@
             if (ni.textContent !== S.iname.text) ni.textContent = S.iname.text;
             const nao = na.toFixed(2);
             if (ni.style.opacity !== nao) ni.style.opacity = nao;
+            const ap = armorPoints(w);                                  // 🛡 la armadura cambió (se la puso, se gastó...)
+            if (ap !== this.armKey) { this.armKey = ap; this.dirty = true; }
             if (!this.dirty) return;
             this.dirty = false;
             const surv = w.gamemode != 1 && w.gamemode != 3;
@@ -2995,6 +3036,10 @@
                 for (let i = 0; i < 10; i++) h += icon(hp >= (i + 1) * 2 ? 'f' : hp === i * 2 + 1 ? 'h' : 'e');
             }
             this.el.querySelector('.ph-hearts').innerHTML = h;
+            // 🛡 barra de armadura arriba de los corazones (solo si traes algo que protege), como en Minecraft
+            let am = '';
+            if (surv && ap > 0) for (let i = 0; i < 10; i++) am += icon(ap >= (i + 1) * 2 ? 'f' : ap === i * 2 + 1 ? 'h' : 'e');
+            this.el.querySelector('.ph-armor').innerHTML = am;
             let fd = '';
             if (surv) { const f = Math.max(0, (w.food | 0) / 50); for (let i = 0; i < 10; i++) fd += icon(f >= (i + 1) * 2 ? 'f' : f >= i * 2 + 1 ? 'h' : 'e'); }
             this.el.querySelector('.ph-food').innerHTML = fd;
@@ -3442,7 +3487,8 @@
         window.mbwPlaying = true;
         document.body.classList.add('mbw-playing');
         // el bloque Barrier no se ve jugando: si el mundo tiene alguno, el dibujo del mundo se rehace sin ellos
-        try { if ((mbwom.scene || []).some(function (c) { return c && c.indexOf('b') >= 0; }) && typeof initializeWorldCache === 'function') initializeWorldCache(); } catch (e) { /* nada */ }
+        // (y el tronco de árbol "wd1" se ve igual que la madera "wd")
+        try { if ((mbwom.scene || []).some(function (c) { return c && (c.indexOf('b') >= 0 || c.indexOf('wd1') >= 0); }) && typeof initializeWorldCache === 'function') initializeWorldCache(); } catch (e) { /* nada */ }
         window.smoothScroll = true;
         // pantalla completa + solo el mapa (el CSS de body.mbw-playing esconde todo el editor) + la vista del juego (Aspect, medidas de fábrica)
         S.old.fs = !!(document.fullscreenElement || document.webkitFullscreenElement);
@@ -3644,6 +3690,18 @@
         return (im && !im.hasFailed && wd >= 16 && (im.complete !== false)) ? im : null;
     }
     window.mbwPlaySkinSheet = skinSheet;
+    // 🧍 la skin del jugador (de frente) con su armadura, para el inventario. Devuelve false si la imagen todavía no está.
+    window.mbwPlay.drawPreview = function (cv) {
+        const c2 = cv && cv.getContext && cv.getContext('2d'); if (!c2) return false;
+        const sk = skinSheet(S.skin), sheet = sk || frank;
+        if (!(sheet && (sheet.naturalWidth || sheet.width))) return false;
+        c2.clearRect(0, 0, cv.width, cv.height);
+        c2.imageSmoothingEnabled = false;
+        const k = Math.min(cv.width / 16, cv.height / 22), pw = 16 * k, ph = 22 * k, x = (cv.width - pw) / 2, y = cv.height - ph;
+        c2.drawImage(sheet, 0, 0, 16, 22, x, y, pw, ph);
+        try { const pa = window.mbwPlayerArmorMob && window.mbwPlayerArmorMob(); if (pa && typeof drawMobArmorOverlay === 'function') drawMobArmorOverlay(c2, pa, x, y, pw, ph); } catch (e) { /* nada */ }
+        return true;
+    };
     window.mbwPlay.skin = function () { return S.skin; };
     window.mbwPlay.setSkin = function (id) {
         id = /^[0-9]{1,12}$/.test(String(id || '')) ? String(id) : '';
@@ -3784,6 +3842,7 @@
                 // a mí me tocó: a mi inventario (si no cabe todo, lo que sobra se vuelve a tirar)
                 if (m.a && window.mbwMpPlay && m.a === window.mbwMpPlay.myId() && Array.isArray(m.item)) {
                     const it = m.item, left = addToInventory(String(it[0]), it[1] | 0, it[2] || 0, it[3] || {});
+                    if (left < (it[1] | 0)) pickSnd();
                     if (left > 0) { const w = W(); addDrop(String(it[0]), w.worldX, w.worldY - .5, left, it[2] || 0, it[3] || {}); }
                     hud.dirty = true;
                 }
