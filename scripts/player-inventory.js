@@ -622,7 +622,10 @@
   // Ctrl + clic en una herramienta o armadura: editor de durabilidad
   if ((ev.ctrlKey || ev.metaKey) && !right && !held && cur && maxDurability(cur.id) && openDurEditor(addr, ev.currentTarget || ev.target)) return;
 
-  if (!held && armor && !right && !ev.shiftKey && openArmorMenu(addr, ev, cur)) return;   // clic en una casilla de armadura: mini menú de piezas
+  // clic en una casilla de armadura: mini menú de piezas (armadura gratis). ▶ En Modo Jugar solo en creativo: si no, la armadura se pone
+  // arrastrándola desde el inventario, como en el juego
+  const freeArmor = !window.mbwPlaying || document.body.classList.contains('play-survival') === false;
+  if (!held && armor && !right && !ev.shiftKey && freeArmor && openArmorMenu(addr, ev, cur)) return;
 
   if (!held) {                                                         // cursor vacío: recoger
    if (!cur) return;

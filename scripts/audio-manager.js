@@ -317,7 +317,7 @@ window.updateAudioChannel = function(channel, value) {
 
 // Cargar al iniciar
 window.addEventListener('DOMContentLoaded', () => {
-    ['master', 'sfx', 'ui', 'notif', 'music'].forEach(ch => {
+    ['master', 'sfx', 'ui', 'notif', 'music', 'weather'].forEach(ch => {
         let saved = localStorage.getItem('mbw_audio_' + ch);
         if (saved !== null) {
             window.audioSettings[ch] = parseInt(saved);

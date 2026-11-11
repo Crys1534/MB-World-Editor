@@ -62,6 +62,13 @@ function updateCiPreviewCanvas() {
         ctx.drawImage(window.images.blocks, renderObj.x, renderObj.y, 16, 16, 0, 0, 64, 64);
         if (window.mbwAnimIcon) window.mbwAnimIcon(ctx, renderObj, 0, 0, 64, 64);   // lana arcoíris / magma / fuego: animado
     }
+    // barra de durabilidad (si ya tiene desgaste), como en el inventario
+    const max = (typeof ciDurMax === 'function') ? ciDurMax() : 0;
+    if (max && currentCiDmg > 0) {
+        const k = Math.max(0, Math.min(1, (max - currentCiDmg) / max));
+        ctx.fillStyle = '#000'; ctx.fillRect(6, 54, 52, 6);
+        ctx.fillStyle = 'hsl(' + Math.round(120 * k) + ', 90%, 45%)'; ctx.fillRect(6, 54, Math.max(2, Math.round(52 * k)), 4);
+    }
 }
 
 // ✨ 2. ABRIR EL INVENTARIO EN MODO CREADOR
@@ -112,8 +119,34 @@ function openCustomItemsModal() {
     if (typeof renderModalHotbar === 'function') renderModalHotbar();
 }
 
+// 🛠 Durabilidad del objeto (herramientas y armaduras): se guarda como "desgaste" (dmg = máximo - lo que le queda), igual que el juego
+let currentCiDmg = 0;
+function ciDurMax() { return (typeof window.itemMaxDurability === 'function' && currentCiBaseItem) ? (window.itemMaxDurability(currentCiBaseItem) || 0) : 0; }
+function ciRefreshDurability() {
+    const box = document.getElementById('ci-dur-box'); if (!box) return;
+    const max = ciDurMax();
+    box.style.display = max ? '' : 'none';
+    if (!max) { currentCiDmg = 0; return; }
+    currentCiDmg = Math.max(0, Math.min(max - 1, Math.round(Number(currentCiDmg)) || 0));
+    const left = max - currentCiDmg;
+    const r = document.getElementById('ci-dur-range'), n = document.getElementById('ci-dur-num'), m = document.getElementById('ci-dur-max');
+    if (r) { r.max = max; r.value = left; }
+    if (n) { n.max = max; n.value = left; }
+    if (m) m.textContent = '(1 – ' + max + ')';
+}
+function ciSetDurability(left, from) {
+    const max = ciDurMax(); if (!max) return;
+    left = Math.max(1, Math.min(max, Math.round(Number(left)) || 1));
+    currentCiDmg = max - left;
+    const r = document.getElementById('ci-dur-range'), n = document.getElementById('ci-dur-num');
+    if (r && from !== 'range') r.value = left;
+    if (n && from !== 'num') n.value = left;
+    updateCiPreviewCanvas();
+}
+window.ciSetDurability = ciSetDurability;
+
 // ✨ 3. AL SELECCIONAR UN ÍTEM
-function selectCustomItem(itemID, existingNbt = null, editIndex = null) {
+function selectCustomItem(itemID, existingNbt = null, editIndex = null, existingDmg = 0) {
     if (ciOpenFor !== itemID) { ciEnchantOpen = {}; ciOpenFor = itemID; }   // otro objeto: los acordeones vuelven a empezar cerrados
     currentCiBaseItem = itemID;
     currentCiEditIndex = editIndex; 
@@ -135,6 +168,8 @@ function selectCustomItem(itemID, existingNbt = null, editIndex = null) {
     
     document.getElementById('save-custom-item').style.display = 'block';
 
+    currentCiDmg = Number(existingDmg) || 0;
+    ciRefreshDurability();
     updateCiGlow();
     updateCiPreviewCanvas();
     renderEnchantmentList();
@@ -211,7 +246,7 @@ function saveCustomItem() {
     }
     
     // Al guardar, utilizará la ID oficial que esté activa ('book' o 'ebook')
-    let newItem = [currentCiBaseItem, 1, 0, nbtData];
+    let newItem = [currentCiBaseItem, 1, ciDurMax() ? currentCiDmg : 0, nbtData];
     let savedItems = JSON.parse(localStorage.getItem('mbw_custom_items')) || [];
 
     if (currentCiEditIndex !== null && currentCiEditIndex >= 0 && currentCiEditIndex < savedItems.length) {

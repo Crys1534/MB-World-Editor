@@ -3366,3 +3366,13 @@ body.mbw-playing .mpplay-notice { display: flex; }
 
 /* ▶ Modo Jugar: dispenser / dropper = 9 espacios en cuadro de 3×3 (como en el juego) */
 .pinv-grid.pinv-grid-3 { grid-template-columns: repeat(3, var(--ps, 64px)); }
+
+/* 🛠 Custom Item Creator: durabilidad (herramientas y armaduras) */
+.ci-dur-box { width: 100%; box-sizing: border-box; background: #8B8B8B; border: 3px inset #FFF; padding: 6px 8px; color: #fff; font-size: 12px; text-shadow: 1px 1px 0 #333; }
+.ci-dur-label { font-weight: bold; margin-bottom: 4px; }
+.ci-dur-row { display: flex; gap: 6px; align-items: center; }
+.ci-dur-row input[type=range] { flex: 1; min-width: 0; }
+.ci-dur-row input[type=number] { width: 58px; }
+.ci-dur-btns { display: flex; gap: 6px; margin-top: 6px; }
+.ci-dur-btns button { flex: 1; font-size: 11px; padding: 4px; cursor: pointer; color: #fff !important; background: #5c5c5c !important; border: 2px outset #aaa !important; border-radius: 2px; text-shadow: 1px 1px 0 #222; }
+.ci-dur-btns button:hover { background: #6f6f6f !important; }

@@ -153,6 +153,8 @@
                         else if (modulus(n, 1) > .5 || modulus(-m, 1) < .5) return true;
                     } else if (h.substr(0, 2) === 'lp') {
                         if (modulus(-m, 1) < .5) return true;
+                    } else if (h === 'bed1' || h === 'bed2') {
+                        if (modulus(-m, 1) < .5) return true;            // 🛏 (solo en el Modo Jugar del editor) la cama choca como una losa: medio bloque
                     } else return true;
                 } else if (h.substr(-3) === 'fnc') {
                     if ((fg(p - 1, Q).split('g')[0] !== h && bd(fg(p - 1, Q), 'walkThroughBlockHit') == 1 || fg(p + 1, Q).split('g')[0] !== h && bd(fg(p + 1, Q), 'walkThroughBlockHit') == 1) && modulus(n, 1) > 1 / 3 && modulus(n, 1) < 2 / 3) return true;
@@ -655,6 +657,7 @@
             if (P.blockAtFeet === 'la' && P.falling || P.blockAtLegs === 'la' || P.blockAtHead === 'la') ouch(1, 5, 'lava');
             else if (P.blockAtFeet === 'ad' && P.falling || P.blockAtLegs === 'ad' || P.blockAtHead === 'ad') ouch(1, 5, 'acid');
             else if (P.blockAtFeet === 'magma' && !P.sneaking) ouch(1, 2, 'lava');
+            if (P.blockAtFeet === 'fire' || P.blockAtLegs === 'fire' || P.blockAtHead === 'fire') ouch(1, 1, 'fire');   // 🔥 el bloque de fuego quema
         }
         P.keysX = false;
         if (!cantMove) {                                           // caminar y correr
@@ -1124,6 +1127,7 @@
             if (a.burnsInLava == 1 && (fg(f, g) === 'la' || fg(f, g + 1) === 'la')) hurtMob(id, 5, 'lava');
             else if (a.burnsInAcid == 1 && (fg(f, g) === 'ad' || fg(f, g + 1) === 'ad')) hurtMob(id, 5, 'acid');
             else if (fg(f, g) === 'magma' && bd(fg(f, g + 1), 'waterCollision') != 1) hurtMob(id, 2, 'lava');
+            else if (a.burnsInLava == 1 && (fg(f, g) === 'fire' || fg(f, g + 1) === 'fire')) hurtMob(id, 1, 'fire');     // 🔥 el bloque de fuego también quema
             else if (!(c.type === 'wolf' && c.tamed) && !(c.type === 'cow' && c.variant === 'cowctus') && a.cactusDamage !== false && a.cactusDamage !== 0 && (fg(f, g) === 'ct' || fg(f, g + 1) === 'ct')) hurtMob(id, 1, 'cactus');
         } else c.hitCooldown--;
         calcTarget(id, c, a, d);
@@ -1279,7 +1283,11 @@
             }
         }
         if (d.hurt > 0) d.hurt--;
-        if (d.onFire > 0) d.onFire--;
+        if (d.onFire > 0) {
+            // 🔥 quemándose (al salir de la lava o del fuego): 1 de daño por segundo; el agua lo apaga. Los que no se queman (blaze, ghast...) no
+            if (fg(f, g) === 'wr' || fg(f, g + 1) === 'wr' || a.burnsInLava != 1) d.onFire = 0;
+            else { d.onFire--; if (d.onFire % FPS === 0 && fg(f, g) !== 'la' && fg(f, g + 1) !== 'la') hurtMob(id, 1, 'burning'); }   // ('burning' no vuelve a prender el fuego)
+        }
         if (c.y > 10) { delete mbwom.mobs[id]; S.tmp.delete(id); }     // cayó al vacío
     }
     function mobAttack(id, c, a) {
@@ -1441,6 +1449,24 @@
             const s0 = st(x, low), s1 = st(x, low + 1);
             setBlock(x, low, b + (open ? '3' : '1'), s0); setBlock(x, low + 1, b + (open ? '4' : '2'), s1);
             sndAt(open ? 'doorclose' : 'dooropen', x + .5, -(y + .5));
+            return true;
+        }
+        // 🚧 puerta de cerca (de madera o del Nether): abrir (se puede pasar) / cerrar. Abierta = states true (Game: 1 == states)
+        if (t === 'fncg' || t === 'nfncg') {
+            const open = st(x, y) == 1;
+            const ns = { type: t }; if (!open) ns.states1 = true;
+            mbwom.setBlockState(x, y, ns);
+            if (typeof window.renderBlock === 'function') window.renderBlock(x, y);
+            sndAt(open ? 'doorclose' : 'dooropen', x + .5, -(y + .5));
+            return true;
+        }
+        // 🕹 palanca: prender / apagar (states2 = 1 encendida)
+        if (t === 'lever') {
+            const cur = mbwom.getBlockState(x, y), on = Number(cur.states2) === 1;
+            const ns = { type: 'lever', states1: cur.states1 != null ? cur.states1 : 1 }; if (!on) ns.states2 = 1;
+            mbwom.setBlockState(x, y, ns);
+            if (typeof window.renderBlock === 'function') window.renderBlock(x, y);
+            sndAt(on ? 'off' : 'on', x + .5, -(y + .5));
             return true;
         }
         if (t === 'td1' || t === 'td2') {
@@ -1616,6 +1642,14 @@
         if (cb) return !!cb.checked;
         const c = W().cheats; return c === true || c === 1;
     }
+    // cambiar de dimensión jugando (1 = Overworld, 2 = Nether, 3 = End); devuelve true si se pudo
+    function changeDimension(n) {
+        n = Number(n);
+        if (!(n >= 1 && n <= 3)) return false;
+        if ((mbwom.currentScene || 1) === n) return true;
+        if (typeof window.mbwPlayChangeDim === 'function') return !!window.mbwPlayChangeDim(n);
+        return false;
+    }
     function runCommand(raw) {
         const w = W();
         let c = String(raw || '').trim();
@@ -1628,6 +1662,16 @@
         const info = (t) => { if (fb) say('[INFO] ' + t); };
         switch (d[0]) {
             case 'tp': {
+                // 🎮 /tp @nombre: ir a donde está otro jugador de la partida
+                if (d[1] && d[1][0] === '@') {
+                    const want = c.split(/\s+/)[1].slice(1).toLowerCase();
+                    const R = (S.mp && window.mbwMpPlay) ? window.mbwMpPlay.remotes : {};
+                    const k = Object.keys(R || {}).find(function (q) { return String(R[q].name || '').toLowerCase() === want; });
+                    if (!k) { say('[INFO] ' + tr('mpplay_tp_noone', 'There is no player called "{name}" in this game.').replace('{name}', want)); return; }
+                    const r = R[k];
+                    if (r.s !== (mbwom.currentScene || 1)) { if (!changeDimension(r.s)) { say('[INFO] ' + tr('mpplay_tp_dim', '{name} is in another dimension.').replace('{name}', r.name)); return; } }
+                    d[1] = String(r.tx); d[2] = String(-r.ty);
+                }
                 const x = coord(d[1], 'x'), y = coord(d[2], 'y');
                 if (isNaN(x) || isNaN(y) || x < -100 || x > 1e4 || y < -100 || y > 1e3) { say('[INFO] Invalid location.'); return; }
                 w.worldX = x; w.worldY = -y; w.xSpeed = 0; w.ySpeed = 0; w.riding = '';
@@ -1867,7 +1911,7 @@
             S.musicT -= 10;
             if (S.musicT <= 0) { S.musicT = FPS * (120 * Math.random() + 240) | 0; if (!X.musicName()) X.music('song' + ((Math.random() * 5 | 0) + 1)); }
         }
-        X.loop('rain', X.isRaining() && sc === 1 ? 'rainsound' : null, .6);
+        X.loop('rain', X.isRaining() && sc === 1 ? 'rainsound' : null, .6, 'weather');
         X.loop('dim', sc === 2 ? 'Nether' : sc === 3 ? 'EnderBG' : null, .5);
         const px = Math.floor(w.worldX), py = Math.floor(-w.worldY);
         for (let x = px - 14; x <= px + 14; x++) for (let y = py - 10; y <= py + 12; y++) {
@@ -2174,6 +2218,13 @@
         const list = opts.filter(function (o) { return o.indexOf(cur) === 0 && o !== cur; }).slice(0, 60);
         return { list: list, tokStart: tokStart, hint: hint };
     }
+    // comandos que siempre salen al abrir el chat (con la caja vacía)
+    function quickCmds() {
+        const l = ['/gamemode survival', '/gamemode creative', '/gamemode adventure', '/gamemode spectator', '/tp '];
+        // 🎮 en una partida: /tp @nombre de cada jugador
+        if (S.mp && window.mbwMpPlay) { const R = window.mbwMpPlay.remotes || {}; Object.keys(R).forEach(function (k) { if (R[k] && R[k].name) l.push('/tp @' + R[k].name); }); }
+        return l;
+    }
     const chat = {
         open: false, dirty: true, hist: [], hi: -1, el: null,
         build: function (root) {
@@ -2186,8 +2237,17 @@
             el.querySelector('.ph-chat-x').addEventListener('click', function (e) { e.stopPropagation(); chat.close(); });
             inp.addEventListener('input', function () { chat.tabN = 0; chat.tabBase = null; chat.sug(); });
             el.querySelector('.ph-chat-sug').addEventListener('click', function (e) {
+                const q = e.target.closest && e.target.closest('[data-q]');
+                if (q) {                                                  // comando rápido
+                    e.preventDefault(); e.stopPropagation();
+                    const c = q.getAttribute('data-q'), more = / $/.test(c);
+                    inp.value = c; chat.tabBase = null; chat.sug();
+                    if (more || !document.body.classList.contains('is-touch')) { inp.focus(); try { inp.setSelectionRange(c.length, c.length); } catch (er) { /* nada */ } }
+                    return;
+                }
                 const b = e.target.closest && e.target.closest('[data-s]'); if (!b) return;
-                e.preventDefault(); e.stopPropagation(); chat.apply(b.getAttribute('data-s')); inp.focus();
+                e.preventDefault(); e.stopPropagation(); chat.apply(b.getAttribute('data-s'));
+                if (!document.body.classList.contains('is-touch')) inp.focus();
             });
             inp.addEventListener('keydown', function (e) {
                 e.stopPropagation();
@@ -2208,6 +2268,8 @@
             if (S.joyReset) S.joyReset();
             this.el.classList.add('open'); this.input.value = prefix || ''; this.hi = -1; this.dirty = true; this.tabBase = null; this.tabN = 0; this.sug();
             const inp = this.input;
+            // 📱 en el celular NO se abre el teclado solo: salen las sugerencias para tocarlas (el teclado sale al tocar la caja)
+            if (document.body.classList.contains('is-touch') && !prefix) { try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch (e) { /* nada */ } return; }
             setTimeout(function () { inp.focus(); try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch (e) { /* nada */ } }, 0);
         },
         close: function () { if (!this.el) return; this.open = false; this.el.classList.remove('open'); this.input.blur(); this.dirty = true; this.sug(); },
@@ -2215,7 +2277,14 @@
         sug: function () {
             const box = this.el && this.el.querySelector('.ph-chat-sug'); if (!box) return;
             const v = this.open ? this.input.value : '';
-            if (!this.open || !v.trim()) { box.innerHTML = ''; box.style.display = 'none'; this.cur = null; return; }
+            if (!this.open) { box.innerHTML = ''; box.style.display = 'none'; this.cur = null; return; }
+            if (!v.trim()) {
+                // caja vacía: siempre a la mano los comandos de siempre (un toque los pone; los que no piden nada más se mandan con ➤)
+                this.cur = null;
+                box.innerHTML = '<div class="ph-sug-list ph-sug-quick">' + quickCmds().map(function (c) { return '<button type="button" data-q="' + esc(c) + '">' + esc(c) + '</button>'; }).join('') + '</div>';
+                box.style.display = 'block';
+                return;
+            }
             const r = this.cur = suggest(this.tabBase != null ? this.tabBase : v);
             let h = '';
             if (r.hint) h += '<div class="ph-sug-hint">' + esc(r.hint) + '</div>';

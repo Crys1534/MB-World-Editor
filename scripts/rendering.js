@@ -53,6 +53,14 @@ window.renderers = {
         return getTexture(states.type, st);
     },
     // Lámpara de redstone: encendida si le llega señal (hasSignal = [fuerza, ...], fuerza > 0) o si viene marcada como encendida
+    // 🕹 palanca: states1 = dónde está pegada (1 piso, 2 pared de la izquierda, 3 pared de la derecha); states2 = 1 encendida (punta roja)
+    lever: function (states) {
+        const TM = window.texturesMap, s1 = Number(states.states1) || 1, on = Number(states.states2) === 1 || states.states2 === true;
+        if (!on) return s1 === 3 ? TM.lever : s1 === 2 ? TM.lever_2 : TM.lever_1;
+        if (s1 === 1) return TM.lever_1_on || TM.lever_1;
+        if (s1 === 2) return TM.lever_2_on || TM.lever_2;
+        return window.mbwFlippedTexture ? window.mbwFlippedTexture('lever_3_on', TM.lever_2_on) : TM.lever;
+    },
     lamp: function (states) {
         const h = states.hasSignal, s = states.states1;
         const on = (Array.isArray(h) ? Number(h[0]) > 0 : (typeof h === 'number' ? h > 0 : h === true)) || s === true || s === 'true' || s === 1;
@@ -449,6 +457,7 @@ window.blockData = {
     la: window.renderers.liquid,
     ad: window.renderers.liquid,
     light: window.renderers.lamp,
+    lever: window.renderers.lever,
     seed: window.renderers.wheat,
     potato: window.renderers.wheat,
     carrot: window.renderers.wheat,
@@ -544,3 +553,14 @@ function drawDurabilityBar(ctx, x, y, slotWidth, slotHeight, damage, maxDurabili
     ctx.fillStyle = color;
     ctx.fillRect(barX, barY, Math.max(1, barMaxWidth * percentage), 2);
 }
+// Un dibujo de blocks.png volteado de izquierda a derecha (se hace una vez y se guarda): { img: canvas }
+window.mbwFlippedTexture = function (key, src) {
+    const C = window.mbwFlippedTexture.cache || (window.mbwFlippedTexture.cache = {});
+    if (C[key]) return C[key];
+    const im = window.images && window.images.blocks;
+    if (!src || !im || !im.complete || !im.naturalWidth) return src;
+    const c = document.createElement('canvas'); c.width = c.height = 16;
+    const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.translate(16, 0); g.scale(-1, 1);
+    g.drawImage(im, src.x, src.y, 16, 16, 0, 0, 16, 16);
+    return (C[key] = { x: src.x, y: src.y, img: c });
+};

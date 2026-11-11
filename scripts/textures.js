@@ -518,6 +518,8 @@ button_2: { x: 1, y: 58},
 lever: { x: 2, y: 59},
 	lever_1: { x: 0, y: 59},
 	lever_2: { x: 1, y: 59},
+	lever_1_on: { x: 3, y: 59},   // palanca encendida (punta roja) en el piso
+	lever_2_on: { x: 4, y: 59},   // palanca encendida en la pared
 dm: { x: 0, y: 203 },
 gi: { x: 1, y: 203 },
 ii: { x: 2, y: 203 },

@@ -514,7 +514,7 @@ function populateInventory() {
                 // Con el Creador de objetos abierto, el objeto guardado va a la mesa para EDITARLO (con sus magias y su nombre)
                 if (isCreatingCustomItem && itemID === 'cbook' && typeof openCommandBookModal === 'function') { openCommandBookModal(index); return; }   // un Command Book se edita en su propia ventana
                 if (isCreatingCustomItem && typeof selectCustomItem === 'function') {
-                    selectCustomItem(itemID, enchantments, index);
+                    selectCustomItem(itemID, enchantments, index, itemDamage);
                     return;
                 }
                 heldItem = { type: itemID, count: itemCount, states1: itemDamage, nbt: enchantments };
@@ -1839,6 +1839,18 @@ function animateWeather() {
             else if (val === 7) zoomScale = 3;    // 300%
         }
 
+        // con la vista del juego (Aspect Ratio) la lluvia solo cae dentro del recuadro, no en los bordes negros
+        wCtx.save();
+        try {
+            const A = window.mbwAspect;
+            if (A && A.active && A.screen) {
+                const cv = document.getElementById('canvas');
+                const r = A.screen(), cr = cv.getBoundingClientRect(), wr = weatherCanvas.getBoundingClientRect();
+                const kx = (cr.width / cv.width) * (weatherCanvas.width / wr.width), ky = (cr.height / cv.height) * (weatherCanvas.height / wr.height);
+                const ox = (cr.left - wr.left) * (weatherCanvas.width / wr.width), oy = (cr.top - wr.top) * (weatherCanvas.height / wr.height);
+                wCtx.beginPath(); wCtx.rect(ox + r.x * kx, oy + r.y * ky, r.w * kx, r.h * ky); wCtx.clip();
+            }
+        } catch (e) { /* sin recorte */ }
         // --- DIBUJAR LLUVIA ---
         wCtx.strokeStyle = 'rgba(150, 170, 255, 0.6)';
         wCtx.lineCap = 'round';
@@ -1895,6 +1907,7 @@ function animateWeather() {
                 }
             }
         }
+        wCtx.restore();                                   // (fin del recorte de la vista del juego)
     }
 
     requestAnimationFrame(animateWeather);

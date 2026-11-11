@@ -218,8 +218,8 @@
     X.isRaining = raining;
     X.thunder = function () {                         // lo llama la animación del clima cuando cae un relámpago (ui-handler.js)
         if (!(window.mbwPlaying || X.editorAmbience) || scene() !== 1) return;
-        if (Math.random() < .4) X.play('closeThunder' + ((Math.random() * 4 | 0) + 1), { vol: .9 });
-        else X.play('distantThunder' + ((Math.random() * 10 | 0) + 1), { vol: .8 });
+        if (Math.random() < .4) X.play('closeThunder' + ((Math.random() * 4 | 0) + 1), { vol: .9, ch: 'weather' });
+        else X.play('distantThunder' + ((Math.random() * 10 | 0) + 1), { vol: .8, ch: 'weather' });
     };
     // cada medio segundo: la lluvia, el ambiente de la dimensión y la música del menú (solo editando, si está prendido)
     let editorSongTimer = 0;
@@ -227,7 +227,7 @@
         if (window.mbwPlaying) return;                // (el Modo Jugar maneja lo suyo: scripts/play-mode.js)
         if (!X.editorAmbience) { X.loop('rain', null); X.loop('dim', null); if (X.musicName() === 'mainSong') X.stopMusic(); return; }
         const sc = scene();
-        X.loop('rain', raining() && sc === 1 ? 'rainsound' : null, .5);
+        X.loop('rain', raining() && sc === 1 ? 'rainsound' : null, .5, 'weather');
         X.loop('dim', sc === 2 ? 'Nether' : sc === 3 ? 'EnderBG' : null, .5);
         if (!X.musicName()) { if (--editorSongTimer <= 0) { X.music('mainSong'); editorSongTimer = 2 * (60 + Math.random() * 60) | 0; } }
     }, 500);
