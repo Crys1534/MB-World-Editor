@@ -287,6 +287,7 @@
         renderHead();
     }
     function dismissHead(uid) {
+        if (head.keep && head.keep[uid]) { if (head.active === uid) head.active = null; renderHead(); return; }   // 👥 burbuja fija (grupo del mundo): no se quita
         head.dismissed[uid] = true;
         head.pinned = head.pinned.filter(function (p) { return p.uid !== uid; });
         if (head.active === uid) head.active = null;
@@ -331,14 +332,20 @@
         setOpener: function (fn) { head.opener = fn; },
         onDismiss: function (fn) { head.onDismiss = fn; },
         // La mini ventana avisa qué chat tiene abierto (su burbuja se queda) y cuál está a la vista ahora
-        pin: function (uid, name, pfp) {
+        pin: function (uid, name, pfp, keep) {
             if (!uid) return;
+            head.keep = head.keep || {};
+            if (keep) head.keep[uid] = true;
             delete head.dismissed[uid];
             head.pinned = head.pinned.filter(function (p) { return p.uid !== uid; });
             head.pinned.unshift({ uid: uid, name: name, pfp: pfp, at: Date.now() });
             renderHead();
         },
-        unpin: function (uid) { head.pinned = head.pinned.filter(function (p) { return p.uid !== uid; }); if (head.active === uid) head.active = null; renderHead(); },
+        unpin: function (uid, force) {
+            head.keep = head.keep || {};
+            if (head.keep[uid] && !force) { if (head.active === uid) head.active = null; renderHead(); return; }   // 👥 fija: se queda
+            delete head.keep[uid];
+            head.pinned = head.pinned.filter(function (p) { return p.uid !== uid; }); if (head.active === uid) head.active = null; renderHead(); },
         setActive: function (uid) { head.active = uid || null; renderHead(); },
         refresh: renderHead,
         state: function () {

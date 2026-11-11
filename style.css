@@ -3508,3 +3508,9 @@ body.is-touch #mbw-play-hud .ph-area .ph-gear { width: 48px; height: 48px; font-
 .pm-btn.pm-kick { background: #b33a2e; }
 .pm-btn.pm-inv { background: #7b4fb0; }
 .pm-btn.pm-inv:disabled { background: #555; cursor: default; }
+
+/* 👥 mini chat: grupos, avisos del sistema, 📌 y 🧵 */
+#mini-chat .mc-sys { align-self: center; max-width: 92%; margin: 8px auto 2px; padding: 4px 10px; border-radius: 8px; background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text-muted); font-size: 11.5px; text-align: center; }
+#mini-chat .mc-author { font-size: 11px; color: var(--text-muted); margin: 0 0 2px 4px; }
+#mini-chat .mc-pin { margin-left: 4px; font-size: 10px; }
+#mini-chat .mc-thread { display: block; margin-top: 4px; padding: 2px 8px; border-radius: 6px; border: 1px solid color-mix(in srgb, var(--text) 20%, transparent); background: transparent; color: inherit; font-size: 11.5px; cursor: pointer; }

@@ -565,7 +565,7 @@ function dmUpdateSeen() {
         const e = dmState.msgs[i];
         if (e.msg.sender === myUID && !e.msg.isDeleted) { last = e; break; }
     }
-    if (!last) return;
+    if (!last || dmIsGroupChat()) return;               // (en un grupo no hay "visto")
     const row = dmState.rows.get(last.key);
     if (!row || !row.isConnected) return;
     const read = last.msg.status === 'read';
@@ -628,7 +628,7 @@ window.dmMarkRead = function(forceUnreadReset) {
     const updates = {};
     let n = 0;
     dmState.msgs.forEach(e => {
-        if (e.msg.sender !== myUID && e.msg.status !== 'read') {
+        if (e.msg.sender !== myUID && e.msg.status !== 'read' && !dmIsGroupChat()) {
             updates[e.key + '/status'] = 'read';
             updates[e.key + '/readAt'] = firebase.database.ServerValue.TIMESTAMP;
             n++;
@@ -797,6 +797,7 @@ function dmTypingPing() {
         dmTyping.chatId = currentChatId;
         dmTyping.lastSent = 0;
     }
+    if (dmIsGroupChat()) return;                          // (en un grupo no se avisa "escribiendo")
     const now = Date.now();
     if (now - dmTyping.lastSent > 2500) {     // como mucho una escritura cada 2.5 s (antes era una por tecla)
         const ref = database.ref('typing_status/' + dmTyping.chatId + '/' + myUID);
@@ -1414,7 +1415,7 @@ function dmBuildChatRow(chat, activeUid, viewingNow) {
 
     const av = dmEl('div', 'dc-chat-avatar');
     av.appendChild(dmAvatar(chat.pfp, 'dc-avatar-sm'));
-    av.appendChild(dmEl('span', 'dc-status-dot' + (chat.isOnline ? ' is-online' : '')));
+    if (!chat.isGroup) av.appendChild(dmEl('span', 'dc-status-dot' + (chat.isOnline ? ' is-online' : '')));
     row.appendChild(av);
 
     const meta = dmEl('div', 'dc-chat-meta');
@@ -1503,11 +1504,12 @@ window.renderChatList = function(container) {
                 .filter(uid => !window.isBlocked(uid))
                 .map(uid => {
                     const rec = chatEntries[uid] || {};
+                    if (window.mbwIsGroup && window.mbwIsGroup(uid)) return { uid, ...rec, name: String(rec.name || dmT('grp_world', 'World group')), pfp: window.mbwGroupPfp, isOnline: false, isFriend: false, isGroup: true };
                     const info = window.resolveChatInfo(uid, rec, friends[uid]);
                     return { uid, ...rec, name: info.name, pfp: info.pfp, isOnline: info.online, isFriend: (uid in friends) };
                 })
                 // Un registro vacío (sin mensajes, sin ser amigo, sin nombre conocido) no aporta nada
-                .filter(c => c.lastMsg || c.isFriend || window.isRealName(c.name))
+                .filter(c => c.isGroup || c.lastMsg || c.isFriend || window.isRealName(c.name))
                 .sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0));
 
             dmPaintChatList(container);
@@ -1610,6 +1612,7 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp) {
     if (box) { box.textContent = ''; box.appendChild(dmEl('div', 'dc-loading', dmT('dm_loading', 'Cargando…'))); }
 
     // Estado de la otra persona (activo ahora / hace X) · en un grupo: cuántos miembros tiene
+    { const dot = $dm('chat-status-dot'); if (dot) { dot.style.display = isGroup ? 'none' : ''; dot.classList.remove('is-online'); } }
     if (isGroup) {
         dmState.statusRef = database.ref('groups/' + otherUid + '/members');
         dmState.statusCb = dmState.statusRef.on('value', snap => {

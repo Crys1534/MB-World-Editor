@@ -1046,3 +1046,51 @@ body.theme-win7 {
 .dc-emote-suggest-item img { width: 24px; height: 24px; object-fit: contain; image-rendering: pixelated; }
 .dc-emote-suggest-item.on,
 .dc-emote-suggest-item:hover { background: var(--dc-bg-item-hover, rgba(255, 255, 255, 0.12)); color: var(--dc-text-strong, #fff); }
+
+/* ==========================================================================
+   👥 GRUPOS · 📌 FIJADOS · 🧵 HILOS  (scripts/chat-groups.js)
+   ========================================================================== */
+#full-chat-active { position: relative; }
+.dc-msg-system { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; margin: 10px 16px; padding: 6px 12px; border-radius: 8px; background: color-mix(in srgb, var(--dc-bg-secondary) 70%, transparent); color: var(--dc-text-muted); font-size: 13px; text-align: center; }
+.dc-msg-system .dc-sys-text { color: var(--dc-text); }
+.dc-msg-system .dc-sys-time { font-size: 11px; opacity: .75; }
+.dc-pin-mark { margin-left: 6px; font-size: 12px; opacity: .85; }
+.dc-thread-chip { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; padding: 3px 10px; border-radius: 6px; border: 1px solid var(--dc-divider); background: var(--dc-bg-secondary); color: var(--dc-brand-fg); font-size: 12.5px; cursor: pointer; }
+.dc-thread-chip:hover { background: var(--dc-bg-item-hover); }
+
+.dc-pins { position: fixed; z-index: 9999990; width: 330px; max-height: 60vh; display: flex; flex-direction: column; background: var(--dc-menu-bg); color: var(--dc-text); border: 1px solid var(--dc-divider); border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.45); overflow: hidden; }
+.dc-pins-head { padding: 10px 36px 10px 12px; font-weight: 700; color: var(--dc-text-strong); border-bottom: 1px solid var(--dc-divider); }
+.dc-pins-x { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; border: 0; border-radius: 6px; background: transparent; color: var(--dc-icon); cursor: pointer; }
+.dc-pins-x:hover { background: var(--dc-bg-item-hover); }
+.dc-pins-list { overflow-y: auto; padding: 6px; }
+.dc-pins-empty { padding: 14px 10px; color: var(--dc-text-muted); font-size: 13px; text-align: center; }
+.dc-pin-row { position: relative; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+.dc-pin-row:hover { background: var(--dc-bg-item-hover); }
+.dc-pin-who { font-size: 11.5px; color: var(--dc-text-muted); margin-bottom: 2px; padding-right: 60px; }
+.dc-pin-text { font-size: 13.5px; white-space: pre-wrap; word-break: break-word; max-height: 4.2em; overflow: hidden; }
+.dc-pin-un { position: absolute; top: 6px; right: 6px; padding: 2px 8px; font-size: 11px; border-radius: 5px; border: 1px solid var(--dc-divider); background: transparent; color: var(--dc-text-muted); cursor: pointer; }
+.dc-pin-un:hover { color: var(--dc-red-fg); border-color: var(--dc-red); }
+
+.dc-thread { position: absolute; top: 0; right: 0; bottom: 0; width: min(360px, 92%); z-index: 30; display: flex; flex-direction: column; background: var(--dc-bg-primary); border-left: 1px solid var(--dc-divider); box-shadow: -6px 0 18px rgba(0,0,0,.25); }
+.dc-thread-head { display: flex; align-items: center; gap: 8px; padding: 12px; border-bottom: 1px solid var(--dc-divider); }
+.dc-thread-title { flex: 1; font-weight: 700; color: var(--dc-text-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dc-thread-x { width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--dc-icon); cursor: pointer; }
+.dc-thread-x:hover { background: var(--dc-bg-item-hover); }
+.dc-thread-origin { margin: 10px 12px 4px; padding: 8px 10px; border-left: 3px solid var(--dc-brand); background: var(--dc-bg-secondary); border-radius: 0 6px 6px 0; font-size: 13px; color: var(--dc-text-muted); white-space: pre-wrap; word-break: break-word; max-height: 6em; overflow: hidden; }
+.dc-thread-list { flex: 1; overflow-y: auto; padding: 6px 12px; }
+.dc-thread-msg { padding: 6px 0; }
+.dc-thread-who { font-size: 12px; color: var(--dc-text-muted); }
+.dc-thread-who b { color: var(--dc-text-strong); margin-right: 4px; }
+.dc-thread-text { font-size: 14px; color: var(--dc-text); white-space: pre-wrap; word-break: break-word; }
+.dc-thread-form { display: flex; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--dc-divider); }
+.dc-thread-in { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 8px; border: 0; background: var(--dc-input-bg); color: var(--dc-text); font: inherit; font-size: 14px; outline: none; }
+.dc-thread-send { width: 38px; border: 0; border-radius: 8px; background: var(--dc-brand); color: #fff; cursor: pointer; }
+
+.dc-ask-bg { position: fixed; inset: 0; z-index: 9999995; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.45); }
+.dc-ask { width: min(360px, 92vw); padding: 16px; border-radius: 12px; background: var(--dc-menu-bg); color: var(--dc-text); border: 1px solid var(--dc-divider); box-shadow: 0 12px 34px rgba(0,0,0,.5); }
+.dc-ask-title { font-weight: 700; color: var(--dc-text-strong); margin-bottom: 10px; }
+.dc-ask-in { width: 100%; box-sizing: border-box; padding: 9px 10px; border-radius: 8px; border: 0; background: var(--dc-input-bg); color: var(--dc-text); font: inherit; outline: none; }
+.dc-ask-row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.dc-ask-row button { padding: 7px 14px; border-radius: 8px; border: 0; cursor: pointer; font: inherit; }
+.dc-ask-no { background: transparent; color: var(--dc-text-muted); }
+.dc-ask-ok { background: var(--dc-brand); color: #fff; }

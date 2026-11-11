@@ -161,7 +161,7 @@
         const a = tsOf(prev), b = tsOf(m);
         return dayKey(a) === dayKey(b) && Math.abs(b - a) < GROUP_MS;
     }
-    function nameOf(uid) { return uid === myUid() ? myName() : (uid === mc.uid ? mc.who : '?'); }
+    function nameOf(uid, m) { return uid === myUid() ? myName() : (isGroupId(mc.uid) ? String((m && m.senderName) || '?') : (uid === mc.uid ? mc.who : '?')); }
     function nearBottom() { const b = mc.msgsEl; return b.scrollHeight - b.scrollTop - b.clientHeight < 60; }
     function toBottom() { const b = mc.msgsEl; b.scrollTop = b.scrollHeight; requestAnimationFrame(function () { b.scrollTop = b.scrollHeight; }); }
     function scheduleRender(stick) {
@@ -199,9 +199,16 @@
     }
     function buildRow(k, m, cont, isLastMine) {
         const me = myUid();
+        if (m && m.system) {                                      // 🤖 aviso del sistema (grupos)
+            const sr = el('div', 'mc-sys', window.mbwSystemText ? window.mbwSystemText(m) : String(m.text || ''));
+            sr.dataset.key = k; sr.title = fmtTime(tsOf(m));
+            sr.addEventListener('contextmenu', function (e) { e.preventDefault(); e.stopPropagation(); openMsgMenu(e.clientX, e.clientY, k); });
+            return sr;
+        }
         const mine = m.sender === me;
         const row = el('div', 'mc-row ' + (mine ? 'me' : 'them') + (cont ? ' cont' : '') + (m.isDeleted ? ' deleted' : ''));
         row.dataset.key = k;
+        if (!mine && !cont && isGroupId(mc.uid)) row.appendChild(el('div', 'mc-author', String(m.senderName || '?').slice(0, 40)));
         const line = el('div', 'mc-line');
         const b = el('div', 'mc-bubble');
         if (m.replyTo && typeof m.replyTo === 'object' && !m.isDeleted) {
@@ -219,6 +226,14 @@
         else t.textContent = String(m.text == null ? '' : m.text);
         b.appendChild(t);
         if (m.isEdited && !m.isDeleted) b.appendChild(el('span', 'mc-edited', T('mc_edited', '(edited)')));
+        if (m.pinned && !m.isDeleted) b.appendChild(el('span', 'mc-pin', '📌'));
+        if (m.thread && typeof m.thread === 'object' && !m.isDeleted) {
+            const n = Number(m.thread.count) || 0;
+            const chip = el('button', 'mc-thread', '🧵 ' + String(m.thread.name || 'Thread').slice(0, 40) + ' · ' + n);
+            chip.type = 'button';
+            chip.addEventListener('click', function (e) { e.stopPropagation(); const cid = mc.chatId; openFull(); setTimeout(function () { window.mbwThreadOpen && window.mbwThreadOpen(cid, k); }, 450); });
+            b.appendChild(chip);
+        }
         b.title = fmtTime(tsOf(m));
         line.appendChild(b);
         if (!m.isDeleted) line.appendChild(buildTools(k, mine));
@@ -301,16 +316,20 @@
         const mine = m.sender === myUid();
         window.dmOpenMenu(x, y, function (menu) {
             if (typeof dmAddReactStrip === 'function') { dmAddReactStrip(menu, k, false, reactCtx(k)); menu.appendChild(el('div', 'dc-menu-sep')); }
-            window.dmMenuItem(menu, dmt('dm_reply', 'Reply'), ICON('reply'), function () { startReply(k); });
-            if (mine) window.dmMenuItem(menu, dmt('dm_edit_msg', 'Edit message'), ICON('edit'), function () { startEdit(k); });
+            if (!m.system) window.dmMenuItem(menu, dmt('dm_reply', 'Reply'), ICON('reply'), function () { startReply(k); });
+            if (mine && !m.system) window.dmMenuItem(menu, dmt('dm_edit_msg', 'Edit message'), ICON('edit'), function () { startEdit(k); });
             window.dmMenuItem(menu, dmt('dm_copy', 'Copy text'), ICON('copy'), function () { copyText(k); });
-            if (mine) { menu.appendChild(el('div', 'dc-menu-sep')); window.dmMenuItem(menu, dmt('dm_delete', 'Delete message'), ICON('trash'), function () { deleteMsg(k); }, true); }
+            if (window.mbwPinToggle) {                     // 📌 fijar / quitar
+                const pinned = !!m.pinned;
+                window.dmMenuItem(menu, '📌 ' + (pinned ? dmt('dm_unpin', 'Unpin message') : dmt('dm_pin', 'Pin message')), null, function () { window.mbwPinToggle(mc.chatId, k, !pinned); });
+            }
+            if (mine && !m.system) { menu.appendChild(el('div', 'dc-menu-sep')); window.dmMenuItem(menu, dmt('dm_delete', 'Delete message'), ICON('trash'), function () { deleteMsg(k); }, true); }
         });
     }
     function startReply(k) {
         const m = mc.msgs.get(k); if (!m || m.isDeleted) return;
         mc.edit = null;
-        mc.reply = { msgId: k, senderName: m.sender === myUid() ? myName() : (mc.who || m.senderName || '?'), text: String(m.text == null ? '' : m.text).slice(0, 200) };
+        mc.reply = { msgId: k, senderName: m.sender === myUid() ? myName() : (isGroupId(mc.uid) ? (m.senderName || '?') : (mc.who || m.senderName || '?')), text: String(m.text == null ? '' : m.text).slice(0, 200) };
         paintBar(); mc.input.focus();
     }
     function cancelReply() { mc.reply = null; paintBar(); }
@@ -413,8 +432,12 @@
             mc.msgs.set(snap.key, v);
             scheduleRender();
         });
+        if (isGroupId(mc.uid)) {                        // 👥 grupo: cuántos miembros (sin "escribiendo" ni "activo")
+            listen(d.ref('groups/' + mc.uid + '/members'), 'value', function (snap) { if (token !== mc.token) return; const n = Object.keys(snap.val() || {}).length; if (mc.status) { mc.status.classList.remove('on'); mc.status.textContent = '👥 ' + n; } });
+        } else {
         listen(d.ref('typing_status/' + mc.chatId + '/' + mc.uid), 'value', function (snap) { if (token !== mc.token) return; mc.theyType = snap.val() === true; paintTyping(); if (mc.theyType && nearBottom()) toBottom(); });
         listen(d.ref('users_status/' + mc.uid), 'value', function (snap) { if (token !== mc.token) return; mc.lastStatus = snap.val() || null; paintStatus(); });
+        }
         q.once('value').then(function (snap) {
             if (token !== mc.token) return;
             mc.loaded = true;
@@ -459,7 +482,7 @@
         if (!d || !me || !visibleNow() || document.visibilityState !== 'visible') return;
         const upd = {}; let n = 0;
         mc.msgs.forEach(function (m, key) {
-            if (m.sender !== me && m.status !== 'read' && !m.isDeleted) {
+            if (m.sender !== me && m.status !== 'read' && !m.isDeleted && !isGroupId(mc.uid)) {
                 upd[key + '/status'] = 'read';
                 upd[key + '/readAt'] = firebase.database.ServerValue.TIMESTAMP;
                 n++;
@@ -473,7 +496,7 @@
 
     // ------------------------------------------------------------------ "está escribiendo…" (lo que aviso yo)
     function typingPing() {
-        const d = db(), me = myUid(); if (!d || !me || !mc.chatId || mc.edit) return;
+        const d = db(), me = myUid(); if (!d || !me || !mc.chatId || mc.edit || isGroupId(mc.uid)) return;
         const now = Date.now();
         if (now - mc.typingSent > 2500) {
             const ref = d.ref('typing_status/' + mc.chatId + '/' + me);
@@ -533,20 +556,22 @@
     }
 
     // ------------------------------------------------------------------ abrir / minimizar / cerrar
+    function isGroupId(id) { return !!(window.mbwIsGroup && window.mbwIsGroup(id)); }
     function open(uid, name, pfp) {
         const me = myUid();
         if (!uid || !me || !db()) return false;
-        if (typeof window.isBlocked === 'function' && window.isBlocked(uid)) {
+        const grp = isGroupId(uid);
+        if (!grp && typeof window.isBlocked === 'function' && window.isBlocked(uid)) {
             if (typeof window.mpToast === 'function') window.mpToast('🚫', T('mc_blocked', 'You blocked this person. Unblock them to write.'));
             return false;
         }
-        const inf = (typeof window.resolveChatInfo === 'function') ? window.resolveChatInfo(uid, { name: name, pfp: pfp }) : { name: name || '?', pfp: pfp };
+        const inf = grp ? { name: name || 'Group', pfp: pfp || window.mbwGroupPfp } : (typeof window.resolveChatInfo === 'function') ? window.resolveChatInfo(uid, { name: name, pfp: pfp }) : { name: name || '?', pfp: pfp };
         build();
         if (mc.uid !== uid) {
             if (mc.chatId) { if (!mc.edit) mc.drafts[mc.chatId] = mc.input.value; stopTyping(); }
             detach();
             mc.uid = uid;
-            mc.chatId = me < uid ? me + '_' + uid : uid + '_' + me;
+            mc.chatId = grp ? uid : (me < uid ? me + '_' + uid : uid + '_' + me);
             mc.msgs = new Map(); mc.msgsEl.textContent = '';
             mc.loaded = false; mc.hasMore = false; mc.loadingOlder = false;
             mc.reply = null; mc.edit = null;
