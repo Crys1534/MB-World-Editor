@@ -468,7 +468,9 @@ function paintWorldBackground(tctx, tw, th) {
 function renderWorldToBuffer() {
     paintWorldBackground(offscreenCtx, offscreenCanvas.width, offscreenCanvas.height);
 
-    for (let x = 0; x < grid.width; x++) {
+    // 🧩 ▶ Modo Jugar: el mundo se pega por trozos ya dibujados (scripts/chunk-render.js); si no se puede, bloque por bloque
+    const byChunks = window.mbwChunks && window.mbwChunks.draw(offscreenCtx, Math.floor(camera.x), Math.floor(camera.y), grid.width, grid.height, canvas.height);
+    if (!byChunks) for (let x = 0; x < grid.width; x++) {
         for (let y = 0; y < grid.height; y++) {
             const currentX = Math.floor(x + camera.x);
             const currentY = Math.floor(y + camera.y);
@@ -618,7 +620,8 @@ function renderSmoothBuffers() {
     const tw = Math.ceil(ts) + 0.8;
 
     // un cuadro más a la derecha y arriba (grid.width / grid.height incluidos) para cubrir el hueco al deslizar
-    for (let x = 0; x <= grid.width; x++) {
+    const byChunks = window.mbwChunks && window.mbwChunks.draw(blocksCtx, cx, cy, grid.width + 1, grid.height + 1, bh);   // 🧩 por trozos (▶ Modo Jugar)
+    if (!byChunks) for (let x = 0; x <= grid.width; x++) {
         for (let y = 0; y <= grid.height; y++) {
             let blockObject = getBlockCache(cx + x, cy + y);
             if (blockObject != null) {

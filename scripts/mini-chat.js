@@ -433,7 +433,7 @@
             scheduleRender();
         });
         if (isGroupId(mc.uid)) {                        // 👥 grupo: cuántos miembros (sin "escribiendo" ni "activo")
-            listen(d.ref('groups/' + mc.uid + '/members'), 'value', function (snap) { if (token !== mc.token) return; const n = Object.keys(snap.val() || {}).length; if (mc.status) { mc.status.classList.remove('on'); mc.status.textContent = '👥 ' + n; } });
+            listen(d.ref(window.mbwGroupRef(mc.uid) + '/members'), 'value', function (snap) { if (token !== mc.token) return; const n = Object.keys(snap.val() || {}).length; if (mc.status) { mc.status.classList.remove('on'); mc.status.textContent = '👥 ' + n; } });
         } else {
         listen(d.ref('typing_status/' + mc.chatId + '/' + mc.uid), 'value', function (snap) { if (token !== mc.token) return; mc.theyType = snap.val() === true; paintTyping(); if (mc.theyType && nearBottom()) toBottom(); });
         listen(d.ref('users_status/' + mc.uid), 'value', function (snap) { if (token !== mc.token) return; mc.lastStatus = snap.val() || null; paintStatus(); });

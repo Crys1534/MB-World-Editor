@@ -69,6 +69,7 @@
     };
     window.mbwMpPlay = M;
     M.myId = function () { return myPeer(); };
+    M.mobGone = function (id) { if (M.on && M.role === 'host') send({ tipo: 'juego_mob_fuera', s: curScene(), id: String(id) }); };
 
     const inMp = function () { return !!g('isMultiplayer'); };
     const amHost = function () { return !!g('isHost'); };
@@ -380,6 +381,7 @@
             return;
         }
         if (t === 'juego_mobs') { applyMobs(d); return; }
+        if (t === 'juego_mob_fuera') { if (M.role === 'guest' && Number(d.s) === curScene() && typeof d.id === 'string' && mbwom.mobs) { delete mbwom.mobs[d.id]; if (M.mobT) M.mobT.delete(d.id); } return; }   // 👻 un mob lejano desapareció
         if (t === 'juego_mobs_lista') { if (M.role === 'guest' && Number(d.s) === curScene() && Array.isArray(d.ids)) { const keep = new Set(d.ids); Object.keys(mbwom.mobs || {}).forEach(function (id) { if (!keep.has(id)) { delete mbwom.mobs[id]; M.mobT.delete(id); N.forget(id); } }); } return; }
         if (t === 'juego_golpe') { if (d.a === myPeer()) N.hurtMe(d.dmg, d.causa); return; }
         if (t === 'juego_botin') { if (d.a === myPeer()) N.loot(d.l); return; }

@@ -45,7 +45,7 @@
     const S = {
         playing: false, snapshot: null, scene: 1, old: null,
         p: null, keys: {}, dbl: {}, mouse: { x: 0, y: 0, left: false, right: false, inside: false, leftEdge: false, rightEdge: false },
-        tmp: new Map(), drops: [], falling: [], arrows: [], sandCheck: new Map(), liqFresh: new Set(), orbs: [], xpT: 0,
+        tmp: new Map(), drops: [], falling: [], arrows: [], sandCheck: new Map(), leafQ: new Map(), liqFresh: new Set(), orbs: [], xpT: 0,
         tick: 0, acc: 0, last: 0, raf: 0, mine: null, placeDelay: 0, useTimer: -1, msg: '', msgT: 0,
         sign: { text: '', a: 0, on: false }, iname: { key: null, text: '', t: 0 },
         touchMode: 'mine'
@@ -253,10 +253,21 @@
     }
     const packDrop = (o, sc) => ({ nid: o.nid, id: o.id, n: o.n, dmg: o.dmg, ex: o.ex, x: o.x, y: o.y, vx: o.vx, vy: o.vy, age: o.age | 0, s: sc || mbwom.currentScene || 1 });
     const dropIdx = (nid) => { for (let i = 0; i < S.drops.length; i++) if (S.drops[i].nid === nid) return i; return -1; };
+    // 🧭 ¿x está lejos de todos los jugadores? (S.simX = sus x, se calcula al empezar cada paso)
+    const SIM_DIST = 64, MOB_SIM = 40;
+    function simFar(x, r) {
+        const L = S.simX; if (!L || !L.length) return false;
+        r = r || SIM_DIST; x = Number(x);
+        if (!(x === x)) return false;
+        for (let i = 0; i < L.length; i++) if (Math.abs(x - L[i]) <= r) return false;
+        return true;
+    }
+    window.mbwPlay.simFar = function (x, r) { return simFar(x, r); };   // (lo usan las pruebas)
     function tickDrops() {
         const w = W();
         for (let i = S.drops.length - 1; i >= 0; i--) {
             const d = S.drops[i];
+            if (simFar(d.x)) continue;                              // 🧭 lejos de todos los jugadores: quieto
             d.age++;
             d.vy = Math.min(migSpeed(14), d.vy + .5);
             d.vx *= .9;
@@ -312,6 +323,7 @@
     function tickFalling() {
         for (let i = S.falling.length - 1; i >= 0; i--) {
             const e = S.falling[i];
+            if (simFar(e.x)) continue;
             if (e.tnt) { e.fuse++; if (e.fuse >= 200) { S.falling.splice(i, 1); explode(e.x | 0, -e.y | 0, 6, PLAYER_ID); continue; } }
             e.vy = Math.min(migSpeed(14), Math.max(migSpeed(-30), e.vy + .5));
             e.vx = Math.min(migSpeed(50), Math.max(migSpeed(-50), e.vx * migDamp(.98)));
@@ -1138,6 +1150,7 @@
         const w = W();
         for (let i = S.orbs.length - 1; i >= 0; i--) {
             const o = S.orbs[i];
+            if (simFar(o.x)) continue;
             o.age++;
             const dx = w.worldX - o.x, dy = (w.worldY - .9) - o.y, dist = Math.hypot(dx, dy);
             const alive = !(w.dead > 0) && w.gamemode != 3;
@@ -1180,6 +1193,7 @@
         const w = W();
         for (let i = S.arrows.length - 1; i >= 0; i--) {
             const r = S.arrows[i];
+            if (simFar(r.x)) continue;
             r.age++;
             r.vy += .25; r.vx *= .995;
             r.x += r.vx / 30; r.y += r.vy / 30;
@@ -1599,7 +1613,8 @@
     window.mbwPlay.hurtMob = function (id, n) { hurtMob(id, n, 'attack', PLAYER_ID); };     // (lo usan las pruebas)
     window.mbwPlay.explode = function (x, y, r) { explode(x, y, r || 3, PLAYER_ID); };
     window.mbwPlay.runCommand = function (t) { runCommand(t); };                              // (lo usan las pruebas)
-    window.mbwPlay.addDrop = function (id, x, y, n) { addDrop(id, x, y, n || 1, 0, {}); };                  // (lo usan las pruebas)
+    window.mbwPlay.addDrop = function (id, x, y, n) { addDrop(id, x, y, n || 1, 0, {}); };
+    window.mbwPlay.dropItem = function (id, n, dmg, extras) { const w = W(); addDrop(id, w.worldX, w.worldY - 1, n || 1, dmg || 0, extras || {}); };   // (lo que no cabe al cerrar el crafteo)                  // (lo usan las pruebas)
     window.mbwPlay.openBox = function (x, y) { return openBox(x, y); };                                       // (lo usan las pruebas)
     // 🎮 ¿hay otro jugador bajo el mouse (y a la mano: 3.5 bloques)?
     function playerUnderMouse(mw) {
@@ -1794,11 +1809,12 @@
         S.dimStash = S.dimStash || {};
         S.dimStash[from] = { drops: S.drops, orbs: S.orbs, falling: S.falling, arrows: S.arrows };
         syncScene();
+        snapDim(n);                                                        // 📸 primera vez en esta dimensión: su foto (todavía sin cambios)
         mbwom.loadScene(n); mbwom.currentScene = n; w.scene = n;
         if (typeof mbwom.mobs !== 'object' || !mbwom.mobs) { mbwom.mobs = {}; w['mobs' + n] = mbwom.mobs; }
         const st = S.dimStash[n] || {}; delete S.dimStash[n];
         S.drops = st.drops || []; S.orbs = st.orbs || []; S.falling = st.falling || []; S.arrows = st.arrows || [];
-        S.tmp = new Map(); S.liqFresh = new Set(); S.sandCheck = new Map(); S.parts = []; S.wetWas = {}; S.spawnT = new Map(); S.spawnOn = new Set(); S.rsOn = new Map(); S.rsReady = false;
+        S.tmp = new Map(); S.liqFresh = new Set(); S.sandCheck = new Map(); S.leafQ = new Map(); S.parts = []; S.wetWas = {}; S.spawnT = new Map(); S.spawnOn = new Set(); S.rsOn = new Map(); S.rsReady = false;
         // a dónde llega (Game.usePortal): Overworld = donde se entró al portal (o el spawn); Nether = mitad del mundo, y 30; End = un sexto, y 53
         const wd = dimWidth();
         let to;
@@ -2033,11 +2049,11 @@
     window.mbwPlayCommand = runCommand;
 
     // ------------------------------------------------------------------ cofres y hornos (abrir)
-    const BOX = { chest: 1, oven: 1, dispense: 1, dropper: 1, enchant: 1 };
+    const BOX = { chest: 1, oven: 1, dispense: 1, dropper: 1, enchant: 1, craft: 1 };
     // el aviso de abajo: "Doble clic para abrir el cofre" (en el celular, "Toca dos veces..."), según el bloque bajo el cursor
     function boxLabel(t) {
         const touch = document.body.classList.contains('is-touch');
-        const what = t === 'enchant' ? tr('play_box_enchant', 'the enchantment table') : t === 'oven' ? tr('play_box_furnace', 'the furnace') : t === 'dispense' ? tr('play_box_dispenser', 'the dispenser') : t === 'dropper' ? tr('play_box_dropper', 'the dropper') : tr('play_box_chest', 'the chest');
+        const what = t === 'craft' ? tr('play_box_craft', 'the crafting table') : t === 'enchant' ? tr('play_box_enchant', 'the enchantment table') : t === 'oven' ? tr('play_box_furnace', 'the furnace') : t === 'dispense' ? tr('play_box_dispenser', 'the dispenser') : t === 'dropper' ? tr('play_box_dropper', 'the dropper') : tr('play_box_chest', 'the chest');
         return (touch ? tr('play_dbl_tap_open', 'Double-tap to open {what}') : tr('play_dbl_click_open', 'Double-click to open {what}')).replace('{what}', what);
     }
     function openBox(x, y) {
@@ -2047,6 +2063,7 @@
         else if (t === 'oven' && typeof window.openFurnaceEditor === 'function') ok = window.openFurnaceEditor(x, y);
         else if ((t === 'dispense' || t === 'dropper') && typeof window.openDispenserEditor === 'function') ok = window.openDispenserEditor(x, y);
         else if (t === 'enchant') ok = openEnchant(x, y);
+        else if (t === 'craft' && typeof window.openCraftingTable === 'function') ok = window.openCraftingTable(x, y);   // 🛠 mesa de crafteo: 3×3
         if (ok) {
             S.keys = {}; S.mouse.left = S.mouse.right = false; S.mine = null; S.openBoxAt = { x: x, y: y };
             // el último clic (o toque) del doble clic cae sobre la ventana que se acaba de abrir: ese no cuenta (si no, tomaba un objeto)
@@ -2243,21 +2260,24 @@
             S.sandCheck.forEach(function (t, k) { if (t <= S.tick && n < 400) { due.push(k); n++; } });
             due.forEach(function (k) { if (S.sandCheck.get(k) > S.tick) return; S.sandCheck.delete(k); const pp = k.split(','); checkSand(+pp[0], +pp[1]); });   // (si el de abajo acaba de caer, este espera 2 pasos más)
         }
+        // 🧭 distancia de simulación: dónde están los jugadores (una vez por paso). Lo que está a más de SIM_DIST bloques
+        // de todos se queda quieto (mobs, objetos tirados, flechas, bolitas de experiencia, bloques cayendo, líquidos).
+        const px = w.worldX;
+        // 🎮 en multijugador el anfitrión mueve también los mobs que están cerca de los otros jugadores; el invitado no los mueve: le llegan
+        const pxs = [px];
+        if (mpHost()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (r) pxs.push(r.tx); } }
+        S.simX = pxs; S.plPos = null;
         tickLiquids();
         tickFalling();
         tickDrops();
         tickOrbs();
         tickArrows();
-        const px = w.worldX;
-        // 🎮 en multijugador el anfitrión mueve también los mobs que están cerca de los otros jugadores; el invitado no los mueve: le llegan
-        const pxs = [px];
-        if (mpHost()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (r) pxs.push(r.tx); } }
         if (mpGuest()) { if (window.mbwMpPlay.mobLerp) window.mbwMpPlay.mobLerp(); }
         else for (const id in mbwom.mobs) {
             const m = mbwom.mobs[id];
             if (!m || !m.type) continue;
-            const mx = Number(m.x);
-            if (!pxs.some(function (q) { return Math.abs(mx - q) <= 40; })) continue;   // lejos: quieto (como el juego fuera de pantalla)
+            if (m.mbweSp && S.tick % 2 === 0 && despawnCheck(id, m, S.plPos || (S.plPos = allPlPos()))) continue;   // 👻 lejos de todos: desaparece
+            if (simFar(m.x, MOB_SIM)) continue;                                  // lejos: quieto (como el juego fuera de pantalla)
             try { mobTick(id, m); } catch (e) { if (!S.mobErr) { S.mobErr = true; console.warn('play mob', e); } }
         }
         if (S.msgT > 0) S.msgT--;
@@ -2266,6 +2286,7 @@
         if (S.tick % 10 === 0) tickAmbience();
         if (S.tick % 10 === 5) tickSpawners();
         if (S.tick % 4 === 2) tickRedstone();
+        if (S.tick % 5 === 3) tickLeaves();
         tickParticles();
         if (S.portalGo) { const k = S.portalGo; S.portalGo = 0; usePortal(k); }
     }
@@ -2446,6 +2467,62 @@
     // saca de 1 a 4 monstruos del Overworld (zombi, esqueleto, araña o creeper; nunca lobos) cerca de él, en un lugar libre,
     // si no hay ya 6 monstruos alrededor. Solo lo hace quien mueve los mobs (solo o el anfitrión de la partida).
     const SPAWNER_MOBS = ['zombie', 'skeleton', 'spider', 'creeper'];
+    // 🍃 Hojas que se quedan sin árbol: si se quita un tronco (madera wd / wd1), las hojas que tenía cerca se revisan; las que
+    // ya no tienen madera a 6 bloques o menos se van deshaciendo poco a poco, una por una (como en Minecraft). Sueltan a veces
+    // un brote, y las que tienen fruta sueltan su fruta. Las hojas que se pusieron lejos de cualquier árbol NO se tocan (solo
+    // se revisan las que estaban cerca de un tronco que se quitó). En multijugador lo hace quien lleva la partida.
+    const LEAF_FRUIT = { lv: null, lv1: 'ap', lv2: 'or', lv3: 'gap', lv4: 'lemon' }, LOGS = { wd: 1, wd1: 1 }, LEAF_R = 6;
+    function isLeaf(t) { return Object.prototype.hasOwnProperty.call(LEAF_FRUIT, t); }
+    function logNear(x, y) {
+        for (let dx = -LEAF_R; dx <= LEAF_R; dx++) for (let dy = -LEAF_R; dy <= LEAF_R; dy++) if (dx * dx + dy * dy <= LEAF_R * LEAF_R && LOGS[fg(x + dx, y + dy)]) return true;
+        return false;
+    }
+    function leafLogGone(x, y) {                                   // se quitó un tronco en (x, y): sus hojas cercanas a la lista
+        if (!S.playing || !S.leafQ) return;
+        const R = LEAF_R + 1;
+        for (let dx = -R; dx <= R; dx++) for (let dy = -R; dy <= R; dy++) {
+            const lx = x + dx, ly = y + dy;
+            if (ly < 0 || !isLeaf(fg(lx, ly))) continue;
+            const k = lx + ',' + ly;
+            if (!S.leafQ.has(k)) S.leafQ.set(k, S.tick + 20 + (Math.random() * 220 | 0));   // (cada una a su tiempo: se ven caer de a poco)
+        }
+    }
+    function allPlPos() {                                                    // dónde están los jugadores (x, y del mundo)
+        const w = W(), out = [[Number(w.worldX), Number(w.worldY)]];
+        if (mpHost()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (r) out.push([Number(r.tx), Number(r.ty)]); } }
+        return out;
+    }
+    function tickLeaves() {
+        if (!S.leafQ.size || mpGuest()) return;
+        let done = 0;
+        for (const [k, at] of S.leafQ) {
+            if (at > S.tick) continue;
+            S.leafQ.delete(k);
+            const i = k.indexOf(','), x = +k.slice(0, i), y = +k.slice(i + 1), t = fg(x, y);
+            if (!isLeaf(t) || logNear(x, y)) continue;               // ya no está, o todavía tiene un tronco cerca
+            setBlock(x, y, null);
+            for (let n = 0; n < 7; n++) addPart({ x: x + Math.random(), y: y + Math.random(), vx: (Math.random() - .5) * .04, vy: -Math.random() * .03, g: .004, life: 26 + (Math.random() * 18 | 0), size: .09, col: n % 2 ? '#3f8f2c' : '#5fb240' });
+            if (Math.random() < 1 / 20) addDrop('sl', x + .5, -y - .5, 1, 0, {});
+            if (LEAF_FRUIT[t]) addDrop(LEAF_FRUIT[t], x + .5, -y - .5, 1, 0, {});
+            if (++done >= 2) break;                                    // (como mucho 2 por vez)
+        }
+    }
+    // cualquier cambio de bloque (míos, de otro jugador, de un pistón, de una explosión...) pasa por mbwom.setBlockState
+    function hookLeafWatch() {
+        if (typeof mbwom === 'undefined' || typeof mbwom.setBlockState !== 'function') return;
+        let f = mbwom.setBlockState; for (let n = 0; f && n < 6; n++) { if (f.__leaf) return; f = f.__inner; }
+        const o = mbwom.setBlockState;
+        const nw = function (x, y, s) {
+            const was = S.playing ? fg(x, y) : null;
+            const r = o.apply(this, arguments);
+            if (was && LOGS[was] && !(s && LOGS[s.type])) { try { leafLogGone(x, y); } catch (e) { /* nada */ } }
+            return r;
+        };
+        nw.__leaf = true; nw.__inner = o;
+        Object.keys(o).forEach(function (k) { if (k !== '__inner') nw[k] = o[k]; });   // (las marcas de los otros enganches se conservan)
+        mbwom.setBlockState = nw;
+    }
+    window.mbwPlay.leaves = { pending: function () { return S.leafQ ? S.leafQ.size : 0; }, logGone: function (x, y) { leafLogGone(x, y); }, tick: function () { tickLeaves(); } };
     function tickSpawners() {
         if (mpGuest() || !mbwom.scene) return;
         const w = W(), pl = [{ x: Number(w.worldX), y: -Number(w.worldY) }];
@@ -2472,6 +2549,8 @@
         let near = 0;
         for (const id in mbwom.mobs) { const m = mbwom.mobs[id]; if (m && SPAWNER_MOBS.indexOf(m.type) >= 0 && Math.abs(m.x - x) < 9 && Math.abs(-m.y - y) < 9) near++; }
         if (near >= 6) return;
+        let spawned = 0; for (const id in mbwom.mobs) { const m = mbwom.mobs[id]; if (m && m.mbweSp) spawned++; }
+        if (spawned >= MOB_CAP) return;                                        // (tope de mobs de spawner en la dimensión)
         const n = Math.min(6 - near, 1 + (Math.random() * 4 | 0));
         for (let i = 0; i < n; i++) {
             const type = SPAWNER_MOBS[Math.random() * SPAWNER_MOBS.length | 0];
@@ -2480,13 +2559,25 @@
                 const sx = x + Math.round((Math.random() * 2 - 1) * 4), sy = y + Math.round(Math.random() * 2 - 1);
                 if (sx === x && sy === y) continue;
                 if (!standable(sx, sy)) continue;
-                spawnMob(type, sx + .5, -sy);
+                spawnMob(type, sx + .5, -sy, { mbweSp: 1 });                    // (marcado: puede desaparecer si queda lejos)
                 for (let j = 0; j < 6; j++) addPart({ x: sx + Math.random(), y: sy + Math.random() * 1.6, vy: .02, drag: .96, life: 30, size: .14, col: 'rgba(90,90,90,.8)' });
                 break;
             }
         }
     }
     window.mbwPlay.spawnerFire = spawnerFire;
+    // 👻 Mobs lejanos que desaparecen (como en Minecraft): solo los que salieron de un spawner jugando (los que pusiste en el editor
+    // NUNCA desaparecen), y no si tienen nombre o están domesticados. A más de 64 bloques de todos los jugadores: se van ya;
+    // entre 32 y 64: poco a poco (1 de cada 800 por paso). Así no se juntan cientos de mobs lejos que nadie ve.
+    const MOB_CAP = 40, DESPAWN_NEAR = 32, DESPAWN_FAR = 64;
+    function despawnCheck(id, m, pls) {
+        if (!m.mbweSp || m.name || m.nameChange || m.tamed) return false;
+        let d = Infinity; const mx = Number(m.x), my = Number(m.y);
+        for (let i = 0; i < pls.length; i++) { const dx = mx - pls[i][0], dy = my - pls[i][1]; const dd = Math.sqrt(dx * dx + dy * dy); if (dd < d) d = dd; }
+        if (d > DESPAWN_FAR || (d > DESPAWN_NEAR && Math.random() < 1 / 800)) { delete mbwom.mobs[id]; if (S.mp && window.mbwMpPlay && window.mbwMpPlay.mobGone) { try { window.mbwMpPlay.mobGone(id); } catch (e) { /* nada */ } } return true; }
+        return false;
+    }
+    window.mbwPlay.despawn = { cap: MOB_CAP, check: function (id) { const m = mbwom.mobs[id], w = W(); return m ? despawnCheck(id, m, [[Number(w.worldX), Number(w.worldY)]]) : false; } };
 
     // 🔴 REDSTONE en el Modo Jugar (12 veces por segundo, cerca de los jugadores; en una partida lo hace solo quien la lleva)
     //   Fuentes (fuerza 15): palanca encendida, antorcha de redstone, botón apretado (1 segundo), placa de presión con alguien encima.
@@ -2838,7 +2929,16 @@
             let r = { x: 0, y: 0, w: canvas.width, h: canvas.height };
             try { if (A && A.active && A.screen) r = A.screen(); } catch (e) { /* nada */ }
             const key = [br.left, br.top, k, r.x, r.y, r.w, r.h].map(Math.round).join(',');
-            if (key !== this.areaKey) { this.areaKey = key; ar.style.left = (br.left + r.x * k) + 'px'; ar.style.top = (br.top + r.y * k) + 'px'; ar.style.width = (r.w * k) + 'px'; ar.style.height = (r.h * k) + 'px'; }
+            if (key !== this.areaKey) {
+                this.areaKey = key; ar.style.left = (br.left + r.x * k) + 'px'; ar.style.top = (br.top + r.y * k) + 'px'; ar.style.width = (r.w * k) + 'px'; ar.style.height = (r.h * k) + 'px';
+                // 💬 el chat / la consola también dentro del recuadro de la cámara (no en las barras negras)
+                const ce = this.el.querySelector('.ph-chat');
+                if (ce) {
+                    const L = br.left + r.x * k, gapB = Math.max(0, window.innerHeight - (br.top + (r.y + r.h) * k));
+                    ce.style.left = (L + 10) + 'px'; ce.style.maxWidth = Math.max(200, r.w * k - 20) + 'px';
+                    ce.style.transform = gapB > 0 ? 'translateY(-' + Math.round(gapB) + 'px)' : '';
+                }
+            }
             // coordenadas (Options > Coordinates)
             const co = ar.querySelector('.ph-coords');
             co.style.display = OPTS.coords ? 'block' : 'none';
@@ -3251,6 +3351,36 @@
     function onBlur() { S.keys = {}; S.mouse.left = S.mouse.right = false; }
 
     // ------------------------------------------------------------------ entrar / salir
+    // ---- foto por partes: { base: el mundo sin las listas de cada dimensión, dims: { n: listas de esa dimensión } } (texto JSON)
+    function dimKeys(n) { return mbwom.sceneList.map(function (k) { return k + n; }); }
+    function snapTake(cur, lazy) {
+        const w = mbwom.world;
+        if (!lazy) return { full: JSON.stringify(w) };
+        const skip = {}; [1, 2, 3].forEach(function (n) { dimKeys(n).forEach(function (k) { skip[k] = 1; }); });
+        const base = {}; Object.keys(w).forEach(function (k) { if (!skip[k]) base[k] = w[k]; });
+        const sn = { base: JSON.stringify(base), dims: {}, order: Object.keys(w) };
+        sn.dims[cur] = snapDimJSON(cur);
+        return sn;
+    }
+    function snapDimJSON(n) { const w = mbwom.world, o = {}; dimKeys(n).forEach(function (k) { if (w[k] !== undefined) o[k] = w[k]; }); return JSON.stringify(o); }
+    function snapDim(n) { const sn = S.snapshot; if (sn && !sn.full && !sn.dims[n]) sn.dims[n] = snapDimJSON(n); }   // (antes de entrar a esa dimensión)
+    // el mundo de antes de jugar (objeto nuevo): las dimensiones que nunca se visitaron se copian tal como están (no cambiaron)
+    function snapWorld() {
+        const sn = S.snapshot; if (!sn) return null;
+        if (sn.full) return JSON.parse(sn.full);
+        const o = JSON.parse(sn.base), w = mbwom.world;
+        [1, 2, 3].forEach(function (n) {
+            if (sn.dims[n]) Object.assign(o, JSON.parse(sn.dims[n]));
+            else dimKeys(n).forEach(function (k) { if (w[k] !== undefined) o[k] = JSON.parse(JSON.stringify(w[k])); });
+        });
+        // las claves en el mismo orden que tenía el mundo (así el archivo queda igual que antes de jugar)
+        const r = {};
+        (sn.order || []).forEach(function (k) { if (Object.prototype.hasOwnProperty.call(o, k)) r[k] = o[k]; });
+        Object.keys(o).forEach(function (k) { if (!Object.prototype.hasOwnProperty.call(r, k)) r[k] = o[k]; });
+        return r;
+    }
+    window.mbwPlay.snapWorld = function () { return snapWorld(); };   // el mundo de antes de jugar (copia nueva)
+    window.mbwPlay.snapInfo = function () { const sn = S.snapshot; return sn ? (sn.full ? { full: true } : { dims: Object.keys(sn.dims).map(Number) }) : null; };   // (lo usan las pruebas)
     function syncScene() {
         const cur = (typeof mbwom.currentScene !== 'undefined') ? mbwom.currentScene : 1;
         mbwom.sceneList.forEach(function (k) { if (mbwom[k] !== undefined) mbwom.world[k + cur] = mbwom[k]; });
@@ -3260,6 +3390,7 @@
         if (S.playing) return;
         S.test = !!(sopts && sopts.test);                                 // 🧪 Test: nada se guarda
         if (typeof mbwom === 'undefined' || !mbwom.world || !mbwom.scene) { alert(tr('play_no_world', 'Open or create a world first')); return; }
+        hookLeafWatch();                                                  // 🍃 (una sola vez)
         // 🎮 en una sala de multijugador: se juega todos juntos (scripts/mp-play.js). Viendo otro mundo (otra pestaña): solo.
         let mpMode = false;
         if (typeof isMultiplayer !== 'undefined' && isMultiplayer) {
@@ -3272,7 +3403,9 @@
         if (!window.MB_PLAY_DATA) { alert('play-data.js missing'); return; }
         const cur = syncScene();
         let snap;
-        try { snap = JSON.stringify(mbwom.world); } catch (e) { alert(tr('play_snap_err', 'Could not take the snapshot of the world, so Play mode did not start.')); return; }
+        // 📸 la foto del mundo de antes de jugar. Solo: se toma de la dimensión donde estás; el Nether y el End se fotografían
+        // la primera vez que entras (antes de que cambie nada ahí) → empezar a jugar es más rápido. En multijugador, todo de una vez.
+        try { snap = snapTake(cur, !mpMode); } catch (e) { alert(tr('play_snap_err', 'Could not take the snapshot of the world, so Play mode did not start.')); return; }
         S.snapshot = snap; S.scene = cur;
         S.old = { tool: (typeof currentTool !== 'undefined') ? currentTool : null, smooth: window.smoothScroll, cam: { x: camera.x, y: camera.y }, scrollOffset: null, anims: window.mbwAnimationsOn !== false };
         S.paused = false;
@@ -3301,7 +3434,7 @@
         if (w.gamemode != 1) w.fly = false;
         inv();
         for (const id in mbwom.mobs) { const m = mbwom.mobs[id]; if (m && typeof m === 'object') { m.target = null; m.focus = null; m.speedX = Number(m.speedX) || 0; m.speedY = Number(m.speedY) || 0; } }
-        S.p = newPlayer(); S.tmp = new Map(); S.drops = []; S.falling = []; S.arrows = []; S.orbs = []; S.liqFresh = new Set(); S.sandCheck = new Map(); S.dropSeq = 0; S.dropBase = Date.now().toString(36); S.lastPvp = null; S.parts = []; S.wetWas = {}; S.spawnT = new Map(); S.spawnOn = new Set(); S.selShow = null; S.selPrev = null; S.rsOn = new Map(); S.rsReady = false; S.btn = new Map(); S.plates = new Set(); S.portalLock = true; S.portalGo = 0; S.dimStash = {}; S.spect = null; S.tick = 0; S.acc = 0; S.last = 0; S.mine = null; S.useTimer = -1; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mobErr = false;
+        S.p = newPlayer(); S.tmp = new Map(); S.drops = []; S.falling = []; S.arrows = []; S.orbs = []; S.liqFresh = new Set(); S.sandCheck = new Map(); S.leafQ = new Map(); S.dropSeq = 0; S.dropBase = Date.now().toString(36); S.lastPvp = null; S.parts = []; S.wetWas = {}; S.spawnT = new Map(); S.spawnOn = new Set(); S.selShow = null; S.selPrev = null; S.rsOn = new Map(); S.rsReady = false; S.btn = new Map(); S.plates = new Set(); S.portalLock = true; S.portalGo = 0; S.dimStash = {}; S.spect = null; S.tick = 0; S.acc = 0; S.last = 0; S.mine = null; S.useTimer = -1; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mobErr = false;
         // arena y grava cerca: se revisan para que caigan si no tienen nada abajo
         const x0 = Math.max(0, Math.floor(px) - 60), x1 = Math.floor(px) + 60;
         for (let x = x0; x <= x1; x++) { const col = mbwom.scene[x]; if (!col) continue; for (let y = 0; y < col.length; y++) if (col[y] === 'sd' || col[y] === 'gv') S.sandCheck.set(x + ',' + y, 2); }
@@ -3339,7 +3472,7 @@
     // Vuelve a poner la foto del mundo (en el mismo objeto "world", así lo que lo tenga guardado sigue apuntando bien)
     function restoreSnapshot() {
         const w = mbwom.world;
-        const fresh = JSON.parse(S.snapshot);
+        const fresh = snapWorld();
         Object.keys(w).forEach(function (k) { delete w[k]; });
         Object.assign(w, fresh);
         mbwom.loadScene(S.scene);
@@ -3430,7 +3563,7 @@
         if (!S.playing || !S.snapshot) return fn.apply(self, args);
         const liveWorld = mbwom.world;
         const cur = syncScene();
-        const tmpW = JSON.parse(S.snapshot);
+        const tmpW = snapWorld();
         mbwom.world = tmpW; mbwom.loadScene(S.scene);
         try { return fn.apply(self, args); }
         finally { mbwom.world = liveWorld; mbwom.loadScene(cur); }

@@ -36,10 +36,13 @@
     function members(gid) {
         const d = db(); if (!d) return Promise.resolve({});
         if (memberCache[gid]) return Promise.resolve(memberCache[gid]);
-        return d.ref('groups/' + gid + '/members').once('value').then(function (s) { const m = s.val() || {}; memberCache[gid] = m; setTimeout(function () { delete memberCache[gid]; }, 20000); return m; });
+        return d.ref(window.mbwGroupRef(gid) + '/members').once('value').then(function (s) { const m = s.val() || {}; memberCache[gid] = m; setTimeout(function () { delete memberCache[gid]; }, 20000); return m; });
     }
     window.mbwGroupMembers = members;
-    function groupInfo(gid) { const d = db(); return d ? d.ref('groups/' + gid).once('value').then(function (s) { return s.val() || null; }) : Promise.resolve(null); }
+    // dónde se guardan los datos del grupo (nombre, dueño, miembros). Va dentro de private_chats (que las reglas de
+    // Firebase ya dejan escribir), en una llave aparte: un nodo nuevo "groups/" no se pudo crear con las reglas actuales.
+    window.mbwGroupRef = function (gid) { return 'private_chats/' + gid + '__info'; };
+    function groupInfo(gid) { const d = db(); return d ? d.ref(window.mbwGroupRef(gid)).once('value').then(function (s) { return s.val() || null; }) : Promise.resolve(null); }
     window.mbwGroupInfo = groupInfo;
 
     // la fila del grupo en la lista de chats de cada miembro (sube los "sin leer" de los demás)
@@ -87,15 +90,28 @@
 
     // ------------------------------------------------------------------ el grupo del mundo (lo maneja el anfitrión de la sala)
     function worldName() { try { return String((document.getElementById('filename-display') || {}).value || window.mpSelectedMapName || (mbwom.world && mbwom.world.fileInfo && mbwom.world.fileInfo.name) || 'World').replace(/\.mbw$/i, '').trim().slice(0, 60) || 'World'; } catch (e) { return 'World'; } }
+    let creating = null;                                   // (un solo grupo aunque entren dos a la vez)
     function ensureWorldGroup() {
         const d = db(), uid = me(); if (!d || !uid || typeof mbwom === 'undefined' || !mbwom.world) return Promise.resolve(null);
-        let gid = mbwom.world.mbweGroupId;
-        if (window.mbwIsGroup(gid)) return Promise.resolve(gid);
+        const w = mbwom.world;
+        let gid = w.mbweGroupId;
+        if (window.mbwIsGroup(gid)) {
+            // el id está guardado en el mundo: si el grupo no existe en la base de datos (no se pudo crear), se crea ahora
+            return d.ref(window.mbwGroupRef(gid) + '/created').once('value').then(function (s) { return s.exists() ? gid : makeGroup(gid); }).catch(function () { return gid; });
+        }
+        if (creating) return creating;
         gid = 'g_' + uid.replace(/[^A-Za-z0-9]/g, '').slice(0, 20) + '_' + Date.now().toString(36);
-        mbwom.world.mbweGroupId = gid;
-        if (typeof window.markWorldUnsaved === 'function') { try { window.markWorldUnsaved(); } catch (e) { /* nada */ } }
+        creating = makeGroup(gid).then(function (g) {
+            creating = null;
+            if (g) { w.mbweGroupId = g; if (typeof window.markWorldUnsaved === 'function') { try { window.markWorldUnsaved(); } catch (e) { /* nada */ } } }
+            return g;
+        }, function (e) { creating = null; throw e; });
+        return creating;
+    }
+    function makeGroup(gid) {
+        const d = db(), uid = me();
         const name = '🌍 ' + worldName(), mem = {}; mem[uid] = myName();
-        return d.ref('groups/' + gid).set({ name: name, owner: uid, created: TS(), members: mem }).then(function () {
+        return d.ref(window.mbwGroupRef(gid)).set({ name: name, owner: uid, created: TS(), members: mem }).then(function () {
             memberCache[gid] = mem;
             systemMsg(gid, 'created', { world: worldName() }, 'Group created');
             return gid;
@@ -107,9 +123,9 @@
         ensureWorldGroup().then(function (gid) {
             if (!gid) return;
             const d = db();
-            return d.ref('groups/' + gid + '/members/' + uid).once('value').then(function (s) {
+            return d.ref(window.mbwGroupRef(gid) + '/members/' + uid).once('value').then(function (s) {
                 const isNew = !s.exists();
-                return d.ref('groups/' + gid + '/members/' + uid).set(String(name || 'Player')).then(function () {
+                return d.ref(window.mbwGroupRef(gid) + '/members/' + uid).set(String(name || 'Player')).then(function () {
                     delete memberCache[gid];
                     if (isNew) systemMsg(gid, 'joined', { name: String(name || 'Player') }, String(name || 'Player') + ' joined');
                     else return groupInfo(gid).then(function (g) { d.ref('user_chats/' + uid + '/' + gid).update({ isGroup: true, name: (g && g.name) || 'Group', pfp: GROUP_PFP }); });
@@ -120,12 +136,29 @@
             });
         }).catch(function (e) { console.warn('world group', e); });
     };
+    // (anfitrión) un invitado pregunta cuál es el grupo (no le llegó el aviso): se le vuelve a mandar (y se le agrega si faltaba)
+    window.mbwWorldGroupAsk = function (uid, name) {
+        if (uid) return window.mbwWorldGroupJoin(uid, name);
+        ensureWorldGroup().then(function (gid) { if (gid && typeof enviarMensajeEnRed === 'function') enviarMensajeEnRed({ tipo: 'grupo_mundo', gid: gid }); });
+    };
+    // (invitado) si a los pocos segundos de entrar no me llegó el grupo, lo pido (hasta 3 veces)
+    let askN = 0, inSince = 0;
+    setInterval(function () {
+        try {
+            const mp = typeof isMultiplayer !== 'undefined' && isMultiplayer, host = typeof isHost !== 'undefined' && isHost;
+            if (!mp || host) { inSince = 0; askN = 0; return; }
+            if (!inSince) { inSince = Date.now(); return; }
+            if (pinnedGid || askN >= 3 || Date.now() - inSince < 8000 * (askN + 1)) return;
+            askN++;
+            if (typeof enviarMensajeEnRed === 'function') enviarMensajeEnRed({ tipo: 'grupo_pedir', uid: me(), name: myName() });
+        } catch (e) { /* nada */ }
+    }, 2000);
     // (anfitrión) alguien se fue; si ya no queda nadie más, ese fue el último
     window.mbwWorldGroupLeft = function (uid, name, nobodyLeft) {
         const gid = (typeof mbwom !== 'undefined' && mbwom.world) ? mbwom.world.mbweGroupId : null;
         if (!window.mbwIsGroup(gid)) return;
         systemMsg(gid, 'left', { name: String(name || 'Player') }, String(name || 'Player') + ' left');
-        const d = db(); if (d) d.ref('groups/' + gid + '/lastLeft').set({ uid: uid || '', name: String(name || 'Player'), at: TS() });
+        const d = db(); if (d) d.ref(window.mbwGroupRef(gid) + '/lastLeft').set({ uid: uid || '', name: String(name || 'Player'), at: TS() });
         if (nobodyLeft) systemMsg(gid, 'last', { name: String(name || 'Player') }, String(name || 'Player') + ' was the last one');
     };
     // (anfitrión) cierra la sala: él es el último en irse
@@ -135,7 +168,7 @@
         const n = myName();
         systemMsg(gid, 'left', { name: n }, n + ' left');
         systemMsg(gid, 'last', { name: n }, n + ' was the last one');
-        const d = db(); if (d) d.ref('groups/' + gid + '/lastLeft').set({ uid: me() || '', name: n, at: TS() });
+        const d = db(); if (d) d.ref(window.mbwGroupRef(gid) + '/lastLeft').set({ uid: me() || '', name: n, at: TS() });
         unpinBubble();
     };
     // 🫧 la burbuja fija del grupo del mundo (mientras estás en la sala)

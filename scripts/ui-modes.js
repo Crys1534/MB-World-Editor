@@ -112,6 +112,7 @@
 
     // ¿Está la persona en pantalla completa? (las burbujas y el mini chat se esconden)
     window.mbwFocusModeActive = function () {
+        if (window.mbwPlaying) return false;            // ▶ Modo Jugar (también va en pantalla completa): las burbujas de chat SÍ se ven
         return !!(document.fullscreenElement || document.webkitFullscreenElement);
     };
 

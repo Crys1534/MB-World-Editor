@@ -1268,6 +1268,11 @@
                     <div class="pinv-label" data-i18n="pinv_furnace_label">Furnace</div>
                     <div id="pinv-furnace" class="pinv-furnace"></div>
                 </div>
+                <!-- 🛠 Crafteo (▶ Modo Jugar): 2×2 en el inventario, 3×3 en la mesa de crafteo -->
+                <div id="pinv-craft-box" class="pinv-chest-box" style="display: none;">
+                    <div id="pinv-craft-label" class="pinv-label" data-i18n="pinv_crafting">Crafting</div>
+                    <div id="pinv-craft" class="pinv-craft"></div>
+                </div>
                 <div class="pinv-top">
                     <div>
                         <div class="pinv-label" data-i18n="pinv_armor">Armor</div>
@@ -1838,7 +1843,7 @@
             
             <div style="position: absolute; bottom: 10px; left: 15px; font-size: 11px; color: gray; font-family: monospace;">
                 <span data-i18n="about_last_update">Last Update:</span> Nov 10, 2026<br>
-                v4 - Snapshot 10
+                v4 - Snapshot 11
             </div>
             <div style="position: absolute; bottom: 10px; right: 15px; font-size: 12px; color: gray; font-weight: bold;">
                 2026
@@ -1900,11 +1905,14 @@
  <script src="scripts/anim-frames.js"></script> <!-- 🎞️ cuadros de las animaciones elegidos en el editor secreto (vacío = los de fábrica) -->
  <script src="scripts/rendering.js"></script>
  <script src="scripts/profile.js"></script>
- <script src="main.js"></script>
+ <script src="scripts/chunk-render.js"></script> <!-- 🧩 dibujo por trozos (modo jugar) -->
+<script src="main.js"></script>
 <script src="scripts/status-bar.js"></script>
 <script src="scripts/ui-modes.js"></script>
 <script src="scripts/custom-items.js"></script>
  <script src="scripts/player-inventory.js"></script>
+ <script src="scripts/play-recipes.js"></script> <!-- 🛠 recetas de crafteo del juego -->
+ <script src="scripts/play-craft.js"></script> <!-- 🛠 crafteo del modo jugar -->
  <script src="scripts/skin-gallery.js"></script> <!-- 🖼️ galería de spawnskins -->
  <script src="scripts/world-extras.js"></script> <!-- ⭐ marcadores, 🪧 editor de letreros, 🚃 vagonetas y balsas, 🌈 lana arcoíris animada -->
  <script src="scripts/darkness.js"></script> <!-- 🌑 oscuridad bajo tierra, auras de luz y franja de biomas -->

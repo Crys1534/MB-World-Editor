@@ -79,7 +79,7 @@
  }
  window.mbwDrawDurBar = drawDurBar;
 
- const st = { open: false, expanded: false, chest: null, furnace: null };     // ventana abierta / inventario creativo visible / cofre que se está editando { x, y, key, before }
+ const st = { open: false, expanded: false, chest: null, furnace: null, craft: null };   // craft = { size: 2|3, grid: [objetos], table: {x, y}|null } (▶ Modo Jugar)     // ventana abierta / inventario creativo visible / cofre que se está editando { x, y, key, before }
 
  const $ = (id) => document.getElementById(id);
  const tr = (k, fb) => { const v = (typeof window.t === 'function') ? window.t(k) : k; return (v && v !== k) ? v : (fb || k); };
@@ -188,8 +188,15 @@
   if (a.k === 'f') { const f = furnaceData(true); return f ? f[F_KEYS[a.i]] : null; }
   const w = world(); if (!w) return null; return ((a.k === 'a' ? w.armors : w.inventoryList) || [])[a.i];
  }
- function getSlot(a) { return readItem(slotArr(a), a.k === 'a'); }
+ function getSlot(a) {
+  if (a.k === 'k') return st.craft ? (st.craft.grid[a.i] || null) : null;           // 🛠 cuadrícula de crafteo
+  if (a.k === 'o') { const o = craftOut(); return o ? readItem(o, false) : null; }  // 🛠 lo que sale (no se puede poner nada)
+  return readItem(slotArr(a), a.k === 'a');
+ }
+ function craftOut() { return (st.craft && window.mbwCraft) ? window.mbwCraft.match(st.craft.grid, st.craft.size) : null; }
  function setSlot(a, it) {
+  if (a.k === 'k') { if (st.craft) st.craft.grid[a.i] = it ? copy(it, it.qty) : null; return; }
+  if (a.k === 'o') return;
   if (a.k === 'c') {
    const l = chestList();
    if (l) l[a.i] = itemToArr(it, false, l[a.i]);
@@ -390,6 +397,7 @@
     fgrid.appendChild(left); fgrid.appendChild(arrow); fgrid.appendChild(mk(2, 'pinv-f-out'));
    }
   }
+  renderCraft();
   renderFuelPalette();
   for (let i = 0; i < 4; i++) armor.appendChild(slotEl({ k: 'a', i: i }, PARTS[i]));
   for (let i = HOTBAR; i < TOTAL; i++) main.appendChild(slotEl({ k: 'i', i: i }));
@@ -414,6 +422,62 @@
   ic.textContent = '🗑️';
   t.appendChild(ic);
   trash.appendChild(t);
+ }
+ // 🛠 Crafteo (▶ Modo Jugar): 2×2 en el inventario, 3×3 en la mesa de crafteo, una flecha y lo que sale
+ function renderCraft() {
+  const box = $('pinv-craft-box'), grid = $('pinv-craft');
+  if (box) box.style.display = st.craft ? '' : 'none';
+  if (!grid) return;
+  grid.innerHTML = '';
+  if (!st.craft) return;
+  grid.classList.toggle('pinv-craft-3', st.craft.size === 3);
+  const g = document.createElement('div'); g.className = 'pinv-craft-grid';
+  for (let i = 0; i < st.craft.size * st.craft.size; i++) g.appendChild(slotEl({ k: 'k', i: i }));
+  const arrow = document.createElement('div'); arrow.className = 'pinv-f-arrow pinv-craft-arrow'; arrow.textContent = '➡️';
+  const o = slotEl({ k: 'o', i: 0 }); o.classList.add('pinv-craft-out');
+  grid.appendChild(g); grid.appendChild(arrow); grid.appendChild(o);
+  const lbl = $('pinv-craft-label'); if (lbl) lbl.textContent = tr('pinv_crafting', 'Crafting');
+ }
+ // se toma lo que sale: clic = al cursor (o se suma a lo que ya llevas si es igual); Shift + clic = todo lo que se pueda, a la mochila
+ function takeCraft(ev) {
+  const o = craftOut(); if (!o) return;
+  const it = readItem(o, false); if (!it) return;
+  if (ev.shiftKey) {
+   for (let n = 0; n < 64; n++) {
+    const cur = craftOut(); if (!cur || normKey(readItem(cur, false)) !== normKey(it)) break;
+    const w = ensure(); const snap = JSON.stringify(w.inventoryList);
+    const left = insertRange(readItem(cur, false), 0, TOTAL - 1);
+    if (left > 0) { w.inventoryList = JSON.parse(snap); break; }      // ya no cabe: se deja como estaba (no se gasta nada)
+    window.mbwCraft.consume(st.craft.grid);
+    crafted(it);
+   }
+   renderAll();
+   return;
+  }
+  const held = fromHeld(heldItem);
+  if (held) {
+   if (!same(held, it) || held.qty + it.qty > maxStack(it)) return;
+   heldItem.count = held.qty + it.qty;
+  } else {
+   heldItem = toHeld(it);
+   heldItem.from = null;
+  }
+  window.mbwCraft.consume(st.craft.grid);
+  crafted(it);
+  refreshCursor();
+  renderAll();
+ }
+ function crafted(it) { if (window.mbwPlay && typeof window.mbwPlay.onCrafted === 'function') { try { window.mbwPlay.onCrafted(it.id, it.qty); } catch (e) { /* nada */ } } }
+ // al cerrar: lo que quedó en la cuadrícula vuelve al inventario (lo que no cabe cae al suelo)
+ function returnCraft() {
+  if (!st.craft) return;
+  const g = st.craft.grid;
+  st.craft = null;
+  g.forEach((it) => {
+   if (!it) return;
+   const left = insertRange(it, 0, TOTAL - 1);
+   if (left > 0 && window.mbwPlay && typeof window.mbwPlay.dropItem === 'function') window.mbwPlay.dropItem(it.id, left, it.dmg || 0, it.extras || {});
+  });
  }
  // Columna de la izquierda (solo en el horno): los objetos que sirven de combustible. Clic = tomar una pila en el cursor.
  function renderFuelPalette() {
@@ -489,6 +553,18 @@
  // Shift + clic (solo espacios del inventario): la hotbar manda a la mochila y la mochila a la hotbar;
  // una pieza de armadura de la mochila se pone sola si su espacio está libre.
  function quickMove(addr, it) {
+  if (addr.k === 'k') {                                              // 🛠 de la cuadrícula de crafteo al inventario
+   setSlot(addr, null);
+   const left = insertRange(it, 0, TOTAL - 1);
+   if (left > 0) setSlot(addr, copy(it, left));
+   return;
+  }
+  if (st.craft && st.craft.table) {                                  // 🛠 mesa de crafteo: del inventario a la cuadrícula
+   setSlot(addr, null);
+   const left = insertRange(it, 0, st.craft.size * st.craft.size - 1, 'k');
+   if (left > 0) setSlot(addr, copy(it, left));
+   return;
+  }
   if (st.furnace) {                                                 // modo horno: del horno al jugador; del jugador al combustible (si arde) o a la entrada
    const toF = addr.k !== 'f';
    setSlot(addr, null);
@@ -615,6 +691,7 @@
 
  function onSlot(addr, ev, right) {
   if (!ensure()) return;
+  if (addr.k === 'o') { takeCraft(ev); return; }
   const cur = getSlot(addr);
   const held = fromHeld(heldItem);
   const armor = addr.k === 'a';
@@ -707,13 +784,15 @@
   const panel = $('player-inv-panel');
   if (panel) panel.style.display = 'block';
   const top = m.querySelector('.pinv-top');                       // armadura + papelera: no se muestran al editar un cofre
-  if (top) top.style.display = (st.chest || st.furnace) ? 'none' : '';
+  if (top) top.style.display = (st.chest || st.furnace || (st.craft && st.craft.table)) ? 'none' : '';
+  document.body.classList.toggle('pinv-craft-open', !!st.craft);
   const search = $('inventory-search');
   if (search) search.style.display = st.expanded ? '' : 'none';
   const btn = $('pinv-creative-btn');
   if (btn) { btn.style.display = ''; btn.textContent = tr(st.expanded ? 'pinv_hide_creative' : 'pinv_show_creative'); }
   const title = $('inventory-modal-title');
   if (title && st.furnace) title.innerText = tr('pinv_furnace_title', 'Furnace') + '  (X: ' + st.furnace.x + ', Y: ' + st.furnace.y + ')';
+  else if (title && st.craft && st.craft.table) title.innerText = tr('pinv_craft_table', 'Crafting Table');
   else if (title) title.innerText = st.chest ? (boxTitle() + '  (X: ' + st.chest.x + ', Y: ' + st.chest.y + ')') : tr('pinv_title', 'Player Inventory');
   const lbl = $('pinv-chest-label');
   if (lbl) { lbl.textContent = !st.chest || st.chest.kind !== 'disp' ? tr('pinv_chest_label', 'Chest contents') : st.chest.type === 'dropper' ? tr('pinv_dropper_label', 'Dropper contents') : tr('pinv_dispenser_label', 'Dispenser contents'); lbl.title = tr('pinv_chest_delete_hint', 'Tip: press Delete to discard the item on the cursor'); }
@@ -734,7 +813,8 @@
   if (content) content.style.height = '';
   if (left) left.style.display = '';
   if (wrap) { wrap.style.height = ''; wrap.style.flex = ''; wrap.style.minHeight = ''; }
-  document.body.classList.remove('pinv-furnace-open', 'pinv-chest-open', 'pinv-open');
+  document.body.classList.remove('pinv-furnace-open', 'pinv-chest-open', 'pinv-open', 'pinv-craft-open');
+  const ccb = $('pinv-craft-box'); if (ccb) ccb.style.display = 'none';
   const panel = $('player-inv-panel');
   if (panel) panel.style.display = 'none';
   const search = $('inventory-search');
@@ -818,6 +898,7 @@
   st.open = false;
   st.expanded = false;
   giveBackCursor();
+  returnCraft();
   commitChest();
   commitFurnace();
   resetLayout();
@@ -846,6 +927,7 @@
   if (!world()) { alert(tr('pinv_no_world', 'Open or create a world first')); return; }
   st.chest = null;
   st.furnace = null;
+  st.craft = window.mbwPlaying ? { size: 2, grid: [null, null, null, null], table: null } : null;   // ▶ Modo Jugar: crafteo 2×2
   st.open = true;
   st.expanded = false;
   heldItem = null;
@@ -867,7 +949,7 @@
   if (!bs || bs.type !== 'chest') return false;
   if (!world()) return false;
   if (m.style.display === 'block') toggleInventory();            // cierra lo que esté abierto (guarda lo del cofre anterior si lo había)
-  st.furnace = null;
+  st.furnace = null; st.craft = null;
   st.chest = { x: x, y: y, key: 'blockX' + x + 'Y' + y, before: null };
   chestList();                                                    // completa los 27 espacios si faltaban
   st.chest.before = JSON.parse(JSON.stringify(mbwom.getBlockState(x, y)));
@@ -892,7 +974,7 @@
   if (!bs || bs.type !== 'oven') return false;
   if (!world()) return false;
   if (m.style.display === 'block') toggleInventory();
-  st.chest = null;
+  st.chest = null; st.craft = null;
   st.furnace = { x: x, y: y, key: 'blockX' + x + 'Y' + y, before: null };
   st.furnace.before = JSON.parse(JSON.stringify(mbwom.getBlockState(x, y)));
   furnaceData(true);                                              // completa los 3 espacios si faltaban (si queda vacío no se guarda)
@@ -917,7 +999,7 @@
   if (!bs || (bs.type !== 'dispense' && bs.type !== 'dropper')) return false;
   if (!world()) return false;
   if (m.style.display === 'block') toggleInventory();
-  st.furnace = null;
+  st.furnace = null; st.craft = null;
   st.chest = { x: x, y: y, key: 'blockX' + x + 'Y' + y, before: null, kind: 'disp', type: bs.type };
   st.chest.before = JSON.parse(JSON.stringify(mbwom.getBlockState(x, y)));
   chestList();                                                    // completa los 9 espacios si faltaban
@@ -930,6 +1012,23 @@
   renderAll();
   return true;
  };
+ // 🛠 Abre la mesa de crafteo que hay en (x, y): cuadrícula de 3×3 (▶ Modo Jugar). Devuelve true si la abrió.
+ window.openCraftingTable = function (x, y) {
+  const m = $('inventory-modal');
+  if (!m || typeof toggleInventory !== 'function' || !world()) return false;
+  if (m.style.display === 'block') toggleInventory();
+  st.chest = null; st.furnace = null;
+  st.craft = { size: 3, grid: [null, null, null, null, null, null, null, null, null], table: { x: Math.floor(x), y: Math.floor(y) } };
+  st.open = true;
+  st.expanded = false;
+  heldItem = null;
+  refreshCursor();
+  m.style.display = 'block';
+  layout();
+  renderAll();
+  return true;
+ };
+ window.playerInvCraft = function () { return st.craft ? { size: st.craft.size, grid: st.craft.grid.map((it) => it ? [it.id, it.qty] : null), out: craftOut(), table: !!st.craft.table } : null; };   // (lo usan las pruebas)
  window.playerInvChestOpen = function () { return !!st.chest; };
  // ▶ Modo Jugar: el horno avanzó (se fundió algo / se gastó combustible) → se vuelve a pintar si está abierto
  window.playerInvFurnaceTick = function () { if (st.open && st.furnace) renderAll(); };

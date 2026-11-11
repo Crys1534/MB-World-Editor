@@ -1614,7 +1614,7 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp) {
     // Estado de la otra persona (activo ahora / hace X) · en un grupo: cuántos miembros tiene
     { const dot = $dm('chat-status-dot'); if (dot) { dot.style.display = isGroup ? 'none' : ''; dot.classList.remove('is-online'); } }
     if (isGroup) {
-        dmState.statusRef = database.ref('groups/' + otherUid + '/members');
+        dmState.statusRef = database.ref(window.mbwGroupRef(otherUid) + '/members');
         dmState.statusCb = dmState.statusRef.on('value', snap => {
             const n = Object.keys(snap.val() || {}).length, t = $dm('chat-header-status-text');
             if (t) { t.textContent = '👥 ' + n + ' ' + (n === 1 ? dmT('dm_member', 'member') : dmT('dm_members', 'members')); t.classList.remove('is-online'); }

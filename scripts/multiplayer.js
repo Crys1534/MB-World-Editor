@@ -968,6 +968,10 @@ function recibirMensajeDeRed(datos) {
         }
         return;
     }
+    if (datos && datos.tipo === 'grupo_pedir') {                 // 👥 un invitado no recibió el grupo del mundo: se lo vuelvo a mandar
+        if (isHost && typeof window.mbwWorldGroupAsk === 'function') { const pl = (window.roomPlayers || []).find(p => p.uid === datos.uid); try { window.mbwWorldGroupAsk(pl ? pl.uid : null, pl ? pl.name : null); } catch (e) { /* nada */ } }
+        return;
+    }
     if (!datos || typeof datos !== 'object') return;
     // ¿el mundo del servidor está en otra pestaña (estoy viendo otro mundo)? Sus cambios se guardan y se aplican al volver.
     if (mpIsWorldChange(datos) && typeof window.mpQueueIfAway === 'function' && window.mpQueueIfAway(datos)) return;
