@@ -328,7 +328,13 @@
     if (typeof origSwitch === 'function') {
         window.switchBackstageTab = function (tab) {
             const r = origSwitch.apply(this, arguments);
-            if (tab === 'multiplayer') { refreshMain(); }
+            if (tab === 'multiplayer') {
+                refreshMain();
+                // 🌐 la lista de servidores públicos se carga (y se queda escuchando) al entrar a la pestaña: antes solo se cargaba
+                // al volver con "Back", así que al abrir Multiplayer se quedaba en "Searching for worlds..." y no salía ningún servidor
+                const j = $('mp-view-join');
+                if (j && j.style.display !== 'none' && typeof window.loadPublicServers === 'function') { try { window.loadPublicServers(); } catch (e) { /* nada */ } }
+            }
             return r;
         };
     }
