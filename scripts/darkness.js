@@ -128,6 +128,76 @@
     D.remoteTiles = remoteTiles;
 
     // ---------------------------------------------------------
+    // 🔆 VISTA DE LUZ = ¿DÓNDE PUEDEN APARECER MONSTRUOS? (la regla exacta del juego)
+    //   Game.ifDark(x, y): se cuentan las luces en un cuadrado de 11 × 11 alrededor (5 para cada lado):
+    //     antorcha (th), jack o'lantern (jl), coral lantern (lant) y lámpara de redstone ENCENDIDA (light) = +1 · odd torch = −1.
+    //     (glowstone, fuego, lava, antorcha de redstone... NO cuentan: no impiden que salgan monstruos)
+    //     · más de 0 → hay luz: aquí NO salen   · menos de 0 → oscuro siempre (la odd torch)
+    //     · 0 → depende: en Y 270 o más (el espacio) nunca; de día (y sin tormenta) arriba de Y 70 (Y 80 si llueve) tampoco;
+    //       de noche o en una tormenta, sí.
+    //   Entity_Mob.findSpawnArea("dark", ...): el monstruo sale PARADO en un cuadro libre (que se pueda atravesar, sin líquido) con
+    //   un bloque firme debajo (que no sea hojas) y el de arriba libre también (zombi, esqueleto, creeper: 2 de alto).
+    //   En el Nether y el End la luz no importa: los monstruos de ahí salen en cualquier piso libre.
+    //   Colores: rojo = salen de día y de noche · amarillo = solo de noche (o en tormenta) · sin color = aquí no salen.
+    // ---------------------------------------------------------
+    const SP_LIGHT = { th: 1, jl: 1, lant: 1 };
+    function pdata(t) { const B = window.MB_PLAY_DATA && window.MB_PLAY_DATA.blocks; return B ? B[t] : null; }
+    function passable(t) { if (!t || t === 'air') return true; const d = pdata(t); return !!(d && d.walkThroughBlockHit === true && !d.liquid) && t !== 'wr' && t !== 'sw' && t !== 'la' && t !== 'ad'; }
+    function firmFloor(t) { if (!t || t === 'air' || t.slice(0, 2) === 'lv') return false; const d = pdata(t); return !(d && d.walkThroughBlockHit === true); }
+    function lampOn(x, y) { const hs = mbwom.hasSignal; const v = hs && hs['blockX' + x + 'Y' + y]; return Array.isArray(v) ? Number(v[0]) !== 0 : !!v; }
+    // códigos por cuadro: 0 = no salen, 1 = solo de noche, 2 = de día y de noche
+    function spawnCodes(X0, Y0, w, h) {
+        const sc = mbwom.scene || [], S2 = scene(), R = 5;
+        const W2 = w + 2 * R, H2 = h + 2 * R;
+        // suma acumulada de luces (+1) y odd torches (−1) para contar el cuadrado de 11 × 11 de cada cuadro de un jalón
+        const P = new Int32Array((W2 + 1) * (H2 + 1));
+        for (let j = 0; j < H2; j++) {
+            const y = Y0 - R + j;
+            let row = 0;
+            for (let i = 0; i < W2; i++) {
+                const x = X0 - R + i, col = sc[x];
+                const t = (col && y >= 0) ? col[y] : null;
+                let v = 0;
+                if (t) { if (SP_LIGHT[t]) v = 1; else if (t === 'ortorch') v = -1; else if (t === 'light' && lampOn(x, y)) v = 1; }
+                row += v;
+                P[(j + 1) * (W2 + 1) + (i + 1)] = P[j * (W2 + 1) + (i + 1)] + row;
+            }
+        }
+        const sum = function (i0, j0, i1, j1) { return P[(j1 + 1) * (W2 + 1) + (i1 + 1)] - P[j0 * (W2 + 1) + (i1 + 1)] - P[(j1 + 1) * (W2 + 1) + i0] + P[j0 * (W2 + 1) + i0]; };
+        const w0 = mbwom.world || {}, rain = Number(w0.raining) || 0;
+        const dayLine = rain === 1 ? 80 : 70;
+        const out = new Uint8Array(w * h);                            // fila j = Y1 - j (como la imagen de la oscuridad)
+        const Y1 = Y0 + h - 1;
+        for (let j = 0; j < h; j++) {
+            const y = Y1 - j; if (y < 1) continue;
+            for (let i = 0; i < w; i++) {
+                const x = X0 + i, col = sc[x]; if (!col) continue;
+                if (!firmFloor(col[y - 1]) || !passable(col[y]) || !passable(col[y + 1])) continue;
+                let code;
+                if (S2 !== 1) code = 2;                                // Nether / End: la luz no importa
+                else {
+                    const jj = h - 1 - j, c = sum(i, jj, i + 2 * R, jj + 2 * R);   // (el cuadrado de 11 × 11 centrado en x, y)
+                    if (c > 0) code = 0;
+                    else if (c < 0) code = 2;
+                    else if (y >= 270) code = 0;
+                    else if (rain === 2) code = 2;                     // tormenta: oscuro en todos lados
+                    else code = y >= dayLine ? 1 : 2;
+                }
+                out[j * w + i] = code;
+            }
+        }
+        return out;
+    }
+    D.spawnCodes = spawnCodes;
+    // ¿qué pasa en este cuadro? (para el texto de abajo a la izquierda)
+    D.spawnAt = function (x, y) {
+        x = Math.floor(x); y = Math.floor(y);
+        const c = spawnCodes(x, y, 1, 1)[0];
+        return c;
+    };
+    const SP_COL = [null, [255, 205, 40, 110], [235, 40, 40, 125]];
+
+    // ---------------------------------------------------------
     // La imagen de la oscuridad (1 píxel = 1 cuadro)
     // ---------------------------------------------------------
     const mask = document.createElement('canvas');
@@ -218,6 +288,7 @@
             gctx.putImageData(gi, 0, 0);
             glowOk = true;
         }
+        const SPC = MAP ? spawnCodes(X0, Y0, w, h) : null;
         const MK = far ? fmask : mask, MC = far ? fmctx : mctx;
         if (MK.width !== w || MK.height !== h) { MK.width = w; MK.height = h; }
         let maxA = 0, firstRow = h;
@@ -227,7 +298,7 @@
             if (a > maxA) maxA = a;
             if ((MAP || a > 0.004) && firstRow === h) firstRow = Math.floor(k / w);
             const p = k * 4;
-            if (MAP) { const c3 = D.heatColor(1 - a); px[p] = c3[0]; px[p + 1] = c3[1]; px[p + 2] = c3[2]; px[p + 3] = 125; }
+            if (MAP) { const sp = SP_COL[SPC[k]]; if (sp) { px[p] = sp[0]; px[p + 1] = sp[1]; px[p + 2] = sp[2]; px[p + 3] = sp[3]; } else px[p + 3] = 0; }
             else { px[p] = 4; px[p + 1] = 4; px[p + 2] = 14; px[p + 3] = Math.round(a * 255); }
         }
         MC.putImageData(img, 0, 0);
@@ -240,7 +311,7 @@
         const top = Math.max(0, Math.floor((firstRow - 1) * ts));        // (las filas de arriba sin oscuridad no se copian)
         if ((MAP || maxA >= 0.004) && bw * bh <= 16000000) {
             if (big.width !== bw || big.height !== bh) { big.width = bw; big.height = bh; } else bctx.clearRect(0, 0, bw, bh);
-            bctx.imageSmoothingEnabled = true;
+            bctx.imageSmoothingEnabled = !MAP;                     // (la vista de luz va en cuadros nítidos)
             bctx.drawImage(mask, 0, 0, w, h, 0, 0, w * ts, h * ts);
             if (glowOk && !MAP) {
                 if (bigGlow.width !== bw || bigGlow.height !== bh) { bigGlow.width = bw; bigGlow.height = bh; }
@@ -264,14 +335,14 @@
     const bgctx = bigGlow.getContext('2d');
 
     function drawDarkness(c) {
-        if ((!D.on && !D.map) || scene() !== 1) { D.stats.drawn = false; return; }
+        if ((!D.on && !D.map) || (scene() !== 1 && !D.map)) { D.stats.drawn = false; return; }
         const ts = tileSize;
         if (ts < 4) { drawFar(c, ts); return; }          // zoom de lejos (3 % a 10 %): la oscuridad del mundo entero, hecha una sola vez
         const X0 = Math.floor(camera.x) - 1, Y0 = Math.floor(camera.y) - 1;
         const w = Math.ceil(canvas.width / ts) + 3, h = Math.ceil(canvas.height / ts) + 3;
         if (w * h > 1200000) { D.stats.drawn = false; return; }            // zoom tan alejado que no vale la pena
         const pt = playerTile();
-        const rk = remoteTiles().map(function (q) { return Math.floor(q.x * 2) + ',' + Math.floor(q.y * 2); }).join(';');
+        const rk = remoteTiles().map(function (q) { return Math.floor(q.x * 2) + ',' + Math.floor(q.y * 2); }).join(';') + (D.map ? '|' + scene() + '|' + ((mbwom.world && mbwom.world.raining) || 0) : '');
         const key = [X0, Y0, w, h, ts, D.rev, D.map ? 'm' : '', cacheId(window.worldCache), pt ? Math.floor(pt.x * 2) + ',' + Math.floor(pt.y * 2) : '-', rk].join('|');
         const now = performance.now();
         if (key !== maskKey || !maskInfo || now - lastForce > 1500) {
@@ -287,7 +358,7 @@
             const sy = M.top, sh = M.bh - M.top;
             if (sh > 0) c.drawImage(big, 0, sy, M.bw, sh, Math.round(dx), Math.round(dy + sy), M.bw, sh);
         } else {
-            c.imageSmoothingEnabled = true;
+            c.imageSmoothingEnabled = !D.map;
             c.drawImage(mask, 0, 0, M.w, M.h, dx, dy, M.w * ts, M.h * ts);
         }
         // brillo de color (lava, ácido, glowstone, coral lantern): se "suma" a lo que hay debajo
@@ -319,7 +390,7 @@
         // el mapa va de Y = H - 1 (arriba) a Y = 0 (abajo); fuera del mundo (a los lados / abajo) sigue la oscuridad de esa altura
         const dx = (0 - camera.x) * ts, dy = canvas.height - (H - camera.y) * ts;
         c.save();
-        c.imageSmoothingEnabled = true;
+        c.imageSmoothingEnabled = !D.map;
         c.drawImage(fmask, 0, 0, M.w, M.h, dx, dy, M.w * ts, M.h * ts);
         c.restore();
         if (M.maxA >= 0.3) maybeNotice();
@@ -426,9 +497,9 @@
         return Math.round((1 - D.darkAt(Math.floor(y))) * 100);
     };
     window.mbwLightLabel = function (x, y) {
-        if (!D.map || scene() !== 1) return '';
-        const v = D.lightAt(x, y);
-        return v === null ? '' : '  ·  ' + tr('lightmap_label', 'Light') + ' ' + v + '%';
+        if (!D.map) return '';
+        const c = D.spawnAt(x, y);
+        return '  ·  ' + (c === 2 ? '👾 ' + tr('lightmap_sp_always', 'Monsters can spawn here (day and night)') : c === 1 ? '🌙 ' + tr('lightmap_sp_night', 'Monsters can spawn here at night') : '✓ ' + tr('lightmap_sp_no', 'No monsters here'));
     };
     // El texto que se agrega a "X: .. Y: .." (abajo a la izquierda) con el bioma de la columna del mouse
     window.mbwBiomeLabel = function (x) {
@@ -478,15 +549,14 @@
         if (!lg) {
             const ws = document.getElementById('workspace'); if (!ws) return null;
             lg = document.createElement('div'); lg.id = 'lightmap-legend';
+            const sw = function (rgba) { const e = document.createElement('span'); e.className = 'lml-sw'; e.style.background = 'rgba(' + rgba.slice(0, 3).join(',') + ',.85)'; return e; };
             const a = document.createElement('span'); a.className = 'lml-lo';
-            const bar = document.createElement('span'); bar.className = 'lml-bar';
-            bar.style.background = 'linear-gradient(to right,' + HEAT.map(h => 'rgb(' + h[1].join(',') + ') ' + Math.round(h[0] * 100) + '%').join(',') + ')';
             const b = document.createElement('span'); b.className = 'lml-hi';
-            lg.appendChild(a); lg.appendChild(bar); lg.appendChild(b); ws.appendChild(lg);
+            lg.appendChild(sw(SP_COL[2])); lg.appendChild(a); lg.appendChild(sw(SP_COL[1])); lg.appendChild(b); ws.appendChild(lg);
         }
-        lg.querySelector('.lml-lo').textContent = tr('lightmap_dark', 'Dark') + ' 0%';
-        lg.querySelector('.lml-hi').textContent = '100% ' + tr('lightmap_bright', 'Light');
-        lg.title = tr('lightmap_note', 'Estimate: the game does not store light levels, it draws the darkness by depth and circles of light around torches, lamps, lava, etc.');
+        lg.querySelector('.lml-lo').textContent = tr('lightmap_leg_always', 'Day and night');
+        lg.querySelector('.lml-hi').textContent = tr('lightmap_leg_night', 'Only at night');
+        lg.title = tr('lightmap_note2', 'Where monsters can spawn, with the game rule: only torches, jack o\'lanterns, coral lanterns and lit redstone lamps stop them (within 5 blocks); odd torches make it dark. During the day they spawn only below Y 70 (Y 80 if it rains); at night and in thunderstorms, everywhere without light. They need a solid floor (not leaves) and 2 free blocks.');
         lg.style.display = D.map ? 'flex' : 'none';
         return lg;
     }

@@ -1958,11 +1958,11 @@
     window.mbwPlayCommand = runCommand;
 
     // ------------------------------------------------------------------ cofres y hornos (abrir)
-    const BOX = { chest: 1, oven: 1, dispense: 1, dropper: 1 };
+    const BOX = { chest: 1, oven: 1, dispense: 1, dropper: 1, enchant: 1 };
     // el aviso de abajo: "Doble clic para abrir el cofre" (en el celular, "Toca dos veces..."), según el bloque bajo el cursor
     function boxLabel(t) {
         const touch = document.body.classList.contains('is-touch');
-        const what = t === 'oven' ? tr('play_box_furnace', 'the furnace') : t === 'dispense' ? tr('play_box_dispenser', 'the dispenser') : t === 'dropper' ? tr('play_box_dropper', 'the dropper') : tr('play_box_chest', 'the chest');
+        const what = t === 'enchant' ? tr('play_box_enchant', 'the enchantment table') : t === 'oven' ? tr('play_box_furnace', 'the furnace') : t === 'dispense' ? tr('play_box_dispenser', 'the dispenser') : t === 'dropper' ? tr('play_box_dropper', 'the dropper') : tr('play_box_chest', 'the chest');
         return (touch ? tr('play_dbl_tap_open', 'Double-tap to open {what}') : tr('play_dbl_click_open', 'Double-click to open {what}')).replace('{what}', what);
     }
     function openBox(x, y) {
@@ -1971,6 +1971,7 @@
         if (t === 'chest' && typeof window.openChestEditor === 'function') ok = window.openChestEditor(x, y);
         else if (t === 'oven' && typeof window.openFurnaceEditor === 'function') ok = window.openFurnaceEditor(x, y);
         else if ((t === 'dispense' || t === 'dropper') && typeof window.openDispenserEditor === 'function') ok = window.openDispenserEditor(x, y);
+        else if (t === 'enchant') ok = openEnchant(x, y);
         if (ok) {
             S.keys = {}; S.mouse.left = S.mouse.right = false; S.mine = null; S.openBoxAt = { x: x, y: y };
             // el último clic (o toque) del doble clic cae sobre la ventana que se acaba de abrir: ese no cuenta (si no, tomaba un objeto)
@@ -2000,9 +2001,141 @@
         const shown = function (el) { return !!(el && el.getClientRects().length && getComputedStyle(el).display !== 'none'); };
         const m = document.getElementById('inventory-modal');
         if (m && m.style.display === 'block' && shown(m)) return true;
+        if (S.ench) return true;
         const cb = document.getElementById('command-book-modal');
         return !!(cb && cb.style.display && cb.style.display !== 'none' && shown(cb));
     }
+
+    // ✨ MESA DE ENCANTAMIENTOS ("enchant"), como el juego (Inventory.arrange / buyEnchant y Game.enchant):
+    //   · eliges un objeto de tu inventario que se pueda encantar (herramienta, arma, armadura, arco, caña, libro o poción)
+    //   · salen 3 opciones con palabras al azar y su costo en niveles; más libreros (Bookshelf) cerca = opciones más caras y mejores
+    //   · al pagar (100 de experiencia por nivel; en creativo no cuesta) el juego reparte encantamientos al azar que quepan en esos niveles
+    //   · libro → libro encantado · poción → Bottle o' Enchanting (10 niveles)
+    const ENCH_WORDS = 'wind earth mind time energy evolve twist rise spark sense focus ether war shadow freeze zanz notch jeb ghostid jawn igp mcman dekdev adee weasel'.split(' ');
+    const ENCH_BOOK_TYPES = ['Caps', 'Shirts', 'Pants', 'Shoes', 'Swords', 'Axes', 'Pickaxes', 'Shovels', 'Shears', 'FishingRods', 'Bows'];
+    function enchTypeOf(id) { if (id === 'book') return 'Random'; return (D.enchItems || {})[id] || null; }
+    function hasEnch(it) { const ex = it && it[3]; return !!(ex && typeof ex === 'object' && Object.keys(ex).some(function (k) { return ex[k] === 'enchant'; })); }
+    function enchantable(it) { if (!it || isEmpty(it)) return false; if (it[0] === 'potion') return true; return !!enchTypeOf(it[0]) && !hasEnch(it); }
+    function bookshelvesNear(x, y) { let n = 0; for (let dx = -2; dx <= 2; dx++) for (let dy = -1; dy <= 2; dy++) if (fg(x + dx, y + dy) === 'books') n++; return Math.min(15, n); }
+    function enchArrange(books, potion) {
+        let c = Math.floor(8 * Math.random()) + 1 + Math.floor(books / 2) + Math.floor(Math.random() * (books + 1));
+        const d = Math.floor(Math.max(c / 3, 1)), f = Math.floor(2 * c / 3 + 1);
+        c = Math.floor(Math.max(c, 2 * books));
+        const words = function () { let t = ''; const n = Math.floor(2 * Math.random()) + 3; for (let i = 0; i < n; i++) t += ENCH_WORDS[Math.random() * ENCH_WORDS.length | 0] + ' '; return t.trim(); };
+        if (potion) return [{ lvl: 10, text: words() }];
+        return [{ lvl: d, text: words() }, { lvl: f, text: words() }, { lvl: c, text: words() }];
+    }
+    // Game.enchant: reparte encantamientos al azar que quepan en "lvl" niveles
+    function enchRoll(type, lvl) {
+        const T = D.enchTypes || {};
+        if (type === 'Random') type = ENCH_BOOK_TYPES[Math.random() * ENCH_BOOK_TYPES.length | 0];
+        const table = T[type]; if (!table) return {};
+        const keys = Object.keys(table), got = {}, fam = {};
+        let f = lvl;
+        for (let g = 0; g < 16 && f >= 1; g++) {
+            let k = 0, B = '';
+            for (let M = 0; M < 6; M++) {
+                const m = keys[Math.random() * keys.length | 0], cost = table[m], fm = m.slice(0, -1);
+                const clash = (m === 'silkTouch' && fam.fortune != null) || (m.slice(0, 7) === 'fortune' && got.silkTouch != null) || (m.slice(0, 11) === 'frostWalker' && fam.depthStride != null) || (m.slice(0, 12) === 'depthStrider' && fam.frostWalke != null);
+                if (cost <= f && cost > k && fam[fm] == null && !clash) { k = cost; B = m; }
+            }
+            if (!B) continue;                                          // (esta vuelta no tocó ninguno que cupiera: se intenta otra vez)
+            got[B] = k; fam[B.slice(0, -1)] = k; f -= k;
+        }
+        return got;
+    }
+    function enchLabel(k) { try { if (typeof mbwEnchLabel === 'function') return mbwEnchLabel(k); } catch (e) { /* nada */ } return k; }
+    function openEnchant(x, y) {
+        closeModals();
+        S.ench = { x: x, y: y, slot: -1, opts: [], books: bookshelvesNear(x, y) };
+        let el = document.getElementById('play-enchant');
+        if (!el) {
+            el = document.createElement('div'); el.id = 'play-enchant'; el.className = 'pe-overlay';
+            el.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+            el.addEventListener('click', function (e) { e.stopPropagation(); });
+            document.body.appendChild(el);
+        }
+        el.style.display = 'flex';
+        drawEnchant();
+        return true;
+    }
+    function closeEnchant() { S.ench = null; const el = document.getElementById('play-enchant'); if (el) el.style.display = 'none'; hud.dirty = true; }
+    function drawEnchant() {
+        const el = document.getElementById('play-enchant'); if (!el || !S.ench) return;
+        const E = S.ench, w = W(), list = inv(), lv = Math.floor((Number(w.experience) || 0) / 100), crea = w.gamemode == 1;
+        const mk = function (tag, cls, txt) { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+        el.textContent = '';
+        const box = mk('div', 'pe-box'); el.appendChild(box);
+        const head = mk('div', 'pe-head'); head.appendChild(mk('span', 'pe-title', tr('play_enchant_title', 'Enchantment Table')));
+        const x = mk('button', 'pe-x', '✕'); x.type = 'button'; x.addEventListener('click', closeEnchant); head.appendChild(x);
+        box.appendChild(head);
+        const body = mk('div', 'pe-body'); box.appendChild(body);
+        // izquierda: el objeto elegido + niveles + libreros
+        const left = mk('div', 'pe-left'); body.appendChild(left);
+        const slot = mk('div', 'pe-slot');
+        const it = E.slot >= 0 ? list[E.slot] : null;
+        if (it && !isEmpty(it)) { const c = iconFor(it[0], it[3]); const cv = mk('canvas'); cv.width = 16; cv.height = 16; cv.getContext('2d').drawImage(c, 0, 0); slot.appendChild(cv); slot.title = itemDisplayName(it); }
+        left.appendChild(slot);
+        left.appendChild(mk('div', 'pe-info', tr('play_enchant_levels', 'Your levels: {n}').replace('{n}', crea ? '∞' : lv)));
+        left.appendChild(mk('div', 'pe-info', '📚 ' + tr('play_enchant_books', 'Bookshelves: {n}').replace('{n}', E.books)));
+        // derecha: las 3 opciones
+        const right = mk('div', 'pe-opts'); body.appendChild(right);
+        if (E.slot < 0) right.appendChild(mk('div', 'pe-hint', tr('play_enchant_pick', 'Pick an item from your inventory below.')));
+        E.opts.forEach(function (o, i) {
+            const can = crea || lv >= o.lvl;
+            const b = mk('button', 'pe-opt' + (can ? '' : ' no')); b.type = 'button';
+            b.appendChild(mk('span', 'pe-words', o.text));
+            b.appendChild(mk('span', 'pe-lvl', String(o.lvl)));
+            b.title = can ? tr('play_enchant_cost', 'Costs {n} levels').replace('{n}', o.lvl) : tr('play_enchant_need', 'You need {n} levels').replace('{n}', o.lvl);
+            if (can) b.addEventListener('click', function () { buyEnchant(i); });
+            else b.disabled = true;
+            right.appendChild(b);
+        });
+        // abajo: los objetos del inventario que se pueden encantar
+        const grid = mk('div', 'pe-inv'); box.appendChild(grid);
+        let any = false;
+        for (let i = 0; i < 45; i++) {
+            const q = list[i]; if (!enchantable(q)) continue; any = true;
+            const s2 = mk('button', 'pe-it' + (i === E.slot ? ' sel' : '')); s2.type = 'button';
+            const cv = mk('canvas'); cv.width = 16; cv.height = 16; cv.getContext('2d').drawImage(iconFor(q[0], q[3]), 0, 0); s2.appendChild(cv);
+            if ((q[1] | 0) > 1) s2.appendChild(mk('span', 'pe-n', String(q[1])));
+            s2.title = itemDisplayName(q);
+            s2.addEventListener('click', function () { E.slot = i; E.opts = enchArrange(E.books, q[0] === 'potion'); drawEnchant(); });
+            grid.appendChild(s2);
+        }
+        if (!any) grid.appendChild(mk('div', 'pe-hint', tr('play_enchant_none', 'Nothing to enchant: tools, weapons, armor, bows, fishing rods, books or potions (without enchantments).')));
+        if (E.done) { box.appendChild(mk('div', 'pe-done', E.done)); }
+    }
+    function buyEnchant(i) {
+        const E = S.ench; if (!E || E.slot < 0) return;
+        const w = W(), list = inv(), it = list[E.slot], o = E.opts[i];
+        if (!it || !o || !enchantable(it)) return;
+        const crea = w.gamemode == 1, lv = Math.floor((Number(w.experience) || 0) / 100);
+        if (!crea && lv < o.lvl) return;
+        // (de una pila de libros o pociones se encanta solo uno)
+        let target = it;
+        if ((it[1] | 0) > 1 && (it[0] === 'book' || it[0] === 'potion')) { it[1] = (it[1] | 0) - 1; target = [it[0], 1, it[2] || 0, {}]; }
+        if (target[0] === 'potion') {
+            if (!crea) w.experience = Math.floor(Math.max(0, (Number(w.experience) || 0) - 1000));
+            target[0] = 'boe'; target[3] = {};
+            E.done = '✨ ' + itemDisplayName(target);
+        } else {
+            const type = enchTypeOf(target[0]);
+            if (target[0] === 'book') target[0] = 'ebook';
+            if (!crea) w.experience = Math.floor(Math.max(0, (Number(w.experience) || 0) - 100 * o.lvl));
+            const got = enchRoll(type, o.lvl);
+            if (!target[3] || typeof target[3] !== 'object' || Array.isArray(target[3])) target[3] = {};
+            Object.keys(got).forEach(function (k) { target[3][k] = 'enchant'; });
+            E.done = '✨ ' + Object.keys(got).map(enchLabel).join(', ');
+        }
+        if (target !== it && addToInventory(target[0], 1, target[2], target[3]) > 0) addDrop(target[0], w.worldX, w.worldY - .5, 1, target[2], target[3]);
+        E.slot = -1; E.opts = [];
+        sndAt('levelup');
+        hud.dirty = true;
+        try { if (typeof window.playerInvRefresh === 'function') window.playerInvRefresh(); } catch (e) { /* nada */ }
+        drawEnchant();
+    }
+    window.mbwPlay.enchant = { open: openEnchant, close: closeEnchant, roll: enchRoll, arrange: enchArrange, state: function () { return S.ench; } };
 
     // ------------------------------------------------------------------ paso del juego
     function step() {
@@ -2013,6 +2146,7 @@
         if (modalOpen()) { S.keys = {}; S.mouse.left = S.mouse.right = S.mouse.leftEdge = S.mouse.rightEdge = false; S.mine = null; }
         if (!(w.dead > 0)) { mineAndPlace(); doPlayerLogic(); }
         if (S.spect) spectFollow();
+        if (S.ench && (fg(S.ench.x, S.ench.y) !== 'enchant' || Math.pow(S.ench.x + .5 - w.worldX, 2) + Math.pow(-S.ench.y - .5 - w.worldY, 2) > 36)) closeEnchant();   // (lejos o la rompieron)
         // 🌀 portales: el del Nether (bloque "portal") y el del End (marco del portal encendido, estado 2). Como el juego, se cambia
         // al final del paso. Hay que salir del portal antes de volver a usarlo (se llega parado en él).
         if (!(w.dead > 0) && w.gamemode != 3) {
@@ -2953,6 +3087,7 @@
         mbwom.currentScene = S.scene;
     }
     function closeModals() {
+        if (S.ench) closeEnchant();
         const m = document.getElementById('inventory-modal');
         if (m && m.style.display === 'block' && typeof toggleInventory === 'function') { try { toggleInventory(); } catch (e) { m.style.display = 'none'; } }
         ['sign-editor-modal', 'command-book-modal'].forEach(function (id) { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
