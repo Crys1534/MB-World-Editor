@@ -662,7 +662,7 @@ function mpSendWorldLegacy(conn) {
         if (typeof mbwom !== 'undefined' && mbwom.world) conn.send({ tipo: "sync_mundo", mundo: mbwom.world });
     });
 }
-async function mpSendWorld(conn, canGzip) {
+async function mpSendWorld(conn, canGzip, opts) {
     try {
         if (typeof mbwom === 'undefined' || !mbwom.world || typeof fileManager === 'undefined') return;
         // (si el anfitrión está viendo otro mundo en otra pestaña, se manda el del servidor, no ese)
@@ -677,7 +677,7 @@ async function mpSendWorld(conn, canGzip) {
         const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
         const total = Math.ceil(bytes.length / MP_CHUNK);
         if (!conn.open) return;
-        conn.send({ tipo: "map_start", id: id, name: prepared.name || "Multiplayer World", enc: enc, size: bytes.length, raw: raw, chunks: total });
+        conn.send({ tipo: "map_start", id: id, name: prepared.name || "Multiplayer World", enc: enc, size: bytes.length, raw: raw, chunks: total, q: (opts && opts.quiet) ? 1 : 0 });
         for (let i = 0; i < total; i++) {
             const dc = conn.dataChannel;
             // sin llenar de más la conexión (y dejando respirar al editor del anfitrión)
@@ -697,7 +697,7 @@ const MP_LIVE_WHILE_LOADING = { chat: 1, sync_players: 1, kicked: 1, error_conex
 function mpClientData(conn, data) {
     if (!data || typeof data !== 'object') return false;
     if (data.tipo === "map_start") {
-        window.mpMapDownload = { id: data.id, name: data.name, enc: data.enc, size: data.size, chunks: data.chunks, got: 0, parts: new Array(data.chunks), queue: [] };
+        window.mpMapDownload = { id: data.id, name: data.name, enc: data.enc, size: data.size, chunks: data.chunks, got: 0, parts: new Array(data.chunks), queue: [], q: !!data.q };
         if (typeof updateLoadingBar === 'function') updateLoadingBar(0, "Downloading map... 0%");
         return true;
     }
@@ -732,8 +732,11 @@ async function mpFinishMap(dl) {
         window.mpMapDownload = null;
         dl.queue.forEach(d => { try { recibirMensajeDeRed(d); } catch (e) { /* nada */ } });
         if (typeof window.mpResetWorldWatch === 'function') window.mpResetWorldWatch();
-        if (typeof closeFileMenu === 'function') closeFileMenu();
-        alert(tmsg('msg_map_downloaded', "Map downloaded successfully! Welcome to the server."));
+        // (el mundo que manda el anfitrión al terminar una partida llega callado: sin el aviso de bienvenida)
+        if (!dl.q) {
+            if (typeof closeFileMenu === 'function') closeFileMenu();
+            alert(tmsg('msg_map_downloaded', "Map downloaded successfully! Welcome to the server."));
+        }
     } catch (e) {
         window.mpMapDownload = null;
         console.error("No se pudo abrir el mapa del servidor:", e);

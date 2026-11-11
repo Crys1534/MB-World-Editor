@@ -147,27 +147,33 @@ window.loadPublicServers = function() {
                 else if (!isHost && miConexionAlHost && miConexionAlHost.peer === id) isAlreadyJoined = true;
             }
 
+            // (todo lo que viene de otras personas se limpia antes de ponerlo en la página: nombre, mapa, descripción, foto, id)
+            const esc = (v) => String(v == null ? '' : v).replace(/[&<>"'`]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' }[c]));
+            const sid = esc(id);
             let buttonConfig = "";
             if (isAlreadyJoined) {
                 buttonConfig = `<button style="background: #3498db; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: not-allowed; font-family: 'Pixeltype', sans-serif; font-size: 24px; transition: 0.2s;" disabled>JOINED</button>`;
             } else if (isFull) {
                 buttonConfig = `<button style="background: #7f8c8d; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: not-allowed; font-family: 'Pixeltype', sans-serif; font-size: 24px; transition: 0.2s;" disabled>FULL</button>`;
             } else {
-                buttonConfig = `<button onclick="joinMultiplayerSession('${id}');" style="background: #2ecc71; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-family: 'Pixeltype', sans-serif; font-size: 24px; transition: 0.2s;">JOIN</button>`;
+                buttonConfig = `<button class="mp-join-btn" data-room="${sid}" style="background: #2ecc71; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-family: 'Pixeltype', sans-serif; font-size: 24px; transition: 0.2s;">JOIN</button>`;
             }
 
-            let thumbUrl = s.mapThumb || 'assets/Superflat World.png';
+            const rawThumb = String(s.mapThumb || '');
+            const thumbUrl = /^(assets\/[\w\- .\/]+\.(png|jpg|jpeg|gif|webp)|data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+\/=]+)$/i.test(rawThumb) ? rawThumb : 'assets/Superflat World.png';
+            const desc = s.desc ? `<span style="color: #ecf0f1; font-size: 16px; display: block; opacity: .85; max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(String(s.desc).slice(0, 120))}</span>` : '';
             htmlBuilder += `
                 <div style="background: rgba(52, 73, 94, 0.8); padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #7f8c8d; gap: 12px; margin-bottom: 5px;">
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <div style="width: 80px; height: 50px; background-image: url('${thumbUrl}'); background-size: cover; background-position: center; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); image-rendering: pixelated; flex-shrink: 0;"></div>
-                        <div>
-                            <strong style="color: #4DA6FF; font-size: 24px; display: block; line-height: 1;">${s.hostName}'s Room</strong>
-                            <span style="color: #bdc3c7; font-size: 18px;">Map: ${s.mapName}</span>
+                    <div style="display: flex; align-items: center; gap: 15px; min-width: 0;">
+                        <div style="width: 80px; height: 50px; background-image: url(&quot;${esc(thumbUrl)}&quot;); background-size: cover; background-position: center; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); image-rendering: pixelated; flex-shrink: 0;"></div>
+                        <div style="min-width: 0;">
+                            <strong style="color: #4DA6FF; font-size: 24px; display: block; line-height: 1;">${esc(s.hostName)}'s Room</strong>
+                            <span style="color: #bdc3c7; font-size: 18px;">Map: ${esc(s.mapName)}</span>
+                            ${desc}
                         </div>
                     </div>
                     <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="color: ${(isFull && !isAlreadyJoined) ? '#e74c3c' : '#2ecc71'}; font-size: 24px; font-weight: bold;">${s.currentPlayers}/${s.maxPlayers}</span>
+                        <span style="color: ${(isFull && !isAlreadyJoined) ? '#e74c3c' : '#2ecc71'}; font-size: 24px; font-weight: bold;">${Number(s.currentPlayers) | 0}/${Number(s.maxPlayers) | 0}</span>
                         ${buttonConfig}
                     </div>
                 </div>
@@ -176,6 +182,7 @@ window.loadPublicServers = function() {
         
         // ✨ FIX: Inyección única
         listDiv.innerHTML = htmlBuilder; 
+        listDiv.querySelectorAll('.mp-join-btn').forEach(b => b.addEventListener('click', () => joinMultiplayerSession(b.getAttribute('data-room'))));
     });
 }
 
@@ -456,27 +463,29 @@ window.saveRecentEmote = function(emoteName) {
 
 // ✨ NUEVO: Convertidor de tiempo extendido (Minutos, Horas, Días, Meses, Años)
 window.formatTimeAgo = function(timestamp) {
+    // (en el idioma del editor: "Active 2 hours ago" / "Activo hace 2 horas" / "Ativo há 2 horas")
+    const T = function (k, fb, n) { let t = fb; try { t = (typeof tmsg === 'function' && tmsg(k, fb)) || fb; } catch (e) { t = fb; } return String(t).replace('{n}', n); };
     // Si el usuario nunca en su vida ha entrado desde que pusiste esta actualización
-    if (!timestamp) return "Desconectado"; 
+    if (!timestamp) return T('ago_offline', 'Offline');
 
     const diff = Date.now() - timestamp;
     const mins = Math.floor(diff / 60000);
 
-    if (mins < 1) return "Activo hace un momento";
-    if (mins < 60) return `Activo hace ${mins} min`;
+    if (mins < 1) return T('ago_now', 'Active just now');
+    if (mins < 60) return T('ago_min', 'Active {n} min ago', mins);
 
     const hours = Math.floor(mins / 60);
-    if (hours < 24) return `Activo hace ${hours} hora${hours !== 1 ? 's' : ''}`;
+    if (hours < 24) return hours === 1 ? T('ago_hour', 'Active 1 hour ago', 1) : T('ago_hours', 'Active {n} hours ago', hours);
 
     const days = Math.floor(hours / 24);
-    if (days === 1) return "Activo ayer";
-    if (days < 30) return `Activo hace ${days} días`;
+    if (days === 1) return T('ago_yesterday', 'Active yesterday');
+    if (days < 30) return T('ago_days', 'Active {n} days ago', days);
 
     const months = Math.floor(days / 30);
-    if (months < 12) return `Activo hace ${months} mes${months !== 1 ? 'es' : ''}`;
+    if (months < 12) return months === 1 ? T('ago_month', 'Active 1 month ago', 1) : T('ago_months', 'Active {n} months ago', months);
 
     const years = Math.floor(days / 365);
-    return `Activo hace ${years} año${years !== 1 ? 's' : ''}`;
+    return years === 1 ? T('ago_year', 'Active 1 year ago', 1) : T('ago_years', 'Active {n} years ago', years);
 };
 
 // ==========================================

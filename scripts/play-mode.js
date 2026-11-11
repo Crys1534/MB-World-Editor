@@ -519,6 +519,31 @@
         if (a !== 0) { w.health -= Math.ceil(a); if (a > 0) { S.p.hurt = 10; buzz(Math.min(120, 35 + 10 * Math.ceil(a))); snd(Math.random() < .5 ? 'ouch1' : 'ouch2', { vary: .3 }); } hud.dirty = true; }
     }
     const key2 = (n) => !!S.keys[n];
+    // ⚙ Opciones del Modo Jugar (menú de pausa > Options; se recuerdan en este navegador). scripts/play-menu.js las cambia.
+    const OPT_KEY = 'mbw_play_opts';
+    const OPT_DEF = { autoJump: false, res: 'default', particles: 'all', anims: true, effects: true, transitions: true };
+    const OPTS = (function () { let o = {}; try { o = JSON.parse(localStorage.getItem(OPT_KEY) || '{}') || {}; } catch (e) { o = {}; } return Object.assign({}, OPT_DEF, o); })();
+    const RES = { default: null, '4:3': { w: 20, h: 15 }, '16:9': { w: 27, h: 15 } };   // cuántos bloques se ven (ancho x alto)
+    function applyOpts() {
+        document.body.classList.toggle('play-no-trans', OPTS.transitions === false);
+        if (S.playing) {
+            const A = window.mbwAspect, r = RES[OPTS.res] || null;
+            if (A && A.startView) { const d = r || A.defaults || { w: 18, h: 14 }; A.startView(d.w, d.h); }
+            if (typeof window.setAnimationsEnabled === 'function' && S.old) window.setAnimationsEnabled(OPTS.anims !== false ? S.old.anims !== false : false);
+            camSnap();
+        }
+    }
+    function setOpt(k, v) { if (!(k in OPT_DEF)) return; OPTS[k] = v; try { localStorage.setItem(OPT_KEY, JSON.stringify(OPTS)); } catch (e) { /* nada */ } applyOpts(); }
+    // 🦘 salto automático de 1 bloque: caminando contra un escalón de 1 bloque (con lugar arriba), salta solo
+    function autoJumpNow(bx, by) {
+        if (!OPTS.autoJump || S.p.falling) return false;
+        const dir = key2('right') ? 1 : key2('left') ? -1 : 0;
+        if (!dir) return false;
+        const w = W(), fx = Math.floor(w.worldX + dir * .55);
+        if (fx === bx) return false;
+        const solid = function (x, y) { const t = fg(x, y); return t !== 'air' && bd(t, 'walkThroughBlockHit') != 1 && bd(t, 'liquid') == null; };
+        return solid(fx, by) && !solid(fx, by + 1) && !solid(fx, by + 2) && !solid(bx, by + 2);
+    }
     function doPlayerLogic() {
         const w = W(), P = S.p;
         P.blockX = Math.floor(w.worldX);
@@ -678,7 +703,7 @@
             } else P.leftSprinting = 0;
             // saltar / trepar
             P.jumpTimer--;
-            if (key2('up')) {
+            if (key2('up') || autoJumpNow(bx, by)) {
                 let jb = 0;
                 const climbLow = bd(fg(bx, by), 'climbable') == 1 && bd(fg(bx, by + 1), 'climbable') != 1 && bd(fg(bx, by + 2), 'climbable') != 1 && bd(fg(bx, by + 3), 'climbable') != 1;
                 const climbHere = bd(fg(bx, by + 1), 'climbable') == 1 && bd(fg(bx, by + 2), 'walkThroughBlockHit') == 1;
@@ -838,10 +863,20 @@
         camSnap();
     }
     function spawnPoint() {
-        const s = mbwom.spawnPoint;
-        if (s && typeof s === 'object' && isFinite(Number(s.x)) && isFinite(Number(s.y))) return { x: Number(s.x), y: Number(s.y) };
-        return { x: S.start.x, y: S.start.y };
+        return spGet() || { x: S.start.x, y: S.start.y };
     }
+    // 🏠 el spawn / /home del mundo. En el archivo del juego va como [x, y] (World.js saveItem("spawnPoint" + escena, [x, y]))
+    function spGet() {
+        const s = mbwom.spawnPoint;
+        if (Array.isArray(s) && s.length >= 2 && isFinite(Number(s[0])) && isFinite(Number(s[1]))) return { x: Number(s[0]), y: Number(s[1]) };
+        if (s && typeof s === 'object' && isFinite(Number(s.x)) && isFinite(Number(s.y))) return { x: Number(s.x), y: Number(s.y) };
+        return null;
+    }
+    function spSet(x, y) {
+        mbwom.spawnPoint = [Number(x), Number(y)];
+        mbwom.world['spawnPoint' + (mbwom.currentScene || S.scene || 1)] = mbwom.spawnPoint;
+    }
+    window.mbwPlay.spawnGet = spGet;
 
     // ------------------------------------------------------------------ mobs (Entity_Mob.run)
     function mobBounds(id) {
@@ -1657,6 +1692,8 @@
         const d = c.toLowerCase().split(/\s+/).filter(Boolean);
         if (!d.length) return;
         if (d[0] === 'cls') { cmdLog.length = 0; chat.dirty = true; return; }
+        // 🎮 en una partida, por defecto SOLO el anfitrión puede usar comandos (él lo puede permitir en su menú de pausa)
+        if (mpGuest() && !(window.mbwMpPlay && window.mbwMpPlay.guestCmds)) { say('[INFO] ' + tr('mpplay_cmds_host', 'Only the host can use commands in this game.')); return; }
         if (!cheatsOn()) { say('[INFO] ' + tr('play_cheats_off', 'Commands are disabled in this world. Turn on "Commands" in World Settings (the game would not run them either).')); return; }
         const fb = gameRule('sendcommandfeedback') !== false;
         const info = (t) => { if (fb) say('[INFO] ' + t); };
@@ -1777,12 +1814,11 @@
                 info(d[1] + ' = ' + w.gameRules[d[1]]); return;
             }
             case 'home': {
-                if (!mbwom.spawnPoint || typeof mbwom.spawnPoint !== 'object') { mbwom.spawnPoint = { x: S.start.x, y: S.start.y }; mbwom.world['spawnPoint' + S.scene] = mbwom.spawnPoint; }
-                const sp = mbwom.spawnPoint;
+                const sp = spawnPoint();
                 if (d[1] === 'set') {
-                    if (d.length === 2) { sp.x = w.worldX; sp.y = w.worldY; info('Your home position has been set to your current position.'); return; }
+                    if (d.length === 2) { spSet(w.worldX, w.worldY); info('Your home position has been set to your current position.'); return; }
                     const x = coord(d[2], 'x'), y = coord(d[3], 'y'); if (isNaN(x) || isNaN(y)) { say('[INFO] home <get|set [~]x [~]y>'); return; }
-                    sp.x = x; sp.y = -y; info('Your home position has been set to x=' + Math.floor(100 * x) / 100 + ', y=' + Math.floor(100 * y) / 100 + '.'); return;
+                    spSet(x, -y); info('Your home position has been set to x=' + Math.floor(100 * x) / 100 + ', y=' + Math.floor(100 * y) / 100 + '.'); return;
                 }
                 if (d[1] === 'get') { say('[INFO] Your current home position: x=' + Math.floor(sp.x * 100) / 100 + ', y=' + Math.floor(-sp.y * 100) / 100 + '.'); return; }
                 w.worldX = sp.x; w.worldY = sp.y; w.xSpeed = 0; w.ySpeed = 0; camSnap(); info('Welcome home!'); return;
@@ -1855,6 +1891,7 @@
         return best;
     }
     function modalOpen() {
+        if (S.paused) return true;                                   // ⏸ con el menú de pausa abierto no se mueve el Player
         // (solo cuenta si de verdad se ve: una ventana abierta pero escondida dejaba al Player congelado)
         const shown = function (el) { return !!(el && el.getClientRects().length && getComputedStyle(el).display !== 'none'); };
         const m = document.getElementById('inventory-modal');
@@ -1973,6 +2010,7 @@
         S.raf = requestAnimationFrame(frame);
         if (!S.last) S.last = ts;
         S.acc += Math.min(200, ts - S.last); S.last = ts;
+        if (S.paused && !S.mp) { S.acc = 0; if (typeof worldDirty !== 'undefined') worldDirty = true; hud.update(); return; }   // ⏸ (solo: el mundo se detiene)
         let n = 0;
         while (S.acc >= 1000 / FPS && n < 6) { try { step(); } catch (e) { console.error('play step', e); } S.acc -= 1000 / FPS; n++; }
         if (n >= 6) S.acc = 0;
@@ -2034,7 +2072,7 @@
             c2.strokeRect(p.x + 1, p.y - tileSize + 1, tileSize - 2, tileSize - 2);
         }
         const w = W();
-        if (S.p && S.p.hurt > 0 || w.dead > 0) { c2.fillStyle = w.dead > 0 ? 'rgba(140,0,0,.35)' : 'rgba(255,0,0,.12)'; c2.fillRect(0, 0, canvas.width, canvas.height); }
+        if ((S.p && S.p.hurt > 0 && OPTS.effects !== false) || w.dead > 0) { c2.fillStyle = w.dead > 0 ? 'rgba(140,0,0,.35)' : 'rgba(255,0,0,.12)'; c2.fillRect(0, 0, canvas.width, canvas.height); }
         c2.restore();
         if (S.p && S.p.hurt > 0) S.p.hurt--;
     }
@@ -2046,7 +2084,7 @@
             const el = this.el = document.createElement('div');
             el.id = 'mbw-play-hud';
             el.innerHTML =
-                '<div class="ph-top"><button type="button" class="ph-stop">■ <span></span></button><div class="ph-msg"></div></div>' +
+                '<div class="ph-top"><button type="button" class="ph-gear" aria-label="Menu">⚙</button><div class="ph-msg"></div></div>' +
                 '<button type="button" class="ph-chat-btn">💬</button>' +
                 '<div class="ph-bars"><div class="ph-hearts"></div><div class="ph-right"><div class="ph-air"></div><div class="ph-food"></div></div></div>' +
                 '<div class="ph-xp"><div class="ph-xp-fill"></div><b class="ph-xp-lv"></b></div>' +
@@ -2058,7 +2096,7 @@
                 '<div class="ph-joy"><div class="ph-knob"></div></div>' +
                 '<div class="ph-pad2"><button type="button" data-k="down" class="ph-sneak">⇩</button><button type="button" data-k="up" class="ph-jump">⇧</button><button type="button" class="ph-mode">⛏</button></div>';
             document.body.appendChild(el);
-            el.querySelector('.ph-stop').addEventListener('click', function (e) { e.stopPropagation(); stopPlay(); });
+            el.querySelector('.ph-gear').addEventListener('click', function (e) { e.stopPropagation(); openPause(); });
             joystick(el.querySelector('.ph-joy'));
             el.querySelectorAll('[data-k]').forEach(function (b) {
                 const k = b.getAttribute('data-k');
@@ -2084,7 +2122,7 @@
             });
             this.texts();
         },
-        texts: function () { if (!this.el) return; chat.texts(); this.el.querySelector('.ph-chat-btn').title = tr('play_chat_tip', 'Chat / commands (T)'); this.el.querySelector('.ph-stop span').textContent = tr('play_stop', 'Stop'); this.el.querySelector('.ph-stop').title = tr('play_stop_tip', 'Stop playing (Esc): everything goes back to how it was'); },
+        texts: function () { if (!this.el) return; chat.texts(); this.el.querySelector('.ph-chat-btn').title = tr('play_chat_tip', 'Chat / commands (T)'); this.el.querySelector('.ph-gear').title = tr('play_menu_tip', 'Menu (Esc)'); },
         update: function () {
             if (!this.el) return;
             const w = W();
@@ -2392,11 +2430,15 @@
     }
     function onKeyDown(e) {
         if (!S.playing || typing(e)) return;
+        if (S.paused) {                                              // ⏸ el menú de pausa: Esc lo cierra
+            if (e.code === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); if (window.mbwPlayMenu) { if (window.mbwPlayMenu.back) window.mbwPlayMenu.back(); else window.mbwPlayMenu.close(); } }
+            return;
+        }
         if (modalOpen()) {                                           // con el inventario / un cofre abierto: las teclas son de la ventana
             if (e.code === 'KeyE' || e.code === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); closeModals(); hud.dirty = true; }
             return;
         }
-        if (e.code === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); stopPlay(); return; }
+        if (e.code === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); openPause(); return; }   // ⏸ Esc abre el menú de pausa (como el juego)
         if (e.code === 'KeyE') { e.preventDefault(); e.stopImmediatePropagation(); toggleInv(); return; }
         if (e.code === 'KeyT' || e.code === 'Enter' || e.code === 'NumpadEnter' || e.key === '/') { e.preventDefault(); e.stopImmediatePropagation(); chat.show(e.key === '/' ? '/' : ''); return; }
         const k = KEYMAP[e.code];
@@ -2489,15 +2531,16 @@
         let snap;
         try { snap = JSON.stringify(mbwom.world); } catch (e) { alert(tr('play_snap_err', 'Could not take the snapshot of the world, so Play mode did not start.')); return; }
         S.snapshot = snap; S.scene = cur;
-        S.old = { tool: (typeof currentTool !== 'undefined') ? currentTool : null, smooth: window.smoothScroll, cam: { x: camera.x, y: camera.y }, scrollOffset: null };
+        S.old = { tool: (typeof currentTool !== 'undefined') ? currentTool : null, smooth: window.smoothScroll, cam: { x: camera.x, y: camera.y }, scrollOffset: null, anims: window.mbwAnimationsOn !== false };
+        S.paused = false;
         const w = mbwom.world;
         if (typeof mbwom.mobs !== 'object' || !mbwom.mobs) { mbwom.mobs = {}; w['mobs' + cur] = mbwom.mobs; }
         // el Player: el del mundo (su posición, inventario y vida). Si está en otra dimensión o no tiene posición, aparece en el centro de la pantalla.
         const sameScene = (w.scene || 1) === cur;
         let px = Number(w.worldX), py = Number(w.worldY);
         if (!sameScene || !isFinite(px) || !isFinite(py)) {
-            const sp = mbwom.spawnPoint;
-            if (sp && isFinite(Number(sp.x)) && isFinite(Number(sp.y)) && sameScene) { px = Number(sp.x); py = Number(sp.y); }
+            const sp = spGet();
+            if (sp && sameScene) { px = sp.x; py = sp.y; }
             else { px = camera.x + (canvas.width / tileSize) / 2; py = -(camera.y + (canvas.height / tileSize) / 2); }
         }
         w.worldX = px; w.worldY = py; w.scene = cur;
@@ -2537,15 +2580,16 @@
         const A = window.mbwAspect;
         if (A && A.startView) {
             S.old.aspect = A.active ? { w: A.w, h: A.h } : null;
-            const d = A.defaults || { w: 18, h: 14 };
+            const d = RES[OPTS.res] || A.defaults || { w: 18, h: 14 };      // (Options > Resolution)
             A.startView(d.w, d.h);
         }
         try { if (typeof selectTool === 'function') selectTool('move'); } catch (e) { /* nada */ }
         try { if (typeof toggleMobInfo === 'function') toggleMobInfo(false); } catch (e) { /* nada */ }
         hud.build(); hud.dirty = true;
+        applyOpts();
         camSnap();
         S.raf = requestAnimationFrame(frame);
-        flashMsg(tr('play_started', '▶ Playing! Esc or ■ Stop to go back'));
+        flashMsg(tr('play_started2', '▶ Playing! Esc or ⚙ opens the menu'));
         syncButton();
         if (S.mp && window.mbwMpPlay) { try { window.mbwMpPlay.afterStart(); } catch (e) { console.error('mp-play start', e); } }
     }
@@ -2563,15 +2607,49 @@
         if (m && m.style.display === 'block' && typeof toggleInventory === 'function') { try { toggleInventory(); } catch (e) { m.style.display = 'none'; } }
         ['sign-editor-modal', 'command-book-modal'].forEach(function (id) { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
     }
-    function stopPlay() {
+    function openPause() {
         if (!S.playing) return;
+        if (window.mbwPlayMenu && window.mbwPlayMenu.open) { window.mbwPlayMenu.open(); return; }
+        saveAndQuit();
+    }
+    // 💾 "Save and Quit": se sale del Modo Jugar GUARDANDO todo lo que pasó (bloques, cofres, mobs, el Player...). Antes se guarda en
+    // el historial de versiones (columna "Modo Jugar") cómo estaba el mundo antes de jugar, por si se quiere volver.
+    // Un invitado de una partida: guarda su Player en el mundo del anfitrión y sale (su copia del mundo se la manda el anfitrión).
+    function saveAndQuit() {
+        if (!S.playing) return;
+        if (mpGuest()) { try { if (window.mbwMpPlay && window.mbwMpPlay.saveMine) window.mbwMpPlay.saveMine(); } catch (e) { /* nada */ } stopPlay({ keep: false }); return; }
+        let pre = null;
+        const fm = window.fileManager || (typeof fileManager !== 'undefined' ? fileManager : null);
+        try { if (fm && fm.prepareData) { const d = fm.prepareData(); pre = d && d.textData; } } catch (e) { pre = null; }   // (jugando, prepareData da el mundo de ANTES)
+        stopPlay({ keep: true });
+        if (fm && typeof fm.saveLocal === 'function') {
+            Promise.resolve(fm.saveLocal(false, { playBackup: pre })).then(function () {
+                const t = document.createElement('div'); t.className = 'play-saved-toast'; t.textContent = '💾 ' + tr('play_saved', 'World saved (Play mode)');
+                document.body.appendChild(t); setTimeout(function () { t.remove(); }, 2600);
+            }).catch(function (e) { console.error('play save', e); });
+        }
+    }
+    window.mbwPlay.saveAndQuit = saveAndQuit;
+    window.mbwPlay.setMp = function (on) { S.mp = !!on; };
+    window.mbwPlay.setPaused = function (on) { S.paused = !!on; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mine = null; hud.dirty = true; };
+    window.mbwPlay.opts = function () { return Object.assign({}, OPTS); };
+    window.mbwPlay.setOpt = setOpt;
+    window.mbwPlay.RES = RES;
+    function stopPlay(opts) {
+        if (!S.playing) return;
+        // ¿lo que pasó jugando se queda? Sí (todo se guarda), menos para un invitado de una partida: su copia vuelve a como estaba
+        // y el anfitrión le manda el mundo nuevo
+        const keep = (opts && opts.keep != null) ? !!opts.keep : !mpGuest();
+        S.paused = false;
+        if (window.mbwPlayMenu && window.mbwPlayMenu.close) { try { window.mbwPlayMenu.close(true); } catch (e) { /* nada */ } }
         closeModals();                                              // (con el juego todavía activo: lo del cofre no entra al historial)
         const wasMp = S.mp;
         if (wasMp && window.mbwMpPlay) { try { window.mbwMpPlay.beforeStop(); } catch (e) { console.error('mp-play stop', e); } }
         S.mp = false; S.openBoxAt = null;
         S.playing = false;
         cancelAnimationFrame(S.raf);
-        try { restoreSnapshot(); } catch (e) { console.error('play restore', e); alert('Error restoring the world: ' + e.message); }
+        if (keep) { try { const cs = syncScene(); mbwom.world.scene = mbwom.world.scene || cs; S.keptAt = Date.now(); if (typeof window.markWorldUnsaved === 'function') window.markWorldUnsaved(); } catch (e) { console.error('play keep', e); } }
+        else { try { restoreSnapshot(); } catch (e) { console.error('play restore', e); alert('Error restoring the world: ' + e.message); } }
         S.snapshot = null; S.drops = []; S.falling = []; S.arrows = []; S.orbs = []; S.tmp = new Map(); S.keys = {}; S.mine = null;
         if (window.mbSfx) { window.mbSfx.stopLoops(); window.mbSfx.stopMusic(); }   // 🔊 se apaga la música, la lluvia, bajo el agua...
         try { const gw = document.getElementById('gr-weather'); if (gw && typeof setWeatherEffect === 'function') setWeatherEffect(gw.value); } catch (e) { /* nada */ }   // (el clima vuelve al de World Settings)
@@ -2592,11 +2670,13 @@
         try { if (typeof window.playerInvRefresh === 'function') window.playerInvRefresh(); } catch (e) { /* nada */ }
         if (typeof worldDirty !== 'undefined') worldDirty = true;
         syncButton();
-        if (wasMp && window.mbwMpPlay) { try { window.mbwMpPlay.afterStop(); } catch (e) { console.error('mp-play after stop', e); } }
+        if (wasMp && window.mbwMpPlay) { try { window.mbwMpPlay.afterStop(keep); } catch (e) { console.error('mp-play after stop', e); } }
+        if (S.old && typeof window.setAnimationsEnabled === 'function' && S.old.anims != null) { try { window.setAnimationsEnabled(S.old.anims); } catch (e) { /* nada */ } }
+        document.body.classList.remove('play-no-trans');
     }
     window.mbwStartPlay = startPlay;
     window.mbwStopPlay = stopPlay;
-    window.mbwTogglePlay = function () { if (S.playing) stopPlay(); else startPlay(); };
+    window.mbwTogglePlay = function () { if (S.playing) openPause(); else startPlay(); };
 
     // Mientras se juega, lo que se guarda / descarga / sube es la FOTO (el mundo de antes de jugar)
     function withSnapshot(fn, self, args) {
@@ -2725,12 +2805,20 @@
         b.classList.toggle('playing', S.playing);
         const sp = b.querySelector('span');
         if (sp) sp.textContent = S.playing ? tr('play_stop', 'Stop') : tr('play_btn', 'Play');
-        b.title = S.playing ? tr('play_stop_tip', 'Stop playing (Esc): everything goes back to how it was') : tr('play_btn_tip', 'Play the map to test it. When you stop, the blocks, mobs and Player go back to where they were.');
+        b.title = S.playing ? tr('play_menu_tip', 'Menu (Esc)') : tr('play_btn_tip2', 'Play this world. Esc or ⚙ opens the menu; "Save and Quit" keeps what happened.');
         const ic = b.querySelector('.pb-ic');
         if (ic) ic.textContent = S.playing ? '■' : '▶';
     }
+    // ▶ el botón Play flota sobre el mapa, arriba a la derecha (más grande); jugando se esconde (arriba sale el ⚙ del menú)
+    function floatButton() {
+        const b = document.getElementById('btn-play-mode'), ws = document.getElementById('workspace');
+        if (!b || !ws || b.parentNode === ws) return;
+        b.classList.add('play-float');
+        ws.appendChild(b);
+    }
     function init() {
         window.mbwPlay.flash = flashMsg;
+        floatButton();
         // 🎮 Etapa 2 (scripts/mp-play.js)
         window.mbwPlay.net = {
             hurtMe: function (amount, cause) { if (S.playing) ouch(1, Number(amount) || 0, String(cause || 'attack')); },
@@ -2777,6 +2865,25 @@
                     hud.dirty = true;
                 }
             },
+            // 💾 (invitado) mis datos guardados en el mundo del anfitrión; la primera vez: aparezco en el /home o el spawn
+            loadMine: function (data, spawn) {
+                const w = W(); if (!S.playing) return;
+                if (data && typeof data === 'object') {
+                    if (isFinite(Number(data.x)) && isFinite(Number(data.y)) && (data.s == null || Number(data.s) === (mbwom.currentScene || 1))) { w.worldX = Number(data.x); w.worldY = Number(data.y); }
+                    if (Array.isArray(data.inv)) w.inventoryList = JSON.parse(JSON.stringify(data.inv));
+                    if (Array.isArray(data.armors)) w.armors = JSON.parse(JSON.stringify(data.armors));
+                    if (isFinite(Number(data.health)) && Number(data.health) > 0) w.health = Number(data.health);
+                    if (isFinite(Number(data.food))) w.food = Number(data.food);
+                    if (isFinite(Number(data.xp))) w.experience = Number(data.xp);
+                    if (isFinite(Number(data.sel))) w.selectedInventoryItem = Number(data.sel) | 0;
+                    if (data.gm != null && data.gm !== '' && isFinite(Number(data.gm))) {   // (su modo de juego: cada quien el suyo)
+                        const g = Number(data.gm) | 0; w.gamemode = g; if (g === 3) w.fly = true; else if (g !== 1) w.fly = false;
+                        document.body.classList.toggle('play-survival', g != 1);
+                    }
+                } else if (spawn && isFinite(Number(spawn.x)) && isFinite(Number(spawn.y))) { w.worldX = Number(spawn.x); w.worldY = Number(spawn.y); }
+                w.xSpeed = 0; w.ySpeed = 0; inv(); hud.dirty = true; camSnap();
+                try { if (typeof window.playerInvRefresh === 'function') window.playerInvRefresh(); } catch (e) { /* nada */ }
+            },
             // otro jugador me pegó
             pvp: function (dmg, kx, name) {
                 const w = W(); if (!S.playing || w.dead > 0 || w.gamemode == 1 || w.gamemode == 3) return;
@@ -2800,7 +2907,7 @@
         setTimeout(function () { wrapSaves(); wrapDraw(); wrapNet(); }, 1500);
         ['fullscreenchange', 'webkitfullscreenchange'].forEach(function (n) { document.addEventListener(n, function () {
             // Esc en pantalla completa: el navegador sale de pantalla completa (y no avisa la tecla): se deja de jugar también
-            if (S.playing && S.enteredFs && !(document.fullscreenElement || document.webkitFullscreenElement)) { S.enteredFs = false; stopPlay(); }
+            if (S.playing && S.enteredFs && !(document.fullscreenElement || document.webkitFullscreenElement)) { S.enteredFs = false; openPause(); }   // (salir de pantalla completa: abre el menú de pausa)
             else if (S.playing) { try { window.dispatchEvent(new Event('resize')); } catch (e) { /* nada */ } }
         }); });
         window.addEventListener('resize', function () { if (S.playing && window.mbwAspect && window.mbwAspect.refit) setTimeout(function () { window.mbwAspect.refit(); camSnap(); }, 0); });

@@ -3376,3 +3376,67 @@ body.mbw-playing .mpplay-notice { display: flex; }
 .ci-dur-btns { display: flex; gap: 6px; margin-top: 6px; }
 .ci-dur-btns button { flex: 1; font-size: 11px; padding: 4px; cursor: pointer; color: #fff !important; background: #5c5c5c !important; border: 2px outset #aaa !important; border-radius: 2px; text-shadow: 1px 1px 0 #222; }
 .ci-dur-btns button:hover { background: #6f6f6f !important; }
+
+/* 🕒 Historial de versiones: dos columnas (Editor / Modo Jugar) */
+#backups-modal .bk-modal { width: min(860px, calc(100vw - 32px)); max-height: 82vh; display: flex; flex-direction: column; }
+#backups-modal .bk-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 10px; overflow: hidden; min-height: 0; flex: 1; }
+#backups-modal .bk-col { display: flex; flex-direction: column; min-height: 0; }
+#backups-modal .bk-col-head { font-weight: bold; color: #111; background: #b5b5b5; border: 2px solid #555; padding: 6px 10px; border-radius: 4px 4px 0 0; }
+#backups-modal .bk-list { overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 8px 2px; max-height: 60vh; }
+#backups-modal .bk-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; background: #8B8B8B; border: 2px solid #555; padding: 10px; border-radius: 4px; color: #fff; }
+#backups-modal .bk-name { font-weight: bold; font-size: 15px; color: #000; word-break: break-word; }
+#backups-modal .bk-meta { font-size: 12px; color: #333; font-weight: bold; }
+#backups-modal .bk-restore { background: #f39c12; color: #000; border: 2px solid #e67e22; padding: 6px 12px; font-weight: bold; cursor: pointer; border-radius: 4px; font-size: 14px; flex: 0 0 auto; }
+#backups-modal .bk-restore:hover { background: #e67e22; }
+#backups-modal .bk-empty { text-align: center; padding: 30px 10px; color: #444; font-size: 13px; }
+@media (max-width: 640px) { #backups-modal .bk-cols { grid-template-columns: 1fr; overflow-y: auto; } #backups-modal .bk-list { max-height: none; } }
+
+/* ▶ Botón Play flotante: arriba a la derecha DENTRO del mapa, más grande */
+#workspace > .btn-play-mode.play-float { position: absolute; top: 12px; right: 12px; z-index: 40; margin: 0; padding: 10px 22px; font-size: 19px; gap: 8px; border-radius: 10px; border: 2px solid #1e7d3a; box-shadow: 0 4px 14px rgba(0,0,0,.45); }
+#workspace > .btn-play-mode.play-float .pb-ic { font-size: 16px; }
+body.is-phone #workspace > .btn-play-mode.play-float { top: 8px; right: 8px; padding: 8px 16px; font-size: 16px; }
+
+/* ⏸ Modo Jugar: engranaje (abre el menú de pausa) — casi invisible, al pasar el mouse se ve completo */
+#mbw-play-hud .ph-gear { width: 42px; height: 42px; border-radius: 10px; border: 1px solid rgba(255,255,255,.5); background: rgba(0,0,0,.55); color: #fff; font-size: 24px; line-height: 1; cursor: pointer; opacity: .2; transition: opacity .15s; pointer-events: auto; }
+#mbw-play-hud .ph-gear:hover, #mbw-play-hud .ph-gear:focus-visible { opacity: 1; }
+body.is-touch #mbw-play-hud .ph-gear { opacity: .45; }
+
+/* ⏸ Menú de pausa */
+.pm-overlay { position: fixed; inset: 0; z-index: 100060; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.55); font-family: Arial, sans-serif; }
+.pm-box { display: flex; gap: 14px; width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 32px); box-sizing: border-box; }
+.pm-left { flex: 1 1 auto; display: flex; flex-direction: column; gap: 10px; min-width: 0; overflow-y: auto; }
+.pm-right { flex: 0 0 250px; min-width: 0; }
+.pm-title { margin: 0 0 6px; color: #fff; font-size: 26px; text-align: center; text-shadow: 2px 2px 0 #000; }
+.pm-btn { display: block; width: 100%; padding: 12px; font-size: 17px; font-weight: 700; color: #fff; background: #6f6f6f; border: 2px solid #000; box-shadow: inset 2px 2px 0 rgba(255,255,255,.35), inset -2px -2px 0 rgba(0,0,0,.35); cursor: pointer; text-shadow: 1px 1px 0 #222; }
+.pm-btn:hover, .pm-btn:focus-visible { background: #7e8fb8; outline: none; }
+.pm-btn.pm-primary { background: #4c7f3a; } .pm-btn.pm-primary:hover { background: #5c9a47; }
+.pm-btn.pm-quit { background: #8e3b2f; } .pm-btn.pm-quit:hover { background: #a84a3c; }
+.pm-hint { margin: 0; color: #ddd; font-size: 12px; text-align: center; }
+.pm-form { display: flex; flex-direction: column; gap: 8px; background: rgba(0,0,0,.45); border: 2px solid rgba(255,255,255,.2); padding: 10px 12px; border-radius: 6px; }
+.pm-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #fff; font-size: 14px; cursor: pointer; }
+.pm-row-l { flex: 1 1 auto; }
+.pm-row input[type=checkbox] { width: 20px; height: 20px; flex: 0 0 auto; }
+.pm-sel, .pm-in { flex: 0 1 220px; min-width: 0; padding: 5px 6px; font-size: 14px; border-radius: 4px; border: 1px solid #888; background: #222; color: #fff; }
+.pm-desc { resize: vertical; font-family: inherit; }
+.pm-range { flex: 0 1 200px; min-width: 0; }
+.pm-players, .pm-tablist { background: rgba(0,0,0,.6); border: 2px solid rgba(255,255,255,.2); border-radius: 6px; padding: 8px; color: #fff; }
+.pm-players { max-height: calc(100vh - 60px); overflow-y: auto; }
+.pm-pl-head { font-weight: 700; font-size: 15px; margin-bottom: 6px; }
+.pm-pl-row { display: flex; align-items: center; gap: 7px; padding: 5px 4px; border-top: 1px solid rgba(255,255,255,.1); font-size: 14px; }
+.pm-pl-row.off { opacity: .6; }
+.pm-dot { width: 9px; height: 9px; border-radius: 50%; background: #4caf50; flex: 0 0 auto; }
+.pm-pl-row.off .pm-dot { background: #888; }
+.pm-pl-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.pm-tag { font-size: 12px; }
+.pm-me { background: rgba(255,255,255,.18); border-radius: 4px; padding: 0 5px; }
+.pm-last { font-size: 11px; color: #ccc; white-space: nowrap; }
+.pm-bars { display: inline-flex; align-items: flex-end; gap: 2px; height: 16px; flex: 0 0 auto; }
+.pm-bars i { display: block; width: 4px; border-radius: 1px; }
+.pm-pl-note { font-size: 12px; color: #ccc; margin-top: 6px; }
+.pm-tablist { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: 100055; width: min(360px, calc(100vw - 32px)); display: none; box-sizing: border-box; pointer-events: none; }
+@media (max-width: 640px) { .pm-box { flex-direction: column; overflow-y: auto; } .pm-right { flex: 0 0 auto; } }
+@media (max-width: 640px), (max-height: 480px) { .pm-title { font-size: 20px; margin: 0 0 2px; } .pm-btn { padding: 9px; font-size: 15px; } .pm-left { gap: 8px; } .pm-hint { font-size: 11px; } }
+/* Options > transiciones apagadas */
+body.play-no-trans #mbw-play-hud *, body.play-no-trans .pm-overlay *, body.play-no-trans #inventory-modal * { transition: none !important; animation: none !important; }
+/* 💾 aviso de guardado al salir del Modo Jugar */
+.play-saved-toast { position: fixed; bottom: 20px; right: 20px; z-index: 100070; background: rgba(0,0,0,.85); color: #7CFC7C; padding: 10px 18px; border-radius: 6px; font-weight: 700; border: 2px solid #1e5d1e; pointer-events: none; }

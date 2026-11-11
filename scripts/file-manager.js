@@ -518,7 +518,7 @@ prepareData: function(opts) {
     }
  },
 
-saveLocal: async function(isAutoSave = false) {
+saveLocal: async function(isAutoSave = false, opts = null) {
     const data = this.prepareData();
     if (!data) { 
         if (!isAutoSave) alert(tmsg('msg_no_world_save', "No hay mundo cargado para guardar.")); 
@@ -538,7 +538,7 @@ saveLocal: async function(isAutoSave = false) {
     }
     
     // Guardamos el nombre, el código, la foto y la info del mundo
-    await localDB.saveWorld(data.name, data.textData, thumbnailBase64, window.fileInfo);
+    await localDB.saveWorld(data.name, data.textData, thumbnailBase64, window.fileInfo, opts);
     
     if (!isAutoSave) {
         
@@ -680,7 +680,9 @@ const localDB = {
         });
     },
     
-    saveWorld: async function(name, dataString, thumbnail = "", fileInfo = {}) {
+    // opts.playBackup: el mundo de ANTES de jugar (▶ Modo Jugar > Save and Quit). Va a la otra columna del historial ("Modo Jugar")
+    // y entonces el guardado anterior NO se mueve a la columna del Editor.
+    saveWorld: async function(name, dataString, thumbnail = "", fileInfo = {}, opts = null) {
         let db = await this.init();
         return new Promise((resolve, reject) => {
             let transaction = db.transaction(this.storeName, "readwrite");
@@ -696,9 +698,16 @@ const localDB = {
             request.onsuccess = (e) => {
                 let existing = e.target.result;
                 let backups = (existing && existing.backups) ? existing.backups : [];
-                
+                let playBackups = (existing && existing.playBackups) ? existing.playBackups : [];
+                const playBk = opts && typeof opts.playBackup === 'string' && opts.playBackup ? opts.playBackup : null;
+                if (playBk) {
+                    if (playBk !== dataString) {
+                        playBackups.push({ data: playBk, date: Date.now(), thumb: existing ? existing.thumb : '' });
+                        if (playBackups.length > 10) playBackups.shift();
+                    }
+                }
                 // 2. Si el mundo ya existía y tiene datos nuevos, empujamos el viejo estado a los backups
-                if (existing && existing.data && existing.data !== dataString) {
+                else if (existing && existing.data && existing.data !== dataString) {
                     backups.push({
                         data: existing.data,
                         date: existing.date,
@@ -715,7 +724,8 @@ const localDB = {
                     date: Date.now(), 
                     thumb: thumbnail, 
                     fileInfo: fileInfo,
-                    backups: backups 
+                    backups: backups,
+                    playBackups: playBackups
                 };
                 let putReq = store.put(newRecord);
                 
@@ -1134,91 +1144,77 @@ function stopAutoSaveInterval() {
 // ✨ SISTEMA DE RESTAURACIÓN DE VERSIONES (MÁQUINA DEL TIEMPO) ✨
 // ==============================================================
 
+// 🕒 Historial de versiones: DOS columnas. "Editor" = guardados del editor (como siempre). "Modo Jugar" = cómo estaba el mundo
+// ANTES de cada partida guardada con "Save and Quit" (para volver a antes de jugar). El texto se pone como texto (sin HTML).
 window.openBackupsModal = async function(worldName) {
     let modal = document.getElementById('backups-modal');
-    
-    // Inyectamos la ventana si no existe
     if (!modal) {
         const modalHTML = `
         <div id="backups-modal" class="modal" style="display:none; position:fixed; z-index:9999999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.7); align-items:center; justify-content:center;">
-            <div class="mbw-standard-modal" style="width: 500px; max-height: 80vh; display: flex; flex-direction: column;">
+            <div class="mbw-standard-modal bk-modal">
                 <div class="mbw-modal-header">
-                    <h3>🕒 Version History: <span id="backups-world-name" style="color: #4DA6FF;"></span></h3>
+                    <h3>🕒 <span class="bk-title"></span> <span id="backups-world-name" style="color: #4DA6FF;"></span></h3>
                     <span class="mbw-close-btn" onclick="closeModal('backups-modal')">&times;</span>
                 </div>
-                <div class="mbw-modal-body" id="backups-list-container" style="overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-                    <!-- Los backups cargarán aquí -->
+                <div class="mbw-modal-body bk-cols" id="backups-list-container">
+                    <div class="bk-col"><div class="bk-col-head" data-col="editor"></div><div class="bk-list" id="backups-list-editor"></div></div>
+                    <div class="bk-col"><div class="bk-col-head" data-col="play"></div><div class="bk-list" id="backups-list-play"></div></div>
                 </div>
             </div>
         </div>`;
         document.body.insertAdjacentHTML('beforeend', modalHTML);
         modal = document.getElementById('backups-modal');
     }
-    
-    document.getElementById('backups-world-name').innerText = worldName;
-    const container = document.getElementById('backups-list-container');
-    container.innerHTML = '<p style="text-align:center; color: #333;">Searching for older versions...</p>';
-    
+    const T = (k, fb) => (typeof tmsg === 'function' ? tmsg(k, fb) : fb);
+    modal.querySelector('.bk-title').textContent = T('bk_title', 'Version History:');
+    modal.querySelector('[data-col="editor"]').textContent = '✏️ ' + T('bk_col_editor', 'Editor');
+    modal.querySelector('[data-col="play"]').textContent = '▶ ' + T('bk_col_play', 'Play mode (before playing)');
+    document.getElementById('backups-world-name').textContent = worldName;
+    const lists = { editor: document.getElementById('backups-list-editor'), play: document.getElementById('backups-list-play') };
+    Object.keys(lists).forEach(k => { lists[k].textContent = T('bk_searching', 'Searching for older versions...'); });
     modal.style.display = 'flex';
-    
+
+    const sizeOf = (data) => {
+        let enc = data;
+        if (typeof mbwAlgorithm !== 'undefined') { try { enc = mbwAlgorithm.encode(JSON.stringify(JSON.parse(data))); } catch (e) { /* tal cual */ } }
+        const b = new Blob([enc]).size;
+        return b >= 1048576 ? (b / 1048576).toFixed(2) + ' MB' : b >= 1024 ? (b / 1024).toFixed(2) + ' KB' : b + ' B';
+    };
+    const fill = (box, list, kind) => {
+        box.textContent = '';
+        if (!list || !list.length) {
+            const e = document.createElement('div'); e.className = 'bk-empty';
+            e.textContent = kind === 'play' ? T('bk_empty_play', 'No saved games yet. Each "Save and Quit" in Play mode keeps here how the world was before playing.') : T('bk_empty_editor', 'No previous versions found. Save your world a few times to generate backups.');
+            box.appendChild(e); return;
+        }
+        [...list].reverse().forEach((bkp, i) => {
+            const realIndex = list.length - 1 - i;
+            const d = new Date(bkp.date);
+            const row = document.createElement('div'); row.className = 'bk-row';
+            const info = document.createElement('div');
+            const n = document.createElement('div'); n.className = 'bk-name'; n.textContent = worldName;
+            const m = document.createElement('div'); m.className = 'bk-meta'; m.textContent = '📅 ' + d.toLocaleDateString() + ' ' + d.toLocaleTimeString() + '  •  📄 ' + sizeOf(bkp.data);
+            info.appendChild(n); info.appendChild(m);
+            const b = document.createElement('button'); b.type = 'button'; b.className = 'bk-restore'; b.textContent = T('bk_restore', 'Restore');
+            b.addEventListener('click', () => window.restoreWorldBackup(worldName, realIndex, kind));
+            row.appendChild(info); row.appendChild(b);
+            box.appendChild(row);
+        });
+    };
     try {
         let db = await localDB.init();
         let request = db.transaction(localDB.storeName, "readonly").objectStore(localDB.storeName).get(worldName);
-        
         request.onsuccess = () => {
-            const world = request.result;
-            if (!world || !world.backups || world.backups.length === 0) {
-                container.innerHTML = '<div style="text-align:center; padding: 40px; color: #555;"><span style="font-size: 40px; opacity:0.5;">📭</span><br><b>No previous versions found.</b><br>Play and save your world a few times to generate backups.</div>';
-                return;
-            }
-            
-            container.innerHTML = '';
-            
-            // Invertimos el array para que el guardado más reciente salga primero
-            const reversedBackups = [...world.backups].reverse();
-            
-            reversedBackups.forEach((bkp, i) => {
-                const realIndex = world.backups.length - 1 - i;
-                const dateObj = new Date(bkp.date);
-                const dateStr = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString();
-                
-                // ✨ NUEVO CÁLCULO DE PESO COMPRIMIDO ✨
-                let encodedData = bkp.data;
-                if (typeof mbwAlgorithm !== 'undefined') {
-                    try {
-                        const parsedData = JSON.parse(bkp.data);
-                        const stringified = JSON.stringify(parsedData);
-                        encodedData = mbwAlgorithm.encode(stringified);
-                    } catch(e) {}
-                }
-                const bytes = new Blob([encodedData]).size;
-                
-                let sizeStr = bytes + " B";
-                if (bytes >= 1048576) {
-                    sizeStr = (bytes / 1048576).toFixed(2) + " MB";
-                } else if (bytes >= 1024) {
-                    sizeStr = (bytes / 1024).toFixed(2) + " KB";
-                }
-                // ✨ FIN DEL NUEVO CÁLCULO ✨
-                
-                const div = document.createElement('div');
-                div.style = "display:flex; justify-content:space-between; align-items:center; background:#8B8B8B; border: 2px solid #555; padding:10px; border-radius: 4px; color: white;";
-                div.innerHTML = `
-                    <div>
-                        <div style="font-weight:bold; font-size:16px; color:#000;">${worldName}</div>
-                        <div style="font-size:12px; color:#333; font-weight:bold;">📅 ${dateStr} &nbsp;•&nbsp; 📄 ${sizeStr}</div>
-                    </div>
-                    <button onclick="restoreWorldBackup('${worldName}', ${realIndex})" style="background:#f39c12; color:black; border:2px solid #e67e22; padding:6px 12px; font-weight:bold; cursor:pointer; border-radius:4px; font-size: 14px;" onmouseover="this.style.background='#e67e22'" onmouseout="this.style.background='#f39c12'">Restore</button>
-                `;
-                container.appendChild(div);
-            });
+            const world = request.result || {};
+            fill(lists.editor, world.backups, 'editor');
+            fill(lists.play, world.playBackups, 'play');
         };
     } catch (err) {
-        container.innerHTML = '<p style="text-align:center; color:#e74c3c; font-weight:bold;">Error loading backups.</p>';
+        Object.keys(lists).forEach(k => { lists[k].textContent = T('msg_restore_error', 'Error loading backups.'); });
     }
 };
 
-window.restoreWorldBackup = async function(worldName, backupIndex) {
+window.restoreWorldBackup = async function(worldName, backupIndex, kind) {
     if (!confirm(tmsg('msg_time_machine_confirm', "⚠️ WARNING!"))) return;
     
     try {
@@ -1229,8 +1225,10 @@ window.restoreWorldBackup = async function(worldName, backupIndex) {
         let getReq = store.get(worldName);
         getReq.onsuccess = async () => {
             let world = getReq.result;
-            if (world && world.backups && world.backups[backupIndex]) {
-                const targetBackup = world.backups[backupIndex];
+            const src = (kind === 'play') ? (world && world.playBackups) : (world && world.backups);   // (columna "Modo Jugar" o "Editor")
+            if (world && !world.backups) world.backups = [];
+            if (world && src && src[backupIndex]) {
+                const targetBackup = src[backupIndex];
                 
                 // Medida de seguridad: el estado "destruido/actual" se va al fondo de los backups por si el usuario se arrepiente
                 world.backups.push({

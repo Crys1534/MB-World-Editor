@@ -1892,6 +1892,8 @@ function animateWeather() {
                 
                 if (mainCanvas) mainCanvas.style.transition = 'none';
 
+                // (▶ Modo Jugar > Options > "Screen effects" apagado: sin destellos)
+                if (window.mbwPlaying && window.mbwPlay && window.mbwPlay.opts && window.mbwPlay.opts().effects === false) opacity = 0;
                 if (opacity > 0) {
                     wCtx.fillStyle = `rgba(255, 255, 255, ${opacity * 0.15})`; 
                     wCtx.fillRect(0, 0, weatherCanvas.width, weatherCanvas.height);
