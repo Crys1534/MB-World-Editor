@@ -532,10 +532,14 @@ window.disconnectFromMultiplayer = function(silent) {
     if (misClientes && misClientes.length > 0) {
         // 👑 si quedan jugadores, el servidor sigue con otro anfitrión (scripts/mp-host.js); si no, se cierra
         const migra = isHost && typeof window.mpHostLeaving === 'function' && window.mpHostLeaving();
+        // 👥 grupo del mundo: me fui (si la sala sigue con otro anfitrión) o fui el último (se cierra)
+        try { if (isHost) { if (migra) { if (typeof window.mbwWorldGroupLeft === 'function') window.mbwWorldGroupLeft(localStorage.getItem('mbw_uid'), localStorage.getItem('mbw_username') || 'Player', false); } else if (typeof window.mbwWorldGroupClosing === 'function') window.mbwWorldGroupClosing(); } } catch (e) { /* nada */ }
         if (!migra) misClientes.forEach(c => { try { c.send({ tipo: "servidor_cerrado" }); } catch (e) { /* nada */ } });
         const cs = misClientes;
         setTimeout(() => cs.forEach(c => { try { c.close(); } catch (e) { /* nada */ } }), 150);
         misClientes = [];
+    } else if (isHost && window.currentRoomId && typeof window.mbwWorldGroupClosing === 'function') {
+        try { window.mbwWorldGroupClosing(); } catch (e) { /* nada */ }   // 👥 ya no quedaba nadie: el anfitrión fue el último
     }
 
     if (peer) {
@@ -637,6 +641,7 @@ function setupHostConnection(conn) {
         if (statusText) statusText.innerText = `Status: ${misClientes.length + 1}/${window.multiplayerPlayerLimit} Players 🟢`;
         if (window.myRoomRef) window.myRoomRef.update({ currentPlayers: misClientes.length + 1 });
         avisarEnChatDeSala("Un jugador se desconectó.");
+        if (gone && typeof window.mbwWorldGroupLeft === 'function') { try { window.mbwWorldGroupLeft(gone.uid, gone.name, false); } catch (e) { /* nada */ } }   // 👥 aviso en el grupo
     });
 }
 
@@ -955,6 +960,14 @@ function mpInScene(scene, fn) {
 }
 
 function recibirMensajeDeRed(datos) {
+    // 👥 el grupo de chat de este mundo (lo crea el anfitrión): su burbuja fija mientras estoy en la sala
+    if (datos && datos.tipo === 'grupo_mundo' && !isHost) {
+        if (window.mbwIsGroup && window.mbwIsGroup(datos.gid)) {
+            try { if (typeof mbwom !== 'undefined' && mbwom.world) mbwom.world.mbweGroupId = datos.gid; } catch (e) { /* nada */ }
+            if (typeof window.mbwWorldGroupBubble === 'function') window.mbwWorldGroupBubble(datos.gid);
+        }
+        return;
+    }
     if (!datos || typeof datos !== 'object') return;
     // ¿el mundo del servidor está en otra pestaña (estoy viendo otro mundo)? Sus cambios se guardan y se aplican al volver.
     if (mpIsWorldChange(datos) && typeof window.mpQueueIfAway === 'function' && window.mpQueueIfAway(datos)) return;
@@ -968,6 +981,7 @@ function recibirMensajeDeRed(datos) {
     }
     if (datos.tipo === "player_info" && isHost) {
         const known = window.roomPlayers.find(p => p.uid === datos.uid);
+        if (typeof window.mbwWorldGroupJoin === 'function') { try { window.mbwWorldGroupJoin(datos.uid, datos.name); } catch (e) { /* nada */ } }   // 👥 al grupo del mundo
         if (!known) {
             // permiso con el que entra: los "Editor" de este mundo entran ya pudiendo construir (scripts/mp-live.js)
             const can = typeof window.mpPermOnJoin === 'function' ? window.mpPermOnJoin(datos.uid) : !!(window.mpEditPerms && window.mpEditPerms[datos.uid]);
@@ -1505,6 +1519,7 @@ window.dmSendTo = function(partner, text, extra) {
     text = String(text == null ? '' : text).trim();
     const myUID = localStorage.getItem('mbw_uid');
     if (!text || !partner || !partner.uid || !myUID) return false;
+    if (window.mbwIsGroup && window.mbwIsGroup(partner.uid)) return window.mbwGroupSend(partner.uid, text, extra);   // 👥 chat de grupo (scripts/chat-groups.js)
     if (window.isBlocked(partner.uid)) {
         window.mpToast("🚫 Bloqueado", "Desbloquea a " + (partner.name || '') + " para escribirle.");
         return false;

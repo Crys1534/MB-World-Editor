@@ -61,6 +61,13 @@ window.renderers = {
         if (s1 === 2) return TM.lever_2_on || TM.lever_2;
         return window.mbwFlippedTexture ? window.mbwFlippedTexture('lever_3_on', TM.lever_2_on) : TM.lever;
     },
+    // 🔴 polvo de redstone: states1 = la forma (0 piso, 1 piso + pared, 2 piso + 2 paredes); brillante si le llega señal (hasSignal), oscuro si no
+    redstone: function (states) {
+        const TM = window.texturesMap, h = states.hasSignal;
+        const lit = Array.isArray(h) ? Number(h[0]) > 0 : (typeof h === 'number' ? h > 0 : h === true);
+        const i = ((Number(states.states1) || 0) % 3 + 3) % 3 + (lit ? 0 : 3);
+        return (i === 0 ? TM.rsd : TM['rsd_' + i]) || TM.rsd;
+    },
     lamp: function (states) {
         const h = states.hasSignal, s = states.states1;
         const on = (Array.isArray(h) ? Number(h[0]) > 0 : (typeof h === 'number' ? h > 0 : h === true)) || s === true || s === 'true' || s === 1;
@@ -457,6 +464,7 @@ window.blockData = {
     la: window.renderers.liquid,
     ad: window.renderers.liquid,
     light: window.renderers.lamp,
+    rsd: window.renderers.redstone,
     lever: window.renderers.lever,
     seed: window.renderers.wheat,
     potato: window.renderers.wheat,

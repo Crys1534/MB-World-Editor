@@ -94,13 +94,16 @@
         alert(tr('mpplay_wait_host', 'Only the host can start a game. When the host presses ▶ Play, you can join.'));
         return false;
     };
+    // ¿la partida ya la lleva otro? (el anfitrión salió de jugar y la partida siguió con otro jugador al mando)
+    function otherLeads() { return !!(M.session && M.leaderPeer && M.leaderPeer !== myPeer() && Date.now() - M.lastAlive < ALIVE_MS * 3); }
     M.afterStart = function () {
-        M.on = true; M.role = amHost() ? 'host' : 'guest'; M.conn = g('miConexionAlHost');
+        M.on = true; M.role = (amHost() && !otherLeads()) ? 'host' : 'guest'; M.conn = g('miConexionAlHost');
+        M.roomHostAtStart = amHost();
         M.dirty = new Set(); M.known = new Map(); M.remotes = {}; M.queue = [];
         M.mobSig = new Map(); M.mobSent = new Set(); M.mobFullAt = 0; M.mobT = new Map();
         hideBanner();
         if (M.role === 'host') {
-            M.session = true; M.changes = new Map(); M.hostName = myName();
+            M.session = true; M.changes = new Map(); M.hostName = myName(); M.leaderPeer = myPeer();
             send({ tipo: 'juego_inicio', autor: myName(), peerId: myPeer() });
             M.alive = setInterval(function () { if (M.on && M.role === 'host') send({ tipo: 'juego_activo', autor: myName(), peerId: myPeer(), cmds: allowCmds() }); }, ALIVE_MS);
             flash(tr('mpplay_started', '▶ Game started! Everyone in the room can join'));
@@ -113,11 +116,24 @@
         clearInterval(M.timer);
         M.timer = setInterval(tick, SEND_MS);
     };
+    // Salir de la partida. Ya NO saca a los demás: si yo la llevaba (mobs, objetos del suelo...), se la paso a otro que siga jugando.
+    // Solo una prueba (Test) del que la lleva la termina para todos (nada se guarda).
     M.beforeStop = function () {
         if (!M.on) return;
         try { flush(); } catch (e) { /* nada */ }
-        if (M.role === 'host') { send({ tipo: 'juego_fin', peerId: myPeer(), test: (window.mbwPlay && window.mbwPlay.isTest && window.mbwPlay.isTest()) ? 1 : 0 }); M.session = false; M.changes = new Map(); }
-        else { M.saveMine(); send({ tipo: 'juego_salir', peerId: myPeer() }); }
+        M.saveMine();
+        const test = !!(window.mbwPlay && window.mbwPlay.isTest && window.mbwPlay.isTest());
+        if (M.role === 'host') {
+            const now = Date.now();
+            const next = Object.keys(M.remotes).filter(function (k) { return now - M.remotes[k].t < STALE_MS; }).sort()[0];
+            if (test || !next) { send({ tipo: 'juego_fin', peerId: myPeer(), test: test ? 1 : 0 }); M.session = false; M.leaderPeer = null; }
+            else {
+                send({ tipo: 'juego_lider', peerId: myPeer(), nuevo: next, autor: myName() });
+                M.session = true; M.leaderPeer = next; M.lastAlive = now; M.hostName = (M.remotes[next] && M.remotes[next].name) || M.hostName;
+            }
+            M.changes = new Map();
+        }
+        send({ tipo: 'juego_salir', peerId: myPeer(), autor: myName() });
         clearInterval(M.timer); clearInterval(M.alive); M.timer = 0; M.alive = 0;
         M.on = false; M.remotes = {}; M.mobT = new Map(); M.mobSig = new Map(); M.mobSent = new Set();
     };
@@ -125,13 +141,9 @@
     M.afterStop = function (kept) {
         const q = M.queue; M.queue = [];
         q.forEach(function (d) { try { window.recibirMensajeDeRed(d); } catch (e) { console.error('mp-play queue', e); } });
-        // (anfitrión) lo que pasó jugando se quedó en su mundo (y ya con lo que editaron los demás mientras): se lo manda a todos,
-        // así todos tienen el mismo mundo
-        if (kept && amHost()) {
-            (g('misClientes') || []).forEach(function (c) { if (c && c.open && typeof window.mpSendWorld === 'function') { try { window.mpSendWorld(c, !!c.__gz, { quiet: true }); } catch (e) { /* nada */ } } });
-        }
+        // (ya no se manda el mundo a todos al salir: cada quien se queda con su copia; los demás pueden seguir jugando)
         if (typeof window.mpResetWorldWatch === 'function') { try { window.mpResetWorldWatch(); } catch (e) { /* nada */ } }
-        if (M.session && !amHost()) showBanner();
+        if (M.session) showBanner();
     };
 
     // ------------------------------------------------------------------ cada 100 ms mientras se juega
@@ -141,12 +153,18 @@
         // se fue el anfitrión: la partida SIGUE. Si yo quedé de anfitrión (el servidor pasó a mí), ahora mando yo; si cambió el
         // anfitrión, sigo con el nuevo; si ya no hay sala, sigo jugando solo.
         if (M.role === 'guest') {
-            if (inMp() && amHost()) promoteToHost();
+            if (inMp() && amHost() && !M.roomHostAtStart) promoteToHost();
             else if (!inMp()) { goSolo(); return; }
             else if (g('miConexionAlHost') !== M.conn) { M.conn = g('miConexionAlHost'); M.lastAlive = Date.now(); }
+            // el que llevaba la partida se fue sin avisar: la toma el que tenga el número de conexión más chico de los que juegan
+            else if (Date.now() - M.lastAlive > ALIVE_MS * 3.5) {
+                const now = Date.now(), cands = [myPeer()].concat(Object.keys(M.remotes).filter(function (k) { return now - M.remotes[k].t < STALE_MS && k !== M.leaderPeer; })).sort();
+                if (cands[0] === myPeer()) becomeLeader(tr('mpplay_now_lead', 'You run the game now (mobs and items): it goes on'));
+                else M.lastAlive = now - ALIVE_MS * 2;                           // (espera al nuevo)
+            }
         }
         if (M.role === 'host' && !inMp()) { goSolo(); return; }
-        if (M.role === 'guest' && Date.now() - M.lastSaveSent > 2000) M.saveMine();
+        if (!M.roomHostAtStart && Date.now() - M.lastSaveSent > 2000) M.saveMine();
         if (Date.now() - M.lastPing > 3000) { M.lastPing = Date.now(); if (M.role === 'guest') send({ tipo: 'juego_ping', peerId: myPeer(), t: Date.now() }); }
         sendMe();
         flush();
@@ -154,13 +172,20 @@
         const now = Date.now();
         Object.keys(M.remotes).forEach(function (k) { if (now - M.remotes[k].t > STALE_MS) delete M.remotes[k]; });
     }
-    function promoteToHost() {
-        M.role = 'host'; M.session = true; M.changes = new Map(); M.hostName = myName();
+    function promoteToHost() { becomeLeader(tr('mpplay_now_host', 'The host left: you are the host now and the game goes on')); }
+    // ahora YO llevo la partida: mobs, objetos del suelo, los datos de los jugadores, lo que cambió (para los que entran tarde)
+    function becomeLeader(msg) {
+        M.role = 'host'; M.session = true; M.hostName = myName(); M.leaderPeer = myPeer(); M.lastAlive = Date.now();
+        M.changes = new Map();
+        M.known.forEach(function (j, k) { try { M.changes.set(k, JSON.parse(j)); } catch (e) { /* nada */ } });   // (todo lo que cambió y yo sé)
+        M.mobFullAt = 0;
         clearInterval(M.alive);
         M.alive = setInterval(function () { if (M.on && M.role === 'host') send({ tipo: 'juego_activo', autor: myName(), peerId: myPeer(), cmds: allowCmds() }); }, ALIVE_MS);
         send({ tipo: 'juego_activo', autor: myName(), peerId: myPeer(), cmds: allowCmds() });
-        flash(tr('mpplay_now_host', 'The host left: you are the host now and the game goes on'));
+        if (msg) flash(msg);
+        sysSay('👑 ' + tr('mpplay_new_lead_me', 'You run the game now'));
     }
+    M.becomeLeader = becomeLeader;
     function goSolo() {
         clearInterval(M.timer); clearInterval(M.alive); M.timer = 0; M.alive = 0;
         M.on = false; M.role = 'solo'; M.remotes = {}; M.session = false;
@@ -180,7 +205,7 @@
     }
     M.lastSaveSent = 0; M.lastPing = 0; M.ping = 0;
     M.saveMine = function () {
-        if (!M.on || M.role !== 'guest') return;
+        if (!M.on || M.roomHostAtStart) return;                          // (el anfitrión de la sala es el Player del mundo)
         M.lastSaveSent = Date.now();
         send({ tipo: 'juego_guardo', peerId: myPeer(), uid: myUid(), autor: myName(), data: myData() });
     };
@@ -192,8 +217,8 @@
         P[uid] = Object.assign(cur, data || {}, { name: String(name || cur.name || 'Player'), last: Date.now() });
     }
     M.storePlayer = storePlayer;
-    function stopGame(msg) {
-        if (typeof window.mbwStopPlay === 'function') window.mbwStopPlay();
+    function stopGame(msg, keep) {
+        if (typeof window.mbwStopPlay === 'function') window.mbwStopPlay({ keep: keep !== false });
         if (msg) setTimeout(function () { notice(msg); }, 50);
     }
 
@@ -269,11 +294,16 @@
         else { M.applying = true; try { g('mpInScene')(s, run); } finally { M.applying = false; } }
         if (typeof worldDirty !== 'undefined') worldDirty = true;
     }
-    // (anfitrión) a uno que entró tarde: todo lo que ya cambió en la partida, por partes
+    // un mensaje solo para un jugador: si tengo su conexión directa (anfitrión de la sala), directo; si no, por la sala con "para"
+    function sendTo(peerId, msg) {
+        const conn = (g('misClientes') || []).find(function (c) { return c.peer === peerId; });
+        if (conn && conn.open) { try { msg.retransmitido = true; conn.send(msg); } catch (e) { /* nada */ } return; }
+        msg.para = peerId; msg.peerId = myPeer(); send(msg);
+    }
+    M.sendTo = sendTo;
+    // (el que lleva la partida) a uno que entró tarde: todo lo que ya cambió en la partida, por partes
     function sendChangesTo(peerId) {
-        const list = g('misClientes') || [];
-        const conn = list.find(function (c) { return c.peer === peerId; });
-        if (!conn || !conn.open) return;
+        const conn = { open: true, send: function (m) { delete m.retransmitido; sendTo(peerId, m); } };
         const by = {};
         M.changes.forEach(function (st, k) { const p = k.split('|'); (by[p[0]] = by[p[0]] || []).push([Number(p[1]), Number(p[2]), st]); });
         Object.keys(by).forEach(function (s) {
@@ -285,9 +315,11 @@
     // ------------------------------------------------------------------ lo que llega de la red
     function onMessage(d) {
         const t = d.tipo;
+        if (d.para && d.para !== myPeer()) return;                        // (un mensaje para otro jugador)
         if (t === 'juego_inicio' || t === 'juego_activo') {
-            if (amHost()) return;
+            if (d.peerId === myPeer() || (M.on && M.role === 'host')) return;
             const isNew = !M.session || t === 'juego_inicio';
+            M.leaderPeer = d.peerId || M.leaderPeer;
             const newHost = M.session && M.hostName && d.autor && d.autor !== M.hostName;
             M.session = true; M.hostName = d.autor || 'Host'; M.lastAlive = Date.now(); M.guestCmds = !!d.cmds;
             // 🎮 cuando el anfitrión empieza a jugar (o entro a una sala donde ya se juega), todos entran solos a la partida
@@ -299,7 +331,14 @@
         }
         if (t === 'juego_fin') {
             M.session = false; M.autoJoin = false; hideBanner();
-            if (M.on && M.role === 'guest') stopGame(d.test ? tr('mpplay_ended_test', 'The host ended the test. Nothing was saved: the world is back to how it was.') : tr('mpplay_ended2', 'The host ended the game. Everything that happened was saved.'));
+            M.leaderPeer = null;
+            if (M.on && M.role === 'guest') stopGame(d.test ? tr('mpplay_ended_test', 'The host ended the test. Nothing was saved: the world is back to how it was.') : tr('mpplay_ended2', 'The host ended the game. Everything that happened was saved.'), !d.test);
+            return;
+        }
+        // 👑 el que llevaba la partida salió y me la pasó (o se la pasó a otro)
+        if (t === 'juego_lider') {
+            M.leaderPeer = String(d.nuevo || ''); M.lastAlive = Date.now(); M.session = true;
+            if (d.nuevo === myPeer() && M.on) becomeLeader(tr('mpplay_lead_given', '{name} left the game: you run it now').replace('{name}', String(d.autor || 'Player')));
             return;
         }
         if (t === 'juego_salir') {
@@ -317,13 +356,13 @@
             return;
         }
         // (anfitrión) los datos del Player de un invitado: se guardan aunque yo ya haya terminado (llegan justo al terminar)
-        if (t === 'juego_guardo') { if (amHost() && d.uid) storePlayer(String(d.uid), d.autor, d.data); return; }
+        if (t === 'juego_guardo') { if ((amHost() || (M.on && M.role === 'host')) && d.uid) storePlayer(String(d.uid), d.autor, d.data); return; }
         if (!M.on) return;                                            // (lo de abajo solo sirve jugando)
         if (t === 'juego_jugador') { onPlayer(d); return; }
         if (t === 'juego_bloques' || t === 'juego_cambios') { applyBlocks(Number(d.s) || 1, d.c); return; }
         if (t === 'juego_pedir' && M.role === 'host') { sendChangesTo(d.peerId); sendMobListTo(d.peerId); sendDropsTo(d.peerId); sendPlayerTo(d.peerId, d.uid, d.autor); return; }
-        if (t === 'juego_tuyo') { if (M.role === 'guest' && window.mbwPlay.net && window.mbwPlay.net.loadMine) window.mbwPlay.net.loadMine(d.data, d.spawn); M.guestCmds = !!d.cmds; return; }
-        if (t === 'juego_ping') { if (M.role === 'host') { const c = (g('misClientes') || []).find(function (q) { return q.peer === d.peerId; }); if (c && c.open) { try { c.send({ tipo: 'juego_pong', t: d.t, retransmitido: true }); } catch (e) { /* nada */ } } } return; }
+        if (t === 'juego_tuyo') { if (M.role === 'guest' && !M.roomHostAtStart && window.mbwPlay.net && window.mbwPlay.net.loadMine) window.mbwPlay.net.loadMine(d.data, d.spawn); M.guestCmds = !!d.cmds; return; }
+        if (t === 'juego_ping') { if (M.role === 'host') sendTo(d.peerId, { tipo: 'juego_pong', t: d.t }); return; }
         if (t === 'juego_pong') { if (M.role === 'guest' && d.t) M.ping = Math.max(0, Date.now() - Number(d.t)); return; }
         const N = window.mbwPlay && window.mbwPlay.net; if (!N) return;
         // objetos en el suelo
@@ -379,15 +418,15 @@
         send({ tipo: 'juego_mobs', s: sc, p: p, f: f, g: g, a: a });
     }
     function sendDropsTo(peerId) {
-        const conn = (g('misClientes') || []).find(function (c) { return c.peer === peerId; });
+        const conn = { open: true, send: function (m) { delete m.retransmitido; sendTo(peerId, m); } };
         const N = window.mbwPlay && window.mbwPlay.net;
-        if (!conn || !conn.open || !N) return;
+        if (!N) return;
         const l = N.dropsPack();
         for (let i = 0; i < l.length; i += CHUNK) { try { conn.send({ tipo: 'juego_suelos', l: l.slice(i, i + CHUNK), retransmitido: true }); } catch (e) { /* nada */ } }
     }
     function sendPlayerTo(peerId, uid, name) {
-        const conn = (g('misClientes') || []).find(function (c) { return c.peer === peerId; });
-        if (!conn || !conn.open || !mbwom.world) return;
+        const conn = { open: true, send: function (m) { delete m.retransmitido; sendTo(peerId, m); } };
+        if (!mbwom.world) return;
         const P = mbwom.world.mbwePlayers || {};
         const rec = uid && P[uid] ? P[uid] : null;
         if (uid && !rec) storePlayer(uid, name, {});                 // (queda en la lista de los que alguna vez entraron)
@@ -409,8 +448,8 @@
     };
     function sendMobListTo(peerId) {
         M.mobFullAt = 0;                                           // al que entró tarde: todo completo en el siguiente envío
-        const conn = (g('misClientes') || []).find(function (c) { return c.peer === peerId; });
-        if (!conn || !conn.open || !mbwom.mobs) return;
+        const conn = { open: true, send: function (m) { delete m.retransmitido; sendTo(peerId, m); } };
+        if (!mbwom.mobs) return;
         try { conn.send({ tipo: 'juego_mobs_lista', s: curScene(), ids: Object.keys(mbwom.mobs), retransmitido: true }); } catch (e) { /* nada */ }
     }
     // (invitado) los mobs que mandó el anfitrión
@@ -534,7 +573,7 @@
 
     // ------------------------------------------------------------------ aviso "hay partida: ▶ Join"
     function showBanner() {
-        if (M.banner || M.on || amHost()) return;
+        if (M.banner || M.on || (amHost() && !otherLeads())) return;
         const b = document.createElement('div');
         b.className = 'mpplay-banner';
         const t = document.createElement('span');
@@ -557,7 +596,7 @@
     // "Save and Quit" ya no te mete otra vez: te queda el botón "Join".
     function tryAutoJoin() {
         if (!M.autoJoin) return;
-        if (M.on || amHost() || !inMp()) { M.autoJoin = false; return; }
+        if (M.on || amHost() || !inMp()) { M.autoJoin = false; return; }   // (el anfitrión que salió de jugar: le queda el botón Join)
         if (!M.session || Date.now() - M.lastAlive > ALIVE_MS * 3) return;
         if (!onServerTab() || window.mpMapDownload || typeof mbwom === 'undefined' || !mbwom.scene) return;   // (espera a que termine de bajar el mapa / a volver a la pestaña del servidor)
         M.autoJoin = false;
@@ -576,7 +615,7 @@
     // si el anfitrión se fue sin avisar, el aviso se quita solo
     setInterval(function () {
         if (M.autoJoin) tryAutoJoin();
-        if (M.session && !amHost() && Date.now() - M.lastAlive > ALIVE_MS * 3) { M.session = false; M.autoJoin = false; hideBanner(); }
+        if (M.session && !(M.on && M.role === 'host') && Date.now() - M.lastAlive > ALIVE_MS * 3 + 4000) { M.session = false; M.autoJoin = false; M.leaderPeer = null; hideBanner(); }
         if (M.banner && (!inMp() || !onServerTab())) hideBanner();
     }, 1000);
 

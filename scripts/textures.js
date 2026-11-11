@@ -176,6 +176,7 @@ mh_9: { x: 9, y: 144 },
  lemonb: { x: 0, y: 136 },
 rsd: { x: 0, y: 183 },
 	rsd_1: { x: 1, y: 183 },
+	rsd_2: { x: 2, y: 183 }, rsd_3: { x: 3, y: 183 }, rsd_4: { x: 4, y: 183 }, rsd_5: { x: 5, y: 183 },   // (3, 4 y 5: el polvo sin señal)
  lapb: { x: 0, y: 21 },
  egem: { x: 0, y: 128 },
  ss: { x: 0, y: 110 },

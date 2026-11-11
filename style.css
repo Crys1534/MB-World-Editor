@@ -3488,7 +3488,7 @@ body.mbw-playing #workspace > .play-float-wrap { display: none; }
 body.is-phone .play-float-wrap .btn-play-mode > span { font-size: 19px; }
 /* ⏸ / 💬 jugando: sin borde, más grandes y dentro del recuadro de la cámara */
 #mbw-play-hud .ph-area { position: absolute; pointer-events: none; overflow: hidden; }
-#mbw-play-hud .ph-vig { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 55%, rgba(0,0,0,.10) 100%); pointer-events: none; }
+#mbw-play-hud .ph-vig { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(0,0,0,.10) 85%, rgba(0,0,0,.14) 100%); pointer-events: none; }
 #mbw-play-hud .ph-area .ph-top { top: 10px; right: 10px; }
 #mbw-play-hud .ph-area .ph-chat-btn { top: 10px; left: 10px; width: 54px; height: 50px; border: none; border-radius: 10px; background: rgba(0,0,0,.35); font-size: 28px; pointer-events: auto; }
 #mbw-play-hud .ph-area .ph-gear { width: 56px; height: 56px; border: none; border-radius: 12px; background: rgba(0,0,0,.35); font-size: 34px; }
@@ -3498,3 +3498,13 @@ body.is-touch #mbw-play-hud .ph-area .ph-gear { width: 48px; height: 48px; font-
 #mbw-play-hud .ph-effects { position: absolute; top: 90px; left: 12px; display: flex; flex-direction: column; gap: 3px; }
 #mbw-play-hud .ph-effects span { background: rgba(0,0,0,.45); color: #fff; font: 600 12px/1 'Segoe UI', Arial, sans-serif; padding: 4px 7px; border-radius: 6px; width: max-content; }
 #mbw-play-hud .ph-portal { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
+
+/* 👥 menú del anfitrión: expulsar / invitar sin salir del Modo Jugar */
+.pm-people { display: flex; flex-direction: column; gap: 4px; padding: 6px 0; border-top: 1px solid rgba(255,255,255,.15); border-bottom: 1px solid rgba(255,255,255,.15); max-height: 220px; overflow-y: auto; }
+.pm-sub { color: #ffd84a; font-weight: 700; font-size: 13px; margin-top: 4px; }
+.pm-prow { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #fff; font-size: 14px; }
+.pm-prow .pm-pl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pm-btn.pm-mini { width: auto; padding: 4px 10px; font-size: 13px; flex: 0 0 auto; }
+.pm-btn.pm-kick { background: #b33a2e; }
+.pm-btn.pm-inv { background: #7b4fb0; }
+.pm-btn.pm-inv:disabled { background: #555; cursor: default; }

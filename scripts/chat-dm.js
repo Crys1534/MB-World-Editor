@@ -371,19 +371,33 @@ function dmBuildToolbar(key, isMe) {
     return bar;
 }
 
+function dmIsGroupChat() { return !!(currentChatPartner && window.mbwIsGroup && window.mbwIsGroup(currentChatPartner.uid)); }
+// 🤖 mensaje del sistema (grupos): una línea gris centrada
+function dmBuildSystemRow(entry) {
+    const row = dmEl('div', 'dc-msg-system');
+    row.dataset.key = entry.key;
+    row.appendChild(dmEl('span', 'dc-sys-text', window.mbwSystemText ? window.mbwSystemText(entry.msg) : String(entry.msg.text || '')));
+    row.appendChild(dmEl('span', 'dc-sys-time', dmTime(dmTs(entry.msg))));
+    if (entry.msg.pinned) row.appendChild(dmEl('span', 'dc-pin-mark', '📌'));
+    row.addEventListener('contextmenu', (e) => { e.preventDefault(); e.stopPropagation(); window.showChatContextMenu(e.clientX, e.clientY, entry.key, dmCur(entry.key), false); });
+    dmState.rows.set(entry.key, row);
+    return row;
+}
 function dmBuildRow(entry, prev) {
     const key = entry.key, msg = entry.msg;
+    if (msg && msg.system) return dmBuildSystemRow(entry);
     const myUID = dmMyUid();
     const isMe = msg.sender === myUID;
+    const group = dmIsGroupChat();
     const start = !dmCanGroup(prev, entry);
     const ts = dmTs(msg);
 
     const row = dmEl('div', 'dc-msg' + (isMe ? ' is-me' : '') + (start ? ' is-start' : ' is-cont') + (msg.isDeleted ? ' is-deleted' : '') + (msg.replyTo && !msg.isDeleted ? ' has-reply' : ''));
     row.dataset.key = key;
 
-    const authorUid = isMe ? myUID : (currentChatPartner ? currentChatPartner.uid : msg.sender);
+    const authorUid = isMe ? myUID : (group ? msg.sender : (currentChatPartner ? currentChatPartner.uid : msg.sender));
     if (start) {
-        const pfp = isMe ? (localStorage.getItem('mbw_profile_pic') || MP_DEFAULT_PFP) : (currentChatPartner ? currentChatPartner.pfp : MP_DEFAULT_PFP);
+        const pfp = isMe ? (localStorage.getItem('mbw_profile_pic') || MP_DEFAULT_PFP) : group ? window.resolveChatInfo(msg.sender, { name: msg.senderName, pfp: msg.senderPfp }).pfp : (currentChatPartner ? currentChatPartner.pfp : MP_DEFAULT_PFP);
         row.appendChild(dmAvatar(pfp, 'dc-avatar-md dc-msg-avatar'));
     } else {
         row.appendChild(dmEl('span', 'dc-msg-hovertime', dmTime(ts)));
@@ -394,7 +408,7 @@ function dmBuildRow(entry, prev) {
 
     if (start) {
         const head = dmEl('div', 'dc-msg-head');
-        const author = dmEl('span', 'dc-msg-author', isMe ? (localStorage.getItem('mbw_username') || msg.senderName || 'Player') : (currentChatPartner ? currentChatPartner.name : (msg.senderName || '?')));
+        const author = dmEl('span', 'dc-msg-author', isMe ? (localStorage.getItem('mbw_username') || msg.senderName || 'Player') : group ? (msg.senderName || '?') : (currentChatPartner ? currentChatPartner.name : (msg.senderName || '?')));
         author.style.color = dmNameColor(authorUid);
         head.appendChild(author);
         const time = dmEl('span', 'dc-msg-time', dmTime(ts));   // solo la hora: el día ya lo dice el separador ("Hoy", "Ayer"...)
@@ -415,6 +429,15 @@ function dmBuildRow(entry, prev) {
 
     const reactions = dmBuildReactions(key, msg);
     if (reactions) body.appendChild(reactions);
+    // 📌 fijado · 🧵 hilo
+    if (msg.pinned && !msg.isDeleted) { const pm = dmEl('span', 'dc-pin-mark', '📌'); pm.title = dmT('dm_pinned_by', 'Pinned') + (msg.pinnedBy ? ' · ' + msg.pinnedBy : ''); (body.querySelector('.dc-msg-head') || body).appendChild(pm); }
+    if (msg.thread && typeof msg.thread === 'object') {
+        const n = Number(msg.thread.count) || 0;
+        const chip = dmEl('button', 'dc-thread-chip', '🧵 ' + String(msg.thread.name || 'Thread') + ' · ' + n + ' ' + (n === 1 ? dmT('dm_thread_msg1', 'message') : dmT('dm_thread_msgs', 'messages')));
+        chip.type = 'button';
+        chip.addEventListener('click', (ev) => { ev.stopPropagation(); if (window.mbwThreadOpen) window.mbwThreadOpen(currentChatId, key); });
+        body.appendChild(chip);
+    }
 
     row.appendChild(body);
     row.appendChild(dmBuildToolbar(key, isMe));
@@ -453,6 +476,7 @@ function dmBuildTop() {
     const w = dmEl('div', 'dc-welcome');
     w.appendChild(dmAvatar(p.pfp, 'dc-avatar-lg'));
     w.appendChild(dmEl('h3', 'dc-welcome-title', p.name));
+    if (dmIsGroupChat()) { w.appendChild(dmEl('p', 'dc-welcome-sub', dmT('dm_group_welcome', 'This is the start of the group of this world. Everyone who joins the world is added here.'))); return w; }
     const sub = dmEl('p', 'dc-welcome-sub', dmT('dm_welcome', 'Este es el comienzo de tu historial de mensajes directos con '));
     sub.appendChild(dmEl('strong', null, p.name));
     sub.appendChild(document.createTextNode('.'));
@@ -1080,6 +1104,15 @@ window.showChatContextMenu = function(x, y, msgKey, msgFromCaller, isMe) {
                 if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).catch(() => {});
             });
         }
+        // 📌 fijar / quitar · 🧵 crear hilo / abrir hilo (cualquier mensaje, también en grupos)
+        if (!msg.isDeleted && currentChatId && window.mbwPinToggle) {
+            const pinned = !!(dmCur(msgKey) || msg).pinned;
+            dmMenuItem(menu, '📌 ' + (pinned ? dmT('dm_unpin', 'Unpin message') : dmT('dm_pin', 'Pin message')), null, () => window.mbwPinToggle(currentChatId, msgKey, !pinned));
+            if (!msg.system) {
+                const th = (dmCur(msgKey) || msg).thread;
+                dmMenuItem(menu, '🧵 ' + (th ? dmT('dm_open_thread', 'Open thread') : dmT('dm_create_thread', 'Create thread')), null, () => th ? window.mbwThreadOpen(currentChatId, msgKey) : window.mbwThreadCreate(currentChatId, msgKey, dmCur(msgKey) || msg));
+            }
+        }
         if (isMe && !msg.isDeleted) {
             menu.appendChild(dmEl('div', 'dc-menu-sep'));
             dmMenuItem(menu, dmT('dm_delete', 'Eliminar mensaje'), DM_ICONS.trash, () => {
@@ -1099,10 +1132,12 @@ window.showChatHeaderMenu = function(anchor) {
     if (!partner) return;
     const r = anchor.getBoundingClientRect();
     dmOpenMenu(r.right - 200, r.bottom + 6, (menu) => {
+        if (window.mbwShowPinned) dmMenuItem(menu, '📌 ' + dmT('dm_pinned', 'Pinned messages'), null, () => window.mbwShowPinned(currentChatId, anchor, (k) => dmJumpTo(k)));
         const muted = window.isChatMuted(partner.uid);
         dmMenuItem(menu, muted ? dmT('dm_unmute', 'Activar notificaciones') : dmT('dm_mute', 'Silenciar chat'), muted ? DM_ICONS.bell : DM_ICONS.bellOff, () => window.toggleChatMute(partner.uid));
         const archived = window.isChatArchived(partner.uid);
         dmMenuItem(menu, archived ? dmT('dm_unarchive', 'Desarchivar chat') : dmT('dm_archive', 'Archivar chat'), archived ? DM_ICONS.unarchive : DM_ICONS.archive, () => window.toggleChatArchive(partner.uid));
+        if (window.mbwIsGroup && window.mbwIsGroup(partner.uid)) return;            // (un grupo: sin amigos / bloquear)
         menu.appendChild(dmEl('div', 'dc-menu-sep'));
         if (misAmigosConfirmados.includes(partner.uid)) {
             dmMenuItem(menu, '❌ ' + dmT('dm_remove_friend', 'Eliminar amigo'), null, () => window.removeFriend(partner.uid, partner.name), true);
@@ -1516,8 +1551,10 @@ window.dmOnLanguageChanged = function() {
 };
 
 window.openPrivateChat = function(otherUid, otherName, otherPfp) {
+    const isGroup = !!(window.mbwIsGroup && window.mbwIsGroup(otherUid));
+    if (window.mbwThreadClose) window.mbwThreadClose();
     // 🚫 No se abre el chat de alguien bloqueado
-    if (window.isBlocked(otherUid)) {
+    if (!isGroup && window.isBlocked(otherUid)) {
         window.mpToast('🚫 Bloqueado', 'Desbloquea a ' + (otherName || 'este usuario') + ' para escribirle.');
         return;
     }
@@ -1526,7 +1563,7 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp) {
 
     // El nombre/foto que nos llegan pueden venir vacíos o con valores de relleno
     // ("Unknown User", "undefined"). Los resolvemos aquí para no guardarlos nunca como reales.
-    const resolved = window.resolveChatInfo(otherUid, { name: otherName, pfp: otherPfp });
+    const resolved = isGroup ? { name: otherName || 'Group', pfp: otherPfp || window.mbwGroupPfp } : window.resolveChatInfo(otherUid, { name: otherName, pfp: otherPfp });
     otherName = resolved.name;
     otherPfp = resolved.pfp;
 
@@ -1539,7 +1576,7 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp) {
 
     // Borrador: el texto a medias se queda con SU chat
     const input = $dm('full-dm-input');
-    const newChatId = myUID < otherUid ? myUID + '_' + otherUid : otherUid + '_' + myUID;
+    const newChatId = isGroup ? otherUid : (myUID < otherUid ? myUID + '_' + otherUid : otherUid + '_' + myUID);
     const changed = newChatId !== currentChatId;
     if (changed && currentChatId && input && !window.editingMsgKey) dmDrafts[currentChatId] = input.value;
 
@@ -1547,7 +1584,7 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp) {
     if (changed) resetChatComposer();
 
     currentChatId = newChatId;
-    currentChatPartner = { uid: otherUid, name: otherName, pfp: otherPfp };
+    currentChatPartner = { uid: otherUid, name: otherName, pfp: otherPfp, isGroup: isGroup };
     const token = dmState.token;
     dmState.chatId = newChatId;
     dmState.msgs = [];
@@ -1572,9 +1609,17 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp) {
     const box = $dm('full-dm-messages');
     if (box) { box.textContent = ''; box.appendChild(dmEl('div', 'dc-loading', dmT('dm_loading', 'Cargando…'))); }
 
-    // Estado de la otra persona (activo ahora / hace X)
+    // Estado de la otra persona (activo ahora / hace X) · en un grupo: cuántos miembros tiene
+    if (isGroup) {
+        dmState.statusRef = database.ref('groups/' + otherUid + '/members');
+        dmState.statusCb = dmState.statusRef.on('value', snap => {
+            const n = Object.keys(snap.val() || {}).length, t = $dm('chat-header-status-text');
+            if (t) { t.textContent = '👥 ' + n + ' ' + (n === 1 ? dmT('dm_member', 'member') : dmT('dm_members', 'members')); t.classList.remove('is-online'); }
+        });
+    } else {
     dmState.statusRef = database.ref('users_status/' + otherUid);
     dmState.statusCb = dmState.statusRef.on('value', snap => dmUpdateHeaderStatus(snap.val()));
+    }
 
     // "Está escribiendo..." de la otra persona
     const ti = $dm('dm-typing-indicator');

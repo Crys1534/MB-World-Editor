@@ -85,7 +85,7 @@
             const guest = M() && M().on && M().role === 'guest';
             const test = !!(P() && P().isTest && P().isTest());
             left.appendChild(btn(test ? '🧪 ' + tr('pm_quit_test', 'Quit test (nothing is saved)') : guest ? tr('pm_quit_guest', 'Save and Quit (leave the game)') : tr('pm_quit', 'Save and Quit'), 'pm-quit', function () { closeNow(); if (P() && P().saveAndQuit) P().saveAndQuit(); }));
-            left.appendChild(el('p', 'pm-hint', test ? tr('pm_quit_test_hint', 'This is a test: when you leave, the world goes back to how it was before playing.') : guest ? tr('pm_quit_guest_hint', 'Your Player (inventory and position) stays saved in this world for next time.') : tr('pm_quit_hint', 'Everything that happened while playing is saved. How the world was before playing stays in the version history (Play mode column).')));
+            left.appendChild(el('p', 'pm-hint', test ? tr('pm_quit_test_hint', 'This is a test: when you leave, the world goes back to how it was before playing.') : guest ? tr('pm_quit_guest_hint2', 'Everything that happened is saved in your copy of the world (and your Player in the host\'s). The others keep playing.') : inRoom() ? tr('pm_quit_host_hint', 'Everything that happened is saved in your world. The others keep playing (one of them takes over the game).') : tr('pm_quit_hint', 'Everything that happened while playing is saved. How the world was before playing stays in the version history (Play mode column).')));
         } else if (p === 'options') {
             left.appendChild(el('h2', 'pm-title', tr('pm_options', 'Options')));
             left.appendChild(optionsForm());
@@ -187,8 +187,38 @@
             try { if (window.mbwServerWizard && window.mbwServerWizard.setAccess) { window.mbwServerWizard.setAccess(v); done = true; } } catch (e) { done = false; }
             if (!done) { window.multiplayerAccess = v; if (ref) ref.update({ access: v }); }
         })));
+        // 👥 los que están en tu mundo (expulsar) y a quién invitar (amigos primero), sin salir del Modo Jugar
+        f.appendChild(peopleBox());
         f.appendChild(row(tr('pm_guest_cmds', 'Guests can use commands'), check(M() && M().allowCmds ? M().allowCmds() : false, function (on) { if (M() && M().setAllowCmds) M().setAllowCmds(on); }), tr('pm_guest_cmds_tip', 'By default only the host can use commands (gamemode, tp, give...)')));
         return f;
+    }
+    function peopleBox() {
+        const box = el('div', 'pm-people');
+        const me = localStorage.getItem('mbw_uid');
+        const inRoom = (window.roomPlayers || []).filter(function (q) { return q && q.uid && q.uid !== me; });
+        box.appendChild(el('div', 'pm-sub', tr('pm_in_world', 'In your world')));
+        if (!inRoom.length) box.appendChild(el('div', 'pm-pl-note', tr('pm_nobody_in', 'Nobody else is in your world.')));
+        inRoom.forEach(function (q) {
+            const r = el('div', 'pm-prow'); r.appendChild(el('span', 'pm-pl-name', String(q.name || q.username || 'Player')));
+            const b = btn(tr('pm_kick', 'Kick'), 'pm-mini pm-kick', function () { if (typeof window.kickPlayer === 'function') window.kickPlayer(q.uid, String(q.name || q.username || 'Player')); setTimeout(function () { show(page); }, 900); });
+            r.appendChild(b); box.appendChild(r);
+        });
+        const users = window.lastKnownUsers || {};
+        const friends = (typeof misAmigosConfirmados !== 'undefined' && Array.isArray(misAmigosConfirmados)) ? misAmigosConfirmados : [];
+        const inSet = new Set(inRoom.map(function (q) { return q.uid; }));
+        const list = Object.keys(users).map(function (k) { return users[k]; }).filter(function (u) { return u && u.uid && u.uid !== me && !inSet.has(u.uid) && !(window.isBlocked && window.isBlocked(u.uid)); })
+            .sort(function (a, b) { return (friends.includes(b.uid) ? 1 : 0) - (friends.includes(a.uid) ? 1 : 0) || String(a.username || '').localeCompare(String(b.username || '')); }).slice(0, 30);
+        box.appendChild(el('div', 'pm-sub', tr('pm_invite_title', 'Invite (online now)')));
+        if (!list.length) box.appendChild(el('div', 'pm-pl-note', tr('pm_nobody_online', 'Nobody else is online right now.')));
+        const now = Date.now();
+        list.forEach(function (u) {
+            const r = el('div', 'pm-prow'); r.appendChild(el('span', 'pm-pl-name', String(u.username || 'Player') + (friends.includes(u.uid) ? ' ⭐' : '')));
+            const sent = window.inviteCooldowns && window.inviteCooldowns[u.uid] && now < window.inviteCooldowns[u.uid];
+            const b = btn(sent ? '✓ ' + tr('pm_invited', 'Invited') : tr('pm_invite', 'Invite'), 'pm-mini pm-inv', function () { if (typeof window.sendServerInvite === 'function') window.sendServerInvite(u.uid, String(u.username || 'Player')); b.textContent = '✓ ' + tr('pm_invited', 'Invited'); b.disabled = true; });
+            if (sent) b.disabled = true;
+            r.appendChild(b); box.appendChild(r);
+        });
+        return box;
     }
     function open() {
         if (!P() || !P().isPlaying()) return;

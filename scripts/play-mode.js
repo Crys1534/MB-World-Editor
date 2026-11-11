@@ -1562,6 +1562,8 @@
             sndAt(open ? 'doorclose' : 'dooropen', x + .5, -(y + .5));
             return true;
         }
+        // 🔘 botón: da señal 1 segundo
+        if (t === 'button') { S.btn = S.btn || new Map(); S.btn.set(x + ',' + y, S.tick + FPS); sndAt('on', x + .5, -(y + .5)); return true; }
         // 🕹 palanca: prender / apagar (states2 = 1 encendida)
         if (t === 'lever') {
             const cur = mbwom.getBlockState(x, y), on = Number(cur.states2) === 1;
@@ -1796,7 +1798,7 @@
         if (typeof mbwom.mobs !== 'object' || !mbwom.mobs) { mbwom.mobs = {}; w['mobs' + n] = mbwom.mobs; }
         const st = S.dimStash[n] || {}; delete S.dimStash[n];
         S.drops = st.drops || []; S.orbs = st.orbs || []; S.falling = st.falling || []; S.arrows = st.arrows || [];
-        S.tmp = new Map(); S.liqFresh = new Set(); S.sandCheck = new Map(); S.parts = []; S.wetWas = {}; S.spawnT = new Map(); S.spawnOn = new Set();
+        S.tmp = new Map(); S.liqFresh = new Set(); S.sandCheck = new Map(); S.parts = []; S.wetWas = {}; S.spawnT = new Map(); S.spawnOn = new Set(); S.rsOn = new Map(); S.rsReady = false;
         // a dónde llega (Game.usePortal): Overworld = donde se entró al portal (o el spawn); Nether = mitad del mundo, y 30; End = un sexto, y 53
         const wd = dimWidth();
         let to;
@@ -2263,6 +2265,7 @@
         if (S.iname.t > 0) S.iname.t--;
         if (S.tick % 10 === 0) tickAmbience();
         if (S.tick % 10 === 5) tickSpawners();
+        if (S.tick % 4 === 2) tickRedstone();
         tickParticles();
         if (S.portalGo) { const k = S.portalGo; S.portalGo = 0; usePortal(k); }
     }
@@ -2484,6 +2487,161 @@
         }
     }
     window.mbwPlay.spawnerFire = spawnerFire;
+
+    // 🔴 REDSTONE en el Modo Jugar (12 veces por segundo, cerca de los jugadores; en una partida lo hace solo quien la lleva)
+    //   Fuentes (fuerza 15): palanca encendida, antorcha de redstone, botón apretado (1 segundo), placa de presión con alguien encima.
+    //   El polvo de redstone ("rsd") lleva la señal y pierde 1 de fuerza por cada polvo (llega a 15 polvos); sube y baja escalones.
+    //   Lo que toca una fuente, un polvo encendido o un bloque sólido que está junto a ellos, recibe señal:
+    //     lámpara de redstone (se prende) · puertas y trampillas (se abren) · puertas de cerca · pistón y pistón pegajoso (empujan
+    //     hasta 12 bloques; el pegajoso jala al regresar) · dispenser (dispara o avienta lo que tiene) · dropper (lo suelta)
+    //     · TNT (se prende) · bloque musical (suena).  El polvo encendido se dibuja rojo brillante (hasSignal = [fuerza]).
+    const DOOR_RE = /^(dr|bdr|bbdr|idr)([1-4])$/;
+    const IMMOVABLE = { br: 1, b: 1, ob: 1, portal: 1, pf: 1, chest: 1, oven: 1, dispense: 1, dropper: 1, sign: 1, enchant: 1, brew: 1, piston1: 1, spiston1: 1, piston2: 1, spiston2: 1, mobSpawner: 1, bed1: 1, bed2: 1 };
+    const DIRV = { 1: [0, 1], 2: [1, 0], 3: [0, -1], 4: [-1, 0] };
+    const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    function rsKey(x, y) { return x + ',' + y; }
+    function rsSource(x, y, t) {
+        if (t === 'lever') return Number((mbwom.getBlockState(x, y) || {}).states2) === 1;
+        if (t === 'rstorch') return true;
+        if (t === 'button') return (S.btn && S.btn.get(rsKey(x, y)) > S.tick);
+        if (t === 'pp' || t === 'wpp') return S.plates && S.plates.has(rsKey(x, y));
+        return false;
+    }
+    function rsSolid(t) { return !!t && t !== 'air' && bd(t, 'walkThroughBlock') != 1 && bd(t, 'liquid') == null; }
+    function rsConsumer(t) { return t === 'light' || DOOR_RE.test(t) || t === 'td1' || t === 'td2' || t === 'fncg' || t === 'nfncg' || t === 'dispense' || t === 'dropper' || t === 'piston' || t === 'spiston' || t === 'piston1' || t === 'spiston1' || t === 'TNT' || t === 'note'; }
+    function tickRedstone() {
+        if (mpGuest() || !mbwom.scene) return;
+        const w = W();
+        // quién está parado en una placa de presión
+        S.plates = new Set();
+        const feet = function (x, y) { const k = rsKey(Math.floor(x), Math.floor(-y + .1)); S.plates.add(k); };
+        if (!(w.dead > 0) && w.gamemode != 3) feet(w.worldX, w.worldY);
+        if (mpHost()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (r) feet(r.tx, r.ty); } }
+        for (const id in mbwom.mobs) { const m = mbwom.mobs[id]; if (m && !(m.dead > 0)) feet(m.x, m.y); }
+        // la zona: alrededor de cada jugador
+        const centers = [[Math.floor(w.worldX), Math.floor(-w.worldY)]];
+        if (mpHost()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (r) centers.push([Math.floor(r.tx), Math.floor(-r.ty)]); } }
+        const RX = 32, RY = 24, power = new Map(), sources = [], consumers = [], dusts = [];
+        const seen = new Set();
+        centers.forEach(function (c) {
+            for (let x = c[0] - RX; x <= c[0] + RX; x++) {
+                const col = mbwom.scene[x]; if (!col) continue;
+                for (let y = Math.max(0, c[1] - RY); y <= Math.min(col.length - 1, c[1] + RY); y++) {
+                    const t = col[y]; if (!t) continue;
+                    const k = rsKey(x, y); if (seen.has(k)) continue; seen.add(k);
+                    if (t === 'rsd') dusts.push([x, y]);
+                    else if (rsSource(x, y, t)) sources.push([x, y]);
+                    if (rsConsumer(t)) consumers.push([x, y, t]);
+                }
+            }
+        });
+        // el polvo: desde las fuentes, perdiendo 1 por paso
+        const q = [];
+        sources.forEach(function (sc) { N4.forEach(function (d) { const x = sc[0] + d[0], y = sc[1] + d[1]; if (fg(x, y) === 'rsd' && (power.get(rsKey(x, y)) || 0) < 15) { power.set(rsKey(x, y), 15); q.push([x, y, 15]); } }); });
+        while (q.length) {
+            const c = q.shift(); if (c[2] <= 1) continue;
+            [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]].forEach(function (d) {
+                const x = c[0] + d[0], y = c[1] + d[1]; if (fg(x, y) !== 'rsd') return;
+                const k = rsKey(x, y); if ((power.get(k) || 0) >= c[2] - 1) return;
+                power.set(k, c[2] - 1); q.push([x, y, c[2] - 1]);
+            });
+        }
+        // ¿le llega señal a (x, y)? (junto a una fuente o a un polvo encendido, o a un bloque sólido que está junto a ellos)
+        const hot = new Set();
+        sources.forEach(function (c) { hot.add(rsKey(c[0], c[1])); });
+        power.forEach(function (v, k) { if (v > 0) hot.add(k); });
+        const near = function (x, y) { return N4.some(function (d) { return hot.has(rsKey(x + d[0], y + d[1])); }); };
+        const fed = function (x, y) {
+            if (near(x, y)) return true;
+            return N4.some(function (d) { const bx = x + d[0], by = y + d[1]; return rsSolid(fg(bx, by)) && !rsConsumer(fg(bx, by)) && near(bx, by); });
+        };
+        // dibujar el polvo (encendido / apagado)
+        dusts.forEach(function (c) {
+            const k = rsKey(c[0], c[1]), v = power.get(k) || 0, cur = mbwom.getBlockState(c[0], c[1]) || {};
+            const was = Array.isArray(cur.hasSignal) ? Number(cur.hasSignal[0]) || 0 : 0;
+            if (was !== v) { const ns = JSON.parse(JSON.stringify(cur)); ns.type = 'rsd'; ns.hasSignal = v > 0 ? [v] : undefined; mbwom.setBlockState(c[0], c[1], ns); if (typeof window.renderBlock === 'function') window.renderBlock(c[0], c[1]); }
+        });
+        // lo que recibe la señal
+        S.rsOn = S.rsOn || new Map();
+        const first = !S.rsReady; S.rsReady = true;
+        consumers.forEach(function (c) {
+            const x = c[0], y = c[1], t = c[2];
+            let on;
+            const dm = DOOR_RE.exec(t);
+            if (dm && (dm[2] === '2' || dm[2] === '4')) return;              // (la puerta se maneja desde su parte de abajo)
+            if (dm) on = fed(x, y) || fed(x, y + 1);
+            else on = fed(x, y);
+            const k = rsKey(x, y), prev = S.rsOn.get(k);
+            S.rsOn.set(k, on);
+            if (t === 'light') { const cur = mbwom.getBlockState(x, y) || {}, was = Array.isArray(cur.hasSignal) && Number(cur.hasSignal[0]) > 0; if (was !== on) { const ns = JSON.parse(JSON.stringify(cur)); ns.type = 'light'; ns.hasSignal = on ? [15] : undefined; mbwom.setBlockState(x, y, ns); if (typeof window.renderBlock === 'function') window.renderBlock(x, y); } return; }
+            if (prev === on || (prev === undefined && !on)) return;          // (solo cuando cambia)
+            if (dm) { const cur = DOOR_RE.exec(fg(x, y)); if (cur) { const isOpen = cur[2] === '1'; if (isOpen !== on) useBlock(x, y); } return; }
+            if (t === 'td1' || t === 'td2') { if ((t === 'td1') !== on) useBlock(x, y); return; }
+            if (t === 'fncg' || t === 'nfncg') { if ((st(x, y) == 1) !== on) useBlock(x, y); return; }
+            if (t === 'piston' || t === 'spiston' || t === 'piston1' || t === 'spiston1') { pistonSet(x, y, on); return; }
+            if (!on || first) return;                                      // (de aquí en adelante: solo al prenderse)
+            if (t === 'TNT') igniteTNT(x, y);
+            else if (t === 'note') playNote(x, y);
+            else if (t === 'dispense' || t === 'dropper') dispenseOne(x, y, t);
+        });
+    }
+    // pistón: extender (empuja hasta 12 bloques) / regresar (el pegajoso jala el de enfrente)
+    function pistonSet(x, y, on) {
+        const t = fg(x, y), sticky = t.charAt(0) === 's', base = sticky ? 'spiston' : 'piston';
+        const dir = Number(st(x, y)) || 1, v = DIRV[dir] || DIRV[1];
+        const ext = t === base + '1';
+        if (on && !ext) {
+            const line = []; let cx = x + v[0], cy = y + v[1];
+            while (fg(cx, cy) !== 'air' && bd(fg(cx, cy), 'replaceable') != 1 && fg(cx, cy) !== 'wr' && fg(cx, cy) !== 'la') {
+                if (IMMOVABLE[fg(cx, cy)] || line.length >= 12 || cy < 0) return;
+                line.push([cx, cy]); cx += v[0]; cy += v[1];
+            }
+            for (let i = line.length - 1; i >= 0; i--) {                  // (de la punta hacia el pistón, para no pisar nada)
+                const a = line[i], stt = JSON.parse(JSON.stringify(mbwom.getBlockState(a[0], a[1]) || {}));
+                mbwom.setBlockState(a[0] + v[0], a[1] + v[1], stt); if (typeof window.renderBlock === 'function') window.renderBlock(a[0] + v[0], a[1] + v[1]);
+            }
+            setBlock(x + v[0], y + v[1], base + '2', dir);
+            setBlock(x, y, base + '1', dir);
+            sndAt('piston', x + .5, -(y + .5));
+        } else if (!on && ext) {
+            const ax = x + v[0], ay = y + v[1];
+            if (fg(ax, ay) === base + '2') setBlock(ax, ay, null);
+            if (sticky) {
+                const fx = ax + v[0], fy = ay + v[1], ft = fg(fx, fy);
+                if (ft !== 'air' && !IMMOVABLE[ft] && bd(ft, 'liquid') == null && fg(ax, ay) === 'air') {
+                    const stt = JSON.parse(JSON.stringify(mbwom.getBlockState(fx, fy) || {}));
+                    mbwom.setBlockState(ax, ay, stt); if (typeof window.renderBlock === 'function') window.renderBlock(ax, ay);
+                    setBlock(fx, fy, null);
+                }
+            }
+            setBlock(x, y, base, dir);
+            sndAt('piston', x + .5, -(y + .5));
+        }
+    }
+    // dispenser: dispara flechas / avienta lo demás; dropper: suelta. Hacia donde mira (states 1 arriba, 2 derecha, 3 abajo, 4 izquierda)
+    function dispenseOne(x, y, t) {
+        const key = 'blockX' + x + 'Y' + y + '_2';
+        const list = mbwom.states && Array.isArray(mbwom.states[key]) ? mbwom.states[key] : null;
+        if (!list) { sndAt('off', x + .5, -(y + .5)); return; }
+        const idx = []; list.forEach(function (it, i) { if (it && !isEmpty(it)) idx.push(i); });
+        if (!idx.length) { sndAt('off', x + .5, -(y + .5)); return; }
+        const i = idx[Math.random() * idx.length | 0], it = list[i];
+        const dir = Number(st(x, y)) || 2, v = DIRV[dir] || DIRV[2];
+        const ox = x + .5 + v[0] * .7, oy = -(y + .5) - v[1] * .7;
+        if (t === 'dispense' && it[0] === 'arrow') {
+            S.arrows.push({ x: ox, y: oy, vx: migSpeed(22 * v[0]), vy: migSpeed(-22 * v[1] - (v[1] ? 0 : 2)), by: null, age: 0 });
+            sndAt('bowsfx', ox, oy);
+        } else if (t === 'dispense' && it[0] === 'fireegg') {
+            explode(x + v[0] * 3, y + v[1] * 3, 1.5, null);
+        } else {
+            addDrop(String(it[0]), ox, oy, 1, it[2] || 0, it[3] || {});
+            const d = S.drops[S.drops.length - 1]; if (d) { d.vx = 4 * v[0] + (Math.random() - .5); d.vy = -4 * v[1] - 1; }
+            sndAt('off', x + .5, -(y + .5));
+        }
+        it[1] = (it[1] | 0) - 1; if (it[1] <= 0) list[i] = ['air', 0, 0, {}];
+        netMark(x, y);
+    }
+    window.mbwPlay.redstone = { tick: function () { tickRedstone(); }, piston: pistonSet, dispense: dispenseOne };
 
     // 🎵🌧 Música (Game.onCertainInterval: en el Overworld, una canción al azar cada 4 a 6 minutos), lluvia, el sonido del Nether
     // y del End, y el fuego / los portales que estén cerca (Block_Fire, Block_Portal: de vez en cuando, desde donde están)
@@ -3143,7 +3301,7 @@
         if (w.gamemode != 1) w.fly = false;
         inv();
         for (const id in mbwom.mobs) { const m = mbwom.mobs[id]; if (m && typeof m === 'object') { m.target = null; m.focus = null; m.speedX = Number(m.speedX) || 0; m.speedY = Number(m.speedY) || 0; } }
-        S.p = newPlayer(); S.tmp = new Map(); S.drops = []; S.falling = []; S.arrows = []; S.orbs = []; S.liqFresh = new Set(); S.sandCheck = new Map(); S.dropSeq = 0; S.dropBase = Date.now().toString(36); S.lastPvp = null; S.parts = []; S.wetWas = {}; S.spawnT = new Map(); S.spawnOn = new Set(); S.selShow = null; S.selPrev = null; S.portalLock = true; S.portalGo = 0; S.dimStash = {}; S.spect = null; S.tick = 0; S.acc = 0; S.last = 0; S.mine = null; S.useTimer = -1; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mobErr = false;
+        S.p = newPlayer(); S.tmp = new Map(); S.drops = []; S.falling = []; S.arrows = []; S.orbs = []; S.liqFresh = new Set(); S.sandCheck = new Map(); S.dropSeq = 0; S.dropBase = Date.now().toString(36); S.lastPvp = null; S.parts = []; S.wetWas = {}; S.spawnT = new Map(); S.spawnOn = new Set(); S.selShow = null; S.selPrev = null; S.rsOn = new Map(); S.rsReady = false; S.btn = new Map(); S.plates = new Set(); S.portalLock = true; S.portalGo = 0; S.dimStash = {}; S.spect = null; S.tick = 0; S.acc = 0; S.last = 0; S.mine = null; S.useTimer = -1; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mobErr = false;
         // arena y grava cerca: se revisan para que caigan si no tienen nada abajo
         const x0 = Math.max(0, Math.floor(px) - 60), x1 = Math.floor(px) + 60;
         for (let x = x0; x <= x1; x++) { const col = mbwom.scene[x]; if (!col) continue; for (let y = 0; y < col.length; y++) if (col[y] === 'sd' || col[y] === 'gv') S.sandCheck.set(x + ',' + y, 2); }
@@ -3204,7 +3362,7 @@
     function saveAndQuit() {
         if (!S.playing) return;
         if (S.test) { stopPlay({ keep: false }); flashToast('🧪 ' + tr('play_test_done', 'Test finished: nothing was saved')); return; }
-        if (mpGuest()) { try { if (window.mbwMpPlay && window.mbwMpPlay.saveMine) window.mbwMpPlay.saveMine(); } catch (e) { /* nada */ } stopPlay({ keep: false }); return; }
+        // (todos — anfitrión e invitados — se quedan con lo que pasó en SU copia del mundo y la guardan; los demás siguen jugando)
         let pre = null;
         const fm = window.fileManager || (typeof fileManager !== 'undefined' ? fileManager : null);
         try { if (fm && fm.prepareData) { const d = fm.prepareData(); pre = d && d.textData; } } catch (e) { pre = null; }   // (jugando, prepareData da el mundo de ANTES)
@@ -3228,7 +3386,7 @@
         if (!S.playing) return;
         // ¿lo que pasó jugando se queda? Sí (todo se guarda), menos para un invitado de una partida: su copia vuelve a como estaba
         // y el anfitrión le manda el mundo nuevo
-        const keep = (opts && opts.keep != null) ? !!opts.keep : (!mpGuest() && !S.test);
+        const keep = (opts && opts.keep != null) ? !!opts.keep : !S.test;
         S.paused = false;
         if (window.mbwPlayMenu && window.mbwPlayMenu.close) { try { window.mbwPlayMenu.close(true); } catch (e) { /* nada */ } }
         closeModals();                                              // (con el juego todavía activo: lo del cofre no entra al historial)
