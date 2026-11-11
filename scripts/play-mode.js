@@ -251,7 +251,7 @@
         // 🎮 multijugador: todos ven el objeto (con un número para saber cuál es) y cae igual en todas las pantallas
         if (S.mp && window.mbwMpPlay) { o.nid = window.mbwMpPlay.myId() + ':' + S.dropBase + ':' + (++S.dropSeq); mpSend({ tipo: 'juego_suelta', d: packDrop(o) }); }
     }
-    const packDrop = (o) => ({ nid: o.nid, id: o.id, n: o.n, dmg: o.dmg, ex: o.ex, x: o.x, y: o.y, vx: o.vx, vy: o.vy, age: o.age | 0 });
+    const packDrop = (o, sc) => ({ nid: o.nid, id: o.id, n: o.n, dmg: o.dmg, ex: o.ex, x: o.x, y: o.y, vx: o.vx, vy: o.vy, age: o.age | 0, s: sc || mbwom.currentScene || 1 });
     const dropIdx = (nid) => { for (let i = 0; i < S.drops.length; i++) if (S.drops[i].nid === nid) return i; return -1; };
     function tickDrops() {
         const w = W();
@@ -856,6 +856,7 @@
             w.experience = 0;
         }
         w.xSpeed = 0; w.ySpeed = 0; w.health = 20; w.food = 1000; w.dead = 0;
+        if ((mbwom.currentScene || 1) !== 1 && dimReady(1)) { stopSpect(true); changeDim(1, 'respawn'); }    // (como el juego: se revive en el Overworld)
         const sp = spawnPoint();
         w.worldX = sp.x; w.worldY = sp.y;
         S.p = newPlayer();
@@ -863,7 +864,7 @@
         camSnap();
     }
     function spawnPoint() {
-        return spGet() || { x: S.start.x, y: S.start.y };
+        return spGet() || ((S.scene || 1) === (mbwom.currentScene || 1) ? { x: S.start.x, y: S.start.y } : safeSpot(dimWidth() / 2, -120));
     }
     // 🏠 el spawn / /home del mundo. En el archivo del juego va como [x, y] (World.js saveItem("spawnPoint" + escena, [x, y]))
     function spGet() {
@@ -1677,14 +1678,96 @@
         if (cb) return !!cb.checked;
         const c = W().cheats; return c === true || c === 1;
     }
-    // cambiar de dimensión jugando (1 = Overworld, 2 = Nether, 3 = End); devuelve true si se pudo
-    function changeDimension(n) {
-        n = Number(n);
-        if (!(n >= 1 && n <= 3)) return false;
-        if ((mbwom.currentScene || 1) === n) return true;
-        if (typeof window.mbwPlayChangeDim === 'function') return !!window.mbwPlayChangeDim(n);
-        return false;
+    // 🌀 cambiar de dimensión jugando (1 = Overworld, 2 = Nether, 3 = End); devuelve true si se pudo
+    function changeDimension(n) { return changeDim(n, 'cmd'); }
+    const DIM_KEYS = { overworld: 1, o: 1, '1': 1, nether: 2, n: 2, '2': 2, end: 3, e: 3, '3': 3, the_end: 3 };
+    function dimName(n) { return [null, tr('dim_overworld', 'Overworld'), tr('dim_nether', 'Nether'), tr('dim_end', 'End')][n] || '?'; }
+    // ¿esa dimensión existe en este mundo? (el juego la genera la primera vez que se entra; aquí no se puede generar)
+    function dimReady(n) { const c = mbwom.world && mbwom.world['scene' + n]; return Array.isArray(c) && c.some(function (col) { return col && col.length; }); }
+    function dimWidth() { const n = Number(W().worldWidth); return n > 0 ? n : ((mbwom.scene || []).length || 1000); }
+    // dónde puede pararse el Player en la columna x (fila de los pies y): libre los pies y la cabeza, algo firme abajo, sin lava / ácido / fuego
+    function standable(x, y) {
+        const hard = function (yy) { const t = fg(x, yy); return t !== 'air' && bd(t, 'walkThroughBlock') != 1; };
+        const bad = function (yy) { const t = fg(x, yy); return t === 'la' || t === 'ad' || t === 'fire'; };
+        return y >= 1 && !hard(y) && !hard(y + 1) && !bad(y) && !bad(y + 1) && hard(y - 1);
     }
+    function safeSpot(x, y) {
+        const bx = Math.floor(x), by = Math.floor(-y);
+        for (let d = 0; d <= 90; d++) {
+            if (standable(bx, by - d)) return { x: bx + .5, y: -(by - d) };
+            if (d && standable(bx, by + d)) return { x: bx + .5, y: -(by + d) };
+        }
+        const col = mbwom.scene[bx] || []; let top = col.length; while (top > 0 && !col[top - 1]) top--;
+        return { x: bx + .5, y: -Math.max(top, 1) };
+    }
+    // Game.usePortal: kind 1 = portal del Nether, 2 = portal del End
+    function usePortal(kind) {
+        const sc = mbwom.currentScene || 1;
+        if (kind === 2) changeDim(sc === 3 ? 1 : 3, 'portal');
+        else changeDim(sc === 2 ? 1 : 2, 'portal');
+    }
+    function changeDim(n, why) {
+        n = Number(n);
+        const from = mbwom.currentScene || 1;
+        if (!(n >= 1 && n <= 3) || !S.playing) return false;
+        if (from === n) return true;
+        if (!dimReady(n)) { const m = tr('play_dim_missing', 'The {dim} is not generated in this world (open it once in the game first).').replace('{dim}', dimName(n)); flashMsg(m); say('[INFO] ' + m); return false; }
+        const w = W();
+        closeModals(); S.openBoxAt = null; S.mine = null; S.useTimer = -1;
+        if (from === 1) w.portalCoords = [Number(w.worldX), Number(w.worldY)];        // (para volver del Nether a donde estaba)
+        // lo que estaba suelto en esta dimensión se queda aquí (al volver sigue)
+        S.dimStash = S.dimStash || {};
+        S.dimStash[from] = { drops: S.drops, orbs: S.orbs, falling: S.falling, arrows: S.arrows };
+        syncScene();
+        mbwom.loadScene(n); mbwom.currentScene = n; w.scene = n;
+        if (typeof mbwom.mobs !== 'object' || !mbwom.mobs) { mbwom.mobs = {}; w['mobs' + n] = mbwom.mobs; }
+        const st = S.dimStash[n] || {}; delete S.dimStash[n];
+        S.drops = st.drops || []; S.orbs = st.orbs || []; S.falling = st.falling || []; S.arrows = st.arrows || [];
+        S.tmp = new Map(); S.liqFresh = new Set(); S.sandCheck = new Map();
+        // a dónde llega (Game.usePortal): Overworld = donde se entró al portal (o el spawn); Nether = mitad del mundo, y 30; End = un sexto, y 53
+        const wd = dimWidth();
+        let to;
+        if (n === 1) { const pc = w.portalCoords; to = (from === 2 && Array.isArray(pc) && isFinite(Number(pc[0])) && isFinite(Number(pc[1]))) ? { x: Number(pc[0]), y: Number(pc[1]) } : (spGet() || { x: wd / 2, y: -120 }); }
+        else if (n === 2) to = { x: wd / 2, y: -30 };
+        else to = { x: wd / 6, y: -53 };
+        to = safeSpot(to.x, to.y);
+        w.worldX = to.x; w.worldY = to.y; w.xSpeed = 0; w.ySpeed = 0; w.riding = '';
+        if (S.p) { S.p.falling = S.p.wasFalling = false; S.p.wasFallingSpeed = 0; S.p.wasFallingAndNotFalling = 0; S.p.suffocate = 0; S.p.jumpTimer = 0; }
+        S.portalLock = true;                                           // (llega parado en el portal: hay que salir antes de volver a usarlo)
+        try { if (typeof initializeWorldCache === 'function') initializeWorldCache(); } catch (e) { /* nada */ }
+        try { if (typeof window.syncDimensionIcon === 'function') window.syncDimensionIcon(); } catch (e) { /* nada */ }
+        try { const X = SFX(); if (X) { X.stopLoops(); X.stopMusic(); } } catch (e) { /* nada */ }
+        if (typeof worldDirty !== 'undefined') worldDirty = true;
+        hud.dirty = true; camSnap();
+        if (why === 'portal') sndAt('Portal' + ((Math.random() * 5 | 0) + 1));
+        flashMsg('🌀 ' + dimName(n));
+        if (S.mp) mpSend({ tipo: 'juego_sys', autor: myNameNet(), k: 'dim', n: n });
+        return true;
+    }
+    window.mbwPlayChangeDim = function (n) { return changeDim(n, 'cmd'); };
+    // 👁 /spectate
+    function findRemote(name) {
+        const R = (S.mp && window.mbwMpPlay) ? window.mbwMpPlay.remotes : {};
+        const want = String(name || '').replace(/^@/, '').toLowerCase();
+        const k = Object.keys(R || {}).find(function (q) { return String(R[q].name || '').toLowerCase() === want; });
+        return k ? { id: k, r: R[k] } : null;
+    }
+    function spectFollow() {
+        const R = window.mbwMpPlay && window.mbwMpPlay.remotes, r = R && R[S.spect];
+        if (!S.mp || !r || Date.now() - r.t > 5000) { stopSpect(); return; }
+        if (key2('down')) { stopSpect(); return; }                        // (Shift: dejar de seguir)
+        if (r.s !== (mbwom.currentScene || 1) && !changeDim(r.s, 'spect')) { stopSpect(); return; }
+        const w = W(); w.worldX = Number(r.tx); w.worldY = Number(r.ty); w.xSpeed = 0; w.ySpeed = 0;
+    }
+    function stopSpect(silent) {
+        if (!S.spect) return;
+        const n = S.spectName || ''; S.spect = null; S.spectName = '';
+        if (!silent) say('[INFO] ' + tr('play_spect_stop', 'You stopped spectating {name}.').replace('{name}', n));
+        hud.dirty = true;
+    }
+    window.mbwPlay.spectating = function () { return S.spect ? S.spectName : ''; };
+    window.mbwPlay.changeDim = changeDim;
+    window.mbwPlay.usePortal = usePortal;
     function runCommand(raw) {
         const w = W();
         let c = String(raw || '').trim();
@@ -1696,9 +1779,29 @@
         if (mpGuest() && !(window.mbwMpPlay && window.mbwMpPlay.guestCmds)) { say('[INFO] ' + tr('mpplay_cmds_host', 'Only the host can use commands in this game.')); return; }
         if (!cheatsOn()) { say('[INFO] ' + tr('play_cheats_off', 'Commands are disabled in this world. Turn on "Commands" in World Settings (the game would not run them either).')); return; }
         const fb = gameRule('sendcommandfeedback') !== false;
-        const info = (t) => { if (fb) say('[INFO] ' + t); };
+        // (en una partida, lo que dice un comando también les sale a los demás, como en el juego: "[Ana: ...]")
+        const info = (t) => { if (!fb) return; say('[INFO] ' + t); if (S.mp) mpSend({ tipo: 'juego_sys', autor: myNameNet(), k: 'cmd', t: String(t).slice(0, 200) }); };
         switch (d[0]) {
+            case 'spectate': {
+                // 👁 /spectate @jugador: tu cámara sigue a otro jugador (te pone en modo espectador). /spectate solo: dejar de seguir. Shift también.
+                if (!d[1]) { if (S.spect) stopSpect(); else say('[INFO] spectate @player'); return; }
+                const f = findRemote(c.split(/\s+/)[1]);
+                if (!f) { say('[INFO] ' + (S.mp ? tr('mpplay_tp_noone', 'There is no player called "{name}" in this game.').replace('{name}', String(d[1]).replace(/^@/, '')) : tr('play_spect_solo', 'There are no other players here: /spectate works in a multiplayer game.'))); return; }
+                if (f.r.s !== (mbwom.currentScene || 1) && !changeDim(f.r.s, 'spect')) return;
+                if (w.gamemode != 3) { w.gamemode = 3; w.fly = true; document.body.classList.add('play-survival'); }
+                S.spect = f.id; S.spectName = f.r.name;
+                w.worldX = f.r.tx; w.worldY = f.r.ty; w.xSpeed = 0; w.ySpeed = 0; camSnap(); hud.dirty = true;
+                info(tr('play_spect_now', 'Now spectating {name}. Press Shift (or /spectate) to stop.').replace('{name}', f.r.name)); return;
+            }
             case 'tp': {
+                // 🌀 /tp dimension overworld|nether|end
+                if (d[1] === 'dimension' || d[1] === 'dim') {
+                    const n = DIM_KEYS[d[2] || ''];
+                    if (!n) { say('[INFO] tp dimension overworld|nether|end'); return; }
+                    if ((mbwom.currentScene || 1) === n) { say('[INFO] ' + tr('play_dim_here', 'You are already in the {dim}.').replace('{dim}', dimName(n))); return; }
+                    if (changeDim(n, 'cmd')) info('WHOOSH! ' + tr('play_dim_went', 'You are in the {dim} now.').replace('{dim}', dimName(n)));
+                    return;
+                }
                 // 🎮 /tp @nombre: ir a donde está otro jugador de la partida
                 if (d[1] && d[1][0] === '@') {
                     const want = c.split(/\s+/)[1].slice(1).toLowerCase();
@@ -1803,6 +1906,7 @@
                 const v = d[1]; const g = (v === 'survival' || v === 's' || v === '0') ? 0 : (v === 'creative' || v === 'c' || v === '1') ? 1 : (v === 'adventure' || v === 'a' || v === '2') ? 2 : (v === 'spectator' || v === 'sp' || v === '3') ? 3 : -1;
                 if (g < 0) { say('[INFO] gamemode survival|creative|adventure|spectator'); return; }
                 w.gamemode = g; if (g === 3) w.fly = true; else if (g !== 1) w.fly = false;
+                if (g !== 3) stopSpect(true);
                 document.body.classList.toggle('play-survival', g != 1); hud.dirty = true;
                 info('You are now in ' + ['survival', 'creative', 'adventure', 'spectator'][g] + ' mode.'); return;
             }
@@ -1829,7 +1933,7 @@
                 else explode(Math.floor(w.worldX), Math.floor(-w.worldY), n, PLAYER_ID);
                 return;
             }
-            case 'say': say('[SAY] ' + String(raw).replace(/^[\/\\]?\s*say\s*/i, '')); return;
+            case 'say': { const m = String(raw).replace(/^[\/\\]?\s*say\s*/i, ''); say('[SAY] ' + m); if (S.mp) mpSend({ tipo: 'juego_sys', autor: myNameNet(), k: 'say', t: m.slice(0, 200) }); return; }
             case 'time': if (d[1] === 'set' && d[2] != null) { const v = d[2] === 'day' ? 0 : d[2] === 'night' ? 50 : Math.floor(+d[2] % 100); if (!isNaN(v)) { w.tim = v; info('Time set to ' + v + '. (Play mode has no day/night yet)'); return; } } if (d[1] === 'get') { say('[INFO] The time is ' + (w.tim | 0) + '.'); return; } say('[INFO] time <get|set <t|day|night>>'); return;
             case 'weather': { const v = d[1] === 'set' ? d[2] : d[1]; const n = (v === 'clear' || v === '0') ? 0 : (v === 'rain' || v === '1') ? 1 : (v === 'thunder' || v === '2') ? 2 : -1; if (n < 0) { say('[INFO] weather <get|set <clear|rain|thunder>>'); return; } w.raining = n; if (typeof setWeatherEffect === 'function') { try { setWeatherEffect(['clear', 'rain', 'thunder'][n]); } catch (e) { /* nada */ } } info('Weather set to ' + ['clear', 'rain', 'thunder'][n] + '.'); return; }
             case 'difficulty': { if (['peaceful', 'easy', 'normal', 'hard'].indexOf(d[1]) < 0) { say('[INFO] difficulty peaceful|easy|normal|hard'); return; } w.difficulty = d[1]; info('Difficulty set to ' + d[1] + '.'); return; }
@@ -1908,6 +2012,18 @@
         deathCheck();
         if (modalOpen()) { S.keys = {}; S.mouse.left = S.mouse.right = S.mouse.leftEdge = S.mouse.rightEdge = false; S.mine = null; }
         if (!(w.dead > 0)) { mineAndPlace(); doPlayerLogic(); }
+        if (S.spect) spectFollow();
+        // 🌀 portales: el del Nether (bloque "portal") y el del End (marco del portal encendido, estado 2). Como el juego, se cambia
+        // al final del paso. Hay que salir del portal antes de volver a usarlo (se llega parado en él).
+        if (!(w.dead > 0) && w.gamemode != 3) {
+            const bx = Math.floor(w.worldX), by = Math.floor(-w.worldY);
+            const isP = function (x, y) { return fg(x, y) === 'portal'; };
+            const nether = isP(bx, by) || isP(bx, by + 1) || isP(Math.floor(w.worldX - .3), by) || isP(Math.floor(w.worldX + .3), by);
+            const isF = function (x, y) { return fg(x, y) === 'pf' && Number(st(x, y)) === 2; };
+            const end = !nether && (isF(bx, by) || isF(bx, by - 1));
+            if (nether || end) { if (!S.portalLock) { S.portalLock = true; S.portalGo = nether ? 1 : 2; } }
+            else S.portalLock = false;
+        }
         // el botón "Open": el bloque bajo el cursor (si se abre y está a la mano) o, si no, el más cercano; se revisa 10 veces por segundo
         if (S.tick % 5 === 0) { const b = findBox(); const k = b ? b.x + ',' + b.y + ',' + b.t : ''; if (k !== (S.box ? S.box.x + ',' + S.box.y + ',' + S.box.t : '')) { S.box = b; hud.dirty = true; } }
         // arena / grava que hay que revisar
@@ -1938,6 +2054,7 @@
         tickSign();
         if (S.iname.t > 0) S.iname.t--;
         if (S.tick % 10 === 0) tickAmbience();
+        if (S.portalGo) { const k = S.portalGo; S.portalGo = 0; usePortal(k); }
     }
     // 🎵🌧 Música (Game.onCertainInterval: en el Overworld, una canción al azar cada 4 a 6 minutos), lluvia, el sonido del Nether
     // y del End, y el fuego / los portales que estén cerca (Block_Fire, Block_Portal: de vez en cuando, desde donde están)
@@ -2208,7 +2325,7 @@
     // ⌨ Autocompletar: mientras se escribe salen sugerencias (el comando y lo que va en cada parte); Tab completa (otra vez Tab = la
     // siguiente); en el celular se toca la sugerencia.
     const CMDS = {
-        tp: ['[~]x [~]y', 'Teleport'], give: ['item [amount] [damage]', 'Give an item'], clear: ['[item] [max]', 'Clear the inventory'],
+        tp: ['[~]x [~]y | @player | dimension overworld|nether|end', 'Teleport'], spectate: ['@player', 'Follow another player'], give: ['item [amount] [damage]', 'Give an item'], clear: ['[item] [max]', 'Clear the inventory'],
         setblock: ['block [~]x [~]y [replace|keep|destroy]', 'Place a block'], fill: ['block [~]x [~]y width height', 'Fill an area'],
         clone: ['[~]x1 [~]y1 width height [~]xDest [~]yDest [move]', 'Copy an area'], summon: ['mob [quantity] [~]x [~]y', 'Spawn a mob'],
         kill: ['', 'Die'], heal: ['', 'Full health'], gamemode: ['survival|creative|adventure|spectator', 'Change game mode'],
@@ -2227,7 +2344,13 @@
             case 'setblock': return i === 1 ? ['air'].concat(blocks()) : i === 4 ? ['replace', 'keep', 'destroy'] : (i === 2 || i === 3) ? ['~'] : null;
             case 'fill': return i === 1 ? ['air'].concat(blocks()) : (i === 2 || i === 3) ? ['~'] : null;
             case 'summon': return i === 1 ? mobs() : (i === 3 || i === 4) ? ['~'] : null;
-            case 'tp': case 'clone': case 'explode': return (cmd === 'explode' ? i >= 2 : true) ? ['~'] : null;
+            case 'tp': {
+                if (i === 2 && (prev[1] === 'dimension' || prev[1] === 'dim')) return ['overworld', 'nether', 'end'];
+                if (i === 1) return ['~', 'dimension'].concat(playerTags());
+                return ['~'];
+            }
+            case 'spectate': return i === 1 ? playerTags() : null;
+            case 'clone': case 'explode': return (cmd === 'explode' ? i >= 2 : true) ? ['~'] : null;
             case 'gamemode': return i === 1 ? ['survival', 'creative', 'adventure', 'spectator'] : null;
             case 'gamerule': return i === 1 ? GAMERULES : i === 2 ? ['true', 'false'] : null;
             case 'time': return i === 1 ? ['set', 'get'] : (i === 2 && prev[1] === 'set') ? ['day', 'night'] : null;
@@ -2257,10 +2380,14 @@
         return { list: list, tokStart: tokStart, hint: hint };
     }
     // comandos que siempre salen al abrir el chat (con la caja vacía)
+    function playerTags() { const R = (S.mp && window.mbwMpPlay) ? window.mbwMpPlay.remotes || {} : {}; return Object.keys(R).filter(function (k) { return R[k] && R[k].name; }).map(function (k) { return '@' + R[k].name; }); }
     function quickCmds() {
         const l = ['/gamemode survival', '/gamemode creative', '/gamemode adventure', '/gamemode spectator', '/tp '];
-        // 🎮 en una partida: /tp @nombre de cada jugador
-        if (S.mp && window.mbwMpPlay) { const R = window.mbwMpPlay.remotes || {}; Object.keys(R).forEach(function (k) { if (R[k] && R[k].name) l.push('/tp @' + R[k].name); }); }
+        // 🎮 en una partida: /tp @nombre y /spectate @nombre de cada jugador
+        playerTags().forEach(function (t) { l.push('/tp ' + t); });
+        const sc = mbwom.currentScene || 1;
+        [1, 2, 3].forEach(function (n) { if (n !== sc && dimReady(n)) l.push('/tp dimension ' + ['', 'overworld', 'nether', 'end'][n]); });
+        playerTags().forEach(function (t) { l.push('/spectate ' + t); });
         return l;
     }
     const chat = {
@@ -2558,7 +2685,7 @@
         if (w.gamemode != 1) w.fly = false;
         inv();
         for (const id in mbwom.mobs) { const m = mbwom.mobs[id]; if (m && typeof m === 'object') { m.target = null; m.focus = null; m.speedX = Number(m.speedX) || 0; m.speedY = Number(m.speedY) || 0; } }
-        S.p = newPlayer(); S.tmp = new Map(); S.drops = []; S.falling = []; S.arrows = []; S.orbs = []; S.liqFresh = new Set(); S.sandCheck = new Map(); S.dropSeq = 0; S.dropBase = Date.now().toString(36); S.lastPvp = null; S.tick = 0; S.acc = 0; S.last = 0; S.mine = null; S.useTimer = -1; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mobErr = false;
+        S.p = newPlayer(); S.tmp = new Map(); S.drops = []; S.falling = []; S.arrows = []; S.orbs = []; S.liqFresh = new Set(); S.sandCheck = new Map(); S.dropSeq = 0; S.dropBase = Date.now().toString(36); S.lastPvp = null; S.portalLock = true; S.portalGo = 0; S.dimStash = {}; S.spect = null; S.tick = 0; S.acc = 0; S.last = 0; S.mine = null; S.useTimer = -1; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mobErr = false;
         // arena y grava cerca: se revisan para que caigan si no tienen nada abajo
         const x0 = Math.max(0, Math.floor(px) - 60), x1 = Math.floor(px) + 60;
         for (let x = x0; x <= x1; x++) { const col = mbwom.scene[x]; if (!col) continue; for (let y = 0; y < col.length; y++) if (col[y] === 'sd' || col[y] === 'gv') S.sandCheck.set(x + ',' + y, 2); }
@@ -2845,17 +2972,29 @@
             // objetos en el suelo
             dropIn: function (o) {
                 if (!S.playing || !o || !o.nid || dropIdx(o.nid) >= 0) return;
-                S.drops.push({ nid: String(o.nid), id: String(o.id), n: o.n | 0, dmg: o.dmg || 0, ex: o.ex || {}, x: Number(o.x), y: Number(o.y), vx: Number(o.vx) || 0, vy: Number(o.vy) || 0, age: o.age | 0 });
+                const d = { nid: String(o.nid), id: String(o.id), n: o.n | 0, dmg: o.dmg || 0, ex: o.ex || {}, x: Number(o.x), y: Number(o.y), vx: Number(o.vx) || 0, vy: Number(o.vy) || 0, age: o.age | 0 };
+                const sc = Number(o.s) || 0;
+                // (un objeto que cayó en otra dimensión se guarda para cuando vaya allá)
+                if (sc && sc !== (mbwom.currentScene || 1)) { S.dimStash = S.dimStash || {}; const b = S.dimStash[sc] = S.dimStash[sc] || {}; b.drops = b.drops || []; if (!b.drops.some(function (q) { return q.nid === d.nid; })) b.drops.push(d); return; }
+                S.drops.push(d);
             },
-            dropsPack: function () { return S.drops.filter(function (d) { return d.nid; }).map(packDrop); },
+            dropsPack: function () {
+                const out = S.drops.filter(function (d) { return d.nid; }).map(function (d) { return packDrop(d); });
+                Object.keys(S.dimStash || {}).forEach(function (k) { ((S.dimStash[k] || {}).drops || []).forEach(function (d) { if (d.nid) out.push(packDrop(d, Number(k))); }); });
+                return out;
+            },
             // (anfitrión) un invitado quiere recogerlo: se lo lleva si todavía está
             dropGrant: function (nid, peerId) {
-                const i = dropIdx(nid); if (i < 0 || !peerId) return;
-                const d = S.drops[i]; S.drops.splice(i, 1);
+                if (!peerId) return;
+                let d = null; const i = dropIdx(nid);
+                if (i >= 0) { d = S.drops[i]; S.drops.splice(i, 1); }
+                else Object.keys(S.dimStash || {}).forEach(function (k) { const b = S.dimStash[k]; if (d || !b || !b.drops) return; const j = b.drops.findIndex(function (q) { return q.nid === nid; }); if (j >= 0) { d = b.drops[j]; b.drops.splice(j, 1); } });   // (en otra dimensión)
+                if (!d) return;
                 mpSend({ tipo: 'juego_tomado', nid: nid, n: 0, a: peerId, item: [d.id, d.n, d.dmg, d.ex] });
             },
             dropTaken: function (m) {
                 if (!S.playing) return;
+                Object.keys(S.dimStash || {}).forEach(function (k) { const b = S.dimStash[k]; if (b && b.drops) { const j = b.drops.findIndex(function (q) { return q.nid === m.nid; }); if (j >= 0) { if (m.n > 0) b.drops[j].n = m.n | 0; else b.drops.splice(j, 1); } } });
                 const i = dropIdx(m.nid);
                 if (i >= 0) { if (m.n > 0) { S.drops[i].n = m.n | 0; S.drops[i].pend = 0; } else S.drops.splice(i, 1); }
                 // a mí me tocó: a mi inventario (si no cabe todo, lo que sobra se vuelve a tirar)

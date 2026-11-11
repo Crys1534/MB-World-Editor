@@ -279,16 +279,34 @@
         if (t === 'juego_inicio' || t === 'juego_activo') {
             if (amHost()) return;
             const isNew = !M.session || t === 'juego_inicio';
+            const newHost = M.session && M.hostName && d.autor && d.autor !== M.hostName;
             M.session = true; M.hostName = d.autor || 'Host'; M.lastAlive = Date.now(); M.guestCmds = !!d.cmds;
-            if (!M.on && onServerTab() && (isNew || !M.banner)) showBanner();
+            // 🎮 cuando el anfitrión empieza a jugar (o entro a una sala donde ya se juega), todos entran solos a la partida
+            if (isNew && !M.on) M.autoJoin = true;
+            if (newHost && M.on) sysSay('👑 ' + tr('mpplay_new_host', '{name} is the host now').replace('{name}', String(d.autor)));
+            if (!M.on && onServerTab() && (isNew || !M.banner) && !M.autoJoin) showBanner();
+            if (M.autoJoin) setTimeout(tryAutoJoin, 0);
             return;
         }
         if (t === 'juego_fin') {
-            M.session = false; hideBanner();
+            M.session = false; M.autoJoin = false; hideBanner();
             if (M.on && M.role === 'guest') stopGame(tr('mpplay_ended2', 'The host ended the game. Everything that happened was saved.'));
             return;
         }
-        if (t === 'juego_salir') { delete M.remotes[d.peerId]; if (typeof worldDirty !== 'undefined') worldDirty = true; return; }
+        if (t === 'juego_salir') {
+            const r = M.remotes[d.peerId];
+            if (M.on && r) sysSay('← ' + tr('mpplay_left', '{name} left the game').replace('{name}', r.name || 'Player'));
+            delete M.remotes[d.peerId]; if (typeof worldDirty !== 'undefined') worldDirty = true; return;
+        }
+        // 💬 lo que dicen los comandos de otro jugador, su /say, cuando cambia de dimensión (mensajes del sistema para todos)
+        if (t === 'juego_sys') {
+            if (!M.on || d.peerId === myPeer()) return;
+            const who = String(d.autor || 'Player');
+            if (d.k === 'cmd') sysSay('[' + who + ': ' + String(d.t || '') + ']');
+            else if (d.k === 'say') sysSay('[' + who + '] ' + String(d.t || ''));
+            else if (d.k === 'dim') { const n = Number(d.n); const dn = [null, tr('dim_overworld', 'Overworld'), tr('dim_nether', 'Nether'), tr('dim_end', 'End')][n]; if (dn) sysSay('🌀 ' + tr('mpplay_went_dim', '{name} went to the {dim}').replace('{name}', who).replace('{dim}', dn)); }
+            return;
+        }
         // (anfitrión) los datos del Player de un invitado: se guardan aunque yo ya haya terminado (llegan justo al terminar)
         if (t === 'juego_guardo') { if (amHost() && d.uid) storePlayer(String(d.uid), d.autor, d.data); return; }
         if (!M.on) return;                                            // (lo de abajo solo sirve jugando)
@@ -430,7 +448,8 @@
         let r = M.remotes[id];
         if (!r) {
             r = M.remotes[id] = { x: d.x, y: d.y, fx: d.x, fy: d.y, tx: d.x, ty: d.y, t0: now };
-            flash(tr('mpplay_joined', '{name} joined the game').replace('{name}', String(d.autor || 'Player')));
+            const jm = tr('mpplay_joined', '{name} joined the game').replace('{name}', String(d.autor || 'Player'));
+            flash(jm); sysSay('→ ' + jm);
         } else {
             const cur = lerpPos(r, now);
             const far = Math.abs(d.x - cur.x) > 6 || Math.abs(d.y - cur.y) > 6;   // se teletransportó: sin deslizar
@@ -507,6 +526,22 @@
         M.banner = b;
     }
     function hideBanner() { if (M.banner) { M.banner.remove(); M.banner = null; } }
+    // una línea en el chat del juego (mensajes del sistema: quién entró, quién salió, comandos de los demás...)
+    function sysSay(t) { try { if (window.mbwPlay && window.mbwPlay.net && window.mbwPlay.net.say) window.mbwPlay.net.say(String(t)); } catch (e) { /* nada */ } }
+    M.sysSay = sysSay;
+    // 🎮 entrar sola a la partida (cuando el anfitrión empieza, o al llegar a una sala donde ya se juega). Si sales con
+    // "Save and Quit" ya no te mete otra vez: te queda el botón "Join".
+    function tryAutoJoin() {
+        if (!M.autoJoin) return;
+        if (M.on || amHost() || !inMp()) { M.autoJoin = false; return; }
+        if (!M.session || Date.now() - M.lastAlive > ALIVE_MS * 3) return;
+        if (!onServerTab() || window.mpMapDownload || typeof mbwom === 'undefined' || !mbwom.scene) return;   // (espera a que termine de bajar el mapa / a volver a la pestaña del servidor)
+        M.autoJoin = false;
+        hideBanner();
+        if (typeof window.mbwStartPlay === 'function') window.mbwStartPlay();
+        if (window.mbwPlay && window.mbwPlay.isPlaying()) flash(tr('mpplay_forced', '🎮 {name} started a game: you are playing now').replace('{name}', M.hostName || 'Host'));
+    }
+    M.tryAutoJoin = tryAutoJoin;
     function notice(msg) {
         const n = document.createElement('div');
         n.className = 'mpplay-banner mpplay-notice';
@@ -516,7 +551,8 @@
     }
     // si el anfitrión se fue sin avisar, el aviso se quita solo
     setInterval(function () {
-        if (M.session && !amHost() && Date.now() - M.lastAlive > ALIVE_MS * 3) { M.session = false; hideBanner(); }
+        if (M.autoJoin) tryAutoJoin();
+        if (M.session && !amHost() && Date.now() - M.lastAlive > ALIVE_MS * 3) { M.session = false; M.autoJoin = false; hideBanner(); }
         if (M.banner && (!inMp() || !onServerTab())) hideBanner();
     }, 1000);
 

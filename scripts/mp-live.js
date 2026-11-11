@@ -237,19 +237,20 @@
 
     // Bloqueos para quien solo puede ver (y mientras se espectea): el lienzo solo deja mirar, seleccionar y la vista de relación de aspecto
     const VIEW_TOOLS = ['select', 'lasso', 'magic', 'aspect', 'eyedropper'];
-    function viewOnly() { return !window.mpCanEdit(); }
+    // (jugando en el Modo Jugar no hace falta ser Builder / Editor: cualquiera juega)
+    function viewOnly() { return !window.mpCanEdit() && !window.mbwPlaying; }
     function onCanvas(e) { return !!e.target && (e.target.id === 'canvas'); }
     function tool() { return typeof currentTool !== 'undefined' ? currentTool : ''; }
     window.addEventListener('mousedown', function (e) {
         if (!onCanvas(e) || !inMp()) return;
-        if (window.spectatingTargetId) { e.stopImmediatePropagation(); e.preventDefault(); return; }   // viendo a otro: solo se mira
+        if (window.spectatingTargetId && !window.mbwPlaying) { e.stopImmediatePropagation(); e.preventDefault(); return; }   // viendo a otro: solo se mira
         if (!viewOnly()) return;
         if (e.button === 0 && VIEW_TOOLS.indexOf(tool()) >= 0) return;
         e.stopImmediatePropagation(); e.preventDefault();
         window.mpViewOnlyNotice();
     }, true);
     window.addEventListener('dblclick', function (e) {
-        if (!onCanvas(e) || !inMp() || (!viewOnly() && !window.spectatingTargetId)) return;
+        if (!onCanvas(e) || !inMp() || window.mbwPlaying || (!viewOnly() && !window.spectatingTargetId)) return;
         e.stopImmediatePropagation(); e.preventDefault();
     }, true);
     window.addEventListener('keydown', function (e) {
