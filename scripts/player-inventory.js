@@ -561,7 +561,7 @@
   const arrow = document.createElement('div'); arrow.className = 'pinv-f-arrow pinv-craft-arrow'; arrow.textContent = '➡️';
   const o = slotEl({ k: 'o', i: 0 }); o.classList.add('pinv-craft-out');
   grid.appendChild(g); grid.appendChild(arrow); grid.appendChild(o);
-  const lbl = $('pinv-craft-label'); if (lbl) lbl.textContent = tr('pinv_crafting', 'Crafting');
+  const lbl = $('pinv-craft-label'); if (lbl) lbl.textContent = st.craft && st.craft.table ? tr('pinv_craft_table', 'Crafting Table') : tr('pinv_crafting', 'Crafting');
   // 📗 el libro verde (recetario) debajo de la cuadrícula y, en el editor, la papelera debajo de lo que sale
   let ex = box.querySelector('.pinv-craft-extra');
   if (!ex) { ex = document.createElement('div'); ex.className = 'pinv-craft-extra'; box.appendChild(ex); }
@@ -1031,7 +1031,7 @@
  function renderSkin() {
   const top = document.querySelector('#inventory-modal .pinv-top'); if (!top) return;
   let c = $('pinv-skin');
-  const on = !!(st.open && !st.chest && !st.furnace && !st.anvil && !(st.craft && st.craft.table));
+  const on = !!(st.open && !st.chest && !st.furnace && !st.anvil);
   if (!on) { if (c) c.style.display = 'none'; return; }
   if (!c) { c = document.createElement('canvas'); c.id = 'pinv-skin'; c.className = 'pinv-skin'; c.width = 160; c.height = 220; }
   const armorBox = $('pinv-armor'); const after = armorBox && armorBox.parentNode;
@@ -1141,21 +1141,22 @@
   const panel = $('player-inv-panel');
   if (panel) panel.style.display = 'block';
   const top = m.querySelector('.pinv-top');                       // armadura + papelera: no se muestran al editar un cofre
-  if (top) top.style.display = (st.chest || st.furnace || st.anvil || (st.craft && st.craft.table)) ? 'none' : '';
+  if (top) top.style.display = (st.chest || st.furnace || st.anvil) ? 'none' : '';   // (la mesa de crafteo sí: armadura, skin y el 3×3, como el inventario)
   // ▶ Modo Jugar: se ve como el inventario del juego (blanco, letra de píxeles); la armadura en columna, la skin y a la derecha
   // el crafteo 2×2; sin papelera (en el juego no hay)
   const game = !!window.mbwPlaying;
   m.classList.toggle('pinv-game', game);
   m.classList.add('pinv-mb');
   setViewVars();                                        // 🎒 como el inventario de Mine Blocks (gris, casillas juntas)
-  m.classList.toggle('pinv-mb-plain', !st.chest && !st.furnace && !st.anvil && !(st.craft && st.craft.table));   // (el inventario solo: sin título)
+  m.classList.toggle('pinv-mb-plain', !st.chest && !st.furnace && !st.anvil);   // (el inventario solo o la mesa de crafteo: sin título)   // (el inventario solo: sin título)
   const cbox = $('pinv-craft-box'), ppanel = $('player-inv-panel'), trashEl = $('pinv-trash');
   if (cbox && top && ppanel) {
-   if (st.craft && !st.craft.table) { if (cbox.parentNode !== top) top.appendChild(cbox); }
+   if (st.craft) { if (cbox.parentNode !== top) top.appendChild(cbox); }
    else if (cbox.parentNode !== ppanel) ppanel.insertBefore(cbox, top);
   }
   { const home = top && top.querySelector('.pinv-trash-home'); if (home) home.style.display = 'none'; }
   m.classList.toggle('pinv-exp', !!st.expanded);                     // 🧰 con el inventario creativo al lado
+  m.classList.toggle('pinv-table', !!(st.craft && st.craft.table && !st.chest && !st.furnace && !st.anvil));   // 🛠 mesa: la fila de arriba es más ancha (3×3)
   document.body.classList.toggle('pinv-craft-open', !!st.craft);
   const search = $('inventory-search');
   if (search) search.style.display = st.expanded ? '' : 'none';
@@ -1192,7 +1193,7 @@
   if (left) left.style.display = '';
   if (wrap) { wrap.style.height = ''; wrap.style.flex = ''; wrap.style.minHeight = ''; }
   document.body.classList.remove('pinv-furnace-open', 'pinv-chest-open', 'pinv-open', 'pinv-craft-open', 'pinv-book-open');
-  m.classList.remove('pinv-game', 'pinv-mb', 'pinv-mb-plain', 'pinv-exp');
+  m.classList.remove('pinv-game', 'pinv-mb', 'pinv-mb-plain', 'pinv-exp', 'pinv-table');
   const bk = $('pinv-book'); if (bk) { bk.style.display = 'none'; const q = bk.querySelector('.pinv-book-q'); if (q) q.value = ''; }
   const ccb = $('pinv-craft-box'); if (ccb) ccb.style.display = 'none';
   const avb = $('pinv-anvil-box'); if (avb) avb.style.display = 'none';
@@ -1639,6 +1640,7 @@
  window.playerInvToggleCreative = function () {
   if (!st.open) return;
   st.expanded = !st.expanded;
+  if (st.expanded && bookOn()) { st.bookOpen = false; renderAll(); }   // 📖 al abrir el inventario creativo se cierran las recetas
   layout();
   if (st.expanded) {
    const s = $('inventory-search');

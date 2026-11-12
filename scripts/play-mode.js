@@ -47,7 +47,7 @@
     const S = {
         playing: false, snapshot: null, scene: 1, old: null,
         p: null, keys: {}, dbl: {}, mouse: { x: 0, y: 0, left: false, right: false, inside: false, leftEdge: false, rightEdge: false },
-        tmp: new Map(), drops: [], falling: [], arrows: [], sandCheck: new Map(), leafQ: new Map(), liqFresh: new Set(), orbs: [], xpT: 0,
+        tmp: new Map(), drops: [], falling: [], arrows: [], shots: [], draw: null, sandCheck: new Map(), leafQ: new Map(), liqFresh: new Set(), orbs: [], xpT: 0,
         tick: 0, acc: 0, last: 0, raf: 0, mine: null, placeDelay: 0, useTimer: -1, msg: '', msgT: 0,
         sign: { text: '', a: 0, on: false }, iname: { key: null, text: '', t: 0 },
         touchMode: 'mine', fires: new Set(), ride: null, bob: null, sleep: null
@@ -1257,6 +1257,137 @@
             }
         }
     }
+    // ---------------------------------------------------------------- 🏹 lo que lanza el Player (Entity_Projectile del juego)
+    //  · arco / shuriken de hueso / lanza: se mantiene el clic derecho para tensar y al soltar sale (más fuerza mientras más se tensa)
+    //  · bola de nieve: sale al hacer clic. Las flechas y shurikens que caen en un bloque se quedan clavados y se pueden recoger.
+    const SHOT = { bow: 'arrow', bshur: 'shuriken', spear: 'spear', snowb: 'snowball' };
+    const SHOT_ITEM = { arrow: 'arrow', shuriken: 'bshur', spear: 'spear', snowball: 'snowb' };
+    function invFind(id) { const L = inv(); for (let i = 0; i < 45; i++) { const it = L[i]; if (!isEmpty(it) && it[0] === id && Number(it[1]) > 0) return i; } return -1; }
+    function invTake(i) { const L = inv(), it = L[i]; if (isEmpty(it)) return; it[1] -= 1; if (it[1] <= 0) L[i] = empty(); hud.dirty = true; }
+    function aimFrom(mw) { const w = W(); return Math.atan2(-mw.y - (w.worldY - 1.5), mw.x - w.worldX); }
+    function canDraw(id) { return id !== 'bow' || W().gamemode == 1 || invFind('arrow') >= 0; }
+    // soltar: p = cuánto se tensó (0..1)
+    function fireShot(kind, ang, p) {
+        const w = W(), ex = selExtra();
+        let sp;
+        if (kind === 'snowball') sp = migSpeed(20);
+        else sp = migSpeed(17 * Math.max(0, Math.min(1, p)) + 6);
+        const o = { kind: kind, x: w.worldX + Math.cos(ang) * sp / 30 * 3, y: w.worldY - 1.5 + Math.sin(ang) * sp / 30 * 3, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, rot: ang, age: 0, cd: (.4 * FPS) | 0, hurtCd: 0 };
+        if (kind === 'snowball') { o.x = w.worldX + 20 * Math.cos(ang) / 30; o.y = w.worldY - 1.5 + 20 * Math.sin(ang) / 30; }
+        if (kind === 'arrow') {
+            if (w.gamemode != 1) { ach(33); if (ex.infinity == null) { const i = invFind('arrow'); if (i < 0) return false; invTake(i); } else o.inf = true; } else o.inf = true;
+            o.power = ex.power3 != null ? 3 : ex.power2 != null ? 2 : ex.power1 != null ? 1 : 0;
+            o.punch = ex.punch2 != null ? 2 : ex.punch1 != null ? 1 : 0;
+            if (ex.flame1 != null || ex.flame != null) o.flame = true;
+            damageTool(); snd('bowsfx');
+        } else { if (w.gamemode == 1) o.inf = true; reduceSelected(1); snd(kind === 'shuriken' ? 'shurikenthrow' : 'throwsfx'); }
+        S.shots.push(o);
+        return true;
+    }
+    function shotDmg(o) { return o.kind === 'arrow' ? 3 + 3 * (o.power || 0) : o.kind === 'snowball' ? 0 : 3; }
+    function shotHitMob(o, id) {
+        const m = mbwom.mobs[id]; if (!m) return;
+        let dmg = shotDmg(o);
+        if (o.kind === 'snowball') dmg = (m.type === 'snowgolem') ? 0 : (Math.random() < 1 / 3 || m.type === 'blaze' || m.type === 'enderman') ? 1 : 0;
+        const kx = (o.vx > 0 ? 1 : -1) * (5 + 5 * (o.punch || 0)), ky = migSpeed(3 + 5 * (o.punch || 0));
+        if (mpGuest()) { mpSend({ tipo: 'juego_pega', id: id, dmg: dmg, kx: kx, ky: ky, loot: 0 }); if (dmg > 0) mobSnd(m, 'hurt'); }
+        else {
+            if (o.kind === 'snowball' && m.type === 'snowgolem') m.health = Math.min((Number(m.health) || 0) + 1, 20);
+            else if (dmg > 0) hurtMob(id, dmg, 'projectile', PLAYER_ID);
+            m.speedX = (Number(m.speedX) || 0) + kx;
+            m.speedY = ky;
+            if (o.flame) tmpOf(id).onFire = 8 * FPS;
+        }
+        if (o.kind === 'snowball') splashSnow(o.x, o.y);
+    }
+    function splashSnow(x, y) { for (let i = 0; i < 8; i++) addPart({ x: x + (Math.random() - .5) * .4, y: -y + (Math.random() - .5) * .4, vx: (Math.random() - .5) * .08, vy: Math.random() * .06, life: 18, size: .09, col: '#f4f8ff' }); }
+    function tickShots() {
+        const w = W(), list = S.shots;
+        for (let i = list.length - 1; i >= 0; i--) {
+            const o = list[i];
+            if (simFar(o.x)) continue;
+            if (++o.age > 60 * FPS) { list.splice(i, 1); continue; }
+            if (o.cd > 0) o.cd--;
+            if (o.stuck) {                                              // clavada: se puede recoger
+                if (o.inf || w.gamemode == 3 || o.cd > 0) continue;
+                const pb = mobBounds(PLAYER_ID);
+                if (pb && o.x > pb.l - .33 && o.x < pb.r + .33 && o.y > pb.t - .33 && o.y < pb.b + .33) {
+                    if (addToInventory(SHOT_ITEM[o.kind], 1, 0, {}) === 0) { pickSnd(); list.splice(i, 1); }
+                }
+                continue;
+            }
+            if (o.kind === 'shuriken') o.rot += (o.vx > 0 ? 1 : -1) * (Math.abs(o.vx) + Math.abs(o.vy)) / 10;
+            else o.rot = Math.atan2(o.vy, o.vx);
+            o.x += o.vx / 30; o.y += o.vy / 30;
+            if (o.hurtCd > 0) o.hurtCd--;
+            else {
+                let hit = null;
+                for (const k in mbwom.mobs) {
+                    const m = mbwom.mobs[k]; if (!m || m.dead > 0) continue;
+                    const b = mobBounds(k);
+                    if (b && o.x > b.l && o.x < b.r && o.y > b.t && o.y < b.b) { hit = k; break; }
+                }
+                if (hit) {
+                    shotHitMob(o, hit);
+                    // la lanza a veces sigue; lo demás se queda en el mob (se va)
+                    if (o.kind === 'spear' && Math.random() >= 1 / 3) { o.hurtCd = 5; o.vx *= .3; o.vy = 0; }
+                    else { list.splice(i, 1); continue; }
+                }
+            }
+            const bx = Math.floor(o.x), by = Math.floor(-o.y), here = fg(bx, by);
+            if (collision(o.x, o.y, 0, 0, .1, true, false)) {
+                if (o.kind === 'snowball') { splashSnow(o.x, o.y); list.splice(i, 1); continue; }
+                o.vx = o.vy = 0; o.stuck = true; o.cd = 0;
+                sndAt('Trrrr', o.x, o.y);
+                continue;
+            }
+            if (here === 'la') { if (o.kind === 'snowball') { list.splice(i, 1); continue; } o.flame = true; }
+            else if (here === 'ad') { list.splice(i, 1); continue; }
+            else if (here === 'wr') o.flame = false;
+            o.vy += .25; o.vx *= .995;
+        }
+    }
+    function drawShots(c2) {
+        S.shots.forEach(function (o) {
+            const p = toScreen(o.x, o.y), s = tileSize * (o.kind === 'snowball' ? .4 : o.kind === 'spear' ? 1.1 : .7);
+            const img = iconFor(SHOT_ITEM[o.kind], {});
+            c2.save(); c2.translate(p.x, p.y);
+            // los dibujos del arco y la lanza apuntan en diagonal (↗): se giran 45° menos
+            c2.rotate(o.rot + (o.kind === 'arrow' || o.kind === 'spear' ? Math.PI / 4 : 0));
+            try { c2.drawImage(img, -s / 2, -s / 2, s, s); } catch (e) { /* nada */ }
+            if (o.flame) { c2.fillStyle = 'rgba(255,140,0,.45)'; c2.fillRect(-s / 4, -s / 4, s / 2, s / 2); }
+            c2.restore();
+        });
+        // tensando el arco: una barrita sobre el Player
+        if (S.draw && S.draw.t > 2) {
+            const w = W(), p = toScreen(w.worldX, w.worldY - 2.2), k = Math.min(1, S.draw.t / drawFull(S.draw.id)), bw = tileSize * .9;
+            c2.fillStyle = 'rgba(0,0,0,.55)'; c2.fillRect(p.x - bw / 2 - 1, p.y - 1, bw + 2, 5);
+            c2.fillStyle = k >= 1 ? '#7dff6a' : '#ffd23f'; c2.fillRect(p.x - bw / 2, p.y, bw * k, 3);
+        }
+    }
+    const drawFull = (id) => (bd(id, 'timerToUse') || 80) | 0;          // (el juego cuenta cuadros de verdad: 80 = 1.6 s a 50 por segundo)
+    // (cada paso, desde mineAndPlace) tensar y soltar
+    function tickDraw(right, rightFresh, mw) {
+        const id = selType();
+        if (S.draw && (S.draw.id !== id || S.draw.slot !== selIndex() || modalOpen() || W().dead > 0)) S.draw = null;
+        if (S.draw && !right) {                                         // soltó: sale disparado
+            const d = S.draw; S.draw = null;
+            fireShot(SHOT[d.id], aimFrom(mw), Math.min(1, d.t / drawFull(d.id)));
+            S.swing = 15; S.placeDelay = 0;
+            return true;
+        }
+        if (S.draw) { S.draw.t++; return true; }
+        return false;
+    }
+    function startDraw(rightFresh) {
+        const id = selType();
+        if (!SHOT[id]) return false;
+        if (id === 'snowb') { if (rightFresh) { fireShot('snowball', aimFrom(mouseWorld()), 1); S.swing = 15; } return true; }
+        if (!rightFresh) return true;
+        if (!canDraw(id)) return true;
+        S.draw = { id: id, slot: selIndex(), t: 0 };
+        return true;
+    }
     function mobTick(id, c) {
         const a = D.mobs[c.type];
         if (!a) return;
@@ -1769,6 +1900,7 @@
         // un clic rapidísimo (se suelta antes del siguiente paso) cuenta igual una vez
         const right = S.mouse.right || S.mouse.rightEdge, left = S.mouse.left || S.mouse.leftEdge, rightFresh = S.mouse.rightEdge, leftFresh = S.mouse.leftEdge;
         S.mouse.rightEdge = false; S.mouse.leftEdge = false;
+        if (tickDraw(right, rightFresh, mw)) { S.mine = null; return; }    // 🏹 tensando / soltando el arco
         if (right) {
             if (selType() === 'cbook') { if (rightFresh) useCommandBook(); S.mine = null; return; }      // (una vez por clic)
             const bx = Math.floor(mw.x), by = Math.floor(mw.y);
@@ -1777,6 +1909,7 @@
             if (rightFresh && useOnMob(mw)) { S.mine = null; S.swing = 15; return; }                   // 🐄 criar / ordeñar
             if (rightFresh && useItemLife(mw, bx, by)) { S.mine = null; S.swing = 15; return; }        // 🔥 mechero, 🎣 caña, azadón, harina de hueso, balsa, vagoneta
             if (rightFresh && !S.p.sneaking && blockDist(bx, by) <= REACH + 1 && useBlock(bx, by)) { S.mine = null; S.swing = 15; return; }   // puertas, trampillas, bloque musical, camas
+            if (SHOT[selType()]) { startDraw(rightFresh); S.mine = null; return; }      // 🏹 arco, ❄ bola de nieve, shuriken de hueso, lanza
             S.rightFresh = rightFresh;
             if (S.placeDelay >= 6 && placeBlock(mw)) { S.placeDelay = 0; S.swing = 15; ach(1); const px2 = Math.floor(mw.x), py2 = Math.floor(mw.y); if (CROPS[fg(px2, py2)] && !cropStage(px2, py2)) setCrop(px2, py2, 1); }
             S.rightFresh = false;
@@ -1874,7 +2007,7 @@
         if (from === 1) w.portalCoords = [Number(w.worldX), Number(w.worldY)];        // (para volver del Nether a donde estaba)
         // lo que estaba suelto en esta dimensión se queda aquí (al volver sigue)
         S.dimStash = S.dimStash || {};
-        S.dimStash[from] = { drops: S.drops, orbs: S.orbs, falling: S.falling, arrows: S.arrows };
+        S.dimStash[from] = { drops: S.drops, orbs: S.orbs, falling: S.falling, arrows: S.arrows }; S.shots = []; S.draw = null;
         syncScene();
         snapDim(n);                                                        // 📸 primera vez en esta dimensión: su foto (todavía sin cambios)
         mbwom.loadScene(n); mbwom.currentScene = n; w.scene = n;
@@ -2400,21 +2533,93 @@
         else if (t === 'nw') addDrop('nw', X, Y, r3() + 1, 0, {});
         else if (t === 'bseed') addDrop('beet', X, Y, (4 * Math.random() | 0) + 1, 0, {});
     }
-    // 🦴 harina de hueso: el cultivo crece de golpe; en el pasto salen flores y pasto alto
+    // 🦴 harina de hueso (Game.useBonemeal): retoño → árbol, hongo → hongo gigante, cultivo → listo para cosechar,
+    // pasto o arena → plantas alrededor (flores, pasto alto, cactus...), agua → algas en el fondo
+    const airUp = (x, y, n) => { for (let i = 1; i <= n; i++) if (fg(x, y + i) !== 'air') return false; return true; };
     function useBonemeal(x, y) {
         const t = fg(x, y);
+        if (t === 'sl') {
+            if (fg(x, y - 1) !== 'dt' || !airUp(x, y, 7)) return false;
+            growTree(x, y, false); growParts(x, y);
+            return true;
+        }
+        if (t === 'ms1' || t === 'ms2') {
+            const b = fg(x, y - 1);
+            if ((b !== 'dt' && b !== 'myc') || !airUp(x, y, 5)) return false;
+            giantMushroom(x, y, t === 'ms1' ? 1 : 2); growParts(x, y);
+            return true;
+        }
         if (CROPS[t] && t !== 'nw') { if (cropStage(x, y) === 7) return false; setCrop(x, y, 7); ach(23); growParts(x, y); return true; }
-        if ((t === 'dt' && Number(st(x, y)) === 1) || t === 'sd') {
+        const grass = (X, Y) => fg(X, Y) === 'dt' && Number(st(X, Y)) === 1;
+        if (grass(x, y) || t === 'sd') {
+            const r = (n) => (Math.random() * n | 0) === 0;
             for (let dx = -5; dx <= 5; dx++) for (let dy = -5; dy <= 5; dy++) {
                 const X = x + dx, Y = y + dy;
-                if (!(fg(X, Y) === 'dt' && Number(st(X, Y)) === 1 && fg(X, Y + 1) === 'air') || Math.random() < 1 / 3) continue;
-                const r = Math.random();
-                setBlock(X, Y + 1, r < 1 / 30 ? 'sl' : r < .2 ? 'fw1' : r < .36 ? 'fw2' : r < .5 ? 'shrub' : 'lgr');
+                if (fg(X, Y + 1) !== 'air' || r(3)) continue;
+                if (grass(X, Y)) {
+                    setBlock(X, Y + 1, r(30) ? 'sl' : r(30) ? 'sc' : r(5) ? 'fw1' : r(5) ? 'fw2' : r(5) ? 'shrub' : r(15) ? 'ms1' : r(15) ? 'ms2' : 'lgr');
+                } else if (fg(X, Y) === 'sd') {
+                    const L = fg(X - 1, Y + 1), R = fg(X + 1, Y + 1);
+                    if (r(5)) { if (L === 'air' && R === 'air') setBlock(X, Y + 1, 'ct'); }
+                    else if (L !== 'ct' && R !== 'ct') setBlock(X, Y + 1, r(3) ? 'shrub' : 'ds');
+                }
+            }
+            growParts(x, y + 1);
+            return true;
+        }
+        if (t === 'wr' && fullLiq(x, y)) {
+            for (let dx = -5; dx <= 5; dx++) for (let dy = -5; dy <= 5; dy++) {
+                const X = x + dx, Y = y + dy, g = fg(X, Y);
+                if ((g !== 'sd' && g !== 'dt') || fg(X, Y + 1) !== 'wr' || !fullLiq(X, Y + 1)) continue;
+                if (bd(fg(X - 1, Y), 'waterWalkThroughBlock') == 1 || bd(fg(X + 1, Y), 'waterWalkThroughBlock') == 1 || Math.random() < 1 / 3) continue;
+                setBlock(X, Y + 1, 'sw');
             }
             growParts(x, y);
             return true;
         }
         return false;
+    }
+    // 🌳 Game.makeTree: tronco de 5 (o 6) y copa de hojas (a veces con manzanas, naranjas o limones; el dorado, manzanas doradas)
+    function growTree(x, y, gold) {
+        setBlock(x, y, 'wd1');
+        ach(10);
+        const f = Math.random() * 23 | 0;
+        const fruit = gold ? 'lv3' : f < 13 ? 'lv' : f < 16 ? 'lv1' : f < 20 ? 'lv2' : 'lv4';
+        const put = (X, Y, t) => { const h = fg(X, Y); if (h === 'air' || h === 'sl' || h === 'gasd' || h.substr(0, 2) === 'lv') setBlock(X, Y, t); };
+        for (let i = 0; i <= 4; i++) put(x, y + i, 'wd1');
+        const big = (Math.random() * 2 | 0) === 0;
+        if (big) put(x, y + 5, 'wd1');
+        const L = big ? [[-2, 3], [0, 3], [-2, 4], [0, 4], [-3, 4], [1, 4], [-4, 5], [-3, 5], [-2, 5], [0, 5], [1, 5], [2, 5], [-1, 6], [-2, 6], [-3, 6], [-4, 6], [0, 6], [1, 6], [2, 6], [-1, 7], [-2, 7], [-3, 7], [0, 7], [1, 7], [-1, 8], [-2, 8], [0, 8]]
+            : [[-2, 3], [0, 3], [-2, 4], [0, 4], [-3, 4], [1, 4], [-2, 5], [-3, 5], [-1, 5], [0, 5], [1, 5], [-1, 6], [0, 6], [-2, 6]];
+        L.forEach(function (q) { const X = x + 1 + q[0], Y = y + q[1]; if (fg(X, Y) === 'air') put(X, Y, (Math.random() * 4 | 0) === 1 ? fruit : 'lv'); });
+    }
+    // 🍄 Game.makeGiantMushroom
+    function giantMushroom(x, y, kind) {
+        const c = kind === 1 ? [['msb4', 0, 0], ['msb4', 0, 1], ['msb4', 0, 2], ['msb4', 0, 3], ['msb4', 0, 4], ['msb3', 0, 5], ['msb3', 1, 5], ['msb3', 2, 5], ['msb3', 3, 5], ['msb3', -1, 5], ['msb3', -2, 5], ['msb3', -3, 5]]
+            : [['msb2', 0, 0], ['msb2', 0, 1], ['msb2', 0, 2], ['msb2', 0, 3], ['msb2', 0, 4], ['msb1', 0, 5], ['msb1', 1, 5], ['msb1', 2, 5], ['msb1', -1, 5], ['msb1', -2, 5], ['msb1', -3, 4], ['msb1', 3, 4], ['msb1', -3, 3], ['msb1', 3, 3], ['msb1', -3, 2], ['msb1', 3, 2]];
+        setBlock(x, y, kind === 1 ? 'msb4' : 'msb2');
+        c.forEach(function (q) { const X = x + q[1], Y = y + q[2] - 1; if (fg(X, Y) === 'air') setBlock(X, Y, q[0]); });
+    }
+    // 🌱 los retoños crecen solos (Game: cada ~6 s, 1 entre 70 cada uno; sobre tierra, con 7 de aire arriba). Solo cerca de los jugadores.
+    function tickSaplings() {
+        if (mpGuest() || S.tick % ((156 / 25 * FPS) | 0) !== ((45 / 25 * FPS) | 0)) return;
+        const xs = (S.simX && S.simX.length) ? S.simX : [W().worldX];
+        const seen = new Set();
+        xs.forEach(function (px) {
+            for (let x = Math.floor(px) - 48; x <= Math.floor(px) + 48; x++) {
+                if (seen.has(x)) continue; seen.add(x);
+                const col = mbwom.scene && mbwom.scene[x]; if (!col) continue;
+                for (let y = 1; y < col.length; y++) {
+                    const t = fg(x, y);
+                    if (t !== 'sl' && t !== 'gasd') continue;
+                    if ((Math.random() * 70 | 0) !== 1 || !airUp(x, y, 7)) continue;
+                    const b = fg(x, y - 1);
+                    if (t === 'sl' && b !== 'dt' && b !== 'cdt') continue;
+                    if (t === 'gasd') { if (b === 'gb') setBlock(x, y - 1, 'gdt'); else if (b === 'gdt') setBlock(x, y - 1, 'dt'); else continue; }
+                    growTree(x, y, t === 'gasd');
+                }
+            }
+        });
     }
     function growParts(x, y) { for (let i = 0; i < 6; i++) addPart({ x: x + Math.random(), y: y + Math.random(), vy: .01, life: 30, size: .1, col: '#7dff6a', glow: true }); }
     // 🪓 azadón: la tierra (o el pasto) con aire arriba se vuelve tierra arada
@@ -2506,7 +2711,8 @@
         }
         const hx = w.worldX, hy = w.worldY - 1.4;
         const ang = Math.atan2(-mw.y - hy, mw.x - hx);
-        S.bob = { x: hx, y: hy, vx: Math.cos(ang) * .55, vy: Math.sin(ang) * .55 - .12, wet: false, wait: 0, bite: 0, age: 0 };
+        const sp = .55 * Math.max(.4, Math.min(1, Math.hypot(mw.x - hx, -mw.y - hy) / 9));   // (cae más o menos donde se tocó)
+        S.bob = { x: hx, y: hy, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - .12, wet: false, wait: 0, bite: 0, age: 0 };
         snd('throwsfx');
         return true;
     }
@@ -2825,7 +3031,7 @@
             if (key2('down')) dismount();                                      // (agacharse = bajarse)
         }
     }
-    window.mbwPlay.life = { brewTick: function () { tickBrewing(); }, cropTick: function () { const t = S.tick; S.tick = DAY_TICKS * 3 + 7; tickCrops(); S.tick = t; }, fireTick: function () { const t = S.tick; S.tick = 29; tickFire(); S.tick = t; }, bob: function () { return S.bob; }, sleeping: function () { return !!S.sleep; }, fires: function () { return S.fires; } };   // (lo usan las pruebas)
+    window.mbwPlay.life = { brewTick: function () { tickBrewing(); }, cropTick: function () { const t = S.tick; S.tick = DAY_TICKS * 3 + 7; tickCrops(); S.tick = t; }, fireTick: function () { const t = S.tick; S.tick = 29; tickFire(); S.tick = t; }, bob: function () { return S.bob; }, sleeping: function () { return !!S.sleep; }, fires: function () { return S.fires; }, shots: function () { return S.shots; }, drawing: function () { return S.draw; }, bonemeal: function (x, y) { return useBonemeal(x, y); }, saplingTick: function () { const t = S.tick, R = Math.random; S.tick = (45 / 25 * FPS) | 0; Math.random = function () { return 1 / 70 + 1e-6; }; try { tickSaplings(); } finally { Math.random = R; S.tick = t; } } };   // (lo usan las pruebas)
     // ⚒ se usó el yunque: suena, logro, y 12 % de que se gaste (3 golpes y se rompe)
     window.mbwPlay.anvilUsed = function (x, y) {
         sndAt('anvilsound', x + .5, -(y + .5));
@@ -2913,6 +3119,8 @@
         tickDrops();
         tickOrbs();
         tickArrows();
+        tickSaplings();
+        tickShots();
         if (mpGuest()) { if (window.mbwMpPlay.mobLerp) window.mbwMpPlay.mobLerp(); }
         else for (const id in mbwom.mobs) {
             const m = mbwom.mobs[id];
@@ -3493,6 +3701,7 @@
         });
         S.arrows.forEach(function (r) { const p = toScreen(r.x, r.y); const a = Math.atan2(r.vy, r.vx); c2.beginPath(); c2.moveTo(p.x, p.y); c2.lineTo(p.x - Math.cos(a) * tileSize * .6, p.y - Math.sin(a) * tileSize * .6); c2.stroke(); });
         drawParticles(c2);
+        drawShots(c2);
         drawBobber(c2);
         drawBars(c2);
         if (S.mine && S.mine.total > 1) {                       // grietas del bloque que se pica
@@ -4089,7 +4298,7 @@
         if (w.gamemode != 1) w.fly = false;
         inv();
         for (const id in mbwom.mobs) { const m = mbwom.mobs[id]; if (m && typeof m === 'object') { m.target = null; m.focus = null; m.speedX = Number(m.speedX) || 0; m.speedY = Number(m.speedY) || 0; } }
-        S.p = newPlayer(); S.tmp = new Map(); S.drops = []; S.falling = []; S.arrows = []; S.orbs = []; S.liqFresh = new Set(); S.sandCheck = new Map(); S.leafQ = new Map(); S.dropSeq = 0; S.dropBase = Date.now().toString(36); S.lastPvp = null; S.parts = []; S.wetWas = {}; S.spawnT = new Map(); S.spawnOn = new Set(); S.selShow = null; S.selPrev = null; S.rsOn = new Map(); S.rsReady = false; S.btn = new Map(); S.plates = new Set(); S.portalLock = true; S.portalGo = 0; S.dimStash = {}; S.spect = null; S.tick = 0; S.acc = 0; S.last = 0; S.mine = null; S.useTimer = -1; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mobErr = false;
+        S.p = newPlayer(); S.tmp = new Map(); S.drops = []; S.falling = []; S.arrows = []; S.shots = []; S.draw = null; S.orbs = []; S.liqFresh = new Set(); S.sandCheck = new Map(); S.leafQ = new Map(); S.dropSeq = 0; S.dropBase = Date.now().toString(36); S.lastPvp = null; S.parts = []; S.wetWas = {}; S.spawnT = new Map(); S.spawnOn = new Set(); S.selShow = null; S.selPrev = null; S.rsOn = new Map(); S.rsReady = false; S.btn = new Map(); S.plates = new Set(); S.portalLock = true; S.portalGo = 0; S.dimStash = {}; S.spect = null; S.tick = 0; S.acc = 0; S.last = 0; S.mine = null; S.useTimer = -1; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mobErr = false;
         // arena y grava cerca: se revisan para que caigan si no tienen nada abajo
         const x0 = Math.max(0, Math.floor(px) - 60), x1 = Math.floor(px) + 60;
         for (let x = x0; x <= x1; x++) { const col = mbwom.scene[x]; if (!col) continue; for (let y = 0; y < col.length; y++) if (col[y] === 'sd' || col[y] === 'gv') S.sandCheck.set(x + ',' + y, 2); }
@@ -4188,7 +4397,7 @@
         if (keep) { try { const cs = syncScene(); mbwom.world.scene = mbwom.world.scene || cs; S.keptAt = Date.now(); if (typeof window.markWorldUnsaved === 'function') window.markWorldUnsaved(); } catch (e) { console.error('play keep', e); } }
         else { try { restoreSnapshot(); } catch (e) { console.error('play restore', e); alert('Error restoring the world: ' + e.message); } }
         try { if (window.mbwAch) window.mbwAch.afterRestore(); } catch (e) { /* nada */ }   // 🏆 los logros no se pierden
-        S.snapshot = null; S.drops = []; S.falling = []; S.arrows = []; S.orbs = []; S.tmp = new Map(); S.keys = {}; S.mine = null;
+        S.snapshot = null; S.drops = []; S.falling = []; S.arrows = []; S.shots = []; S.draw = null; S.orbs = []; S.tmp = new Map(); S.keys = {}; S.mine = null;
         if (window.mbSfx) { window.mbSfx.stopLoops(); window.mbSfx.stopMusic(); }   // 🔊 se apaga la música, la lluvia, bajo el agua...
         try { const gw = document.getElementById('gr-weather'); if (gw && typeof setWeatherEffect === 'function') setWeatherEffect(gw.value); } catch (e) { /* nada */ }   // (el clima vuelve al de World Settings)
         window.mbwPlaying = false;
@@ -4417,7 +4626,7 @@
             },
             newMob: function (m) { if (!S.playing || !m || !m.type || !D.mobs[m.type]) return null; const id = spawnMob(String(m.type), Number(m.x) || 0, Number(m.y) || 0); Object.keys(m).forEach(function (k) { if (k !== 'type') mbwom.mobs[id][k] = m[k]; }); return id; },
             setArrows: function (list) { S.arrows = (list || []).map(function (r) { return { x: r[0], y: r[1], vx: r[2], vy: r[3], age: 0, ghost: true }; }); },
-            arrows: function () { return S.arrows; },
+            arrows: function () { return S.arrows.concat(S.shots.filter(function (o) { return !o.stuck; })); },
             forget: function (id) { S.tmp.delete(id); },
             heldId: function () { return selType(); },
             gm: function () { return W().gamemode; },

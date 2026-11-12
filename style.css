@@ -3693,6 +3693,10 @@ body.pinv-book-open #inventory-modal.pinv-mb.pinv-exp .inv-left-col { width: min
 #inventory-modal.pinv-mb.pinv-exp .inv-tabs-sidebar canvas { width: calc(var(--s) * .5) !important; height: calc(var(--s) * .5) !important; }
 #inventory-modal.pinv-mb.pinv-exp .inv-main-grid { grid-template-columns: repeat(auto-fill, var(--s)) !important; justify-content: start !important; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 #inventory-modal.pinv-mb.pinv-exp .inv-main-grid > * { width: var(--s) !important; height: var(--s) !important; min-width: 0 !important; min-height: 0 !important; box-sizing: border-box; }
+/* las casillas del inventario creativo: el mismo borde que las del inventario (no el de 4px del editor) */
+#inventory-modal.pinv-mb.pinv-exp .inv-main-grid > * { border: max(2px, calc(var(--s) * .055)) solid !important; border-color: #373737 #fff #fff #373737 !important; border-radius: 0 !important; }
+/* jugando con el inventario creativo abierto: la barra de arriba (buscar, ocultar, ×) va en su lugar, no encima del "Crafting" */
+#inventory-modal.pinv-mb.pinv-game.pinv-mb-plain.pinv-exp .inv-modal-header { position: relative; top: auto; right: auto; padding: 5px 8px 0 12px; }
 #inventory-modal.pinv-mb.pinv-exp .inv-main-grid canvas { width: calc(var(--s) * .72) !important; height: calc(var(--s) * .72) !important; }
 #inventory-modal.pinv-mb.pinv-exp #inventory-search { width: min(220px, 26vw); font-size: 14px; padding: 4px 6px; }
 #inventory-modal.pinv-mb.pinv-exp .inv-modal-window { --s: clamp(18px, min(52px, calc((var(--vh, 100vh) - 64px) / 10.2), calc((var(--vw, 100vw) - 40px) / 17)), 52px); }
@@ -3700,8 +3704,15 @@ body.pinv-book-open #inventory-modal.pinv-mb.pinv-exp .inv-modal-window { --s: c
 #inventory-modal.pinv-mb.pinv-exp .inv-main-columns { align-items: flex-start; }
 /* 📱 celular parado: la página a veces queda más ancha que la pantalla; la ventana del inventario se centra en lo que SÍ se ve */
 #inventory-modal.pinv-mb { width: var(--vw, 100vw) !important; max-width: var(--vw, 100vw); height: var(--vh, 100vh) !important; left: 0 !important; right: auto !important; top: 0 !important; bottom: auto !important; }
+/* 🛠 mesa de crafteo (armadura + skin + 3×3): la fila de arriba mide ~11 casillas, así que las casillas son un poco más chicas si no cabe */
+#inventory-modal.pinv-mb.pinv-table .inv-modal-window { --s: clamp(20px, min(52px, calc((var(--vh, 100vh) - 64px) / 10.2), calc((var(--vw, 100vw) - 36px) / 11.4)), 52px); }
+body.pinv-book-open #inventory-modal.pinv-mb.pinv-table .inv-modal-window { --s: clamp(20px, min(50px, calc((var(--vh, 100vh) - 64px) / 10.2), calc((var(--vw, 100vw) - 60px) / 15)), 50px); }
+#inventory-modal.pinv-mb.pinv-table.pinv-exp .inv-modal-window { --s: clamp(18px, min(52px, calc((var(--vh, 100vh) - 64px) / 10.2), calc((var(--vw, 100vw) - 40px) / 18.7)), 52px); }
+body.pinv-book-open #inventory-modal.pinv-mb.pinv-table.pinv-exp .inv-modal-window { --s: clamp(18px, min(50px, calc((var(--vh, 100vh) - 64px) / 10.2), calc((var(--vw, 100vw) - 60px) / 22.2)), 50px); }
 /* 📱 celular parado: recetario e inventario creativo debajo del inventario del jugador */
 @media (orientation: portrait) and (max-width: 700px) {
+  #inventory-modal.pinv-mb.pinv-table .inv-modal-window { --s: clamp(18px, min(48px, calc((var(--vw, 100vw) - 36px) / 11.4), calc((var(--vh, 100vh) - 64px) / 10.2)), 48px); }
+  body.pinv-book-open #inventory-modal.pinv-mb.pinv-table .inv-modal-window, #inventory-modal.pinv-mb.pinv-table.pinv-exp .inv-modal-window, body.pinv-book-open #inventory-modal.pinv-mb.pinv-table.pinv-exp .inv-modal-window { --s: clamp(18px, min(48px, calc((var(--vw, 100vw) - 36px) / 11.4), calc((var(--vh, 100vh) - 90px) / 16.5)), 48px); }
   #inventory-modal.pinv-mb .inv-main-columns, body.pinv-book-open #inventory-modal.pinv-mb .inv-main-columns, body.pinv-furnace-open #inventory-modal.pinv-mb .inv-main-columns { flex-direction: column !important; align-items: center !important; }
   #inventory-modal.pinv-mb #player-inv-panel { order: 1; }
   #inventory-modal.pinv-mb #pinv-book { order: 2; width: calc(var(--vw, 100vw) - 34px); max-height: calc(var(--s) * 4.4); border-right: 0; border-top: max(2px, calc(var(--s) * .06)) solid #8b8b8b; }
