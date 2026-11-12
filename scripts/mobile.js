@@ -113,6 +113,7 @@
         const reset = () => { c.style.zoom = ''; if (c.dataset.mFit) { c.style.maxWidth = ''; c.style.maxHeight = ''; c.style.marginTop = ''; c.style.marginBottom = ''; c.style.flexShrink = ''; delete c.dataset.mFit; } m.classList.remove('m-fit-scroll'); };
         reset();
         if (!M.touch) return;
+        if (m.id === 'inventory-modal' && m.classList.contains('pinv-mb')) return;   // 🎒 el inventario del jugador ya se acomoda solo a la pantalla (scripts/player-inventory.js)
         const vv = window.visualViewport;
         const vw = Math.min(window.innerWidth, vv ? Math.round(vv.width * vv.scale) : window.innerWidth, document.documentElement.clientWidth || window.innerWidth);
         const vh = Math.min(window.innerHeight, vv ? Math.round(vv.height * vv.scale) : window.innerHeight);

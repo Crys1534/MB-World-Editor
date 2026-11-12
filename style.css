@@ -3570,8 +3570,8 @@ body.pinv-book-open #inventory-modal .inv-main-columns { flex-direction: row; }
    derecha con el libro verde debajo. 4 filas + la hotbar. El tamaño de las casillas (--s) se ajusta para que TODO quepa
    en la pantalla (también en el celular acostado).
    ========================================================================== */
-#inventory-modal.pinv-mb .inv-modal-window { --s: clamp(22px, min(52px, calc((100vh - 64px) / 10.2), calc((100vw - 36px) / 10.7)), 52px); --ps: var(--s);
-  background: #c6c6c6; color: #3f3f3f; border: 3px solid #000; border-radius: 7px; box-shadow: inset 3px 3px 0 #fff, inset -3px -3px 0 #555, 0 10px 40px rgba(0,0,0,.55); overflow: hidden; max-height: calc(100vh - 6px); max-width: calc(100vw - 6px); }
+#inventory-modal.pinv-mb .inv-modal-window { --s: clamp(22px, min(52px, calc((var(--vh, 100vh) - 64px) / 10.2), calc((var(--vw, 100vw) - 36px) / 9.7)), 52px); --ps: var(--s);
+  background: #c6c6c6; color: #3f3f3f; border: 3px solid #000; border-radius: 7px; box-shadow: inset 3px 3px 0 #fff, inset -3px -3px 0 #555, 0 10px 40px rgba(0,0,0,.55); overflow: hidden; max-height: calc(var(--vh, 100vh) - 6px); max-width: calc(var(--vw, 100vw) - 6px); }
 #inventory-modal.pinv-mb .inv-modal-header { background: transparent; border: 0; padding: 5px 8px 0 12px; min-height: 0; }
 #inventory-modal.pinv-mb #inventory-modal-title { font: calc(var(--s) * .52)/1 'Pixeltype', 'RainyHearts', monospace; font-weight: normal; color: #3f3f3f; }
 #inventory-modal.pinv-mb .btn-close-large { color: #3f3f3f; font-size: calc(var(--s) * .62); line-height: 1; }
@@ -3624,15 +3624,15 @@ body.pinv-book-open #inventory-modal .inv-main-columns { flex-direction: row; }
 #inventory-modal.pinv-mb .pinv-f-fire, #inventory-modal.pinv-mb .pinv-f-arrow:not(.pinv-craft-arrow) { font-size: calc(var(--s) * .5); }
 #inventory-modal.pinv-mb .pinv-fuel-box { background: transparent; border-right: max(2px, calc(var(--s) * .06)) solid #8b8b8b; }
 #inventory-modal.pinv-mb .pinv-fuel-grid { grid-template-columns: repeat(3, var(--s)); }
-#inventory-modal.pinv-mb .pinv-book { --ps: var(--s); background: transparent; border-right: max(2px, calc(var(--s) * .06)) solid #8b8b8b; max-height: calc(100vh - 20px); }
+#inventory-modal.pinv-mb .pinv-book { --ps: var(--s); background: transparent; border-right: max(2px, calc(var(--s) * .06)) solid #8b8b8b; max-height: calc(var(--vh, 100vh) - 20px); }
 #inventory-modal.pinv-mb .pinv-book .pinv-label { font-size: calc(var(--s) * .5); }
 #inventory-modal.pinv-mb .pinv-book-q { border: 2px solid #373737; border-radius: 0; background: #e2e2e2; }
 #inventory-modal.pinv-mb .pinv-book .pinv-slot { border-color: #373737 #fff #fff #373737; }
 /* recetario abierto: un poco más chicas las casillas para que quepa al lado */
-body.pinv-book-open #inventory-modal.pinv-mb .inv-modal-window { --s: clamp(22px, min(50px, calc((100vh - 64px) / 10.2), calc((100vw - 60px) / 14.3)), 50px); }
+body.pinv-book-open #inventory-modal.pinv-mb .inv-modal-window { --s: clamp(22px, min(50px, calc((var(--vh, 100vh) - 64px) / 10.2), calc((var(--vw, 100vw) - 60px) / 13.3)), 50px); }
 /* celular acostado: el cofre / horno a la izquierda y el inventario a la derecha */
 @media (max-height: 520px) {
-  body.pinv-chest-open #inventory-modal.pinv-mb .inv-modal-window, body.pinv-furnace-open #inventory-modal.pinv-mb .inv-modal-window { --s: clamp(20px, min(46px, calc((100vw - 64px) / 20.3), calc((100vh - 70px) / 5.9)), 46px); }
+  body.pinv-chest-open #inventory-modal.pinv-mb .inv-modal-window, body.pinv-furnace-open #inventory-modal.pinv-mb .inv-modal-window { --s: clamp(20px, min(46px, calc((var(--vw, 100vw) - 64px) / 20.3), calc((var(--vh, 100vh) - 70px) / 5.9)), 46px); }
   body.pinv-chest-open #inventory-modal.pinv-mb #pinv-chest-box, body.pinv-furnace-open #inventory-modal.pinv-mb #pinv-furnace-box { padding-right: calc(var(--s) * .3); border-right: max(2px, calc(var(--s) * .06)) solid #8b8b8b; }
 }
 #inventory-modal.pinv-mb .pinv-f-arrow:not(.pinv-craft-arrow) { font-size: 0; width: calc(var(--s) * .72); height: calc(var(--s) * .52); position: relative; }
@@ -3661,7 +3661,7 @@ body.pinv-book-open #inventory-modal.pinv-mb .inv-modal-window { --s: clamp(22px
 .pinv-anvil-cost.poor { color: #b71c1c; }
 #inventory-modal.pinv-mb .pinv-anvil-box .pinv-label { align-self: flex-start; }
 /* 🏆 logros: aviso arriba y la lista del menú de pausa (scripts/play-ach.js, scripts/play-menu.js) */
-.ach-toast { position: fixed; top: 12px; right: 12px; z-index: 100060; display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 10px; background: #1f1f1f; border: 3px solid #555; border-radius: 6px; box-shadow: inset 2px 2px 0 #3a3a3a, 0 6px 18px rgba(0,0,0,.5); color: #fff; font-family: 'Pixeltype', 'RainyHearts', monospace; transform: translateY(-140%); transition: transform .35s ease; pointer-events: none; max-width: calc(100vw - 32px); }
+.ach-toast { position: fixed; top: 12px; right: 12px; z-index: 100060; display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 10px; background: #1f1f1f; border: 3px solid #555; border-radius: 6px; box-shadow: inset 2px 2px 0 #3a3a3a, 0 6px 18px rgba(0,0,0,.5); color: #fff; font-family: 'Pixeltype', 'RainyHearts', monospace; transform: translateY(-140%); transition: transform .35s ease; pointer-events: none; max-width: calc(var(--vw, 100vw) - 32px); }
 .ach-toast.show { transform: none; }
 .ach-toast-ic { font-size: 26px; line-height: 1; }
 .ach-toast-t { color: #ffe066; font-size: 18px; line-height: 1; }
@@ -3681,3 +3681,36 @@ body.pinv-book-open #inventory-modal.pinv-mb .inv-modal-window { --s: clamp(22px
 .pm-ach-it.got { background: rgba(123,211,79,.18); color: #e9ffe0; }
 .pm-ach-ic { font-size: 15px; flex: 0 0 auto; }
 .pm-ach-tx { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 🗑 la papelera junto a la skin, a la altura de las botas */
+#inventory-modal.pinv-mb .pinv-top > #pinv-trash.pinv-trash-side { align-self: flex-end; margin-left: calc(var(--s) * .25); }
+/* 🧰 inventario creativo al lado del inventario del jugador: casillas del mismo tamaño y todo cabe en la pantalla (también en el celular) */
+#inventory-modal.pinv-mb.pinv-exp .inv-left-col { width: min(calc(var(--s) * 9 + 16px), calc(var(--vw, 100vw) - var(--s) * 9.9 - 46px)); flex: 0 0 auto; min-width: 0; background: #c6c6c6; }
+body.pinv-book-open #inventory-modal.pinv-mb.pinv-exp .inv-left-col { width: min(calc(var(--s) * 9 + 16px), calc(var(--vw, 100vw) - var(--s) * 13.6 - 70px)); }
+#inventory-modal.pinv-mb.pinv-exp .inv-grid-wrapper { flex: 0 0 auto !important; min-height: 0; overflow: hidden; }
+#inventory-modal.pinv-mb.pinv-exp .inv-tabs-sidebar { flex-wrap: nowrap !important; overflow-x: auto; padding: 4px 4px 0 !important; min-height: 0; }
+#inventory-modal.pinv-mb.pinv-exp .inv-tabs-sidebar > div { padding: 3px !important; flex: 0 0 auto; }
+#inventory-modal.pinv-mb.pinv-exp .inv-tabs-sidebar canvas { width: calc(var(--s) * .5) !important; height: calc(var(--s) * .5) !important; }
+#inventory-modal.pinv-mb.pinv-exp .inv-main-grid { grid-template-columns: repeat(auto-fill, var(--s)) !important; justify-content: start !important; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+#inventory-modal.pinv-mb.pinv-exp .inv-main-grid > * { width: var(--s) !important; height: var(--s) !important; min-width: 0 !important; min-height: 0 !important; box-sizing: border-box; }
+#inventory-modal.pinv-mb.pinv-exp .inv-main-grid canvas { width: calc(var(--s) * .72) !important; height: calc(var(--s) * .72) !important; }
+#inventory-modal.pinv-mb.pinv-exp #inventory-search { width: min(220px, 26vw); font-size: 14px; padding: 4px 6px; }
+#inventory-modal.pinv-mb.pinv-exp .inv-modal-window { --s: clamp(18px, min(52px, calc((var(--vh, 100vh) - 64px) / 10.2), calc((var(--vw, 100vw) - 40px) / 17)), 52px); }
+body.pinv-book-open #inventory-modal.pinv-mb.pinv-exp .inv-modal-window { --s: clamp(18px, min(50px, calc((var(--vh, 100vh) - 64px) / 10.2), calc((var(--vw, 100vw) - 60px) / 20.5)), 50px); }
+#inventory-modal.pinv-mb.pinv-exp .inv-main-columns { align-items: flex-start; }
+/* 📱 celular parado: la página a veces queda más ancha que la pantalla; la ventana del inventario se centra en lo que SÍ se ve */
+#inventory-modal.pinv-mb { width: var(--vw, 100vw) !important; max-width: var(--vw, 100vw); height: var(--vh, 100vh) !important; left: 0 !important; right: auto !important; top: 0 !important; bottom: auto !important; }
+/* 📱 celular parado: recetario e inventario creativo debajo del inventario del jugador */
+@media (orientation: portrait) and (max-width: 700px) {
+  #inventory-modal.pinv-mb .inv-main-columns, body.pinv-book-open #inventory-modal.pinv-mb .inv-main-columns, body.pinv-furnace-open #inventory-modal.pinv-mb .inv-main-columns { flex-direction: column !important; align-items: center !important; }
+  #inventory-modal.pinv-mb #player-inv-panel { order: 1; }
+  #inventory-modal.pinv-mb #pinv-book { order: 2; width: calc(var(--vw, 100vw) - 34px); max-height: calc(var(--s) * 4.4); border-right: 0; border-top: max(2px, calc(var(--s) * .06)) solid #8b8b8b; }
+  #inventory-modal.pinv-mb #pinv-book .pinv-book-grid { grid-template-columns: repeat(auto-fill, var(--s)); }
+  #inventory-modal.pinv-mb.pinv-exp .inv-left-col { order: 3; width: calc(var(--vw, 100vw) - 34px) !important; border-top: max(2px, calc(var(--s) * .06)) solid #8b8b8b; }
+  #inventory-modal.pinv-mb.pinv-exp .inv-grid-wrapper { height: calc(var(--s) * 5.6) !important; }
+  #inventory-modal.pinv-mb.pinv-exp .inv-modal-window, body.pinv-book-open #inventory-modal.pinv-mb .inv-modal-window, body.pinv-book-open #inventory-modal.pinv-mb.pinv-exp .inv-modal-window { --s: clamp(18px, min(48px, calc((var(--vw, 100vw) - 36px) / 9.7), calc((var(--vh, 100vh) - 90px) / 16.5)), 48px); }
+  #inventory-modal.pinv-mb.pinv-exp .inv-modal-header { flex-wrap: wrap; gap: 4px; }
+  #inventory-modal.pinv-mb.pinv-exp #inventory-search { width: calc(var(--vw, 100vw) * .3); min-width: 0; }
+  #inventory-modal.pinv-mb.pinv-exp #pinv-creative-btn { font-size: 11px; padding: 3px 6px; white-space: normal !important; }
+  #inventory-modal.pinv-mb.pinv-exp .inv-search-container { flex: 1 1 auto; min-width: 0; justify-content: flex-end; }
+}

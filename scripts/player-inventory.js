@@ -472,6 +472,7 @@
   renderAnvil();
   renderFuelPalette();
   renderSkin();
+  placeTrash();
   bookSetup(); renderBook();
   for (let i = 0; i < 4; i++) armor.appendChild(slotEl({ k: 'a', i: i }, PARTS[i]));
   for (let i = HOTBAR; i < TOTAL; i++) main.appendChild(slotEl({ k: 'i', i: i }));
@@ -497,11 +498,50 @@
   t.appendChild(ic);
   trash.appendChild(t);
   fitBook();
+  fitCreative();
  }
  // 📗 el recetario nunca es más alto que el inventario (si no, con tantas recetas la ventana se estiraba hasta abajo)
+ // lo que SÍ se ve de la pantalla (en el celular la página a veces es más ancha que la pantalla): --vw / --vh para el tamaño de las casillas
+ function setViewVars() {
+  const m = $('inventory-modal'); if (!m) return;
+  const vv = window.visualViewport;
+  const w = vv && vv.width ? Math.min(vv.width, window.innerWidth || vv.width) : window.innerWidth, h = vv && vv.height ? Math.min(vv.height, window.innerHeight || vv.height) : window.innerHeight;
+  m.style.setProperty('--vw', Math.round(w) + 'px'); m.style.setProperty('--vh', Math.round(h) + 'px');
+ }
+ window.addEventListener('resize', function () { if (st.open) { setViewVars(); fitCreative(); fitBook(); } });
+ if (window.visualViewport) window.visualViewport.addEventListener('resize', function () { if (st.open) { setViewVars(); fitCreative(); fitBook(); } });
+ // 🗑 la papelera: a la derecha de la skin, a la altura de las botas. En cofres, hornos, mesa y yunque (no hay skin): junto a la hotbar.
+ function placeTrash() {
+  const trashEl = $('pinv-trash'), top = document.querySelector('#inventory-modal .pinv-top'), hotEl = $('pinv-hotbar');
+  if (!trashEl || !hotEl) return;
+  const skin = $('pinv-skin');
+  const side = !!(top && top.style.display !== 'none' && skin && skin.style.display !== 'none' && skin.parentNode === top);
+  if (side) {
+   trashEl.classList.add('pinv-trash-side'); trashEl.classList.remove('pinv-trash-hot');
+   if (skin.nextSibling !== trashEl) top.insertBefore(trashEl, skin.nextSibling);
+  } else {
+   let row = hotEl.parentNode;
+   if (!row.classList.contains('pinv-hot-row')) { row = document.createElement('div'); row.className = 'pinv-hot-row'; hotEl.parentNode.insertBefore(row, hotEl); row.appendChild(hotEl); }
+   trashEl.classList.add('pinv-trash-hot'); trashEl.classList.remove('pinv-trash-side');
+   if (trashEl.parentNode !== row) row.appendChild(trashEl);
+  }
+ }
+ // 🧰 el inventario creativo (al lado) mide lo mismo de alto que el inventario del jugador
+ function fitCreative() {
+  const m = $('inventory-modal'), panel = $('player-inv-panel');
+  const wrap = m && m.querySelector('.inv-grid-wrapper');
+  if (!wrap || !panel) return;
+  if (!st.expanded || stacked()) { wrap.style.height = st.expanded ? '' : 'auto'; return; }
+  wrap.style.height = '0px';
+  const h = panel.offsetHeight;
+  if (h > 0) wrap.style.height = h + 'px';
+ }
+ // 📱 celular parado: el recetario y el inventario creativo van DEBAJO del inventario del jugador (no al lado)
+ const stacked = () => !!(window.matchMedia && window.matchMedia('(orientation: portrait) and (max-width: 700px)').matches);
  function fitBook() {
   const box = $('pinv-book'), panel = $('player-inv-panel');
   if (!box || !panel || box.style.display === 'none') return;
+  if (stacked()) { box.style.maxHeight = ''; return; }
   box.style.maxHeight = '';
   box.style.height = '0px';
   const h = panel.offsetHeight;
@@ -530,7 +570,8 @@
   bk.type = 'button'; bk.className = 'pinv-book-btn' + (bookOn() ? ' on' : '');
   bk.title = tr('pinv_book', 'Recipes');
   bk.innerHTML = BOOK_SVG;
-  bk.onclick = (e) => { e.preventDefault(); e.stopPropagation(); st.bookOpen = !bookOn(); renderAll(); };
+  // (un toque en el celular a veces llega 2 veces: con el seguro de 250 ms, un toque = abrir, otro toque = cerrar)
+  bk.onclick = (e) => { e.preventDefault(); e.stopPropagation(); const now = performance.now(); if (now - (st.bookT || 0) < 250) return; st.bookT = now; st.bookOpen = !bookOn(); renderAll(); };
   ex.appendChild(bk);
   ex.appendChild(document.createElement('span'));                      // (el lugar de la derecha queda vacío: la papelera va junto a la hotbar)
  }
@@ -1105,21 +1146,16 @@
   // el crafteo 2×2; sin papelera (en el juego no hay)
   const game = !!window.mbwPlaying;
   m.classList.toggle('pinv-game', game);
-  m.classList.add('pinv-mb');                                        // 🎒 como el inventario de Mine Blocks (gris, casillas juntas)
+  m.classList.add('pinv-mb');
+  setViewVars();                                        // 🎒 como el inventario de Mine Blocks (gris, casillas juntas)
   m.classList.toggle('pinv-mb-plain', !st.chest && !st.furnace && !st.anvil && !(st.craft && st.craft.table));   // (el inventario solo: sin título)
   const cbox = $('pinv-craft-box'), ppanel = $('player-inv-panel'), trashEl = $('pinv-trash');
   if (cbox && top && ppanel) {
    if (st.craft && !st.craft.table) { if (cbox.parentNode !== top) top.appendChild(cbox); }
    else if (cbox.parentNode !== ppanel) ppanel.insertBefore(cbox, top);
   }
-  // 🗑 la papelera siempre flota a la derecha de la última casilla de la hotbar (en el editor, jugando y en los cofres)
-  const hotEl = $('pinv-hotbar');
-  if (trashEl && hotEl) {
-   let row = hotEl.parentNode;
-   if (!row.classList.contains('pinv-hot-row')) { row = document.createElement('div'); row.className = 'pinv-hot-row'; hotEl.parentNode.insertBefore(row, hotEl); row.appendChild(hotEl); }
-   if (trashEl.parentNode !== row) row.appendChild(trashEl);
-   const home = top && top.querySelector('.pinv-trash-home'); if (home) home.style.display = 'none';
-  }
+  { const home = top && top.querySelector('.pinv-trash-home'); if (home) home.style.display = 'none'; }
+  m.classList.toggle('pinv-exp', !!st.expanded);                     // 🧰 con el inventario creativo al lado
   document.body.classList.toggle('pinv-craft-open', !!st.craft);
   const search = $('inventory-search');
   if (search) search.style.display = st.expanded ? '' : 'none';
@@ -1156,7 +1192,7 @@
   if (left) left.style.display = '';
   if (wrap) { wrap.style.height = ''; wrap.style.flex = ''; wrap.style.minHeight = ''; }
   document.body.classList.remove('pinv-furnace-open', 'pinv-chest-open', 'pinv-open', 'pinv-craft-open', 'pinv-book-open');
-  m.classList.remove('pinv-game', 'pinv-mb', 'pinv-mb-plain');
+  m.classList.remove('pinv-game', 'pinv-mb', 'pinv-mb-plain', 'pinv-exp');
   const bk = $('pinv-book'); if (bk) { bk.style.display = 'none'; const q = bk.querySelector('.pinv-book-q'); if (q) q.value = ''; }
   const ccb = $('pinv-craft-box'); if (ccb) ccb.style.display = 'none';
   const avb = $('pinv-anvil-box'); if (avb) avb.style.display = 'none';
@@ -1612,6 +1648,7 @@
    const hb = $('modal-hotbar-container');
    if (hb) hb.style.display = 'none';
   }
+  fitCreative();
  };
 
  // Si la ventana se cierra de otra forma (clic fuera, etc.) también se limpia.
