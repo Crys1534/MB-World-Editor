@@ -817,7 +817,7 @@ canvas.addEventListener("mousedown", function (event) {
     // ✨ CLIC DERECHO CON MOVE SOBRE UN HORNO: abre el editor del horno (entrada, combustible, resultado)
     if (currentTool === 'move' && event.button == 2 && typeof openFurnaceEditor === 'function') {
         const bs = mbwom.getBlockState(mouse.worldX, mouse.worldY);
-        if (bs && bs.type === 'oven' && openFurnaceEditor(mouse.worldX, mouse.worldY)) {
+        if (bs && ((bs.type === 'oven' && openFurnaceEditor(mouse.worldX, mouse.worldY)) || (bs.type === 'brew' && typeof openBrewingStand === 'function' && openBrewingStand(mouse.worldX, mouse.worldY)))) {   // (y el soporte de pociones)
             mouse.right = false;
             event.preventDefault();
             hideTip(true);

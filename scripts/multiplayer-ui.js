@@ -208,7 +208,12 @@ window.renderPresenceList = function() {
         let actionBtn = '';
         if (isHost && window.currentRoomId && !isMe) {
             if (isInMyRoom) {
-                actionBtn = `<button onclick="kickPlayer('${u.uid}', '${window.escapeHTML ? window.escapeHTML(u.username) : u.username}')" style="background: #e74c3c; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#c0392b'" onmouseout="this.style.background='#e74c3c'" title="Expulsar del servidor">🥾 Kick</button>`;
+                const nmJs = String(u.username || 'Player').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/</g, '&lt;');
+                const muted = typeof window.mpIsMuted === 'function' && window.mpIsMuted(u.uid);
+                const tt = (k, fb) => (typeof window.tmsg === 'function' ? window.tmsg(k, fb) : fb);
+                actionBtn = `<button onclick="kickPlayer('${u.uid}', '${nmJs}')" style="background: #e74c3c; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px; transition: 0.2s;" onmouseover="this.style.background='#c0392b'" onmouseout="this.style.background='#e74c3c'" title="${tt('mp_kick_tip', 'Kick from the server')}">🥾 Kick</button>`
+                    + `<button onclick="banPlayer('${u.uid}', '${nmJs}')" style="background: #8e1b10; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px;" title="${tt('mp_ban_tip', 'Ban: cannot join this world again')}">🚫 Ban</button>`
+                    + `<button onclick="mutePlayer('${u.uid}', '${nmJs}')" style="background: ${muted ? '#7f8c8d' : '#d35400'}; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; color: white; font-size: 16px;" title="${tt('mp_mute_tip', 'Mute / unmute in the chat')}">${muted ? '🔊 Unmute' : '🔇 Mute'}</button>`;
             } else {
                 if (window.inviteCooldowns[u.uid] && now < window.inviteCooldowns[u.uid]) {
                     actionBtn = `<button style="background: #7f8c8d; border: none; padding: 6px 10px; border-radius: 4px; cursor: not-allowed; color: white; font-size: 16px;" disabled>⏳ Wait...</button>`;

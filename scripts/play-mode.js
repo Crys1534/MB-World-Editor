@@ -21,8 +21,10 @@
 //   - Agua, lava y ácido que corren (blocks/Block_Water.js, Block_Lava.js, Block_Acid.js), cubetas, plantas que se rompen sin
 //     soporte (placeOn / Block_Cactus), hornos que funden (Game.onCertainInterval → toSmelt), experiencia (dropXP / experience),
 //     lo que suelta cada mob (Entity_Mob.killMob) y a quién persigue (mobCalculateTarget: comida en la mano, lobo, gólem, enderman).
-// APROXIMADO / NO INCLUIDO (se dice para no engañar): la lava no prende fuego, no hay día/noche ni clima, no aparecen
-// mobs nuevos solos, no hay redstone, ni crafteo, ni encantamientos, ni efectos de pociones, ni crías / domesticar.
+//   - Día y noche, camas, cultivos, harina de hueso, mechero (fuego y portal), soporte de pociones, criar animales (crías),
+//     ordeñar, balsas y vagonetas: ver el bloque "🌙 DÍA Y NOCHE" más abajo.
+// APROXIMADO / NO INCLUIDO (se dice para no engañar): la lava no prende fuego; la pesca, cómo se extiende el fuego y cómo se
+// mueven la balsa y la vagoneta no vienen en el código decompilado (son aproximados). Mine Blocks no tiene tocadiscos (jukebox).
 // Cómo se mueven las bolitas de experiencia no viene en el código decompilado: es aproximado. Los mobs que vuelan o nadan
 // (murciélago, ghast, calamar, blaze, ojo del Nether, dragón) usan una versión simple de su movimiento.
 // El alcance de las manos (5 bloques) no aparece en el código decompilado: es un valor estimado.
@@ -48,7 +50,7 @@
         tmp: new Map(), drops: [], falling: [], arrows: [], sandCheck: new Map(), leafQ: new Map(), liqFresh: new Set(), orbs: [], xpT: 0,
         tick: 0, acc: 0, last: 0, raf: 0, mine: null, placeDelay: 0, useTimer: -1, msg: '', msgT: 0,
         sign: { text: '', a: 0, on: false }, iname: { key: null, text: '', t: 0 },
-        touchMode: 'mine'
+        touchMode: 'mine', fires: new Set(), ride: null, bob: null, sleep: null
     };
     window.mbwPlay = { isPlaying: () => S.playing, state: S };
     // un punto del mundo (y hacia arriba) -> punto de la pantalla (con la vista del juego estirada). Lo usan las pruebas.
@@ -874,6 +876,7 @@
             if (P.keysX) w.food -= 3;
             if (P.leftSprinting > 0 || P.rightSprinting > 0) w.food -= 5;
             tickFurnaces();
+            tickBrewing();
         }
         if (w.food < 0) w.food = 0;
         if (w.health > 20 || w.gamemode == 1) w.health = 20;
@@ -1046,7 +1049,8 @@
                 m.focus = m.target;
             }
         } else {
-            if (a.followItems && a.followItems[selType()] && w.gamemode != 3 && Math.pow(w.worldX - m.x, 2) + Math.pow(w.worldY - m.y, 2) < 49) { m.focus = PLAYER_ID; busy = true; }
+            if ((m.breedTimer > 0 || m.babyTimer > 0) && breedFocus(id, m)) busy = true;             // 🐣 busca pareja / sigue a sus papás
+            else if (a.followItems && a.followItems[selType()] && w.gamemode != 3 && Math.pow(w.worldX - m.x, 2) + Math.pow(w.worldY - m.y, 2) < 49) { m.focus = PLAYER_ID; busy = true; }
             else if (a.followItems && mpHost()) {                         // 🎮 también siguen a otro jugador con su comida en la mano
                 const R = window.mbwMpPlay.remotes;
                 for (const k in R) { const r = remoteOf(RP + k); if (r && r.it && a.followItems[r.it] && Math.pow(r.tx - m.x, 2) + Math.pow(r.ty - m.y, 2) < 49) { m.focus = RP + k; busy = true; break; } }
@@ -1251,6 +1255,7 @@
         if (c.dead > 0) { c.dead++; c.speedX = 0; if (c.dead > 40) { delete mbwom.mobs[id]; S.tmp.delete(id); } return; }
         if (!isFinite(Number(c.health))) c.health = maxHealth(c);
         if (c.health <= 0) { killMob(id, c); return; }
+        if (c.breedTimer || c.babyTimer > 0) breedTick(id, c);            // 🐣 criar / crecer
         // 🔊 de vez en cuando su sonido (Entity_Mob: 1 entre idleSoundFrequency por paso; si persigue al Player, el de "aggroIdle")
         if (SFX()) { const si = SFX().mobInfo(c.type); if (si && si.sounds.idle && Math.random() * (si.freq || 200) <= 1) mobSnd(c, si.sounds.aggroIdle && c.target === PLAYER_ID ? 'aggro' : 'idle'); }
         c.x = Number(c.x) || 0; c.y = Number(c.y) || 0;
@@ -1264,7 +1269,7 @@
             else if (a.burnsInLava == 1 && (fg(f, g) === 'fire' || fg(f, g + 1) === 'fire')) hurtMob(id, 1, 'fire');     // 🔥 el bloque de fuego también quema
             else if (!(c.type === 'wolf' && c.tamed) && !(c.type === 'cow' && c.variant === 'cowctus') && a.cactusDamage !== false && a.cactusDamage !== 0 && (fg(f, g) === 'ct' || fg(f, g + 1) === 'ct')) hurtMob(id, 1, 'cactus');
         } else c.hitCooldown--;
-        calcTarget(id, c, a, d);
+        if (!d.far || (S.tick + (d.salt || (d.salt = 1 + (Math.random() * 3 | 0)))) % 4 === 0) calcTarget(id, c, a, d);   // ⚡ lejos (más de 24 bloques): piensa 1 de cada 4 pasos
         if (a.teleports && Math.random() < (a.teleportRandomChance || 0)) teleportMob(c);
         const K = d.keys, fr = d.isFrightened, hops = a.hops == 1;
         const flying = a.special && a.special.indexOf('specialGravityFunction') >= 0;
@@ -1487,6 +1492,8 @@
         if (t === 'air' || (t === 'br' && w.gamemode != 1)) return;
         const s1 = st(x, y);
         const chestItems = (t === 'chest' && mbwom.chests && Array.isArray(mbwom.chests[key(x, y)])) ? mbwom.chests[key(x, y)] : null;
+        const cropN = CROPS[t] ? cropStage(x, y) : 0;
+        const brewData = (t === 'brew' && mbwom.toBrew && mbwom.toBrew[key(x, y)]) ? JSON.parse(JSON.stringify(mbwom.toBrew[key(x, y)])) : null;
         if (!byCmd) blockSnd(t, 'break', x, y);
         setBlock(x, y, null);
         if (w.gamemode == 1) return;
@@ -1505,6 +1512,9 @@
         const ex = (typeof s1 === 'string' && s1 && (t === 'cloth' || t === 'carpet' || t === 'bdcloth' || t === 'bed')) ? { type: s1 } : {};
         if (drop) addDrop(drop, x + .5, -y - .5, 1, 0, ex);
         if (chestItems) chestItems.forEach(function (it) { if (!isEmpty(it)) addDrop(it[0], x + .5, -y - .5, it[1], it[2], it[3]); });
+        if (CROPS[t]) cropDrops(t, cropN, x, y);                       // 🌾 el cultivo grande suelta su cosecha
+        if (brewData) [brewData.input, brewData.fuel].concat(brewData.output || []).forEach(function (it) { if (!isEmpty(it)) addDrop(it[0], x + .5, -y - .5, it[1], it[2], it[3]); });
+        if (brewData && mbwom.toBrew) delete mbwom.toBrew[key(x, y)];
     }
     const WALLY = { lant: 1, th: 1, ortorch: 1, rstorch: 1, button: 1, lever: 1 };
     function placeBlock(mw) {
@@ -1519,6 +1529,7 @@
         const here = fg(bx, by);
         // usar un objeto
         if (here === 'TNT' && id === 'fas') { igniteTNT(bx, by); damageTool(); return true; }
+        if (id === 'mbk') { if (S.useTimer < 0) S.useTimer = ((bd(id, 'timerToUse') || 50) / 25 * FPS) | 0; return false; }   // 🥛 leche
         if (id === 'potion' && drinkable(it)) {                        // 🧪 pociones: arrojadiza = se lanza; normal = se toma (como comer)
             if (potionOf(it).splash) { splashPotion(it); return true; }
             if (S.useTimer < 0) S.useTimer = ((bd(id, 'timerToUse') || 50) / 25 * FPS) | 0;
@@ -1584,6 +1595,7 @@
     // la puerta tiene 2 partes (1 = abajo, 2 = arriba abiertas; 3 = abajo, 4 = arriba cerradas). Las de hierro no se abren a mano.
     function useBlock(x, y) {
         const t = fg(x, y);
+        if (t === 'bed1' || t === 'bed2') return useBed(x, y, t);          // 🛏 dormir
         // 🎂 pastel (y pastel de cactus): una rebanada (+1 muslito); son 7 rebanadas (maxState 7); la de cactus pica un poco
         if (t === 'cake' || t === 'ccake') {
             const w = W();
@@ -1715,7 +1727,8 @@
         S.placeDelay++;
         if (w.gamemode == 1 && selType().substr(-5) !== 'Sword') S.placeDelay += 6;
         if (S.useTimer > -1) {                                    // comiendo
-            if (!(S.mouse.right || S.mouse.rightEdge) || (bd(selType(), 'food') == null && !drinkable(selItem()))) S.useTimer = -1;
+            if (!(S.mouse.right || S.mouse.rightEdge) || (bd(selType(), 'food') == null && !drinkable(selItem()) && selType() !== 'mbk')) S.useTimer = -1;
+            else if (selType() === 'mbk') { if (--S.useTimer === 0) { drinkMilk(); S.useTimer = -1; } }
             else if (--S.useTimer === 0 && selType() === 'potion') {     // 🧪 se terminó de tomar la poción
                 const po = potionOf(selItem());
                 snd('drink' + ((Math.random() * 2 | 0) + 1));
@@ -1743,20 +1756,24 @@
         }
         const mw = mouseWorld();
         // un clic rapidísimo (se suelta antes del siguiente paso) cuenta igual una vez
-        const right = S.mouse.right || S.mouse.rightEdge, left = S.mouse.left || S.mouse.leftEdge, rightFresh = S.mouse.rightEdge;
+        const right = S.mouse.right || S.mouse.rightEdge, left = S.mouse.left || S.mouse.leftEdge, rightFresh = S.mouse.rightEdge, leftFresh = S.mouse.leftEdge;
         S.mouse.rightEdge = false; S.mouse.leftEdge = false;
         if (right) {
             if (selType() === 'cbook') { if (rightFresh) useCommandBook(); S.mine = null; return; }      // (una vez por clic)
             const bx = Math.floor(mw.x), by = Math.floor(mw.y);
             if (rightFresh && BOX[fg(bx, by)] && blockDist(bx, by) <= REACH + 1) { openBox(bx, by); return; }   // clic derecho en un cofre / horno: se abre
-            if (rightFresh && !S.p.sneaking && blockDist(bx, by) <= REACH + 1 && useBlock(bx, by)) { S.mine = null; S.swing = 15; return; }   // puertas, trampillas, bloque musical
+            if (rightFresh && !S.ride) { const v = vehicleUnderMouse(mw); if (v && Math.hypot(vPos(v.kind, v.d).x - W().worldX, vPos(v.kind, v.d).y - W().worldY) < 4 && mount(v.kind, v.id)) { S.mine = null; return; } }   // 🛶🚃 subirse
+            if (rightFresh && useOnMob(mw)) { S.mine = null; S.swing = 15; return; }                   // 🐄 criar / ordeñar
+            if (rightFresh && useItemLife(mw, bx, by)) { S.mine = null; S.swing = 15; return; }        // 🔥 mechero, 🎣 caña, azadón, harina de hueso, balsa, vagoneta
+            if (rightFresh && !S.p.sneaking && blockDist(bx, by) <= REACH + 1 && useBlock(bx, by)) { S.mine = null; S.swing = 15; return; }   // puertas, trampillas, bloque musical, camas
             S.rightFresh = rightFresh;
-            if (S.placeDelay >= 6 && placeBlock(mw)) { S.placeDelay = 0; S.swing = 15; }
+            if (S.placeDelay >= 6 && placeBlock(mw)) { S.placeDelay = 0; S.swing = 15; const px2 = Math.floor(mw.x), py2 = Math.floor(mw.y); if (CROPS[fg(px2, py2)] && !cropStage(px2, py2)) setCrop(px2, py2, 1); }
             S.rightFresh = false;
             S.mine = null;
             return;
         }
         if (!left) { S.mine = null; return; }
+        if (leftFresh) { const v = vehicleUnderMouse(mw); if (v && (!S.ride || S.ride.id !== v.id)) { breakVehicle(v); S.mine = null; S.swing = 15; return; } }   // 🛶🚃 romper
         if (S.placeDelay < 6) return;
         const mid = mobUnderMouse(mw);
         if (mid) { attackMob(mid); buzz(15); S.swing = 15; S.placeDelay = 0; S.mine = null; return; }
@@ -1905,6 +1922,8 @@
         const d = c.toLowerCase().split(/\s+/).filter(Boolean);
         if (!d.length) return;
         if (d[0] === 'cls') { cmdLog.length = 0; chat.dirty = true; return; }
+        // 🛡 /kick /ban /unban /banlist /mute /unmute: solo el anfitrión del servidor (scripts/mp-mod.js); no dependen de "Commands" del mundo
+        if (window.MP_MOD_CMDS && window.MP_MOD_CMDS.indexOf(d[0]) >= 0 && typeof window.mpModCommand === 'function') { say('[INFO] ' + window.mpModCommand(d[0], c.split(/\s+/).slice(1).join(' '))); return; }
         // 🎮 en una partida, por defecto SOLO el anfitrión puede usar comandos (él lo puede permitir en su menú de pausa)
         if (mpGuest() && !(window.mbwMpPlay && window.mbwMpPlay.guestCmds)) { say('[INFO] ' + tr('mpplay_cmds_host', 'Only the host can use commands in this game.')); return; }
         if (!cheatsOn()) { say('[INFO] ' + tr('play_cheats_off', 'Commands are disabled in this world. Turn on "Commands" in World Settings (the game would not run them either).')); return; }
@@ -2064,7 +2083,7 @@
                 return;
             }
             case 'say': { const m = String(raw).replace(/^[\/\\]?\s*say\s*/i, ''); say('[SAY] ' + m); if (S.mp) mpSend({ tipo: 'juego_sys', autor: myNameNet(), k: 'say', t: m.slice(0, 200) }); return; }
-            case 'time': if (d[1] === 'set' && d[2] != null) { const v = d[2] === 'day' ? 0 : d[2] === 'night' ? 50 : Math.floor(+d[2] % 100); if (!isNaN(v)) { w.tim = v; info('Time set to ' + v + '. (Play mode has no day/night yet)'); return; } } if (d[1] === 'get') { say('[INFO] The time is ' + (w.tim | 0) + '.'); return; } say('[INFO] time <get|set <t|day|night>>'); return;
+            case 'time': if (d[1] === 'set' && d[2] != null) { const v = d[2] === 'day' ? 0 : d[2] === 'night' ? 50 : Math.floor(+d[2] % 100); if (!isNaN(v)) { w.tim = v; info('Time set to ' + v + '.'); return; } } if (d[1] === 'get') { say('[INFO] The time is ' + (w.tim | 0) + '.'); return; } say('[INFO] time <get|set <t|day|night>>'); return;
             case 'weather': { const v = d[1] === 'set' ? d[2] : d[1]; const n = (v === 'clear' || v === '0') ? 0 : (v === 'rain' || v === '1') ? 1 : (v === 'thunder' || v === '2') ? 2 : -1; if (n < 0) { say('[INFO] weather <get|set <clear|rain|thunder>>'); return; } w.raining = n; if (typeof setWeatherEffect === 'function') { try { setWeatherEffect(['clear', 'rain', 'thunder'][n]); } catch (e) { /* nada */ } } info('Weather set to ' + ['clear', 'rain', 'thunder'][n] + '.'); return; }
             case 'difficulty': { if (['peaceful', 'easy', 'normal', 'hard'].indexOf(d[1]) < 0) { say('[INFO] difficulty peaceful|easy|normal|hard'); return; } w.difficulty = d[1]; info('Difficulty set to ' + d[1] + '.'); return; }
             case 'xp': { let v = d[1] === 'add' ? d[2] : d[1]; if (v == null) { say('[INFO] xp [add] value[L]'); return; } v = /l$/.test(v) ? 100 * parseFloat(v) : parseFloat(v); if (isNaN(v)) { say('[INFO] xp [add] value[L]'); return; } w.experience = Math.max(0, Math.min(1e6, Math.floor((d[1] === 'add' ? (w.experience || 0) : 0) + v))); info('experience set to ' + w.experience + '.'); return; }
@@ -2088,11 +2107,11 @@
     window.mbwPlayCommand = runCommand;
 
     // ------------------------------------------------------------------ cofres y hornos (abrir)
-    const BOX = { chest: 1, oven: 1, dispense: 1, dropper: 1, enchant: 1, craft: 1 };
+    const BOX = { chest: 1, oven: 1, dispense: 1, dropper: 1, enchant: 1, craft: 1, brew: 1 };
     // el aviso de abajo: "Doble clic para abrir el cofre" (en el celular, "Toca dos veces..."), según el bloque bajo el cursor
     function boxLabel(t) {
         const touch = document.body.classList.contains('is-touch');
-        const what = t === 'craft' ? tr('play_box_craft', 'the crafting table') : t === 'enchant' ? tr('play_box_enchant', 'the enchantment table') : t === 'oven' ? tr('play_box_furnace', 'the furnace') : t === 'dispense' ? tr('play_box_dispenser', 'the dispenser') : t === 'dropper' ? tr('play_box_dropper', 'the dropper') : tr('play_box_chest', 'the chest');
+        const what = t === 'craft' ? tr('play_box_craft', 'the crafting table') : t === 'brew' ? tr('play_box_brew', 'the brewing stand') : t === 'enchant' ? tr('play_box_enchant', 'the enchantment table') : t === 'oven' ? tr('play_box_furnace', 'the furnace') : t === 'dispense' ? tr('play_box_dispenser', 'the dispenser') : t === 'dropper' ? tr('play_box_dropper', 'the dropper') : tr('play_box_chest', 'the chest');
         return (touch ? tr('play_dbl_tap_open', 'Double-tap to open {what}') : tr('play_dbl_click_open', 'Double-click to open {what}')).replace('{what}', what);
     }
     function openBox(x, y) {
@@ -2103,6 +2122,7 @@
         else if ((t === 'dispense' || t === 'dropper') && typeof window.openDispenserEditor === 'function') ok = window.openDispenserEditor(x, y);
         else if (t === 'enchant') ok = openEnchant(x, y);
         else if (t === 'craft' && typeof window.openCraftingTable === 'function') ok = window.openCraftingTable(x, y);   // 🛠 mesa de crafteo: 3×3
+        else if (t === 'brew' && typeof window.openBrewingStand === 'function') ok = window.openBrewingStand(x, y);   // 🧪 soporte de pociones
         if (ok) {
             S.keys = {}; S.mouse.left = S.mouse.right = false; S.mine = null; S.openBoxAt = { x: x, y: y };
             // el último clic (o toque) del doble clic cae sobre la ventana que se acaba de abrir: ese no cuenta (si no, tomaba un objeto)
@@ -2268,6 +2288,553 @@
     }
     window.mbwPlay.enchant = { open: openEnchant, close: closeEnchant, roll: enchRoll, arrange: enchArrange, state: function () { return S.ench; } };
 
+    // =====================================================================
+    // 🌙 DÍA Y NOCHE · 🛏 CAMAS · 🌾 CULTIVOS · 🔥 MECHERO Y FUEGO · 🎣 PESCA · 🧪 SOPORTE DE POCIONES · 🐄 CRÍAS Y LECHE · 🛶 BALSAS · 🚃 VAGONETAS
+    // Del código decompilado de Mine Blocks 2.0.0: Game.onCertainInterval (la hora sube 1 cada 12 s: 0 a 99, de 50 en adelante es de noche;
+    // cultivos: cada 12 s, 1 de 10 sube de etapa hasta 7; soporte de pociones: recetas de Game.potionData, polvo de blaze = 20 usos),
+    // Game.mineAndPlaceCode (dormir, mechero, ordeñar, criar, balsa, vagoneta), Entity_Mob.run (crías: 5 s juntos y sale la cría, que tarda
+    // 20 minutos en crecer). APROXIMADO (no viene en el código decompilado): la pesca (Entity_Bobber), cómo se extiende el fuego y cómo
+    // se mueven la balsa y la vagoneta.
+    // =====================================================================
+    const DAY_TICKS = (300 * FPS / 25) | 0;
+    function tickTime() {
+        if (mpGuest() || S.tick % DAY_TICKS !== 0 || gameRule('dodaylightcycle') === false) return;
+        const w = W();
+        w.tim = (Number(w.tim) || 0) + 1;
+        if (w.tim >= 100) { w.tim = 0; w.day = (Number(w.day) || 0) + 1; }
+    }
+    // qué tan oscura es la noche (0 = de día); la usa scripts/darkness.js
+    function nightAlpha() {
+        if (!S.playing || (mbwom.currentScene || 1) !== 1) return 0;
+        const t = Number(W().tim) || 0;
+        const N = 0.62;
+        let a = t < 42 ? 0 : t < 52 ? N * (t - 42) / 10 : t < 92 ? N : N * (100 - t) / 8;
+        a += (Number(W().raining) || 0) * 0.08;
+        return Math.max(0, Math.min(.75, a));
+    }
+    window.mbwPlay.nightAlpha = nightAlpha;
+    window.mbwPlay.setTime = function (t) { W().tim = Math.max(0, Math.min(99, Math.floor(Number(t) || 0))); };
+
+    // ---------------------------------------------------------------- 🛏 dormir
+    function useBed(x, y, t) {
+        const w = W();
+        if ((mbwom.currentScene || 1) !== 1) { explode(x, y, 5, null); return true; }     // (en el Nether y el End la cama explota)
+        if ((Number(w.tim) || 0) < 50) { flashMsg(tr('play_bed_day', 'You can only sleep at night!')); say('[INFO] ' + tr('play_bed_day', 'You can only sleep at night!')); return true; }
+        if (S.sleep) return true;
+        const hx = t === 'bed2' ? x - 1 : x;
+        spSet(hx + 1, -(y + 1));                                       // la cama es tu nuevo lugar para aparecer
+        S.sleep = { t: 0 };
+        w.xSpeed = 0; w.ySpeed = 0; S.keys = {};
+        info2(tr('play_bed_spawn', 'Respawn point set.'));
+        return true;
+    }
+    function info2(t) { flashMsg(t); }
+    function tickSleep() {
+        if (!S.sleep) return;
+        S.keys = {};
+        if (++S.sleep.t < 4 * FPS) return;
+        S.sleep = null;
+        const w = W();
+        if (mpGuest()) mpSend({ tipo: 'juego_tiempo', tim: 2 });
+        w.tim = 2; w.day = (Number(w.day) || 0) + 1;
+        flashMsg('☀ ' + tr('play_good_morning', 'Good morning!'));
+        hud.dirty = true;
+    }
+
+    // ---------------------------------------------------------------- 🌾 cultivos
+    const CROPS = { seed: 1, carrot: 1, potato: 1, bseed: 1, wseed: 1, pseed: 1, nw: 1 };
+    function cropStage(x, y) { const v = mbwom.wheat && mbwom.wheat[key(x, y)]; return Number(v) || 0; }
+    function setCrop(x, y, n) {
+        const s = mbwom.getBlockState(x, y); if (!s || !s.type) return;
+        s.wheat = n; mbwom.setBlockState(x, y, s);
+        if (typeof window.renderBlock === 'function') window.renderBlock(x, y);
+    }
+    window.mbwPlay.cropStage = cropStage;
+    function tickCrops() {
+        if (mpGuest() || S.tick % DAY_TICKS !== 7) return;
+        const Wh = mbwom.wheat; if (!Wh || typeof Wh !== 'object') return;
+        Object.keys(Wh).forEach(function (k) {
+            const m = /^blockX(-?\d+)Y(-?\d+)$/.exec(k); if (!m) return;
+            const x = +m[1], y = +m[2], t = fg(x, y);
+            if (!CROPS[t]) { delete Wh[k]; return; }
+            if (simFar(x + .5)) return;
+            if ((10 * Math.random() | 0) !== 1) return;
+            const n = Number(Wh[k]) || 0;
+            if (n < 7) { setCrop(x, y, n + 1); return; }
+            if ((t === 'wseed' || t === 'pseed') && Math.random() < 1 / 3) growFruit(x, y, t === 'wseed' ? 'mel' : 'pk');
+        });
+    }
+    // el tallo de sandía / calabaza ya grande: pone la fruta al lado (en tierra o tierra arada)
+    function growFruit(x, y, fruit) {
+        const s = Number(st(x, y)) || 0;
+        if ((s === 1 && fg(x + 1, y) === fruit) || (s === -1 && fg(x - 1, y) === fruit)) return;
+        const soil = (xx) => { const b = fg(xx, y - 1); return b === 'dt' || b === 'farm'; };
+        let p = fg(x - 1, y) !== 'air' ? 1 : fg(x + 1, y) !== 'air' ? -1 : (Math.random() < .5 ? 1 : -1);
+        if (fg(x + p, y) !== 'air' || !soil(x + p)) { p = -p; if (fg(x + p, y) !== 'air' || !soil(x + p)) return; }
+        const cur = mbwom.getBlockState(x, y); cur.states1 = p; mbwom.setBlockState(x, y, cur);
+        setBlock(x + p, y, fruit);
+    }
+    // lo que suelta un cultivo grande (además de su semilla). B = suerte (fortuna): no incluida
+    function cropDrops(t, n, x, y) {
+        const X = x + .5, Y = -y - .5, B = 0, r3 = () => (3 * Math.random() + (Math.random() * (B + 1) | 0)) | 0;
+        if (t === 'seed') { if (n === 7) { addDrop('wheat', X, Y, 1, 0, {}); if (r3() >= 2) addDrop('seed', X, Y, 1, 0, {}); if (r3() >= 2) addDrop('seed', X, Y, 1, 0, {}); } return; }
+        const ripe = n === 7 || (n === 6 && r3() >= 2);
+        if (!ripe) return;
+        if (t === 'carrot') addDrop('carrot', X, Y, 1, 0, {});
+        else if (t === 'potato') { if (Math.random() < .2) addDrop('ppotato', X, Y, 1, 0, {}); addDrop('potato', X, Y, r3() + 1, 0, {}); }
+        else if (t === 'nw') addDrop('nw', X, Y, r3() + 1, 0, {});
+        else if (t === 'bseed') addDrop('beet', X, Y, (4 * Math.random() | 0) + 1, 0, {});
+    }
+    // 🦴 harina de hueso: el cultivo crece de golpe; en el pasto salen flores y pasto alto
+    function useBonemeal(x, y) {
+        const t = fg(x, y);
+        if (CROPS[t] && t !== 'nw') { if (cropStage(x, y) === 7) return false; setCrop(x, y, 7); growParts(x, y); return true; }
+        if ((t === 'dt' && Number(st(x, y)) === 1) || t === 'sd') {
+            for (let dx = -5; dx <= 5; dx++) for (let dy = -5; dy <= 5; dy++) {
+                const X = x + dx, Y = y + dy;
+                if (!(fg(X, Y) === 'dt' && Number(st(X, Y)) === 1 && fg(X, Y + 1) === 'air') || Math.random() < 1 / 3) continue;
+                const r = Math.random();
+                setBlock(X, Y + 1, r < 1 / 30 ? 'sl' : r < .2 ? 'fw1' : r < .36 ? 'fw2' : r < .5 ? 'shrub' : 'lgr');
+            }
+            growParts(x, y);
+            return true;
+        }
+        return false;
+    }
+    function growParts(x, y) { for (let i = 0; i < 6; i++) addPart({ x: x + Math.random(), y: y + Math.random(), vy: .01, life: 30, size: .1, col: '#7dff6a', glow: true }); }
+    // 🪓 azadón: la tierra (o el pasto) con aire arriba se vuelve tierra arada
+    function useHoe(x, y) {
+        const t = fg(x, y);
+        if ((t !== 'dt' && t !== 'cdt') || fg(x, y + 1) !== 'air') return false;
+        setBlock(x, y, 'farm');
+        sndAt('crunch' + ((Math.random() * 3 | 0) + 1), x + .5, -(y + .5));
+        damageTool();
+        return true;
+    }
+
+    // ---------------------------------------------------------------- 🔥 mechero y fuego
+    function canBeOnFire(x, y) { const t = fg(x, y); return t === 'n' || t === 'magma' || bd(t, 'flammable') == 1; }
+    function canFireExistAt(x, y) { const t = fg(x, y); if (t !== 'air' && t !== 'fire') return false; return canBeOnFire(x - 1, y) || canBeOnFire(x + 1, y) || canBeOnFire(x, y - 1) || canBeOnFire(x, y + 1); }
+    function putFire(x, y) { if (fg(x, y) !== 'air') return false; setBlock(x, y, 'fire'); S.fires.add(key(x, y)); sndAt('fire1', x + .5, -(y + .5)); return true; }
+    function useFlint(mw, bx, by) {
+        const mid = mobUnderMouse(mw);
+        if (mid) { tmpOf(mid).onFire = 8 * FPS; damageTool(); return true; }
+        if (blockDist(bx, by) > REACH + 1) return false;
+        const P = (x, y) => fg(x, y) === 'portalstone';
+        if (canFireExistAt(bx, by) || (fg(bx, by) === 'air' && P(bx, by - 1))) {
+            // 🌀 marco de piedra del portal (2 de ancho): se prende el portal al Nether
+            if (P(bx, by - 1) && P(bx + 1, by - 1) && P(bx + 2, by - 1) && P(bx + 2, by) && P(bx - 1, by - 1) && P(bx - 1, by) && fg(bx + 1, by) === 'air') { setBlock(bx, by, 'portal'); setBlock(bx + 1, by, 'portal'); damageTool(); return true; }
+            if (P(bx, by - 1) && P(bx - 1, by - 1) && P(bx - 2, by - 1) && P(bx - 2, by) && P(bx + 1, by - 1) && P(bx + 1, by) && fg(bx - 1, by) === 'air') { setBlock(bx, by, 'portal'); setBlock(bx - 1, by, 'portal'); damageTool(); return true; }
+            if (canFireExistAt(bx, by) && putFire(bx, by)) { damageTool(); return true; }
+            return false;
+        }
+        if (canBeOnFire(bx, by)) {
+            const w = W();
+            if (canFireExistAt(bx, by + 1)) { if (putFire(bx, by + 1)) { damageTool(); return true; } return false; }
+            const side = Math.floor(w.worldX) < bx ? -1 : 1;
+            if (canFireExistAt(bx + side, by) && putFire(bx + side, by)) { damageTool(); return true; }
+        }
+        return false;
+    }
+    // cada medio segundo: el fuego sin nada que quemar se apaga; con "dofiretick" quema y se pasa a lo que arde junto a él
+    function tickFire() {
+        if (mpGuest()) return;
+        if (S.tick % 100 === 11) {                                     // (los fuegos que ya había cerca)
+            const w = W(), px = Math.floor(w.worldX), py = Math.floor(-w.worldY);
+            for (let x = px - 16; x <= px + 16; x++) { const col = mbwom.scene[x]; if (!col) continue; for (let y = Math.max(0, py - 12); y <= py + 12; y++) if (col[y] === 'fire' || fg(x, y) === 'fire') S.fires.add(key(x, y)); }
+        }
+        if (S.tick % 25 !== 4 || !S.fires.size) return;
+        const spread = gameRule('dofiretick') !== false;
+        Array.from(S.fires).forEach(function (k) {
+            const m = /^blockX(-?\d+)Y(-?\d+)$/.exec(k); if (!m) { S.fires.delete(k); return; }
+            const x = +m[1], y = +m[2];
+            if (fg(x, y) !== 'fire') { S.fires.delete(k); return; }
+            if (simFar(x + .5)) return;
+            if (!canFireExistAt(x, y) || fg(x, y + 1) === 'wr' || (W().raining && Math.random() < .2)) { setBlock(x, y, null); S.fires.delete(k); return; }
+            if (!spread) return;
+            const eternal = fg(x, y - 1) === 'n' || fg(x, y - 1) === 'magma';
+            const N = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+            if (Math.random() < .12) {                                    // quema algo de al lado (se vuelve fuego)
+                const q = N[Math.random() * 4 | 0], X = x + q[0], Y = y + q[1];
+                const t = fg(X, Y);
+                if (t !== 'n' && t !== 'magma' && bd(t, 'flammable') == 1) {
+                    if (t === 'TNT') { setBlock(X, Y, null); igniteTNT(X, Y); }
+                    else { setBlock(X, Y, 'fire'); S.fires.add(key(X, Y)); }
+                }
+            }
+            if (Math.random() < .08) {                                    // salta a un hueco cercano que tenga algo que arda
+                const X = x + (Math.random() * 3 | 0) - 1, Y = y + (Math.random() * 3 | 0) - 1;
+                if (fg(X, Y) === 'air' && canFireExistAt(X, Y)) { setBlock(X, Y, 'fire'); S.fires.add(key(X, Y)); }
+            }
+            if (!eternal && Math.random() < .03) { setBlock(x, y, null); S.fires.delete(k); }
+        });
+    }
+
+    // ---------------------------------------------------------------- 🎣 pesca (aproximada)
+    const FISH = [['rf', .6], ['salmon', .25], ['puff', .13], ['clown', .02]];
+    function useRod(mw) {
+        const w = W();
+        if (S.bob) {                                                    // recoger
+            const b = S.bob; S.bob = null;
+            if (b.bite > 0) {
+                let r = Math.random(), id = 'rf';
+                for (let i = 0; i < FISH.length; i++) { if (r < FISH[i][1]) { id = FISH[i][0]; break; } r -= FISH[i][1]; }
+                const left = addToInventory(id, 1, 0, {});
+                if (left > 0) addDrop(id, w.worldX, w.worldY - 1, left, 0, {});
+                dropXP(w.worldX, w.worldY - 1, 1, 5);
+                sndAt('splash', b.x, b.y);
+                flashMsg('🎣 ' + tr('play_fish_caught', 'You caught a fish!'));
+            }
+            damageTool();
+            return true;
+        }
+        const hx = w.worldX, hy = w.worldY - 1.4;
+        const ang = Math.atan2(-mw.y - hy, mw.x - hx);
+        S.bob = { x: hx, y: hy, vx: Math.cos(ang) * .55, vy: Math.sin(ang) * .55 - .12, wet: false, wait: 0, bite: 0, age: 0 };
+        snd('throwsfx');
+        return true;
+    }
+    function tickBobber() {
+        const b = S.bob; if (!b) return;
+        const w = W();
+        if (selType() !== 'fr' || w.dead > 0 || Math.hypot(b.x - w.worldX, b.y - w.worldY) > 28 || ++b.age > 120 * FPS) { S.bob = null; return; }
+        const bx = Math.floor(b.x), by = Math.floor(-b.y);
+        const wet = isWet(fg(bx, by));
+        if (!b.wet) {
+            if (wet) { b.wet = true; b.vx *= .2; b.vy = 0; splash(b.x, -b.y, 6); sndAt('splash', b.x, b.y); b.wait = (5 + Math.random() * 25) * FPS | 0; return; }
+            if (b.stuck) return;
+            b.vy += .015; b.vx *= .995;
+            const nx = b.x + b.vx, ny = b.y + b.vy;
+            const t = fg(Math.floor(nx), Math.floor(-ny));
+            if (t !== 'air' && bd(t, 'walkThroughBlock') != 1 && !isWet(t)) { b.stuck = true; b.vx = b.vy = 0; return; }
+            b.x = nx; b.y = ny;
+            return;
+        }
+        // flotando: se queda en la superficie del agua
+        let top = by; while (isWet(fg(bx, top + 1)) && top < by + 30) top++;
+        const want = -(top + 1) + .15 + (b.bite > 0 ? .25 : 0);
+        b.y += (want - b.y) * .2; b.x += b.vx; b.vx *= .9;
+        if (!isWet(fg(Math.floor(b.x), top))) { b.wet = false; return; }
+        if (b.bite > 0) { if (--b.bite === 0) b.wait = (5 + Math.random() * 25) * FPS | 0; return; }
+        if (--b.wait <= 0) { b.bite = (1.2 * FPS) | 0; splash(b.x, -b.y, 10); sndAt('splash', b.x, b.y); buzz(30); }
+    }
+    function drawBobber(c2) {
+        const b = S.bob; if (!b) return;
+        const w = W(), h = toScreen(w.worldX + (S.p && S.p.dir < 0 ? -.35 : .35), w.worldY - 1.5), p = toScreen(b.x, b.y);
+        c2.strokeStyle = 'rgba(230,230,230,.9)'; c2.lineWidth = 1;
+        c2.beginPath(); c2.moveTo(h.x, h.y); c2.quadraticCurveTo((h.x + p.x) / 2, Math.max(h.y, p.y) + tileSize * .4, p.x, p.y); c2.stroke();
+        const s = Math.max(3, tileSize * .22);
+        c2.fillStyle = '#e8e8e8'; c2.fillRect(p.x - s / 2, p.y - s, s, s / 2);
+        c2.fillStyle = '#d42a2a'; c2.fillRect(p.x - s / 2, p.y - s / 2, s, s / 2);
+    }
+
+    // ---------------------------------------------------------------- 🧪 soporte de pociones (Game.potionData: ingrediente → poción)
+    const BREW = {"water": {"nw": "awkward", "se": "mundane", "bp": "mundane", "gt": "mundane", "rfoot": "mundane", "gmels": "mundane", "sugar": "mundane", "magmac": "mundane", "rsd": "mundane", "yellowdust": "thick", "fse": "weakness"}, "awkward": {"gcarrot": "nightvision", "magmac": "fireresistance", "rfoot": "leaping", "sugar": "swiftness", "puff": "waterbreathing", "gmels": "healing", "se": "poison", "gt": "regeneration", "bp": "strength"}, "nightvision": {"fse": "invisibility", "rsd": "nightvision+"}, "nightvision+": {"fse": "invisibility+"}, "invisibility": {"rsd": "invisibility+"}, "fireresistance": {"rsd": "fireresistance+"}, "leaping": {"fse": "slowness", "rsd": "leaping+", "yellowdust": "leaping2"}, "leaping+": {"fse": "slowness+"}, "slowness": {"rsd": "slowness+"}, "swiftness": {"fse": "slowness", "rsd": "swiftness+", "yellowdust": "swiftness2"}, "swiftness+": {"fse": "slowness+"}, "waterbreathing": {"rsd": "waterbreathing+"}, "healing": {"fse": "harming", "yellowdust": "healing2"}, "healing2": {"fse": "harming2"}, "harming": {"yellowdust": "harming2"}, "poison": {"fse": "harming", "rsd": "poison+", "yellowdust": "poison2"}, "poison2": {"fse": "harming2"}, "regeneration": {"rsd": "regeneration+", "yellowdust": "regeneration2"}, "strength": {"rsd": "strength+", "yellowdust": "strength2"}, "weakness": {"rsd": "weakness+"}};
+    window.MB_BREW = BREW;
+    function brewTarget(p, ing) {
+        if (!Array.isArray(p) || p[0] !== 'potion' || !(Number(p[1]) >= 1)) return null;
+        const ex = (p[3] && typeof p[3] === 'object') ? p[3] : {};
+        const r = BREW[String(ex.type || 'empty')];
+        if (r && r[ing]) return { type: r[ing] };
+        if (ing === 'gp' && String(ex.category || '').toLowerCase() !== 'splash' && ex.type && ex.type !== 'empty') return { splash: true };
+        return null;
+    }
+    // cada ~1 s (con los hornos): con polvo de blaze (20 usos) y un ingrediente que le sirva a alguna botella, en 20 vueltas sale la poción
+    function tickBrewing() {
+        if (mpGuest()) return;
+        const T = mbwom.toBrew; if (!T || typeof T !== 'object') return;
+        const nil = () => ['air', 0, 0, {}];
+        const emptyIt = (v) => !Array.isArray(v) || !v[0] || v[0] === 'air' || !(Number(v[1]) >= 1);
+        let changed = false;
+        Object.keys(T).forEach(function (k) {
+            const l = T[k]; if (!l || typeof l !== 'object') return;
+            const m = /^blockX(-?\d+)Y(-?\d+)$/.exec(k); if (!m) return;
+            const bx = +m[1], by = +m[2];
+            if (fg(bx, by) !== 'brew') return;
+            if (!Array.isArray(l.input)) l.input = nil();
+            if (!Array.isArray(l.fuel)) l.fuel = nil();
+            if (!Array.isArray(l.output)) l.output = [nil(), nil(), nil()];
+            while (l.output.length < 3) l.output.push(nil());
+            l.fuelUsed = Number(l.fuelUsed) || 0; l.brewTimer = Number(l.brewTimer) || 0;
+            const before = JSON.stringify(l);
+            if (l.fuelUsed <= 0 && l.fuel[0] === 'bp' && Number(l.fuel[1]) > 0) { l.fuelUsed = 20; l.fuel[1]--; if (l.fuel[1] <= 0) l.fuel = nil(); }
+            const ing = emptyIt(l.input) ? null : String(l.input[0]);
+            const ok = l.fuelUsed > 0 && ing && l.output.some(function (p) { return !!brewTarget(p, ing); });
+            if (ok) {
+                l.brewTimer++;
+                if (l.brewTimer >= 20) {
+                    l.brewTimer = 0;
+                    l.output.forEach(function (p) {
+                        const r = brewTarget(p, ing); if (!r) return;
+                        p[3] = Object.assign({}, p[3] || {});
+                        if (r.type) { p[3].type = r.type; delete p[3].effects; } else p[3].category = 'splash';
+                    });
+                    l.fuelUsed--;
+                    l.input[1]--; if (l.input[1] <= 0) l.input = nil();
+                    sndAt('drink1', bx + .5, -(by + .5), { vol: .4 });
+                }
+            } else l.brewTimer = 0;
+            if (JSON.stringify(l) !== before) { changed = true; netMark(bx, by); }
+        });
+        if (changed && typeof window.playerInvFurnaceTick === 'function') window.playerInvFurnaceTick();
+    }
+
+    // ---------------------------------------------------------------- 🐄 criar animales, crías, ordeñar
+    function canBreed(m) {
+        const a = D.mobs[m.type] || {};
+        if (!a.canBreed || (Number(m.breedTimer) || 0) !== 0 || Number(m.babyTimer) > 0) return false;
+        if (a.tameable && (!m.tamed || Number(m.health) < maxHealth(m))) return false;
+        return true;
+    }
+    function hearts(m, n) { for (let i = 0; i < n; i++) addPart({ x: m.x + (Math.random() - .5) * .8, y: -m.y + 1.2 + Math.random() * .5, vy: .015, life: 35, size: .16, col: '#ff4d7a', glow: true }); }
+    // darle de comer a un mob (su comida de criar): se "enamora" 30 s; a una cría la hace crecer más rápido
+    function feedMob(id, itemId) {
+        const m = mbwom.mobs[id]; if (!m || m.dead > 0) return false;
+        const a = D.mobs[m.type]; if (!a || !a.breedItems || !a.breedItems[itemId]) return false;
+        if (Number(m.babyTimer) > 0) { m.babyTimer = Math.floor(m.babyTimer * .8); growParts(m.x - .5, -m.y); return true; }
+        if (!canBreed(m)) return false;
+        m.breedTimer = 30 * FPS; m.breedTarget = '';
+        hearts(m, 5);
+        return true;
+    }
+    window.mbwPlay.feedMob = feedMob;
+    // (en mobTick) los relojes de criar y de crecer, y que salga la cría
+    function breedTick(id, m) {
+        if (Number(m.breedTimer) > 0) {
+            m.breedTimer = Math.max(0, m.breedTimer - 1);
+            if (Math.random() < 1 / FPS) hearts(m, 1);
+            if (m.breedTimer <= 0) {
+                m.breedTimer = 0;
+                const o = m.breedTarget && mbwom.mobs[m.breedTarget];
+                if (o && Math.pow(o.x - m.x, 2) + Math.pow(o.y - m.y, 2) < 6.25) {
+                    const ex = { variant: m.variant, babyTimer: 1200 * FPS, parents: [id, m.breedTarget] };
+                    if (m.type === 'wolf') { ex.tamed = true; ex.tamedBy = Math.random() < .5 ? m.tamedBy : o.tamedBy; }
+                    if (m.type === 'sheep' || m.type === 'wolf') { const col = Math.random() < .5 ? m.color : o.color; if (col != null) ex.color = col; }
+                    spawnMob(m.type, (m.x + o.x) / 2, (m.y + o.y) / 2, ex);
+                    dropXP(m.x, m.y - 1, 3);
+                    hearts(m, 6);
+                    m.breedTimer = o.breedTimer = -300 * FPS;
+                } else if (o) o.breedTimer = 0;
+            }
+        } else if (Number(m.breedTimer) < 0) m.breedTimer = Math.min(0, m.breedTimer + 1);
+        if (Number(m.babyTimer) > 0) m.babyTimer = Math.max(0, m.babyTimer - 1);
+    }
+    // (en calcTarget) el enamorado busca pareja (de su tipo, a menos de 5 bloques); la cría sigue a sus papás. true = ya sabe a quién ir
+    function breedFocus(id, m) {
+        if (Number(m.breedTimer) > 0) {
+            const o = m.breedTarget && mbwom.mobs[m.breedTarget];
+            if (!o || o.type !== m.type || !(o.breedTimer > 0) || o.variant !== m.variant || o.babyTimer > 0 || (o.breedTarget !== id && o.breedTarget)) {
+                m.breedTarget = '';
+                for (const k in mbwom.mobs) {
+                    if (k === id) continue;
+                    const p = mbwom.mobs[k];
+                    if (!p || p.type !== m.type || !(p.breedTimer > 0) || p.variant !== m.variant || p.babyTimer > 0 || (p.breedTarget !== id && p.breedTarget)) continue;
+                    if (Math.pow(p.x - m.x, 2) + Math.pow(p.y - m.y, 2) > 25) continue;
+                    p.breedTimer = 5 * FPS; m.breedTimer = 5 * FPS; p.breedTarget = id; m.breedTarget = k;
+                    break;
+                }
+            }
+            if (m.breedTarget) { m.focus = m.breedTarget; return true; }
+        }
+        if (Number(m.babyTimer) > 0 && Array.isArray(m.parents)) {
+            let best = null, bd2 = Infinity;
+            m.parents.forEach(function (pid) { const p = mbwom.mobs[pid]; if (!p) return; const dd = Math.pow(p.x - m.x, 2) + Math.pow(p.y - m.y, 2); if (dd < bd2) { bd2 = dd; best = pid; } });
+            if (best && bd2 > 9) { m.focus = best; return true; }
+        }
+        return false;
+    }
+    // clic derecho sobre un mob con algo en la mano: criar / ordeñar. true = se usó
+    function useOnMob(mw) {
+        const mid = mobUnderMouse(mw); if (!mid) return false;
+        const m = mbwom.mobs[mid], id = selType(), w = W();
+        if (id === 'bk' && m.type === 'cow' && !(Number(m.babyTimer) > 0)) {          // 🥛 ordeñar
+            if (w.gamemode != 1) { const it = selItem(); if (it[1] > 1) { it[1]--; const left = addToInventory('mbk', 1, 0, {}); if (left > 0) addDrop('mbk', w.worldX, w.worldY - 1, 1); } else inv()[selIndex()] = ['mbk', 1, 0, {}]; }
+            sndAt('cow' + ((Math.random() * 4 | 0) + 1), m.x, m.y - 1);
+            hud.dirty = true;
+            return true;
+        }
+        const a = D.mobs[m.type];
+        if (a && a.breedItems && a.breedItems[id]) {
+            if (mpGuest()) { if (!(Number(m.babyTimer) > 0) && !canBreed(m)) return false; mpSend({ tipo: 'juego_cria', id: mid, it: id }); hearts(m, 4); reduceSelected(1); return true; }
+            if (feedMob(mid, id)) { reduceSelected(1); return true; }
+        }
+        return false;
+    }
+
+    // ---------------------------------------------------------------- 🛶 balsas y 🚃 vagonetas (aproximado)
+    function vStore(kind, create) {
+        const n = kind === 'cart' ? 'carts' : 'rafts';
+        let o = mbwom[n];
+        if (!o || typeof o !== 'object') { if (!create) return null; o = {}; mbwom[n] = o; mbwom.world[n + (mbwom.currentScene || 1)] = o; }
+        return o;
+    }
+    function vPos(kind, d) { return kind === 'cart' ? { x: Number(d.x), y: Number(d.y) } : { x: Number(d[1]), y: Number(d[2]) }; }
+    function vSet(kind, d, x, y) { if (kind === 'cart') { d.x = x; d.y = y; } else { d[1] = x; d[2] = y; } }
+    function vehicleUnderMouse(mw) {
+        let best = null;
+        ['cart', 'raft'].forEach(function (kind) {
+            const o = vStore(kind, false); if (!o) return;
+            Object.keys(o).forEach(function (id) {
+                const d = o[id]; if (!d || typeof d !== 'object') return;
+                const p = vPos(kind, d), h = -p.y;
+                if (Math.abs(mw.x - p.x) <= .75 && mw.y >= h - .1 && mw.y <= h + 1) best = { kind: kind, id: id, d: d };
+            });
+        });
+        return best;
+    }
+    const isRail = (t) => typeof t === 'string' && t.slice(0, 4) === 'rail';
+    function placeVehicle(id, bx, by) {
+        const w = W();
+        if (id === 'raft') {
+            if (!isWet(fg(bx, by))) return false;
+            let top = by; while (isWet(fg(bx, top + 1))) top++;
+            const rid = 'raft' + (1e9 * Math.random() | 0);
+            vStore('raft', true)[rid] = [rid, bx + .5, -(top + .85), 0, 0, null];
+            reduceSelected(1);
+            mount('raft', rid);
+            return true;
+        }
+        if (id.slice(0, 4) === 'cart' && isRail(fg(bx, by))) {
+            const cid = 'cart' + (1e9 * Math.random() | 0);
+            const kind = { cart: '', cartchest: 'chest', cartoven: 'oven', cartTNT: 'TNT' }[id];
+            vStore('cart', true)[cid] = { x: bx + .5, y: -by, onRail: 1, speedX: 0, speedY: 0, type: kind || '', id: cid, health: 3, tilt: 0, onActivator: false, riddenBy: null };
+            reduceSelected(1);
+            sndAt('stone', bx + .5, -by);
+            return true;
+        }
+        return false;
+    }
+    function mount(kind, id) {
+        const o = vStore(kind, false), d = o && o[id]; if (!d) return false;
+        if (kind === 'cart' && d.type) return false;                       // (con cofre, horno o TNT no se puede subir)
+        S.ride = { kind: kind, id: id, vs: 0 };
+        W().riding = id;
+        if (kind === 'cart') d.riddenBy = 'player'; else d[5] = 'player';
+        return true;
+    }
+    function dismount() {
+        const r = S.ride; S.ride = null;
+        const w = W(); w.riding = '';
+        if (!r) return;
+        const o = vStore(r.kind, false), d = o && o[r.id];
+        if (d) { if (r.kind === 'cart') d.riddenBy = null; else d[5] = null; const p = vPos(r.kind, d); w.worldX = p.x; w.worldY = p.y - 1; }
+        w.xSpeed = 0; w.ySpeed = 0;
+        if (S.p) S.p.wasFallingSpeed = 0;
+    }
+    function breakVehicle(v) {
+        const o = vStore(v.kind, false); if (!o) return;
+        const p = vPos(v.kind, v.d);
+        if (S.ride && S.ride.id === v.id) dismount();
+        delete o[v.id];
+        if (W().gamemode != 1) {
+            if (v.kind === 'raft') addDrop('raft', p.x, p.y - .5, 1);
+            else addDrop(v.d.type ? 'cart' + v.d.type : 'cart', p.x, p.y - .5, 1);
+        }
+        sndAt('wood', p.x, p.y);
+    }
+    const vSolid = (x, y) => { const t = fg(x, y); return t !== 'air' && bd(t, 'walkThroughBlock') != 1 && bd(t, 'liquid') == null && !isRail(t); };
+    function tickVehicles() {
+        ['raft', 'cart'].forEach(function (kind) {
+            const o = vStore(kind, false); if (!o) return;
+            Object.keys(o).forEach(function (id) {
+                const d = o[id]; if (!d || typeof d !== 'object') return;
+                const p = vPos(kind, d);
+                if (simFar(p.x)) return;
+                const riding = !!(S.ride && S.ride.id === id);
+                const inp = riding ? (key2('right') ? 1 : 0) - (key2('left') ? 1 : 0) : 0;
+                let x = p.x, h = -p.y, vx = kind === 'cart' ? (Number(d.speedX) || 0) : (Number(d[4]) || 0), vs = kind === 'cart' ? (Number(d.speedY) || 0) : (Number(d[3]) || 0);
+                const bx = Math.floor(x);
+                if (kind === 'raft') {
+                    const row = Math.floor(h - .3);
+                    if (isWet(fg(bx, row)) || isWet(fg(bx, row + 1))) {
+                        let top = row; while (isWet(fg(bx, top + 1)) && top < row + 20) top++;
+                        h += ((top + .85) - h) * .2; vs = 0;
+                        vx = vx * .96 + inp * .01; vx = Math.max(-.2, Math.min(.2, vx));
+                    } else {
+                        vs = Math.min(.6, vs + .02); h -= vs;
+                        if (vSolid(bx, Math.floor(h))) { h = Math.floor(h) + 1; vs = 0; }
+                        vx = vx * .6 + inp * .004;
+                    }
+                } else {
+                    const ry = Math.floor(h + .05);
+                    const t = fg(bx, ry);
+                    if (isRail(t)) {
+                        vs = 0; h = ry;
+                        vx = vx * .996 + inp * .006;
+                        if (t === 'railp') {
+                            const sig = mbwom.hasSignal && mbwom.hasSignal[key(bx, ry)], on = Array.isArray(sig) ? Number(sig[0]) > 0 : !!sig;
+                            if (on) { if (Math.abs(vx) < .02) vx = (vx >= 0 ? 1 : -1) * .05 * (inp || (vx >= 0 ? 1 : -1)); vx += (vx >= 0 ? 1 : -1) * .02; }
+                            else vx *= .8;
+                        }
+                        if (t === 'raila' && riding && Math.abs(vx) > .01) { const sig = mbwom.hasSignal && mbwom.hasSignal[key(bx, ry)]; if (Array.isArray(sig) ? Number(sig[0]) > 0 : !!sig) dismount(); }
+                        vx = Math.max(-.3, Math.min(.3, vx));
+                        // siguiente cuadro: riel igual, un escalón arriba o uno abajo
+                        const nx = x + vx, nbx = Math.floor(nx);
+                        if (nbx !== bx) {
+                            if (isRail(fg(nbx, ry))) { /* sigue */ }
+                            else if (isRail(fg(nbx, ry + 1)) && !vSolid(bx, ry + 1)) h = ry + 1;
+                            else if (isRail(fg(nbx, ry - 1))) h = ry - 1;
+                            else if (vSolid(nbx, ry)) vx = -vx * .3;
+                        }
+                    } else {
+                        vs = Math.min(.6, vs + .02); h -= vs;
+                        if (vSolid(bx, Math.floor(h)) || isRail(fg(bx, Math.floor(h)))) { h = Math.floor(h) + (isRail(fg(bx, Math.floor(h))) ? 0 : 1); vs = 0; }
+                        vx = vx * .85 + inp * .003;
+                    }
+                }
+                // choque con un bloque sólido
+                const nx = x + vx;
+                if (vSolid(Math.floor(nx + (vx > 0 ? .5 : -.5)), Math.floor(h + .2)) && !(kind === 'cart' && isRail(fg(Math.floor(nx), Math.floor(h + .05))))) vx = 0;
+                else x = nx;
+                vSet(kind, d, x, -h);
+                if (kind === 'cart') { d.speedX = vx; d.speedY = vs; d.onRail = isRail(fg(Math.floor(x), Math.floor(h + .05))) ? 1 : 0; }
+                else { d[4] = vx; d[3] = vs; }
+            });
+        });
+        // el que va subido se mueve con la balsa / vagoneta
+        if (S.ride) {
+            const o = vStore(S.ride.kind, false), d = o && o[S.ride.id];
+            if (!d) { dismount(); return; }
+            const w = W(), p = vPos(S.ride.kind, d);
+            w.worldX = p.x; w.worldY = p.y - (S.ride.kind === 'cart' ? .35 : .25); w.xSpeed = 0; w.ySpeed = 0;
+            if (S.p) { S.p.wasFallingSpeed = 0; S.p.falling = false; }
+            if (key2('down')) dismount();                                      // (agacharse = bajarse)
+        }
+    }
+    window.mbwPlay.life = { brewTick: function () { tickBrewing(); }, cropTick: function () { const t = S.tick; S.tick = DAY_TICKS * 3 + 7; tickCrops(); S.tick = t; }, fireTick: function () { const t = S.tick; S.tick = 29; tickFire(); S.tick = t; }, bob: function () { return S.bob; }, sleeping: function () { return !!S.sleep; }, fires: function () { return S.fires; } };   // (lo usan las pruebas)
+    window.mbwPlay.ride = function () { return S.ride ? { kind: S.ride.kind, id: S.ride.id } : null; };
+    window.mbwPlay.placeVehicle = placeVehicle;
+
+    // ---------------------------------------------------------------- 🥛 tomar leche: quita los efectos y deja la cubeta
+    function drinkMilk() {
+        const w = W();
+        w.effects = {};
+        snd('drink' + ((Math.random() * 2 | 0) + 1));
+        if (w.gamemode != 1) inv()[selIndex()] = ['bk', 1, 0, {}];
+        hud.dirty = true;
+    }
+
+    // ---------------------------------------------------------------- todo lo de arriba, cada paso
+    function tickLife() {
+        tickTime();
+        tickSleep();
+        tickCrops();
+        tickFire();
+        tickBobber();
+        tickVehicles();
+    }
+    // lo que se usa con clic derecho (una vez por clic). true = se usó
+    function useItemLife(mw, bx, by) {
+        const id = selType();
+        if (id === 'fas') return useFlint(mw, bx, by);
+        if (id === 'fr') return useRod(mw);
+        if (blockDist(bx, by) > REACH + 1) return false;
+        if (/Hoe$/.test(id)) return useHoe(bx, by);
+        if (id === 'bonem') { if (useBonemeal(bx, by)) { reduceSelected(1); return true; } return false; }
+        if (id === 'raft' || id.slice(0, 4) === 'cart') return placeVehicle(id, bx, by);
+        return false;
+    }
+
     // ------------------------------------------------------------------ paso del juego
     function step() {
         S.tick++;
@@ -2275,7 +2842,8 @@
         intervals();
         deathCheck();
         if (modalOpen()) { S.keys = {}; S.mouse.left = S.mouse.right = S.mouse.leftEdge = S.mouse.rightEdge = false; S.mine = null; }
-        if (!(w.dead > 0)) { mineAndPlace(); doPlayerLogic(); }
+        if (!(w.dead > 0)) { mineAndPlace(); if (!S.ride && !S.sleep) doPlayerLogic(); }
+        tickLife();
         if (S.spect) spectFollow();
         if (S.ench && (fg(S.ench.x, S.ench.y) !== 'enchant' || Math.pow(S.ench.x + .5 - w.worldX, 2) + Math.pow(-S.ench.y - .5 - w.worldY, 2) > 36)) closeEnchant();   // (lejos o la rompieron)
         // 🌀 portales: el del Nether (bloque "portal") y el del End (marco del portal encendido, estado 2). Como el juego, se cambia
@@ -2317,6 +2885,7 @@
             if (!m || !m.type) continue;
             if (m.mbweSp && S.tick % 2 === 0 && despawnCheck(id, m, S.plPos || (S.plPos = allPlPos()))) continue;   // 👻 lejos de todos: desaparece
             if (simFar(m.x, MOB_SIM)) continue;                                  // lejos: quieto (como el juego fuera de pantalla)
+            if (S.tick % 10 === 0) tmpOf(id).far = simFar(m.x, 24);
             try { mobTick(id, m); } catch (e) { if (!S.mobErr) { S.mobErr = true; console.warn('play mob', e); } }
         }
         if (S.msgT > 0) S.msgT--;
@@ -2890,6 +3459,7 @@
         });
         S.arrows.forEach(function (r) { const p = toScreen(r.x, r.y); const a = Math.atan2(r.vy, r.vx); c2.beginPath(); c2.moveTo(p.x, p.y); c2.lineTo(p.x - Math.cos(a) * tileSize * .6, p.y - Math.sin(a) * tileSize * .6); c2.stroke(); });
         drawParticles(c2);
+        drawBobber(c2);
         drawBars(c2);
         if (S.mine && S.mine.total > 1) {                       // grietas del bloque que se pica
             const k = 1 - S.mine.left / S.mine.total;
@@ -2908,6 +3478,7 @@
             c2.strokeRect(p.x + 1, p.y - tileSize + 1, tileSize - 2, tileSize - 2);
         }
         const w = W();
+        if (S.sleep) { c2.fillStyle = 'rgba(0,0,10,' + Math.min(.92, S.sleep.t / (2.5 * FPS)) + ')'; c2.fillRect(0, 0, canvas.width, canvas.height); }   // 🛏 durmiendo
         if ((S.p && S.p.hurt > 0 && OPTS.effects !== false) || w.dead > 0) { c2.fillStyle = w.dead > 0 ? 'rgba(140,0,0,.35)' : 'rgba(255,0,0,.12)'; c2.fillRect(0, 0, canvas.width, canvas.height); }
         c2.restore();
         if (S.p && S.p.hurt > 0) S.p.hurt--;
@@ -3091,7 +3662,9 @@
         kill: ['', 'Die'], heal: ['', 'Full health'], gamemode: ['survival|creative|adventure|spectator', 'Change game mode'],
         gamerule: ['rule true|false', 'Change a game rule'], home: ['[set]', 'Go to (or set) the spawn point'], explode: ['size [~]x [~]y', 'Explosion'],
         say: ['message', 'Write in the chat'], time: ['get|set <t|day|night>', 'Time of day'], weather: ['get|set <clear|rain|thunder>', 'Weather'],
-        difficulty: ['peaceful|easy|normal|hard', 'Difficulty'], xp: ['[add] value[L]', 'Experience (L = levels)'], help: ['', 'List of commands'], cls: ['', 'Clear the chat']
+        difficulty: ['peaceful|easy|normal|hard', 'Difficulty'], xp: ['[add] value[L]', 'Experience (L = levels)'], help: ['', 'List of commands'], cls: ['', 'Clear the chat'],
+        kick: ['@player', 'Kick a player (host)'], ban: ['@player', 'Ban a player from this world (host)'], unban: ['player', 'Let a banned player join again (host)'],
+        banlist: ['', 'Who is banned (host)'], mute: ['@player', 'Mute a player in the chat (host)'], unmute: ['@player', 'Unmute a player (host)']
     };
     const GAMERULES = ['keepinventory', 'mobgriefing', 'dodaylightcycle', 'dofiretick', 'passivemobs', 'domobloot', 'sendcommandfeedback'];
     function argOptions(cmd, i, prev) {                               // lo que puede ir en la parte i (1 = la primera después del comando)
@@ -3109,7 +3682,8 @@
                 if (i === 1) return ['~', 'dimension'].concat(playerTags());
                 return ['~'];
             }
-            case 'spectate': return i === 1 ? playerTags() : null;
+            case 'spectate': case 'kick': case 'ban': case 'mute': case 'unmute': return i === 1 ? playerTags() : null;
+            case 'unban': return i === 1 ? (typeof window.mpBanList === 'function' ? window.mpBanList().map(function (b) { return b.name; }) : []) : null;
             case 'clone': case 'explode': return (cmd === 'explode' ? i >= 2 : true) ? ['~'] : null;
             case 'gamemode': return i === 1 ? ['survival', 'creative', 'adventure', 'spectator'] : null;
             case 'gamerule': return i === 1 ? GAMERULES : i === 2 ? ['true', 'false'] : null;
@@ -3245,7 +3819,9 @@
             if (t) {
                 if (this.hist[this.hist.length - 1] !== t) this.hist.push(t);
                 if (this.hist.length > 30) this.hist.shift();
-                if (S.mp && t[0] !== '/' && t[0] !== '\\') {
+                if (S.mp && t[0] !== '/' && t[0] !== '\\' && typeof window.mpAmMuted === 'function' && window.mpAmMuted()) {
+                    say('[INFO] ' + tr('mp_you_muted', 'The host muted you: your messages are not sent.'));   // 🔇
+                } else if (S.mp && t[0] !== '/' && t[0] !== '\\') {
                     // 🎮 en una partida, lo que no es comando es un mensaje para los demás (también sale en el chat de la sala)
                     const me = myNameNet();
                     say('<' + me + '> ' + t);
@@ -3483,7 +4059,7 @@
         // arena y grava cerca: se revisan para que caigan si no tienen nada abajo
         const x0 = Math.max(0, Math.floor(px) - 60), x1 = Math.floor(px) + 60;
         for (let x = x0; x <= x1; x++) { const col = mbwom.scene[x]; if (!col) continue; for (let y = 0; y < col.length; y++) if (col[y] === 'sd' || col[y] === 'gv') S.sandCheck.set(x + ',' + y, 2); }
-        S.playing = true; S.mp = mpMode; S.openBoxAt = null;
+        S.playing = true; S.mp = mpMode; S.openBoxAt = null; S.ride = null; S.bob = null; S.sleep = null; S.fires = new Set();
         window.mbwPlaying = true;
         document.body.classList.add('mbw-playing');
         // el bloque Barrier no se ve jugando: si el mundo tiene alguno, el dibujo del mundo se rehace sin ellos

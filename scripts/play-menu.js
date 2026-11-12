@@ -200,9 +200,24 @@
         if (!inRoom.length) box.appendChild(el('div', 'pm-pl-note', tr('pm_nobody_in', 'Nobody else is in your world.')));
         inRoom.forEach(function (q) {
             const r = el('div', 'pm-prow'); r.appendChild(el('span', 'pm-pl-name', String(q.name || q.username || 'Player')));
-            const b = btn(tr('pm_kick', 'Kick'), 'pm-mini pm-kick', function () { if (typeof window.kickPlayer === 'function') window.kickPlayer(q.uid, String(q.name || q.username || 'Player')); setTimeout(function () { show(page); }, 900); });
-            r.appendChild(b); box.appendChild(r);
+            const nm = String(q.name || q.username || 'Player');
+            const b = btn(tr('pm_kick', 'Kick'), 'pm-mini pm-kick', function () { if (typeof window.kickPlayer === 'function') window.kickPlayer(q.uid, nm); setTimeout(function () { show(page); }, 900); });
+            const bb = btn(tr('pm_ban', 'Ban'), 'pm-mini pm-ban', function () { if (typeof window.banPlayer === 'function') window.banPlayer(q.uid, nm); setTimeout(function () { show(page); }, 900); });
+            const muted = typeof window.mpIsMuted === 'function' && window.mpIsMuted(q.uid);
+            const bm = btn(muted ? tr('pm_unmute', 'Unmute') : tr('pm_mute', 'Mute'), 'pm-mini pm-mute' + (muted ? ' on' : ''), function () { if (typeof window.mutePlayer === 'function') window.mutePlayer(q.uid, nm); show(page); });
+            if (muted) r.appendChild(el('span', 'pm-pl-tag', '🔇'));
+            r.appendChild(bm); r.appendChild(b); r.appendChild(bb); box.appendChild(r);
         });
+        // 🚫 baneados de este mundo (se pueden desbanear)
+        const banned = typeof window.mpBanList === 'function' ? window.mpBanList() : [];
+        if (banned.length) {
+            box.appendChild(el('div', 'pm-sub', tr('pm_banned', 'Banned')));
+            banned.forEach(function (bq) {
+                const r = el('div', 'pm-prow'); r.appendChild(el('span', 'pm-pl-name', bq.name));
+                r.appendChild(btn(tr('pm_unban', 'Unban'), 'pm-mini pm-unban', function () { if (typeof window.mpUnban === 'function') window.mpUnban(bq.uid); show(page); }));
+                box.appendChild(r);
+            });
+        }
         const users = window.lastKnownUsers || {};
         const friends = (typeof misAmigosConfirmados !== 'undefined' && Array.isArray(misAmigosConfirmados)) ? misAmigosConfirmados : [];
         const inSet = new Set(inRoom.map(function (q) { return q.uid; }));

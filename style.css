@@ -3513,6 +3513,14 @@ body.is-touch #mbw-play-hud .ph-area .ph-gear { width: 48px; height: 48px; font-
 .pm-btn.pm-mini { width: auto; padding: 4px 10px; font-size: 13px; flex: 0 0 auto; }
 .pm-btn.pm-kick { background: #b33a2e; }
 .pm-btn.pm-inv { background: #7b4fb0; }
+.pm-btn.pm-ban { background: #7a160c; }
+.pm-btn.pm-mute { background: #c0630f; }
+.pm-btn.pm-mute.on, .pm-btn.pm-unban { background: #3d7a3a; }
+.pm-prow .pm-pl-tag { flex: 0 0 auto; }
+.pm-prow .pm-pl-name { flex: 1 1 auto; min-width: 0; }
+/* 📡 se cayó la conexión: reconectando (scripts/mp-mod.js) */
+.mp-reconnect-banner { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 100050; background: rgba(20, 20, 20, .88); color: #ffd54a; border: 2px solid #ffd54a; border-radius: 8px; padding: 8px 16px; font: 600 15px Arial, sans-serif; pointer-events: none; max-width: calc(100vw - 32px); text-align: center; animation: mpRcPulse 1.4s ease-in-out infinite; }
+@keyframes mpRcPulse { 50% { opacity: .65; } }
 .pm-btn.pm-inv:disabled { background: #555; cursor: default; }
 
 /* 👥 mini chat: grupos, avisos del sistema, 📌 y 🧵 */
@@ -3537,31 +3545,6 @@ body.mbw-playing.is-touch #mini-chat { bottom: 250px; }
 .pinv-craft-arrow { font-size: 24px; }
 .pinv-craft-out { outline: 2px solid rgba(255, 215, 0, .55); outline-offset: 1px; }
 
-/* ==========================================================================
-   🎒 ▶ Modo Jugar: el inventario como en el juego (fondo blanco redondeado, letra de píxeles, grupos de casillas con marco oscuro)
-   ========================================================================== */
-#inventory-modal.pinv-game .inv-modal-window { background: #fff; border-radius: 22px; border: 0; box-shadow: 0 10px 40px rgba(0,0,0,.55); overflow: hidden; }
-#inventory-modal.pinv-game .inv-modal-header { background: #fff; border: 0; padding: 6px 12px 0; min-height: 0; }
-#inventory-modal.pinv-game #inventory-modal-title { font: 26px/1 'Pixeltype', 'RainyHearts', monospace; color: #2b2b2b; font-weight: normal; }
-#inventory-modal.pinv-game .btn-close-large { color: #555; }
-#inventory-modal.pinv-game .pinv-panel { background: #fff; padding: 6px 18px 18px; width: auto; flex: 0 0 auto; }
-#inventory-modal.pinv-game .pinv-label { font: 26px/1 'Pixeltype', 'RainyHearts', monospace; font-weight: normal; color: #2b2b2b; margin: 0 0 6px 2px; letter-spacing: .5px; }
-#inventory-modal.pinv-game .pinv-grid, #inventory-modal.pinv-game .pinv-armor, #inventory-modal.pinv-game .pinv-craft-grid { gap: 3px; padding: 3px; background: #3a3a3a; border-radius: 2px; justify-content: start; width: max-content; }
-#inventory-modal.pinv-game .pinv-slot { background: #8b8b8b; border: 3px solid; border-color: #6e6e6e #b2b2b2 #b2b2b2 #6e6e6e; }
-#inventory-modal.pinv-game .pinv-slot:hover { background: #a2a2a2; }
-#inventory-modal.pinv-game .pinv-hotbar { margin-top: 12px; }
-#inventory-modal.pinv-game .pinv-hcell .pinv-bar { display: none; }
-#inventory-modal.pinv-game .pinv-hcell.sel .pinv-slot { box-shadow: inset 0 0 0 3px #fff; }
-#inventory-modal.pinv-game .pinv-top { align-items: flex-end; justify-content: flex-start; gap: 14px; margin-bottom: 14px; }
-#inventory-modal.pinv-game .pinv-armor { flex-direction: column; }
-#inventory-modal.pinv-game .pinv-skin { width: 160px; height: 220px; image-rendering: pixelated; align-self: flex-end; margin: 0 8px 4px 0; background: radial-gradient(ellipse at 50% 92%, rgba(0,0,0,.18), rgba(0,0,0,0) 60%); }
-#inventory-modal.pinv-game .pinv-top #pinv-craft-box { margin: 0 0 0 auto; padding: 0; border: 0; }
-#inventory-modal.pinv-game .pinv-chest-box { border-bottom: 0; }
-#inventory-modal.pinv-game .pinv-craft { justify-content: flex-start; gap: 14px; }
-#inventory-modal.pinv-game .pinv-craft-arrow { font-size: 0; width: 30px; height: 22px; background: #8b8b8b; clip-path: polygon(0 32%, 55% 32%, 55% 0, 100% 50%, 55% 100%, 55% 68%, 0 68%); }
-#inventory-modal.pinv-game .pinv-craft-out { outline: 0; transform: scale(1.12); }
-#inventory-modal.pinv-game .pinv-craft-out .pinv-slot, #inventory-modal.pinv-game .pinv-slot.pinv-craft-out { border: 4px solid #3a3a3a; }
-#inventory-modal.pinv-game .pinv-f-fire, #inventory-modal.pinv-game .pinv-f-arrow { filter: grayscale(.2); }
 /* 🖱 arrastrar para repartir: las casillas por las que pasa */
 .pinv-slot.pinv-drag { background: #b8d7ff !important; }
 body.pinv-holding .pinv-slot { touch-action: none; }
@@ -3579,12 +3562,85 @@ body.pinv-holding .pinv-slot { touch-action: none; }
 .pinv-book .pinv-book-no canvas { opacity: .45; }
 .pinv-book-empty { grid-column: 1 / -1; font-size: 13px; color: #666; padding: 6px 2px; }
 body.pinv-book-open #inventory-modal .inv-main-columns { flex-direction: row; }
-@media (max-height: 560px) {
-  #inventory-modal.pinv-game .pinv-panel { --ps: min(46px, calc((100vh - 100px) / 9.4)); padding: 4px 10px 8px; }
-  #inventory-modal.pinv-game .pinv-label { font-size: 18px; margin-bottom: 3px; }
-  #inventory-modal.pinv-game .pinv-top { margin-bottom: 6px; gap: 8px; }
-  #inventory-modal.pinv-game .pinv-hotbar { margin-top: 6px; }
-  #inventory-modal.pinv-game .pinv-skin { width: calc(var(--ps) * 1.7); height: calc(var(--ps) * 2.34); }
-  #inventory-modal.pinv-game #inventory-modal-title { font-size: 18px; }
-  .pinv-book { --ps: min(44px, calc((100vh - 100px) / 7)); }
+
+
+/* ==========================================================================
+   🎒 EL INVENTARIO COMO EN MINE BLOCKS (jugando y en el editor; también cofres, dispensers, droppers, hornos y la mesa)
+   Gris claro con bordes en relieve, casillas juntas, la armadura en columna, la skin en un cuadro negro, el crafteo a la
+   derecha con el libro verde debajo. 4 filas + la hotbar. El tamaño de las casillas (--s) se ajusta para que TODO quepa
+   en la pantalla (también en el celular acostado).
+   ========================================================================== */
+#inventory-modal.pinv-mb .inv-modal-window { --s: clamp(22px, min(52px, calc((100vh - 64px) / 10.2), calc((100vw - 36px) / 9.4)), 52px); --ps: var(--s);
+  background: #c6c6c6; color: #3f3f3f; border: 3px solid #000; border-radius: 7px; box-shadow: inset 3px 3px 0 #fff, inset -3px -3px 0 #555, 0 10px 40px rgba(0,0,0,.55); overflow: hidden; max-height: calc(100vh - 6px); max-width: calc(100vw - 6px); }
+#inventory-modal.pinv-mb .inv-modal-header { background: transparent; border: 0; padding: 5px 8px 0 12px; min-height: 0; }
+#inventory-modal.pinv-mb #inventory-modal-title { font: calc(var(--s) * .52)/1 'Pixeltype', 'RainyHearts', monospace; font-weight: normal; color: #3f3f3f; }
+#inventory-modal.pinv-mb .btn-close-large { color: #3f3f3f; font-size: calc(var(--s) * .62); line-height: 1; }
+#inventory-modal.pinv-mb #pinv-creative-btn { font-size: 12px; padding: 3px 8px; }
+/* jugando, el inventario solo: sin título (la × queda en la esquina) */
+#inventory-modal.pinv-mb.pinv-game.pinv-mb-plain .inv-modal-window { position: absolute; }
+#inventory-modal.pinv-mb.pinv-game.pinv-mb-plain .inv-modal-header { position: absolute; top: 2px; right: 4px; padding: 0; z-index: 2; }
+#inventory-modal.pinv-mb.pinv-game.pinv-mb-plain #inventory-modal-title { display: none; }
+#inventory-modal.pinv-mb .pinv-panel { background: transparent; color: #3f3f3f; width: auto; flex: 0 0 auto; padding: calc(var(--s) * .22) calc(var(--s) * .3) calc(var(--s) * .3); }
+#inventory-modal.pinv-mb .pinv-label { font: calc(var(--s) * .5)/1 'Pixeltype', 'RainyHearts', monospace; font-weight: normal; color: #3f3f3f; margin: 0 0 calc(var(--s) * .08) 1px; letter-spacing: .3px; }
+#inventory-modal.pinv-mb.pinv-mb-plain .pinv-top > div > .pinv-label:not(#pinv-craft-label), #inventory-modal.pinv-mb.pinv-mb-plain #player-inv-panel > .pinv-label { display: none; }
+/* las casillas */
+#inventory-modal.pinv-mb .pinv-grid { display: grid; grid-template-columns: repeat(9, var(--s)); gap: 0; padding: 0; background: none; justify-content: start; width: max-content; }
+#inventory-modal.pinv-mb .pinv-slot { width: var(--s); height: var(--s); box-sizing: border-box; background: #8b8b8b; border: max(2px, calc(var(--s) * .055)) solid; border-color: #373737 #fff #fff #373737; border-radius: 0; box-shadow: none; }
+#inventory-modal.pinv-mb .pinv-slot:hover { background: #a3a3a3; }
+#inventory-modal.pinv-mb .pinv-slot canvas { width: calc(var(--s) * .74); height: calc(var(--s) * .74); }
+#inventory-modal.pinv-mb .pinv-count { font: calc(var(--s) * .44)/1 'Pixeltype', 'RainyHearts', monospace; right: 1px; bottom: 0; text-shadow: 1px 1px 0 #3f3f3f, 2px 2px 0 #000; }
+#inventory-modal.pinv-mb .pinv-slot .pinv-ghost.pinv-ghost-line { filter: none; opacity: 1; }
+#inventory-modal.pinv-mb .pinv-hotbar { margin-top: calc(var(--s) * .3); }
+#inventory-modal.pinv-mb .pinv-hcell .pinv-bar { height: 3px; margin: 0 2px 1px; }
+#inventory-modal.pinv-mb.pinv-game .pinv-hcell .pinv-bar { display: none; }
+#inventory-modal.pinv-mb .pinv-hcell.sel .pinv-slot { box-shadow: inset 0 0 0 max(2px, calc(var(--s) * .07)) #fff; }
+/* arriba: armadura (columna) · skin (cuadro negro) · crafteo */
+#inventory-modal.pinv-mb .pinv-top { display: flex; align-items: flex-start; justify-content: flex-start; gap: 0; margin-bottom: calc(var(--s) * .32); }
+#inventory-modal.pinv-mb .pinv-armor { display: flex; flex-direction: column; gap: 0; padding: 0; background: none; }
+#inventory-modal.pinv-mb .pinv-skin { width: calc(var(--s) * 2.9); height: calc(var(--s) * 4); background: #000; image-rendering: pixelated; margin: 0; align-self: flex-start; flex: 0 0 auto; }
+#inventory-modal.pinv-mb .pinv-top #pinv-craft-box { margin: 0 0 0 auto; padding: 0 0 0 calc(var(--s) * .4); border: 0; }
+#inventory-modal.pinv-mb #pinv-craft-box .pinv-label { margin-bottom: calc(var(--s) * .14); }
+#inventory-modal.pinv-mb .pinv-craft { display: flex; align-items: center; justify-content: flex-start; gap: calc(var(--s) * .32); }
+#inventory-modal.pinv-mb .pinv-craft-grid { display: grid; grid-template-columns: repeat(2, var(--s)); gap: 0; padding: 0; background: none; }
+#inventory-modal.pinv-mb .pinv-craft.pinv-craft-3 .pinv-craft-grid { grid-template-columns: repeat(3, var(--s)); }
+#inventory-modal.pinv-mb .pinv-craft-arrow { font-size: 0; width: calc(var(--s) * .72); height: calc(var(--s) * .52); background: #8b8b8b; clip-path: polygon(0 32%, 55% 32%, 55% 0, 100% 50%, 55% 100%, 55% 68%, 0 68%); filter: none; }
+#inventory-modal.pinv-mb .pinv-craft-out { outline: 0; transform: none; }
+#inventory-modal.pinv-mb .pinv-slot.pinv-craft-out { width: calc(var(--s) * 1.12); height: calc(var(--s) * 1.12); }
+#inventory-modal.pinv-mb .pinv-craft-extra { display: flex; justify-content: space-between; align-items: center; margin-top: calc(var(--s) * .22); }
+#inventory-modal.pinv-mb .pinv-craft-extra #pinv-trash .pinv-slot { width: var(--s); height: var(--s); }
+#inventory-modal.pinv-mb .pinv-trash-icon { font-size: calc(var(--s) * .5); }
+.pinv-book-btn { width: var(--s, 40px); height: var(--s, 40px); box-sizing: border-box; padding: calc(var(--s, 40px) * .1); margin: 0 0 0 calc(var(--s, 40px) * .5); background: #c6c6c6; border: max(2px, calc(var(--s, 40px) * .06)) solid; border-color: #fff #555 #555 #fff; outline: 1px solid #000; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.pinv-book-btn svg { width: 100%; height: 100%; display: block; }
+.pinv-book-btn:hover { background: #d6d6d6; }
+.pinv-book-btn.on { border-color: #555 #fff #fff #555; background: #b4b4b4; }
+/* la mesa de crafteo (3×3), cofres, dispensers, droppers y hornos */
+#inventory-modal.pinv-mb #player-inv-panel > #pinv-craft-box { margin: 0 0 calc(var(--s) * .3); padding: 0; border: 0; }
+#inventory-modal.pinv-mb #player-inv-panel > #pinv-craft-box .pinv-craft { justify-content: center; }
+#inventory-modal.pinv-mb #player-inv-panel > #pinv-craft-box .pinv-craft-extra { justify-content: flex-start; }
+#inventory-modal.pinv-mb #player-inv-panel > #pinv-craft-box .pinv-book-btn { margin: 0; }
+#inventory-modal.pinv-mb .pinv-chest-box { border: 0; margin: 0 0 calc(var(--s) * .3); padding: 0; }
+#inventory-modal.pinv-mb #pinv-chest.pinv-grid-3 { grid-template-columns: repeat(3, var(--s)); margin: 0 auto; }
+#inventory-modal.pinv-mb .pinv-furnace { gap: calc(var(--s) * .5); }
+#inventory-modal.pinv-mb .pinv-f-fire, #inventory-modal.pinv-mb .pinv-f-arrow:not(.pinv-craft-arrow) { font-size: calc(var(--s) * .5); }
+#inventory-modal.pinv-mb .pinv-fuel-box { background: transparent; border-right: max(2px, calc(var(--s) * .06)) solid #8b8b8b; }
+#inventory-modal.pinv-mb .pinv-fuel-grid { grid-template-columns: repeat(3, var(--s)); }
+#inventory-modal.pinv-mb .pinv-book { --ps: var(--s); background: transparent; border-right: max(2px, calc(var(--s) * .06)) solid #8b8b8b; max-height: calc(100vh - 20px); }
+#inventory-modal.pinv-mb .pinv-book .pinv-label { font-size: calc(var(--s) * .5); }
+#inventory-modal.pinv-mb .pinv-book-q { border: 2px solid #373737; border-radius: 0; background: #e2e2e2; }
+#inventory-modal.pinv-mb .pinv-book .pinv-slot { border-color: #373737 #fff #fff #373737; }
+/* recetario abierto: un poco más chicas las casillas para que quepa al lado */
+body.pinv-book-open #inventory-modal.pinv-mb .inv-modal-window { --s: clamp(22px, min(50px, calc((100vh - 64px) / 10.2), calc((100vw - 60px) / 13)), 50px); }
+/* celular acostado: el cofre / horno a la izquierda y el inventario a la derecha */
+@media (max-height: 520px) {
+  body.pinv-chest-open #inventory-modal.pinv-mb .inv-modal-window, body.pinv-furnace-open #inventory-modal.pinv-mb .inv-modal-window { --s: clamp(20px, min(46px, calc((100vw - 64px) / 19), calc((100vh - 70px) / 5.9)), 46px); }
+  body.pinv-chest-open #inventory-modal.pinv-mb #pinv-chest-box, body.pinv-furnace-open #inventory-modal.pinv-mb #pinv-furnace-box { padding-right: calc(var(--s) * .3); border-right: max(2px, calc(var(--s) * .06)) solid #8b8b8b; }
 }
+#inventory-modal.pinv-mb .pinv-f-arrow:not(.pinv-craft-arrow) { font-size: 0; width: calc(var(--s) * .72); height: calc(var(--s) * .52); position: relative; }
+#inventory-modal.pinv-mb .pinv-f-arrow:not(.pinv-craft-arrow)::before { content: ''; position: absolute; inset: 0; background: #8b8b8b; clip-path: polygon(0 32%, 55% 32%, 55% 0, 100% 50%, 55% 100%, 55% 68%, 0 68%); }
+/* 🧪 soporte de pociones (scripts/player-inventory.js): ingrediente arriba, polvo de blaze a la izquierda, 3 botellas abajo */
+.pinv-brew { display: flex; flex-direction: column; align-items: center; gap: calc(var(--s, 48px) * .3); }
+.pinv-brew-top { display: flex; align-items: center; gap: calc(var(--s, 48px) * .5); }
+.pinv-brew-fuel { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.pinv-brew-fuelbar { display: block; height: 4px; background: #e8a33a; box-shadow: 0 0 0 1px rgba(0,0,0,.5); align-self: flex-start; max-width: var(--s, 48px); }
+.pinv-brew-bub { font-size: calc(var(--s, 48px) * .5); opacity: calc(.25 + var(--p, 0) * .75); filter: grayscale(calc(1 - var(--p, 0))); }
+.pinv-brew-bot { display: flex; gap: calc(var(--s, 48px) * .2); }

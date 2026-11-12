@@ -768,6 +768,7 @@ function getMobDrawInfo(mob, noFetch) {
         img = window.images[spriteKey];
     }
     if (isCustomSkin && img && img.hasFailed) img = window.images['spawnskin'];
+    if (Number(mob.babyTimer) > 0) { w *= 0.7; h *= 0.7; }   // 🐣 las crías se ven más chicas (como el juego: escala 0.7)
     return { w, h, img, isCustomSkin };
 }
 

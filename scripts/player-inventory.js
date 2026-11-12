@@ -159,6 +159,23 @@
   F_KEYS.forEach((k) => { if (!Array.isArray(f[k])) f[k] = ['air', 0, 0, {}]; });
   return f;
  }
+ // 🧪 Soporte de pociones: mbwom.toBrew["blockX{x}Y{y}"] = { input, fuel (polvo de blaze), output: [3 botellas], fuelUsed, brewTimer }
+ // Espacios: 0 = ingrediente, 1 = combustible, 2-4 = las 3 botellas
+ const isBrew = () => !!(st.furnace && st.furnace.kind === 'brew');
+ function brewData(create) {
+  if (!isBrew() || typeof mbwom === 'undefined' || !mbwom) return null;
+  let d = mbwom.toBrew;
+  if (!isObj(d)) { if (!create) return null; d = {}; mbwom.toBrew = d; if (mbwom.world && mbwom.currentScene !== undefined) mbwom.world['toBrew' + mbwom.currentScene] = d; }
+  let f = d[st.furnace.key];
+  if (!isObj(f)) { if (!create) return null; f = { input: ['air', 0, 0, {}], fuel: ['air', 0, 0, {}], output: [['air', 0, 0, {}], ['air', 0, 0, {}], ['air', 0, 0, {}]], fuelUsed: 0, brewTimer: 0 }; d[st.furnace.key] = f; }
+  if (!Array.isArray(f.input)) f.input = ['air', 0, 0, {}];
+  if (!Array.isArray(f.fuel)) f.fuel = ['air', 0, 0, {}];
+  if (!Array.isArray(f.output)) f.output = [];
+  while (f.output.length < 3) f.output.push(['air', 0, 0, {}]);
+  return f;
+ }
+ function brewGet(f, i) { return i === 0 ? f.input : i === 1 ? f.fuel : f.output[i - 2]; }
+ function brewPut(f, i, v) { if (i === 0) f.input = v; else if (i === 1) f.fuel = v; else f.output[i - 2] = v; }
  // cuántos espacios tiene lo que está abierto: cofre 27; dispenser / dropper 9 (cuadro de 3×3, como en el juego)
  const boxSlots = () => (st.chest && st.chest.kind === 'disp') ? 9 : CHEST_SLOTS;
  function chestList() {
@@ -185,6 +202,7 @@
  }
  function slotArr(a) {
   if (a.k === 'c') { const l = chestList(); return l ? l[a.i] : null; }
+  if (a.k === 'f' && isBrew()) { const f = brewData(true); return f ? brewGet(f, a.i) : null; }
   if (a.k === 'f') { const f = furnaceData(true); return f ? f[F_KEYS[a.i]] : null; }
   const w = world(); if (!w) return null; return ((a.k === 'a' ? w.armors : w.inventoryList) || [])[a.i];
  }
@@ -206,6 +224,7 @@
    if (l) l[a.i] = itemToArr(it, false, l[a.i]);
    return;
   }
+  if (a.k === 'f' && isBrew()) { const f = brewData(true); if (f) brewPut(f, a.i, itemToArr(it, false, brewGet(f, a.i))); return; }
   if (a.k === 'f') {
    const f = furnaceData(true);
    if (f) f[F_KEYS[a.i]] = itemToArr(it, false, f[F_KEYS[a.i]]);
@@ -358,12 +377,29 @@
    c.width = 48; c.height = 48;
    c.className = 'pinv-ghost';
    paintId(c, ghostPart.ghost, undefined, 48);
+   outlineGhost(c);
    d.appendChild(c);
    d.title = tr(ghostPart.key, ghostPart.fallback);
   }
   return d;
  }
 
+ // el espacio de armadura vacío lleva solo el CONTORNO de la pieza (como en el juego), en gris oscuro
+ function outlineGhost(c) {
+  try {
+   const ctx = c.getContext('2d'), W = c.width, H = c.height, im = ctx.getImageData(0, 0, W, H), a = im.data;
+   const px = Math.max(1, Math.round(W / 16));                         // (la textura es de 16 × 16: el contorno mide un "pixel" de la textura)
+   const op = (x, y) => x >= 0 && y >= 0 && x < W && y < H && a[(y * W + x) * 4 + 3] > 40;
+   const out = ctx.createImageData(W, H), o = out.data;
+   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (!op(x, y)) continue;
+    if (op(x - px, y) && op(x + px, y) && op(x, y - px) && op(x, y + px)) continue;
+    const k = (y * W + x) * 4; o[k] = 55; o[k + 1] = 55; o[k + 2] = 55; o[k + 3] = 200;
+   }
+   ctx.putImageData(out, 0, 0);
+   c.classList.add('pinv-ghost-line');
+  } catch (e) { /* (si no se puede leer el lienzo, queda la silueta de antes) */ }
+ }
  function closeArmorMenu() { if (window.mobArmorMenu && window.mobArmorMenu.isOpen()) window.mobArmorMenu.close(); }
  function renderPanel() {
   if (!st.open) return;
@@ -386,7 +422,20 @@
   if (fbox) fbox.style.display = st.furnace ? '' : 'none';
   if (fgrid) {
    fgrid.innerHTML = '';
-   if (st.furnace) {
+   if (st.furnace && isBrew()) {                                    // 🧪 soporte de pociones: ingrediente arriba, polvo de blaze a la izquierda, 3 botellas abajo
+    const mk = (i, cls) => { const e = slotEl({ k: 'f', i: i }); e.classList.add(cls); return e; };
+    const bw = document.createElement('div'); bw.className = 'pinv-brew';
+    const fd = brewData(false) || {};
+    const top = document.createElement('div'); top.className = 'pinv-brew-top';
+    const fuelCol = document.createElement('div'); fuelCol.className = 'pinv-brew-fuel'; fuelCol.appendChild(mk(1, 'pinv-b-fuel'));
+    const fb = document.createElement('i'); fb.className = 'pinv-brew-fuelbar'; fb.style.width = Math.round(Math.min(1, (Number(fd.fuelUsed) || 0) / 20) * 100) + '%'; fuelCol.appendChild(fb);
+    top.appendChild(fuelCol); top.appendChild(mk(0, 'pinv-b-in'));
+    const bub = document.createElement('div'); bub.className = 'pinv-brew-bub'; bub.textContent = '🫧'; bub.style.setProperty('--p', Math.min(1, (Number(fd.brewTimer) || 0) / 20)); top.appendChild(bub);
+    const bot = document.createElement('div'); bot.className = 'pinv-brew-bot';
+    for (let i = 2; i <= 4; i++) bot.appendChild(mk(i, 'pinv-b-out'));
+    bw.appendChild(top); bw.appendChild(bot);
+    fgrid.appendChild(bw);
+   } else if (st.furnace) {
     const mk = (i, cls) => { const e = slotEl({ k: 'f', i: i }); e.classList.add(cls); return e; };
     const left = document.createElement('div'); left.className = 'pinv-f-col';
     left.appendChild(mk(0, 'pinv-f-in'));
@@ -431,6 +480,17 @@
   ic.textContent = '🗑️';
   t.appendChild(ic);
   trash.appendChild(t);
+  fitBook();
+ }
+ // 📗 el recetario nunca es más alto que el inventario (si no, con tantas recetas la ventana se estiraba hasta abajo)
+ function fitBook() {
+  const box = $('pinv-book'), panel = $('player-inv-panel');
+  if (!box || !panel || box.style.display === 'none') return;
+  box.style.maxHeight = '';
+  box.style.height = '0px';
+  const h = panel.offsetHeight;
+  box.style.height = '';
+  if (h > 0) box.style.maxHeight = h + 'px';
  }
  // 🛠 Crafteo (▶ Modo Jugar): 2×2 en el inventario, 3×3 en la mesa de crafteo, una flecha y lo que sale
  function renderCraft() {
@@ -446,6 +506,18 @@
   const o = slotEl({ k: 'o', i: 0 }); o.classList.add('pinv-craft-out');
   grid.appendChild(g); grid.appendChild(arrow); grid.appendChild(o);
   const lbl = $('pinv-craft-label'); if (lbl) lbl.textContent = tr('pinv_crafting', 'Crafting');
+  // 📗 el libro verde (recetario) debajo de la cuadrícula y, en el editor, la papelera debajo de lo que sale
+  let ex = box.querySelector('.pinv-craft-extra');
+  if (!ex) { ex = document.createElement('div'); ex.className = 'pinv-craft-extra'; box.appendChild(ex); }
+  ex.innerHTML = '';
+  const bk = document.createElement('button');
+  bk.type = 'button'; bk.className = 'pinv-book-btn' + (bookOn() ? ' on' : '');
+  bk.title = tr('pinv_book', 'Recipes');
+  bk.innerHTML = BOOK_SVG;
+  bk.onclick = (e) => { e.preventDefault(); e.stopPropagation(); st.bookOpen = !bookOn(); renderAll(); };
+  ex.appendChild(bk);
+  const tr2 = $('pinv-trash');
+  if (tr2 && !window.mbwPlaying) ex.appendChild(tr2);
  }
  // se toma lo que sale: clic = al cursor (o se suma a lo que ya llevas si es igual); Shift + clic = todo lo que se pueda, a la mochila
  function takeCraft(ev) {
@@ -491,7 +563,7 @@
  // Columna de la izquierda (solo en el horno): los objetos que sirven de combustible. Clic = tomar una pila en el cursor.
  function renderFuelPalette() {
   const box = $('pinv-fuel-box'), grid = $('pinv-fuel-grid');
-  const show = !!st.furnace && !window.mbwPlaying;                 // ▶ en Modo Jugar no hay combustible gratis: se usa el del inventario
+  const show = !!st.furnace && !isBrew() && !window.mbwPlaying;                 // ▶ en Modo Jugar no hay combustible gratis: se usa el del inventario
   if (box) box.style.display = show ? '' : 'none';
   document.body.classList.toggle('pinv-no-fuel', !!st.furnace && !show);
   if (!grid) return;
@@ -517,12 +589,12 @@
    grid.appendChild(d);
   });
  }
- function renderAll() { renderRibbon(); renderPanel(); }
+ function renderAll() { renderRibbon(); renderPanel(); if (st.open) updateTitle(); }
 
  function flash(addr) {
   let d = null;
   if (addr.k === 'a') { const root = $('pinv-armor'); d = root && root.children[addr.i]; }
-  else if (addr.k === 'f') { const root = $('pinv-furnace'); d = root && root.querySelectorAll('.pinv-slot')[addr.i]; }
+  else if (addr.k === 'f') { const root = $('pinv-furnace'); d = root && [...root.querySelectorAll('.pinv-slot')].find((e) => e.__addr && e.__addr.i === addr.i); }
   if (!d) return;
   d.classList.remove('pinv-flash');
   void d.offsetWidth;
@@ -532,6 +604,7 @@
 
  // ------------------------------------------------------------------ mover objetos
  function accepts(addr, it) {
+  if (addr.k === 'f' && isBrew()) return addr.i === 1 ? it.id === 'bp' : addr.i >= 2 ? it.id === 'potion' : true;   // 🧪 polvo de blaze / botellas
   if (addr.k === 'f' && addr.i === 1) return isFuel(it.id);                    // el espacio de combustible solo acepta combustibles
   return addr.k !== 'a' || PARTS[addr.i].suffix === String(it.id).slice(-PARTS[addr.i].suffix.length);
  }
@@ -578,7 +651,11 @@
    const toF = addr.k !== 'f';
    setSlot(addr, null);
    let left;
-   if (toF) {
+   if (toF && isBrew()) {                                          // 🧪 botellas abajo, polvo de blaze al combustible, lo demás al ingrediente
+    left = it.qty;
+    if (it.id === 'potion') { for (let i = 2; i <= 4 && left > 0; i++) if (!getSlot({ k: 'f', i: i })) { setSlot({ k: 'f', i: i }, copy(it, 1)); left--; } }
+    else { const dst = it.id === 'bp' ? 1 : 0; const cur = getSlot({ k: 'f', i: dst }); if (!cur) { setSlot({ k: 'f', i: dst }, copy(it, it.qty)); left = 0; } else if (same(cur, it)) { const m = Math.min(it.qty, maxStack(it) - cur.qty); setSlot({ k: 'f', i: dst }, copy(cur, cur.qty + m)); left = it.qty - m; } }
+   } else if (toF) {
     const dst = isFuel(it.id) ? 1 : 0;
     const cur = getSlot({ k: 'f', i: dst });
     if (!cur) { setSlot({ k: 'f', i: dst }, copy(it, Math.min(it.qty, maxStack(it)))); left = it.qty - Math.min(it.qty, maxStack(it)); }
@@ -768,9 +845,16 @@
  // Una lista de lo que se puede fabricar, con buscador. Al tocar uno, se buscan los materiales en el inventario y se ponen
  // en la mesa; si falta alguno, se pone igual pero en rojo y no se puede crear (como el libro de recetas de Minecraft).
  const BOOK_TYPES = { relative: 1, absolute: 1, contains: 1, 'large box': 1 };
+ // 📗 el recetario se abre y se cierra con el libro verde. En el celular, jugando en supervivencia, la mesa de crafteo lo abre sola.
  function bookOn() {
-  return !!(st.open && st.craft && st.craft.table && window.mbwPlaying && document.body.classList.contains('is-touch') && document.body.classList.contains('play-survival'));
+  if (!(st.open && st.craft)) return false;
+  if (typeof st.bookOpen === 'boolean') return st.bookOpen;
+  return !!(st.craft.table && window.mbwPlaying && document.body.classList.contains('is-touch') && document.body.classList.contains('play-survival'));
  }
+ const BOOK_SVG = '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true">'
+  + '<rect x="3" y="1" width="11" height="14" fill="#1d3d12"/><rect x="4" y="2" width="9" height="12" fill="#3f8a2a"/><rect x="4" y="2" width="9" height="2" fill="#5fb43c"/>'
+  + '<rect x="2" y="2" width="2" height="13" fill="#e8e1c9"/><rect x="2" y="14" width="11" height="1" fill="#e8e1c9"/><rect x="6" y="5" width="5" height="1" fill="#9be07a"/><rect x="6" y="7" width="5" height="1" fill="#9be07a"/>'
+  + '<rect x="7" y="9" width="3" height="3" fill="#2b5e1c"/></svg>';
  // cómo va cada receta en la cuadrícula: [{ i: casilla, ty, ty2, damage, type, extra }] o null si no cabe
  function recipeCells(rc, size) {
   if (rc.t === 'large box') { if (size < 3) return null; const out = []; for (let i = 0; i < 9; i++) out.push({ i: i, ty: rc.i }); return out; }
@@ -797,7 +881,7 @@
  function bookList() {
   const R = window.MB_RECIPES || [], seen = {}, out = [];
   R.forEach((rc, n) => {
-   if (!BOOK_TYPES[rc.t] || !recipeCells(rc, 3)) return;
+   if (!BOOK_TYPES[rc.t] || !recipeCells(rc, st.craft ? st.craft.size : 3)) return;
    const o = rc.o, k = o[0] + '|' + JSON.stringify(o[3] || {});
    if (seen[k]) return; seen[k] = 1;
    out.push({ n: n, id: o[0], qty: o[1], extras: o[3] || {} });
@@ -878,13 +962,16 @@
  function renderSkin() {
   const top = document.querySelector('#inventory-modal .pinv-top'); if (!top) return;
   let c = $('pinv-skin');
-  const on = !!(window.mbwPlaying && st.open && !st.chest && !st.furnace && !(st.craft && st.craft.table));
+  const on = !!(st.open && !st.chest && !st.furnace && !(st.craft && st.craft.table));
   if (!on) { if (c) c.style.display = 'none'; return; }
   if (!c) { c = document.createElement('canvas'); c.id = 'pinv-skin'; c.className = 'pinv-skin'; c.width = 160; c.height = 220; }
   const armorBox = $('pinv-armor'); const after = armorBox && armorBox.parentNode;
   if (after && after.parentNode === top && after.nextSibling !== c) top.insertBefore(c, after.nextSibling);
   c.style.display = '';
-  const ok = window.mbwPlay && typeof window.mbwPlay.drawPreview === 'function' && window.mbwPlay.drawPreview(c);
+  // la skin va más chica dentro del cuadro negro, parada abajo (como en el juego)
+  const tmp = renderSkin.tmp || (renderSkin.tmp = document.createElement('canvas')); tmp.width = 160; tmp.height = 220;
+  const ok = window.mbwPlay && typeof window.mbwPlay.drawPreview === 'function' && window.mbwPlay.drawPreview(tmp);
+  if (ok) { const x2 = c.getContext('2d'); x2.imageSmoothingEnabled = false; x2.clearRect(0, 0, c.width, c.height); const k = 0.66, w2 = Math.round(160 * k), h2 = Math.round(220 * k); x2.drawImage(tmp, Math.round((160 - w2) / 2), 220 - h2 - 14, w2, h2); }
   if (!ok) setTimeout(() => { if (st.open) renderSkin(); }, 400);     // (la skin todavía se está bajando)
  }
 
@@ -989,19 +1076,31 @@
   // el crafteo 2×2; sin papelera (en el juego no hay)
   const game = !!window.mbwPlaying;
   m.classList.toggle('pinv-game', game);
+  m.classList.add('pinv-mb');                                        // 🎒 como el inventario de Mine Blocks (gris, casillas juntas)
+  m.classList.toggle('pinv-mb-plain', !st.chest && !st.furnace && !(st.craft && st.craft.table));   // (el inventario solo: sin título)
   const cbox = $('pinv-craft-box'), ppanel = $('player-inv-panel'), trashEl = $('pinv-trash');
   if (cbox && top && ppanel) {
-   if (game && st.craft && !st.craft.table) { if (cbox.parentNode !== top) top.appendChild(cbox); }
+   if (st.craft && !st.craft.table) { if (cbox.parentNode !== top) top.appendChild(cbox); }
    else if (cbox.parentNode !== ppanel) ppanel.insertBefore(cbox, top);
   }
-  if (trashEl && trashEl.parentNode) trashEl.parentNode.style.display = game ? 'none' : '';
+  // la papelera (solo editor) va debajo de lo que sale del crafteo; jugando no hay
+  const trashHome = top && top.querySelector('.pinv-trash-home');
+  if (trashEl && trashHome) {
+   trashHome.style.display = 'none';
+   if (game || !st.craft || st.craft.table) { if (trashEl.parentNode !== trashHome) trashHome.appendChild(trashEl); }
+  }
   document.body.classList.toggle('pinv-craft-open', !!st.craft);
   const search = $('inventory-search');
   if (search) search.style.display = st.expanded ? '' : 'none';
   const btn = $('pinv-creative-btn');
   if (btn) { btn.style.display = ''; btn.textContent = tr(st.expanded ? 'pinv_hide_creative' : 'pinv_show_creative'); }
+  updateTitle();
+ }
+ function updateTitle() {
+  if (!st.open) return;
   const title = $('inventory-modal-title');
-  if (title && st.furnace) title.innerText = tr('pinv_furnace_title', 'Furnace') + '  (X: ' + st.furnace.x + ', Y: ' + st.furnace.y + ')';
+  const flbl = document.querySelector('#pinv-furnace-box > .pinv-label'); if (flbl) flbl.textContent = st.furnace && isBrew() ? tr('pinv_brew_title', 'Brewing Stand') : tr('pinv_furnace_label', 'Furnace');
+  if (title && st.furnace) title.innerText = (isBrew() ? tr('pinv_brew_title', 'Brewing Stand') : tr('pinv_furnace_title', 'Furnace')) + '  (X: ' + st.furnace.x + ', Y: ' + st.furnace.y + ')';
   else if (title && st.craft && st.craft.table) title.innerText = tr('pinv_craft_table', 'Crafting Table');
   else if (title) title.innerText = st.chest ? (boxTitle() + '  (X: ' + st.chest.x + ', Y: ' + st.chest.y + ')') : tr('pinv_title', 'Player Inventory');
   const lbl = $('pinv-chest-label');
@@ -1024,7 +1123,7 @@
   if (left) left.style.display = '';
   if (wrap) { wrap.style.height = ''; wrap.style.flex = ''; wrap.style.minHeight = ''; }
   document.body.classList.remove('pinv-furnace-open', 'pinv-chest-open', 'pinv-open', 'pinv-craft-open', 'pinv-book-open');
-  m.classList.remove('pinv-game');
+  m.classList.remove('pinv-game', 'pinv-mb', 'pinv-mb-plain');
   const bk = $('pinv-book'); if (bk) { bk.style.display = 'none'; const q = bk.querySelector('.pinv-book-q'); if (q) q.value = ''; }
   const ccb = $('pinv-craft-box'); if (ccb) ccb.style.display = 'none';
   const panel = $('player-inv-panel');
@@ -1084,16 +1183,19 @@
  // Al cerrar la ventana de un horno: igual que el cofre, un paso en el historial y aviso a los demás.
  function commitFurnace() {
   const c = st.furnace;
-  st.furnace = null;
-  if (!c || typeof mbwom === 'undefined' || !mbwom.scene) return;
-  const d = mbwom.toSmelt;
+  if (!c || typeof mbwom === 'undefined' || !mbwom.scene) { st.furnace = null; return; }
+  const brew = c.kind === 'brew';
+  const field = brew ? 'toBrew' : 'toSmelt';
+  const d = mbwom[field];
   const f = isObj(d) ? d[c.key] : null;
-  if (isObj(f) && !c.before.toSmelt) {                                           // el horno no tenía datos y siguen vacíos: no se deja nada creado
-   if (F_KEYS.every((k) => !readItem(f[k], false))) { delete d[c.key]; return; }
+  if (isObj(f) && !c.before[field]) {                                           // no tenía datos y siguen vacíos: no se deja nada creado
+   const keys = brew ? [0, 1, 2, 3, 4].map((i) => brewGet(f, i)) : F_KEYS.map((k) => f[k]);
+   if (keys.every((v) => !readItem(v, false))) { delete d[c.key]; st.furnace = null; return; }
   }
+  st.furnace = null;
   let after = null;
   try { after = mbwom.getBlockState(c.x, c.y); } catch (e) { after = null; }
-  if (!after || !after.toSmelt) return;
+  if (!after || !after[field]) return;
   if (JSON.stringify(c.before) === JSON.stringify(after)) return;
   if (typeof historyManager !== 'undefined') {
    historyManager.startAction();
@@ -1139,7 +1241,8 @@
   if (!world()) { alert(tr('pinv_no_world', 'Open or create a world first')); return; }
   st.chest = null;
   st.furnace = null;
-  st.craft = window.mbwPlaying ? { size: 2, grid: [null, null, null, null], table: null } : null;   // ▶ Modo Jugar: crafteo 2×2
+  st.craft = { size: 2, grid: [null, null, null, null], table: null };   // crafteo 2×2 (en el editor también, como en el juego)
+  st.bookOpen = undefined;
   st.open = true;
   st.expanded = false;
   heldItem = null;
@@ -1199,6 +1302,27 @@
   renderAll();
   return true;
  };
+ // 🧪 Abre el soporte de pociones que hay en (x, y). Devuelve true si lo abrió.
+ window.openBrewingStand = function (x, y) {
+  const m = $('inventory-modal');
+  if (!m || typeof toggleInventory !== 'function') return false;
+  if (typeof mbwom === 'undefined' || !mbwom || !mbwom.scene) return false;
+  x = Math.floor(Number(x)); y = Math.floor(Number(y));
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return false;
+  let bs = null;
+  try { bs = mbwom.getBlockState(x, y); } catch (e) { bs = null; }
+  if (!bs || bs.type !== 'brew' || !world()) return false;
+  if (m.style.display === 'block') toggleInventory();
+  st.chest = null; st.craft = null;
+  st.furnace = { x: x, y: y, key: 'blockX' + x + 'Y' + y, before: JSON.parse(JSON.stringify(bs)), kind: 'brew' };
+  brewData(true);
+  st.open = true; st.expanded = false; heldItem = null;
+  refreshCursor();
+  m.style.display = 'block';
+  layout();
+  renderAll();
+  return true;
+ };
  // Abre el dispenser o el dropper que hay en (x, y): 9 espacios (3×3), como en el juego. Devuelve true si lo abrió.
  window.openDispenserEditor = function (x, y) {
   const m = $('inventory-modal');
@@ -1231,6 +1355,7 @@
   if (m.style.display === 'block') toggleInventory();
   st.chest = null; st.furnace = null;
   st.craft = { size: 3, grid: [null, null, null, null, null, null, null, null, null], table: { x: Math.floor(x), y: Math.floor(y) } };
+  st.bookOpen = undefined;
   st.open = true;
   st.expanded = false;
   heldItem = null;

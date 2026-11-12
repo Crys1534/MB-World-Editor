@@ -212,13 +212,15 @@
                 try { c.send({ tipo: 'hb' }); } catch (e) { /* nada */ }
                 if (c.__hb && now - (c.__lastSeen || now) > GUEST_LOST_MS) { try { c.close(); } catch (e) { /* nada */ } }   // ese jugador ya no responde
             });
-        } else if (!window.mpMigrating && typeof miConexionAlHost !== 'undefined' && miConexionAlHost && miConexionAlHost.open) {
+        } else if (!window.mpMigrating && !window.mpReconnecting && typeof miConexionAlHost !== 'undefined' && miConexionAlHost && miConexionAlHost.open) {
             try { miConexionAlHost.send({ tipo: 'hb' }); } catch (e) { /* nada */ }
             const last = window.mpLastHostMsg || now;
             if (now - last > HOST_LOST_MS && window.mpRoomCfg) {
                 const c = miConexionAlHost;
                 c.__lost = true;
-                if (window.mpMigrateOnHostLost(c)) { try { c.__byMe = true; c.close(); } catch (e) { /* nada */ } }
+                // 📡 ¿el que se quedó sin internet soy YO? entonces no se busca anfitrión nuevo: se vuelve a entrar solo (scripts/mp-mod.js)
+                if (typeof window.mpMeOffline === 'function' && window.mpMeOffline() && typeof window.mpTryReconnect === 'function' && window.mpTryReconnect(c)) { try { c.__byMe = true; c.close(); } catch (e) { /* nada */ } }
+                else if (window.mpMigrateOnHostLost(c)) { try { c.__byMe = true; c.close(); } catch (e) { /* nada */ } }
             }
         }
     }, HB_MS);

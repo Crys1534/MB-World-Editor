@@ -106,7 +106,7 @@
         if (M.role === 'host') {
             M.session = true; M.changes = new Map(); M.hostName = myName(); M.leaderPeer = myPeer();
             send({ tipo: 'juego_inicio', autor: myName(), peerId: myPeer() });
-            M.alive = setInterval(function () { if (M.on && M.role === 'host') send({ tipo: 'juego_activo', autor: myName(), peerId: myPeer(), cmds: allowCmds() }); }, ALIVE_MS);
+            M.alive = setInterval(function () { if (M.on && M.role === 'host') send({ tipo: 'juego_activo', autor: myName(), peerId: myPeer(), cmds: allowCmds(), tim: curTim() }); }, ALIVE_MS);
             flash(tr('mpplay_started', '▶ Game started! Everyone in the room can join'));
         } else {
             // la arena y la grava sueltas del mundo ya las tiró el anfitrión al empezar: aquí no se vuelven a tirar (saldrían repetidas)
@@ -151,6 +151,7 @@
     function tick() {
         if (!M.on) return;
         if (!playing()) { M.on = false; clearInterval(M.timer); return; }
+        if (window.mpReconnecting) { M.lastAlive = Date.now(); return; }   // 📡 sin conexión: sigo jugando y espero (no me hago cargo de la partida)
         // se fue el anfitrión: la partida SIGUE. Si yo quedé de anfitrión (el servidor pasó a mí), ahora mando yo; si cambió el
         // anfitrión, sigo con el nuevo; si ya no hay sala, sigo jugando solo.
         if (M.role === 'guest') {
@@ -181,12 +182,20 @@
         M.known.forEach(function (j, k) { try { M.changes.set(k, JSON.parse(j)); } catch (e) { /* nada */ } });   // (todo lo que cambió y yo sé)
         M.mobFullAt = 0;
         clearInterval(M.alive);
-        M.alive = setInterval(function () { if (M.on && M.role === 'host') send({ tipo: 'juego_activo', autor: myName(), peerId: myPeer(), cmds: allowCmds() }); }, ALIVE_MS);
-        send({ tipo: 'juego_activo', autor: myName(), peerId: myPeer(), cmds: allowCmds() });
+        M.alive = setInterval(function () { if (M.on && M.role === 'host') send({ tipo: 'juego_activo', autor: myName(), peerId: myPeer(), cmds: allowCmds(), tim: curTim() }); }, ALIVE_MS);
+        send({ tipo: 'juego_activo', autor: myName(), peerId: myPeer(), cmds: allowCmds(), tim: curTim() });
         if (msg) flash(msg);
         sysSay('👑 ' + tr('mpplay_new_lead_me', 'You run the game now'));
     }
     M.becomeLeader = becomeLeader;
+    // 📡 volví después de perder la conexión (scripts/mp-mod.js): sigo como jugador y pido lo que cambió mientras no estaba
+    M.afterReconnect = function () {
+        if (!M.on) return;
+        M.conn = g('miConexionAlHost'); M.lastAlive = Date.now();
+        if (M.role === 'host' && !amHost()) { M.role = 'guest'; clearInterval(M.alive); M.alive = 0; }   // (mientras no estaba, otro tomó la partida)
+        if (M.role === 'guest') { M.skipMine = true; send({ tipo: 'juego_pedir', peerId: myPeer(), uid: myUid(), autor: myName() }); }   // (mis cosas no se cambian por las guardadas: las de ahora son más nuevas)
+        sendMe();
+    };
     function goSolo() {
         clearInterval(M.timer); clearInterval(M.alive); M.timer = 0; M.alive = 0;
         M.on = false; M.role = 'solo'; M.remotes = {}; M.session = false;
@@ -194,6 +203,7 @@
         flash(tr('mpplay_solo', 'The room closed: you keep playing on your own'));
     }
     // ¿los invitados pueden usar comandos? (por defecto NO: solo el anfitrión. Se cambia en el menú de pausa del anfitrión)
+    function curTim() { try { return Number(mbwom.world.tim) || 0; } catch (e) { return 0; } }   // 🌙 la hora (la lleva quien lleva la partida)
     function allowCmds() { try { return !!(mbwom.world && mbwom.world.mbweAllowCmds); } catch (e) { return false; } }
     M.allowCmds = allowCmds;
     M.guestCmds = false;
@@ -323,6 +333,7 @@
             M.leaderPeer = d.peerId || M.leaderPeer;
             const newHost = M.session && M.hostName && d.autor && d.autor !== M.hostName;
             M.session = true; M.hostName = d.autor || 'Host'; M.lastAlive = Date.now(); M.guestCmds = !!d.cmds;
+            if (d.tim != null && M.on) { try { mbwom.world.tim = Number(d.tim) || 0; } catch (e) { /* nada */ } }
             // 🎮 cuando el anfitrión empieza a jugar (o entro a una sala donde ya se juega), todos entran solos a la partida
             if (isNew && !M.on) M.autoJoin = true;
             if (newHost && M.on) sysSay('👑 ' + tr('mpplay_new_host', '{name} is the host now').replace('{name}', String(d.autor)));
@@ -362,7 +373,9 @@
         if (t === 'juego_jugador') { onPlayer(d); return; }
         if (t === 'juego_bloques' || t === 'juego_cambios') { applyBlocks(Number(d.s) || 1, d.c); return; }
         if (t === 'juego_pedir' && M.role === 'host') { sendChangesTo(d.peerId); sendMobListTo(d.peerId); sendDropsTo(d.peerId); sendPlayerTo(d.peerId, d.uid, d.autor); return; }
-        if (t === 'juego_tuyo') { if (M.role === 'guest' && !M.roomHostAtStart && window.mbwPlay.net && window.mbwPlay.net.loadMine) window.mbwPlay.net.loadMine(d.data, d.spawn); M.guestCmds = !!d.cmds; return; }
+        if (t === 'juego_tuyo') { if (M.skipMine) M.skipMine = false; else if (M.role === 'guest' && !M.roomHostAtStart && window.mbwPlay.net && window.mbwPlay.net.loadMine) window.mbwPlay.net.loadMine(d.data, d.spawn); M.guestCmds = !!d.cmds; return; }
+        if (t === 'juego_tiempo') { try { if (d.tim != null) mbwom.world.tim = Number(d.tim) || 0; } catch (e) { /* nada */ } return; }   // 🛏 alguien durmió: ya es de día
+        if (t === 'juego_cria') { if (M.role === 'host' && window.mbwPlay && window.mbwPlay.feedMob) window.mbwPlay.feedMob(String(d.id), String(d.it)); return; }   // 🐄 un invitado le dio de comer a un mob
         if (t === 'juego_ping') { if (M.role === 'host') sendTo(d.peerId, { tipo: 'juego_pong', t: d.t }); return; }
         if (t === 'juego_pong') { if (M.role === 'guest' && d.t) M.ping = Math.max(0, Date.now() - Number(d.t)); return; }
         const N = window.mbwPlay && window.mbwPlay.net; if (!N) return;

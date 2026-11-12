@@ -212,8 +212,9 @@
         const Y1 = Y0 + h - 1;
         const MAP = !!D.map;
         let any = MAP;
+        const NIGHT = D.night || 0;
         for (let j = 0; j < h; j++) {                      // fila j de la imagen = Y1 - j en el mundo (arriba en la pantalla = Y más alto)
-            const a = D.darkAt(Y1 - j);
+            const a = Math.max(D.on ? D.darkAt(Y1 - j) : 0, NIGHT);   // 🌙 de noche (Modo Jugar) todo se oscurece un poco
             if (a > 0) any = true;
             if (a === 0) continue;
             for (let i = 0; i < w; i++) A[j * w + i] = a;
@@ -335,7 +336,9 @@
     const bgctx = bigGlow.getContext('2d');
 
     function drawDarkness(c) {
-        if ((!D.on && !D.map) || (scene() !== 1 && !D.map)) { D.stats.drawn = false; return; }
+        // 🌙 la noche del Modo Jugar (scripts/play-mode.js: la hora del mundo)
+        D.night = (window.mbwPlaying && window.mbwPlay && typeof window.mbwPlay.nightAlpha === 'function') ? Math.round(window.mbwPlay.nightAlpha() * 40) / 40 : 0;
+        if ((!D.on && !D.map && !D.night) || (scene() !== 1 && !D.map)) { D.stats.drawn = false; return; }
         if (!D.map && window.mbwPlaying && window.mbwPlay && window.mbwPlay.effect && window.mbwPlay.effect('nightvision')) { D.stats.drawn = false; return; }   // (poción de visión nocturna)
         const ts = tileSize;
         if (ts < 4) { drawFar(c, ts); return; }          // zoom de lejos (3 % a 10 %): la oscuridad del mundo entero, hecha una sola vez
@@ -344,7 +347,7 @@
         if (w * h > 1200000) { D.stats.drawn = false; return; }            // zoom tan alejado que no vale la pena
         const pt = playerTile();
         const rk = remoteTiles().map(function (q) { return Math.floor(q.x * 2) + ',' + Math.floor(q.y * 2); }).join(';') + (D.map ? '|' + scene() + '|' + ((mbwom.world && mbwom.world.raining) || 0) : '');
-        const key = [X0, Y0, w, h, ts, D.rev, D.map ? 'm' : '', cacheId(window.worldCache), pt ? Math.floor(pt.x * 2) + ',' + Math.floor(pt.y * 2) : '-', rk].join('|');
+        const key = [X0, Y0, w, h, ts, D.rev, D.night, D.on ? 1 : 0, D.map ? 'm' : '', cacheId(window.worldCache), pt ? Math.floor(pt.x * 2) + ',' + Math.floor(pt.y * 2) : '-', rk].join('|');
         const now = performance.now();
         if (key !== maskKey || !maskInfo || now - lastForce > 1500) {
             maskInfo = build(X0, Y0, w, h);
@@ -369,7 +372,7 @@
             else { c.imageSmoothingEnabled = true; c.drawImage(gmask, 0, 0, M.w, M.h, dx, dy, M.w * ts, M.h * ts); }
         }
         c.restore();
-        if (M.maxA >= 0.3 && !D.map) maybeNotice();
+        if (M.maxA >= 0.3 && !D.map && !window.mbwPlaying) maybeNotice();
     }
 
     // Vista de lejos: en vez de rehacer la oscuridad cada vez que la cámara pasa a otro cuadro (al moverse, en cada fotograma),

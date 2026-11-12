@@ -582,6 +582,8 @@ window.disconnectFromMultiplayer = function(silent) {
     }
 };
 
+// mensajes que solo puede mandar el anfitrión (si llegan de un jugador, se tiran)
+const MP_HOST_ONLY = { kicked: 1, silenciado: 1, error_conexion: 1, servidor_cerrado: 1, host_migra: 1, room_cfg: 1, sync_players: 1, sync_mundo: 1, solo_ver: 1 };
 function setupHostConnection(conn) {
     conn.on('open', function() {
         misClientes.push(conn);
@@ -601,6 +603,9 @@ function setupHostConnection(conn) {
         if (!data || typeof data !== 'object') return;
         conn.__lastSeen = Date.now();
         if (data.tipo === 'hb') { conn.__hb = true; return; }   // 💓 "sigo aquí" (scripts/mp-host.js): no se pasa a nadie
+        if (MP_HOST_ONLY[data.tipo] || conn.__banned) return;   // (un jugador no puede mandar "te expulsaron", "se cerró el servidor"...)
+        if (data.tipo === "player_info" && typeof window.mpModOnJoin === 'function' && window.mpModOnJoin(conn, data)) return;   // 🚫 baneado
+        if (typeof window.mpModDropChat === 'function' && window.mpModDropChat(conn, data)) return;   // 🔇 silenciado: su mensaje no se pasa
         if (data.tipo === "player_info" && !conn.__mapSent) {
             conn.__mapSent = true;
             conn.__gz = !!data.gz;
@@ -623,6 +628,7 @@ function setupHostConnection(conn) {
     conn.on('close', function() {
         // ✨ FIX FASE 5: Borrar de las listas y limpiar memoria del cursor
         misClientes = misClientes.filter(c => c.peer !== conn.peer);
+        if (conn.__banned || conn.__replaced) return;   // (un baneado que intentó entrar / la conexión vieja de alguien que ya volvió)
         // un "Builder" que se va pierde el permiso: si vuelve, entra como View (los "Editor" lo conservan)
         const gone = window.roomPlayers.find(p => p.peerId === conn.peer);
         if (gone && typeof window.mpPermOnLeave === 'function') window.mpPermOnLeave(gone.uid);
@@ -851,7 +857,8 @@ function setupClientConnection(conn) {
         // ✨ NUEVO: Si recibimos la señal de expulsión, nos desconectamos
         if (data.tipo === "kicked") { 
             conn.__kicked = true;
-            alert(data.mensaje); 
+            if (typeof window.mpCancelReconnect === 'function') window.mpCancelReconnect();
+            alert(data.ban ? tmsg('mp_banned_msg', 'You were banned from this server.') : tmsg('mp_kicked_msg', 'You were kicked from the server by the host.')); 
             if (peer) peer.destroy(); // Esto rompe la conexión totalmente
             return; 
         }
@@ -863,7 +870,9 @@ function setupClientConnection(conn) {
     conn.on('close', function() {
         if (conn.__byMe) return;          // la cerré yo (Salir, o cerré la pestaña del mundo): ya se limpió todo
         if (miConexionAlHost && miConexionAlHost !== conn) return;   // (es una conexión vieja: ya estoy en otro servidor)
+        if (typeof window.mpMeOffline === 'function' && window.mpMeOffline() && typeof window.mpTryReconnect === 'function' && window.mpTryReconnect(conn)) return;   // 📡 se me fue el internet a MÍ: volver a entrar solo
         if (typeof window.mpMigrateOnHostLost === 'function' && window.mpMigrateOnHostLost(conn)) return;   // 👑 se fue el anfitrión: buscar al nuevo
+        if (typeof window.mpTryReconnect === 'function' && window.mpTryReconnect(conn)) return;   // 📡 se cortó la conexión: volver a entrar solo
         // ✨ FIX FASE 5: Limpieza total al perder conexión con el Host
         isMultiplayer = false; 
         miConexionAlHost = null;
@@ -1212,27 +1221,18 @@ window.declineServerInvite = function(senderUid) {
 // ==========================================
 window.kickPlayer = function(targetUid, targetName) {
     if (!isHost) return;
-    
-    // Preguntamos por seguridad
     if (!confirm(tmsg('msg_kick_confirm', "Are you sure you want to kick {name} from your server?", { name: targetName }))) return;
-
-    // 1. Buscamos su PeerID
-    const player = window.roomPlayers.find(p => p.uid === targetUid);
-    if (player && player.peerId) {
-        // 2. Buscamos su conexión directa
-        const conn = misClientes.find(c => c.peer === player.peerId);
-        if (conn) {
-            // 3. Le mandamos la señal de expulsión
-            conn.send({ tipo: "kicked", mensaje: "Has sido expulsado del servidor por el Host." });
-            
-            // 4. Cerramos su conexión
-            setTimeout(() => conn.close(), 500); 
-            
-            if (typeof showDesktopNotification === 'function') {
-                showDesktopNotification("Jugador Expulsado", `Has expulsado a ${targetName}`, "assets/default pfp.png");
-            }
-        }
-    }
+    if (typeof window.mpKick === 'function') window.mpKick(targetUid, targetName);   // (scripts/mp-mod.js)
+};
+// 🚫 banear (ya no puede volver a entrar a este mundo) y 🔇 silenciar, con pregunta (scripts/mp-mod.js)
+window.banPlayer = function(targetUid, targetName) {
+    if (!isHost) return;
+    if (!confirm(tmsg('mp_ban_confirm', "Ban {name}? They will not be able to join this world again (you can unban them later).", { name: targetName }))) return;
+    if (typeof window.mpBan === 'function') window.mpBan(targetUid, targetName);
+};
+window.mutePlayer = function(targetUid, targetName) {
+    if (!isHost || typeof window.mpMute !== 'function') return;
+    window.mpMute(targetUid, targetName);
 };
 
 // ==========================================
@@ -1891,7 +1891,8 @@ window.enviarChatPublico = function() {
         } 
         // 3. 🌐 SI NO ES UN COMANDO Y ESTÁS ONLINE, LO ENVÍAS AL RESTO DE JUGADORES
         else if (typeof isMultiplayer !== 'undefined' && isMultiplayer && typeof enviarMensajeEnRed === 'function') {
-            enviarMensajeEnRed({ tipo: "chat", autor: myName, texto: text });
+            if (typeof window.mpAmMuted === 'function' && window.mpAmMuted()) { window.agregarMensajeChatPublico('', tmsg('mp_you_muted', 'The host muted you: your messages are not sent.')); }
+            else enviarMensajeEnRed({ tipo: "chat", autor: myName, texto: text });
         }
     }
     
