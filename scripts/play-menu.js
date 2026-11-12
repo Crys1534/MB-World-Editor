@@ -81,6 +81,7 @@
             left.appendChild(btn(tr('pm_back', 'Back to Game'), 'pm-primary', close));
             left.appendChild(btn(tr('pm_options', 'Options'), '', function () { show('options'); }));
             left.appendChild(skinRow());
+            if (window.mbwAch) left.appendChild(btn('🏆 ' + tr('pm_ach', 'Achievements'), '', function () { show('ach'); }));
             if (hostOfRoom()) left.appendChild(btn(tr('pm_server', 'Server settings'), '', function () { show('server'); }));
             const guest = M() && M().on && M().role === 'guest';
             const test = !!(P() && P().isTest && P().isTest());
@@ -89,6 +90,10 @@
         } else if (p === 'options') {
             left.appendChild(el('h2', 'pm-title', tr('pm_options', 'Options')));
             left.appendChild(optionsForm());
+            left.appendChild(btn('← ' + tr('pm_done', 'Done'), 'pm-primary', function () { show('main'); }));
+        } else if (p === 'ach') {
+            left.appendChild(el('h2', 'pm-title', '🏆 ' + tr('pm_ach', 'Achievements')));
+            left.appendChild(achList());
             left.appendChild(btn('← ' + tr('pm_done', 'Done'), 'pm-primary', function () { show('main'); }));
         } else if (p === 'server') {
             left.appendChild(el('h2', 'pm-title', tr('pm_server', 'Server settings')));
@@ -101,6 +106,37 @@
         clearInterval(tabTimer);
         tabTimer = setInterval(function () { if (root && root.style.display !== 'none') playerRows(pl, true); }, 2000);
         const first = left.querySelector('button'); if (first && !document.body.classList.contains('is-touch')) setTimeout(function () { try { first.focus(); } catch (e) { /* nada */ } }, 0);
+    }
+    // 🏆 Logros de todos los que alguna vez jugaron en este mundo, de más a menos. Clic en un jugador = ver cuáles tiene.
+    let achOpen = null;
+    function achList() {
+        const A = window.mbwAch, box = el('div', 'pm-ach');
+        const me = localStorage.getItem('mbw_uid') || 'local';
+        const list = A.ranking();
+        if (achOpen == null) achOpen = me;
+        if (!list.length) box.appendChild(el('div', 'pm-pl-note', tr('pm_ach_none', 'Nobody has achievements yet.')));
+        list.forEach(function (r, n) {
+            const row = el('button', 'pm-ach-row' + (r.uid === me ? ' me' : '') + (achOpen === r.uid ? ' open' : ''));
+            row.type = 'button';
+            row.appendChild(el('span', 'pm-ach-pos', '#' + (n + 1)));
+            row.appendChild(el('span', 'pm-ach-name', r.name + (r.uid === me ? ' (' + tr('pm_you', 'you') + ')' : '')));
+            row.appendChild(el('span', 'pm-ach-num', r.count + ' / ' + A.count));
+            const bar = el('span', 'pm-ach-bar'); const fill = el('i'); fill.style.width = Math.round(100 * r.count / A.count) + '%'; bar.appendChild(fill); row.appendChild(bar);
+            row.addEventListener('click', function () { achOpen = achOpen === r.uid ? '' : r.uid; show('ach'); });
+            box.appendChild(row);
+            if (achOpen === r.uid) {
+                const g = el('div', 'pm-ach-grid');
+                for (let i = 0; i < A.count; i++) {
+                    const has = !!(r.a && r.a[i]);
+                    const t = el('div', 'pm-ach-it' + (has ? ' got' : ''));
+                    t.appendChild(el('span', 'pm-ach-ic', has ? A.icon(i) : '🔒'));
+                    t.appendChild(el('span', 'pm-ach-tx', A.name(i)));
+                    g.appendChild(t);
+                }
+                box.appendChild(g);
+            }
+        });
+        return box;
     }
     // 🧑 Skin: se elige de la galería de skins (la ven todos; se recuerda en este navegador para todos los mundos)
     function skinRow() {

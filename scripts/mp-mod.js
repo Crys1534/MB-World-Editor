@@ -169,6 +169,7 @@
         if (recvHooked || typeof o !== 'function' || o.__mpMod) return;
         recvHooked = true;
         const w = function (d) {
+            if (d && d.tipo === 'ender_cofre') { if (typeof window.playerInvEnderSync === 'function') window.playerInvEnderSync(d.l); return; }   // 🟪 el cofre de ender (uno para todos)
             if (d && d.tipo === 'silenciado') { if (!amHost()) { window.mpMeMuted = !!d.on; toast(d.on ? '🔇 ' + tr('mp_you_muted', 'The host muted you: your messages are not sent.') : '🔊 ' + tr('mp_you_unmuted', 'The host unmuted you: you can chat again.')); } return; }
             if (d && d.tipo === 'sync_players' && !amHost()) {
                 const me = (d.players || []).find(p => p && p.uid === myUid());

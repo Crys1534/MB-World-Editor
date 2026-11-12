@@ -372,8 +372,12 @@
         if (!M.on) return;                                            // (lo de abajo solo sirve jugando)
         if (t === 'juego_jugador') { onPlayer(d); return; }
         if (t === 'juego_bloques' || t === 'juego_cambios') { applyBlocks(Number(d.s) || 1, d.c); return; }
-        if (t === 'juego_pedir' && M.role === 'host') { sendChangesTo(d.peerId); sendMobListTo(d.peerId); sendDropsTo(d.peerId); sendPlayerTo(d.peerId, d.uid, d.autor); return; }
+        if (t === 'juego_pedir' && M.role === 'host') { if (window.mbwAch) { window.mbwAch.apply(d.uid, d.autor, null); sendTo(d.peerId, { tipo: 'juego_logros', t: window.mbwAch.table() }); } sendChangesTo(d.peerId); sendMobListTo(d.peerId); sendDropsTo(d.peerId); sendPlayerTo(d.peerId, d.uid, d.autor); return; }
         if (t === 'juego_tuyo') { if (M.skipMine) M.skipMine = false; else if (M.role === 'guest' && !M.roomHostAtStart && window.mbwPlay.net && window.mbwPlay.net.loadMine) window.mbwPlay.net.loadMine(d.data, d.spawn); M.guestCmds = !!d.cmds; return; }
+        if (t === 'juego_logro') { if (window.mbwAch) window.mbwAch.apply(d.uid, d.n, d.i, d.t); return; }                       // 🏆 otro jugador ganó un logro
+        if (t === 'juego_logro_dar') { if (d.a === myPeer() && window.mbwAch) window.mbwAch.unlock(Number(d.i)); return; }         // 🏆 maté un mob del anfitrión
+        if (t === 'juego_logros') { if (window.mbwAch) window.mbwAch.merge(d.t); return; }                                        // 🏆 la tabla entera (al entrar)
+        if (t === 'juego_domar') { if (M.role === 'host' && mbwom.mobs && mbwom.mobs[d.id]) { mbwom.mobs[d.id].tamed = true; mbwom.mobs[d.id].tamedBy = 'player'; mbwom.mobs[d.id].target = null; } return; }
         if (t === 'juego_tiempo') { try { if (d.tim != null) mbwom.world.tim = Number(d.tim) || 0; } catch (e) { /* nada */ } return; }   // 🛏 alguien durmió: ya es de día
         if (t === 'juego_cria') { if (M.role === 'host' && window.mbwPlay && window.mbwPlay.feedMob) window.mbwPlay.feedMob(String(d.id), String(d.it)); return; }   // 🐄 un invitado le dio de comer a un mob
         if (t === 'juego_ping') { if (M.role === 'host') sendTo(d.peerId, { tipo: 'juego_pong', t: d.t }); return; }

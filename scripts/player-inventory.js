@@ -82,7 +82,7 @@
  const st = { open: false, expanded: false, chest: null, furnace: null, craft: null };   // craft = { size: 2|3, grid: [objetos], table: {x, y}|null } (▶ Modo Jugar)     // ventana abierta / inventario creativo visible / cofre que se está editando { x, y, key, before }
 
  const $ = (id) => document.getElementById(id);
- const tr = (k, fb) => { const v = (typeof window.t === 'function') ? window.t(k) : k; return (v && v !== k) ? v : (fb || k); };
+ const tr = (k, fb, vars) => { const v0 = (typeof window.t === 'function') ? window.t(k) : k; const v = (v0 && v0 !== k) ? v0 : (fb || k); return vars ? String(v).replace(/\{(\w+)\}/g, (m, q) => (vars[q] !== undefined ? vars[q] : m)) : v; };
  const isObj = (o) => !!o && typeof o === 'object' && !Array.isArray(o);
  const num = (v) => { v = Number(v); return Number.isFinite(v) ? v : 0; };
  function clone(o) { try { return JSON.parse(JSON.stringify(o)); } catch (e) { return {}; } }
@@ -189,6 +189,14 @@
    while (l2.length < 9) l2.push(['air', 0, 0, {}]);
    return l2;
   }
+  if (st.chest.kind === 'ender') {                              // 🟪 cofre de ender: UNO para todos (world.enderChests.player), en cualquier dimensión
+   const w = world(); if (!w) return null;
+   if (!isObj(w.enderChests)) w.enderChests = {};
+   if (!Array.isArray(w.enderChests.player)) w.enderChests.player = [];
+   const le = w.enderChests.player;
+   while (le.length < CHEST_SLOTS) le.push(['air', 0, 0, {}]);
+   return le;
+  }
   let d = mbwom.chests;
   if (!isObj(d)) {                                            // la dimensión no tenía diccionario de cofres (viene como 0): se crea
    d = {};
@@ -209,6 +217,8 @@
  function getSlot(a) {
   if (a.k === 'k') return st.craft ? (st.craft.grid[a.i] || null) : null;           // 🛠 cuadrícula de crafteo
   if (a.k === 'o') { const o = craftOut(); return o ? readItem(o, false) : null; }  // 🛠 lo que sale (no se puede poner nada)
+  if (a.k === 'v') return st.anvil ? (st.anvil.a[a.i] || null) : null;            // ⚒ yunque: las 2 casillas
+  if (a.k === 'w') { const r = anvilCompute(); return r.out; }                       // ⚒ lo que sale del yunque
   return readItem(slotArr(a), a.k === 'a');
  }
  function craftOut() {
@@ -222,8 +232,11 @@
   if (a.k === 'c') {
    const l = chestList();
    if (l) l[a.i] = itemToArr(it, false, l[a.i]);
+   if (st.chest && st.chest.kind === 'ender') enderChanged();
    return;
   }
+  if (a.k === 'v') { if (st.anvil) { st.anvil.a[a.i] = it ? copy(it, it.qty) : null; } return; }
+  if (a.k === 'w') return;
   if (a.k === 'f' && isBrew()) { const f = brewData(true); if (f) brewPut(f, a.i, itemToArr(it, false, brewGet(f, a.i))); return; }
   if (a.k === 'f') {
    const f = furnaceData(true);
@@ -405,7 +418,9 @@
   if (!st.open) return;
   closeArmorMenu();
   const w = world();
-  const armor = $('pinv-armor'), main = $('pinv-main'), hot = $('pinv-hotbar'), trash = $('pinv-trash');
+  const armor = $('pinv-armor'), main = $('pinv-main'), hot = $('pinv-hotbar');
+  let trash = $('pinv-trash');
+  if (!trash && hot) { trash = document.createElement('div'); trash.id = 'pinv-trash'; (hot.parentNode.classList.contains('pinv-hot-row') ? hot.parentNode : hot.parentNode).appendChild(trash); }   // (si se perdió, se vuelve a crear)
   if (!armor || !main || !hot || !trash) return;
   armor.innerHTML = ''; main.innerHTML = ''; hot.innerHTML = ''; trash.innerHTML = '';
   // el tooltip del espacio que se acaba de redibujar ya no corresponde a nada
@@ -454,6 +469,7 @@
    }
   }
   renderCraft();
+  renderAnvil();
   renderFuelPalette();
   renderSkin();
   bookSetup(); renderBook();
@@ -516,8 +532,7 @@
   bk.innerHTML = BOOK_SVG;
   bk.onclick = (e) => { e.preventDefault(); e.stopPropagation(); st.bookOpen = !bookOn(); renderAll(); };
   ex.appendChild(bk);
-  const tr2 = $('pinv-trash');
-  if (tr2 && !window.mbwPlaying) ex.appendChild(tr2);
+  ex.appendChild(document.createElement('span'));                      // (el lugar de la derecha queda vacío: la papelera va junto a la hotbar)
  }
  // se toma lo que sale: clic = al cursor (o se suma a lo que ya llevas si es igual); Shift + clic = todo lo que se pueda, a la mochila
  function takeCraft(ev) {
@@ -639,6 +654,19 @@
    setSlot(addr, null);
    const left = insertRange(it, 0, TOTAL - 1);
    if (left > 0) setSlot(addr, copy(it, left));
+   return;
+  }
+  if (addr.k === 'v') {                                              // ⚒ del yunque al inventario
+   setSlot(addr, null);
+   const left = insertRange(it, 0, TOTAL - 1);
+   if (left > 0) setSlot(addr, copy(it, left));
+   renderAll();
+   return;
+  }
+  if (st.anvil) {                                                    // ⚒ del inventario al yunque (primero la casilla de la izquierda)
+   const dst = !st.anvil.a[0] ? 0 : !st.anvil.a[1] ? 1 : -1;
+   if (dst < 0) return;
+   setSlot(addr, null); setSlot({ k: 'v', i: dst }, it);
    return;
   }
   if (st.craft && st.craft.table) {                                  // 🛠 mesa de crafteo: del inventario a la cuadrícula
@@ -962,7 +990,7 @@
  function renderSkin() {
   const top = document.querySelector('#inventory-modal .pinv-top'); if (!top) return;
   let c = $('pinv-skin');
-  const on = !!(st.open && !st.chest && !st.furnace && !(st.craft && st.craft.table));
+  const on = !!(st.open && !st.chest && !st.furnace && !st.anvil && !(st.craft && st.craft.table));
   if (!on) { if (c) c.style.display = 'none'; return; }
   if (!c) { c = document.createElement('canvas'); c.id = 'pinv-skin'; c.className = 'pinv-skin'; c.width = 160; c.height = 220; }
   const armorBox = $('pinv-armor'); const after = armorBox && armorBox.parentNode;
@@ -971,13 +999,14 @@
   // la skin va más chica dentro del cuadro negro, parada abajo (como en el juego)
   const tmp = renderSkin.tmp || (renderSkin.tmp = document.createElement('canvas')); tmp.width = 160; tmp.height = 220;
   const ok = window.mbwPlay && typeof window.mbwPlay.drawPreview === 'function' && window.mbwPlay.drawPreview(tmp);
-  if (ok) { const x2 = c.getContext('2d'); x2.imageSmoothingEnabled = false; x2.clearRect(0, 0, c.width, c.height); const k = 0.66, w2 = Math.round(160 * k), h2 = Math.round(220 * k); x2.drawImage(tmp, Math.round((160 - w2) / 2), 220 - h2 - 14, w2, h2); }
+  if (ok) { const x2 = c.getContext('2d'); x2.imageSmoothingEnabled = false; x2.clearRect(0, 0, c.width, c.height); const k = 0.84, w2 = Math.round(160 * k), h2 = Math.round(220 * k); x2.drawImage(tmp, Math.round((160 - w2) / 2), 220 - h2 - 10, w2, h2); }
   if (!ok) setTimeout(() => { if (st.open) renderSkin(); }, 400);     // (la skin todavía se está bajando)
  }
 
  function onSlot(addr, ev, right) {
   if (!ensure()) return;
   if (addr.k === 'o') { takeCraft(ev); return; }
+  if (addr.k === 'w') { takeAnvil(ev); return; }
   const cur = getSlot(addr);
   const held = fromHeld(heldItem);
   const armor = addr.k === 'a';
@@ -1071,23 +1100,25 @@
   const panel = $('player-inv-panel');
   if (panel) panel.style.display = 'block';
   const top = m.querySelector('.pinv-top');                       // armadura + papelera: no se muestran al editar un cofre
-  if (top) top.style.display = (st.chest || st.furnace || (st.craft && st.craft.table)) ? 'none' : '';
+  if (top) top.style.display = (st.chest || st.furnace || st.anvil || (st.craft && st.craft.table)) ? 'none' : '';
   // ▶ Modo Jugar: se ve como el inventario del juego (blanco, letra de píxeles); la armadura en columna, la skin y a la derecha
   // el crafteo 2×2; sin papelera (en el juego no hay)
   const game = !!window.mbwPlaying;
   m.classList.toggle('pinv-game', game);
   m.classList.add('pinv-mb');                                        // 🎒 como el inventario de Mine Blocks (gris, casillas juntas)
-  m.classList.toggle('pinv-mb-plain', !st.chest && !st.furnace && !(st.craft && st.craft.table));   // (el inventario solo: sin título)
+  m.classList.toggle('pinv-mb-plain', !st.chest && !st.furnace && !st.anvil && !(st.craft && st.craft.table));   // (el inventario solo: sin título)
   const cbox = $('pinv-craft-box'), ppanel = $('player-inv-panel'), trashEl = $('pinv-trash');
   if (cbox && top && ppanel) {
    if (st.craft && !st.craft.table) { if (cbox.parentNode !== top) top.appendChild(cbox); }
    else if (cbox.parentNode !== ppanel) ppanel.insertBefore(cbox, top);
   }
-  // la papelera (solo editor) va debajo de lo que sale del crafteo; jugando no hay
-  const trashHome = top && top.querySelector('.pinv-trash-home');
-  if (trashEl && trashHome) {
-   trashHome.style.display = 'none';
-   if (game || !st.craft || st.craft.table) { if (trashEl.parentNode !== trashHome) trashHome.appendChild(trashEl); }
+  // 🗑 la papelera siempre flota a la derecha de la última casilla de la hotbar (en el editor, jugando y en los cofres)
+  const hotEl = $('pinv-hotbar');
+  if (trashEl && hotEl) {
+   let row = hotEl.parentNode;
+   if (!row.classList.contains('pinv-hot-row')) { row = document.createElement('div'); row.className = 'pinv-hot-row'; hotEl.parentNode.insertBefore(row, hotEl); row.appendChild(hotEl); }
+   if (trashEl.parentNode !== row) row.appendChild(trashEl);
+   const home = top && top.querySelector('.pinv-trash-home'); if (home) home.style.display = 'none';
   }
   document.body.classList.toggle('pinv-craft-open', !!st.craft);
   const search = $('inventory-search');
@@ -1101,13 +1132,15 @@
   const title = $('inventory-modal-title');
   const flbl = document.querySelector('#pinv-furnace-box > .pinv-label'); if (flbl) flbl.textContent = st.furnace && isBrew() ? tr('pinv_brew_title', 'Brewing Stand') : tr('pinv_furnace_label', 'Furnace');
   if (title && st.furnace) title.innerText = (isBrew() ? tr('pinv_brew_title', 'Brewing Stand') : tr('pinv_furnace_title', 'Furnace')) + '  (X: ' + st.furnace.x + ', Y: ' + st.furnace.y + ')';
+  else if (title && st.anvil) title.innerText = tr('pinv_anvil_title', 'Anvil - Repair & Rename');
   else if (title && st.craft && st.craft.table) title.innerText = tr('pinv_craft_table', 'Crafting Table');
   else if (title) title.innerText = st.chest ? (boxTitle() + '  (X: ' + st.chest.x + ', Y: ' + st.chest.y + ')') : tr('pinv_title', 'Player Inventory');
   const lbl = $('pinv-chest-label');
-  if (lbl) { lbl.textContent = !st.chest || st.chest.kind !== 'disp' ? tr('pinv_chest_label', 'Chest contents') : st.chest.type === 'dropper' ? tr('pinv_dropper_label', 'Dropper contents') : tr('pinv_dispenser_label', 'Dispenser contents'); lbl.title = tr('pinv_chest_delete_hint', 'Tip: press Delete to discard the item on the cursor'); }
+  if (lbl) { lbl.textContent = st.chest && st.chest.kind === 'ender' ? tr('pinv_ender_label', 'Ender Chest (the same for everyone)') : !st.chest || st.chest.kind !== 'disp' ? tr('pinv_chest_label', 'Chest contents') : st.chest.type === 'dropper' ? tr('pinv_dropper_label', 'Dropper contents') : tr('pinv_dispenser_label', 'Dispenser contents'); lbl.title = tr('pinv_chest_delete_hint', 'Tip: press Delete to discard the item on the cursor'); }
  }
  // el título: "Chest" / "Dispenser" / "Dropper" (o el nombre que le pusieron al dispenser / dropper, como en el juego)
  function boxTitle() {
+  if (st.chest && st.chest.kind === 'ender') return tr('pinv_ender_title', 'Ender Chest');
   if (!st.chest || st.chest.kind !== 'disp') return tr('pinv_chest_title', 'Chest');
   let nm = '';
   try { nm = mbwom.states && typeof mbwom.states[st.chest.key + '_3'] === 'string' ? mbwom.states[st.chest.key + '_3'] : ''; } catch (e) { nm = ''; }
@@ -1126,6 +1159,7 @@
   m.classList.remove('pinv-game', 'pinv-mb', 'pinv-mb-plain');
   const bk = $('pinv-book'); if (bk) { bk.style.display = 'none'; const q = bk.querySelector('.pinv-book-q'); if (q) q.value = ''; }
   const ccb = $('pinv-craft-box'); if (ccb) ccb.style.display = 'none';
+  const avb = $('pinv-anvil-box'); if (avb) avb.style.display = 'none';
   const panel = $('player-inv-panel');
   if (panel) panel.style.display = 'none';
   const search = $('inventory-search');
@@ -1167,6 +1201,7 @@
  function commitChest() {
   const c = st.chest;
   st.chest = null;
+  if (c && c.kind === 'ender') { enderSend(true); if (typeof worldDirty !== 'undefined') worldDirty = true; return; }
   if (!c || typeof mbwom === 'undefined' || !mbwom.scene) return;
   let after = null;
   try { after = mbwom.getBlockState(c.x, c.y); } catch (e) { after = null; }
@@ -1213,6 +1248,7 @@
   st.expanded = false;
   giveBackCursor();
   returnCraft();
+  returnAnvil();
   commitChest();
   commitFurnace();
   resetLayout();
@@ -1239,7 +1275,7 @@
    if (wasMine) return;
   }
   if (!world()) { alert(tr('pinv_no_world', 'Open or create a world first')); return; }
-  st.chest = null;
+  st.chest = null; st.anvil = null;
   st.furnace = null;
   st.craft = { size: 2, grid: [null, null, null, null], table: null };   // crafteo 2×2 (en el editor también, como en el juego)
   st.bookOpen = undefined;
@@ -1264,7 +1300,7 @@
   if (!bs || bs.type !== 'chest') return false;
   if (!world()) return false;
   if (m.style.display === 'block') toggleInventory();            // cierra lo que esté abierto (guarda lo del cofre anterior si lo había)
-  st.furnace = null; st.craft = null;
+  st.furnace = null; st.craft = null; st.anvil = null;
   st.chest = { x: x, y: y, key: 'blockX' + x + 'Y' + y, before: null };
   chestList();                                                    // completa los 27 espacios si faltaban
   st.chest.before = JSON.parse(JSON.stringify(mbwom.getBlockState(x, y)));
@@ -1289,7 +1325,7 @@
   if (!bs || bs.type !== 'oven') return false;
   if (!world()) return false;
   if (m.style.display === 'block') toggleInventory();
-  st.chest = null; st.craft = null;
+  st.chest = null; st.craft = null; st.anvil = null;
   st.furnace = { x: x, y: y, key: 'blockX' + x + 'Y' + y, before: null };
   st.furnace.before = JSON.parse(JSON.stringify(mbwom.getBlockState(x, y)));
   furnaceData(true);                                              // completa los 3 espacios si faltaban (si queda vacío no se guarda)
@@ -1313,9 +1349,203 @@
   try { bs = mbwom.getBlockState(x, y); } catch (e) { bs = null; }
   if (!bs || bs.type !== 'brew' || !world()) return false;
   if (m.style.display === 'block') toggleInventory();
-  st.chest = null; st.craft = null;
+  st.chest = null; st.craft = null; st.anvil = null;
   st.furnace = { x: x, y: y, key: 'blockX' + x + 'Y' + y, before: JSON.parse(JSON.stringify(bs)), kind: 'brew' };
   brewData(true);
+  st.open = true; st.expanded = false; heldItem = null;
+  refreshCursor();
+  m.style.display = 'block';
+  layout();
+  renderAll();
+  return true;
+ };
+ // =====================================================================
+ // ⚒ YUNQUE (Inventory.doAnvilyThings / renameChange / recalculateCost de Mine Blocks 2.0.0)
+ //   Izquierda: lo que se arregla / renombra. Derecha: otro igual (se juntan la durabilidad y los encantamientos), un libro
+ //   encantado (le pasa sus encantamientos) o el material (madera, piedra, hierro, oro, diamante, cuero, escamas de dragón).
+ //   Cuesta niveles de experiencia: (lo que se junta + 1 si se renombra) × usos del yunque. Al usarlo, 12 % de que se gaste.
+ // =====================================================================
+ const PD = () => (window.MB_PLAY_DATA && window.MB_PLAY_DATA.blocks) || {};
+ let ENCH = null;
+ function enchSet() {
+  if (ENCH) return ENCH;
+  ENCH = {};
+  const T = (window.MB_PLAY_DATA && window.MB_PLAY_DATA.enchTypes) || {};
+  Object.keys(T).forEach((g) => Object.keys(T[g] || {}).forEach((k) => { ENCH[k] = 1; }));
+  return ENCH;
+ }
+ const REPAIR = [['wp', 'Wood'], ['cs', 'Stone'], ['ii', 'Iron'], ['gi', 'Gold'], ['dm', 'Diamond'], ['leather', 'Leather'], ['dscl', 'Dragon']];
+ // junta los encantamientos de "from" en "out" (los del mismo tipo suben de nivel). Devuelve cuántos cuentan para el precio.
+ function anvilMerge(out, aEx, fromEx, aId) {
+  const E = enchSet(); let worth = 0;
+  const types = window.MB_PLAY_DATA && window.MB_PLAY_DATA.enchTypes, grp = window.MB_PLAY_DATA && window.MB_PLAY_DATA.enchItems && window.MB_PLAY_DATA.enchItems[aId];
+  Object.keys(fromEx || {}).forEach((f) => {
+   if (!E[f]) return;
+   let g = true;
+   const keys = Object.keys(aEx || {});
+   for (let i = 0; i < keys.length; i++) {
+    const m = keys[i];
+    if (f.slice(0, -1) === m.slice(0, -1)) {
+     let p = parseInt(f.slice(-1), 10);
+     if (!isNaN(p)) {
+      p = parseInt(f.slice(-1), 10) + parseInt(m.slice(-1), 10);
+      let gone = false;
+      while (!E[f.slice(0, -1) + p]) { if (--p <= 0) { delete out[m]; gone = true; break; } }
+      if (!gone && p >= parseInt(m.slice(-1), 10)) { worth++; delete out[m]; out[f.slice(0, -1) + p] = 'enchant'; }
+     }
+     g = false; break;
+    } else if ((m === 'silkTouch' && f.slice(0, 7) === 'fortune') || (f === 'silkTouch' && m.slice(0, 7) === 'fortune')) { g = false; break; }
+   }
+   if (g) {
+    const ok = grp && grp !== 'Random' && types && types[grp] ? types[grp][f] != null : true;
+    if (ok) { out[f] = 'enchant'; worth++; }
+   }
+  });
+  return worth;
+ }
+ function anvilCompute() {
+  const A = st.anvil, r = { out: null, cost: 0, take: 0, can: false, text: '', cant: false, nameOk: false };
+  if (!A || !A.a[0]) return r;
+  const a = A.a[0], b = A.a[1], P = PD()[a.id] || {}, life = Number(P.life) || 0;
+  const out = { id: a.id, qty: 1, dmg: a.dmg || 0, extras: clone(a.extras || {}), legacy: a.legacy };
+  const uses = (it) => (it && it.extras && it.extras.anvilUses != null) ? Number(it.extras.anvilUses) || 1 : 1;
+  let worth = 0, nameWorth = 0, combine = false, cant = false;
+  const isTool = P.tool === true || P.tool == 1;
+  if (isTool || a.id === 'ebook') {
+   if (b) {
+    if (b.id === a.id || b.id === 'ebook') {
+     if (a.id !== 'ebook' && b.id !== 'ebook' && life) { out.dmg = Math.round(Math.max(0, -1.6 * life + 1.3 * (a.dmg || 0) + 1.3 * (b.dmg || 0))); worth += Math.max(1, 3 * ((a.dmg || 0) - out.dmg) / life) | 0; }
+     r.take = 1;
+     worth += anvilMerge(out.extras, a.extras, b.extras, a.id);
+     combine = true;
+     out.extras.anvilUses = Math.max(uses(a), uses(b)) + 1;
+    } else if ((a.dmg || 0) !== 0 && life && REPAIR.some((q) => b.id === q[0] && String(a.id).indexOf(q[1]) === 0)) {
+     worth += anvilMerge(out.extras, a.extras, b.extras, a.id);
+     out.dmg = Math.round(Math.max(0, (a.dmg || 0) - life / 3 * b.qty));
+     r.take = Math.min(b.qty, Math.ceil(3 * (a.dmg || 0) / life)) | 0;
+     worth += r.take;
+     combine = true;
+     out.extras.anvilUses = Math.max(uses(a), uses(b)) + 1;
+    } else cant = true;
+   }
+  } else if (b) cant = true;
+  // renombrar (el nombre que se escribió, si es distinto)
+  let rename = false;
+  if (!cant) {
+   const nm = String(A.name || '').slice(0, 30);
+   r.nameOk = true;
+   if (nm && nm !== prettyName(a)) { out.extras.nameChange = nm; out.extras.anvilUses = Math.max(uses(a), uses(b)) + 1; rename = true; nameWorth = 1; }
+   else if (a.extras && a.extras.nameChange != null) out.extras.nameChange = a.extras.nameChange; else delete out.extras.nameChange;
+  }
+  r.cost = (worth + nameWorth) * Math.max(uses(a), uses(b)) | 0;
+  const w = world(), lv = Math.floor((Number(w && w.experience) || 0) / 100), crea = w && Number(w.gamemode) === 1;
+  let poor = false;
+  if (r.cost) { if (r.cost <= lv || crea) { r.can = true; r.text = tr('pinv_anvil_cost', 'Levels cost: {n}', { n: r.cost }); } else { poor = true; r.text = tr('pinv_anvil_poor', 'Not enough levels! Cost: {n}', { n: r.cost }); } }
+  if (cant || !r.can || (!combine && !rename)) { r.can = false; r.cant = true; if (cant || !poor) r.text = ''; return r; }
+  r.out = out;
+  return r;
+ }
+ function renderAnvil() {
+  let box = $('pinv-anvil-box');
+  const panel = $('player-inv-panel'); if (!panel) return;
+  if (!st.anvil) { if (box) box.style.display = 'none'; return; }
+  if (!box) {
+   box = document.createElement('div'); box.id = 'pinv-anvil-box'; box.className = 'pinv-chest-box pinv-anvil-box';
+   box.innerHTML = '<div class="pinv-label pinv-anvil-t"></div><input type="text" class="pinv-anvil-name" maxlength="30" autocomplete="off" spellcheck="false"><div class="pinv-anvil-row"></div><div class="pinv-anvil-cost"></div>';
+   const inp = box.querySelector('.pinv-anvil-name');
+   ['keydown', 'keyup', 'keypress'].forEach((n) => inp.addEventListener(n, (e) => e.stopPropagation()));
+   inp.addEventListener('input', () => { if (st.anvil) { st.anvil.name = inp.value; st.anvil.typed = true; renderAnvilRow(); } });
+  }
+  if (box.parentNode !== panel || box.nextSibling !== panel.querySelector('.pinv-top')) panel.insertBefore(box, panel.querySelector('.pinv-top'));
+  box.style.display = '';
+  box.querySelector('.pinv-anvil-t').textContent = tr('pinv_anvil_title', 'Anvil - Repair & Rename');
+  const inp = box.querySelector('.pinv-anvil-name');
+  const a = st.anvil.a[0];
+  const k = a ? normKey(a) : '';
+  if (k !== st.anvil.lastKey) { st.anvil.lastKey = k; st.anvil.typed = false; st.anvil.name = a ? prettyName(a) : ''; }
+  if (document.activeElement !== inp) inp.value = st.anvil.name || '';
+  inp.placeholder = tr('pinv_anvil_name', 'Name');
+  renderAnvilRow();
+ }
+ function renderAnvilRow() {
+  const box = $('pinv-anvil-box'); if (!box || !st.anvil) return;
+  const r = anvilCompute();
+  const row = box.querySelector('.pinv-anvil-row'); row.innerHTML = '';
+  row.appendChild(slotEl({ k: 'v', i: 0 }));
+  const plus = document.createElement('div'); plus.className = 'pinv-anvil-plus'; plus.textContent = '+'; row.appendChild(plus);
+  row.appendChild(slotEl({ k: 'v', i: 1 }));
+  const ar = document.createElement('div'); ar.className = 'pinv-f-arrow pinv-craft-arrow' + (r.cant && st.anvil.a[0] ? ' pinv-anvil-x' : ''); ar.textContent = '➡️'; row.appendChild(ar);
+  const o = slotEl({ k: 'w', i: 0 }); o.classList.add('pinv-craft-out'); row.appendChild(o);
+  const c = box.querySelector('.pinv-anvil-cost'); c.textContent = r.text; c.classList.toggle('poor', !r.can && !!r.text);
+  box.querySelector('.pinv-anvil-name').disabled = !st.anvil.a[0] || !r.nameOk;
+ }
+ function takeAnvil(ev) {
+  const r = anvilCompute(); if (!r.out || !r.can) return;
+  if (heldItem && !ev.shiftKey) return;                                 // (como el juego: con algo en el cursor no se toma)
+  const w = ensure(); if (!w) return;
+  if (ev.shiftKey) { const left = insertRange(r.out, 0, TOTAL - 1); if (left > 0) return; }
+  else { heldItem = toHeld(r.out); heldItem.from = null; }
+  const A = st.anvil;
+  A.a[0] = null;
+  if (A.a[1] && r.take > 0) { A.a[1].qty -= r.take; if (A.a[1].qty <= 0) A.a[1] = null; }
+  if (Number(w.gamemode) !== 1) w.experience = Math.max(0, (Number(w.experience) || 0) - r.cost * 100);
+  A.name = ''; A.lastKey = '';
+  if (window.mbwPlay && typeof window.mbwPlay.anvilUsed === 'function') { try { if (window.mbwPlay.anvilUsed(A.x, A.y) === 'broke') { refreshCursor(); toggleInventory(); return; } } catch (e) { /* nada */ } }
+  refreshCursor();
+  renderAll();
+ }
+ function returnAnvil() {
+  if (!st.anvil) return;
+  const A = st.anvil; st.anvil = null;
+  A.a.forEach((it) => {
+   if (!it) return;
+   const left = insertRange(it, 0, TOTAL - 1);
+   if (left > 0 && window.mbwPlay && typeof window.mbwPlay.dropItem === 'function') window.mbwPlay.dropItem(it.id, left, it.dmg || 0, it.extras || {});
+  });
+ }
+ window.openAnvil = function (x, y) {
+  const m = $('inventory-modal');
+  if (!m || typeof toggleInventory !== 'function' || !world()) return false;
+  if (m.style.display === 'block') toggleInventory();
+  st.chest = null; st.furnace = null; st.craft = null;
+  st.anvil = { x: Math.floor(Number(x)), y: Math.floor(Number(y)), a: [null, null], name: '', lastKey: '' };
+  st.open = true; st.expanded = false; heldItem = null;
+  refreshCursor();
+  m.style.display = 'block';
+  layout();
+  renderAll();
+  return true;
+ };
+ window.playerInvAnvil = function () { if (!st.anvil) return null; const r = anvilCompute(); return { a: st.anvil.a.map((it) => it ? [it.id, it.qty, it.dmg, it.extras] : null), out: r.out ? [r.out.id, r.out.qty, r.out.dmg, r.out.extras] : null, cost: r.cost, can: r.can, text: r.text }; };   // (lo usan las pruebas)
+ window.playerInvAnvilSet = function (i, arr) { if (!st.anvil) return; st.anvil.a[i] = arr ? readItem(arr, false) : null; renderAll(); };
+ window.playerInvAnvilName = function (t) { if (!st.anvil) return; st.anvil.name = String(t); const i = document.querySelector('.pinv-anvil-name'); if (i) i.value = st.anvil.name; renderAnvilRow(); };
+ window.playerInvAnvilTake = function (shift) { takeAnvil({ shiftKey: !!shift }); };
+ window.playerInvSetSlot = function (k, i, arr) { setSlot({ k: k, i: i }, arr ? readItem(arr, k === 'a') : null); renderAll(); };   // (lo usan las pruebas)
+
+ // =====================================================================
+ // 🟪 COFRE DE ENDER: uno solo para todos (también en multijugador: lo que alguien mete o saca se ve en todos)
+ // =====================================================================
+ let enderT = 0;
+ function enderChanged() { clearTimeout(enderT); enderT = setTimeout(function () { enderSend(false); }, 120); }
+ function enderSend(final) {
+  clearTimeout(enderT);
+  const w = world(); if (!w || !isObj(w.enderChests) || !Array.isArray(w.enderChests.player)) return;
+  if (typeof enviarMensajeEnRed === 'function') { try { enviarMensajeEnRed({ tipo: 'ender_cofre', l: JSON.parse(JSON.stringify(w.enderChests.player)) }); } catch (e) { /* nada */ } }
+ }
+ // llega de otro jugador: se pone y, si yo lo tengo abierto, se vuelve a dibujar
+ window.playerInvEnderSync = function (list) {
+  const w = world(); if (!w || !Array.isArray(list)) return;
+  if (!isObj(w.enderChests)) w.enderChests = {};
+  w.enderChests.player = JSON.parse(JSON.stringify(list)).slice(0, CHEST_SLOTS);
+  if (st.open && st.chest && st.chest.kind === 'ender') renderAll();
+ };
+ window.openEnderChest = function (x, y) {
+  const m = $('inventory-modal');
+  if (!m || typeof toggleInventory !== 'function' || !world()) return false;
+  if (m.style.display === 'block') toggleInventory();
+  st.furnace = null; st.craft = null; st.anvil = null;
+  st.chest = { x: Math.floor(Number(x)), y: Math.floor(Number(y)), key: 'ender', before: null, kind: 'ender' };
+  chestList();
   st.open = true; st.expanded = false; heldItem = null;
   refreshCursor();
   m.style.display = 'block';
@@ -1335,7 +1565,7 @@
   if (!bs || (bs.type !== 'dispense' && bs.type !== 'dropper')) return false;
   if (!world()) return false;
   if (m.style.display === 'block') toggleInventory();
-  st.furnace = null; st.craft = null;
+  st.furnace = null; st.craft = null; st.anvil = null;
   st.chest = { x: x, y: y, key: 'blockX' + x + 'Y' + y, before: null, kind: 'disp', type: bs.type };
   st.chest.before = JSON.parse(JSON.stringify(mbwom.getBlockState(x, y)));
   chestList();                                                    // completa los 9 espacios si faltaban
@@ -1353,7 +1583,7 @@
   const m = $('inventory-modal');
   if (!m || typeof toggleInventory !== 'function' || !world()) return false;
   if (m.style.display === 'block') toggleInventory();
-  st.chest = null; st.furnace = null;
+  st.chest = null; st.furnace = null; st.anvil = null;
   st.craft = { size: 3, grid: [null, null, null, null, null, null, null, null, null], table: { x: Math.floor(x), y: Math.floor(y) } };
   st.bookOpen = undefined;
   st.open = true;

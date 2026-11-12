@@ -3570,7 +3570,7 @@ body.pinv-book-open #inventory-modal .inv-main-columns { flex-direction: row; }
    derecha con el libro verde debajo. 4 filas + la hotbar. El tamaño de las casillas (--s) se ajusta para que TODO quepa
    en la pantalla (también en el celular acostado).
    ========================================================================== */
-#inventory-modal.pinv-mb .inv-modal-window { --s: clamp(22px, min(52px, calc((100vh - 64px) / 10.2), calc((100vw - 36px) / 9.4)), 52px); --ps: var(--s);
+#inventory-modal.pinv-mb .inv-modal-window { --s: clamp(22px, min(52px, calc((100vh - 64px) / 10.2), calc((100vw - 36px) / 10.7)), 52px); --ps: var(--s);
   background: #c6c6c6; color: #3f3f3f; border: 3px solid #000; border-radius: 7px; box-shadow: inset 3px 3px 0 #fff, inset -3px -3px 0 #555, 0 10px 40px rgba(0,0,0,.55); overflow: hidden; max-height: calc(100vh - 6px); max-width: calc(100vw - 6px); }
 #inventory-modal.pinv-mb .inv-modal-header { background: transparent; border: 0; padding: 5px 8px 0 12px; min-height: 0; }
 #inventory-modal.pinv-mb #inventory-modal-title { font: calc(var(--s) * .52)/1 'Pixeltype', 'RainyHearts', monospace; font-weight: normal; color: #3f3f3f; }
@@ -3629,10 +3629,10 @@ body.pinv-book-open #inventory-modal .inv-main-columns { flex-direction: row; }
 #inventory-modal.pinv-mb .pinv-book-q { border: 2px solid #373737; border-radius: 0; background: #e2e2e2; }
 #inventory-modal.pinv-mb .pinv-book .pinv-slot { border-color: #373737 #fff #fff #373737; }
 /* recetario abierto: un poco más chicas las casillas para que quepa al lado */
-body.pinv-book-open #inventory-modal.pinv-mb .inv-modal-window { --s: clamp(22px, min(50px, calc((100vh - 64px) / 10.2), calc((100vw - 60px) / 13)), 50px); }
+body.pinv-book-open #inventory-modal.pinv-mb .inv-modal-window { --s: clamp(22px, min(50px, calc((100vh - 64px) / 10.2), calc((100vw - 60px) / 14.3)), 50px); }
 /* celular acostado: el cofre / horno a la izquierda y el inventario a la derecha */
 @media (max-height: 520px) {
-  body.pinv-chest-open #inventory-modal.pinv-mb .inv-modal-window, body.pinv-furnace-open #inventory-modal.pinv-mb .inv-modal-window { --s: clamp(20px, min(46px, calc((100vw - 64px) / 19), calc((100vh - 70px) / 5.9)), 46px); }
+  body.pinv-chest-open #inventory-modal.pinv-mb .inv-modal-window, body.pinv-furnace-open #inventory-modal.pinv-mb .inv-modal-window { --s: clamp(20px, min(46px, calc((100vw - 64px) / 20.3), calc((100vh - 70px) / 5.9)), 46px); }
   body.pinv-chest-open #inventory-modal.pinv-mb #pinv-chest-box, body.pinv-furnace-open #inventory-modal.pinv-mb #pinv-furnace-box { padding-right: calc(var(--s) * .3); border-right: max(2px, calc(var(--s) * .06)) solid #8b8b8b; }
 }
 #inventory-modal.pinv-mb .pinv-f-arrow:not(.pinv-craft-arrow) { font-size: 0; width: calc(var(--s) * .72); height: calc(var(--s) * .52); position: relative; }
@@ -3644,3 +3644,40 @@ body.pinv-book-open #inventory-modal.pinv-mb .inv-modal-window { --s: clamp(22px
 .pinv-brew-fuelbar { display: block; height: 4px; background: #e8a33a; box-shadow: 0 0 0 1px rgba(0,0,0,.5); align-self: flex-start; max-width: var(--s, 48px); }
 .pinv-brew-bub { font-size: calc(var(--s, 48px) * .5); opacity: calc(.25 + var(--p, 0) * .75); filter: grayscale(calc(1 - var(--p, 0))); }
 .pinv-brew-bot { display: flex; gap: calc(var(--s, 48px) * .2); }
+
+/* 🗑 la papelera flota a la derecha de la hotbar */
+#inventory-modal.pinv-mb .pinv-hot-row { display: flex; align-items: flex-end; gap: calc(var(--s) * .3); margin-top: calc(var(--s) * .3); }
+#inventory-modal.pinv-mb .pinv-hot-row .pinv-hotbar { margin-top: 0; }
+#inventory-modal.pinv-mb #pinv-trash .pinv-slot { width: var(--s); height: var(--s); background: #9a7c7c; }
+#inventory-modal.pinv-mb #pinv-trash .pinv-slot:hover { background: #b38a8a; }
+/* ⚒ yunque (scripts/player-inventory.js) */
+.pinv-anvil-box { display: flex; flex-direction: column; align-items: center; gap: calc(var(--s, 48px) * .18); }
+.pinv-anvil-name { width: calc(var(--s, 48px) * 6); max-width: 100%; box-sizing: border-box; padding: 4px 8px; border: 2px solid #373737; background: #e2e2e2; color: #222; font: 15px Arial, sans-serif; }
+.pinv-anvil-name:disabled { opacity: .5; }
+.pinv-anvil-row { display: flex; align-items: center; gap: calc(var(--s, 48px) * .25); }
+.pinv-anvil-plus { font: bold calc(var(--s, 48px) * .55)/1 Arial, sans-serif; color: #555; }
+.pinv-anvil-x { opacity: .35; }
+.pinv-anvil-cost { min-height: 1.1em; font: calc(var(--s, 48px) * .42)/1.1 'Pixeltype', 'RainyHearts', monospace; color: #2e7d32; }
+.pinv-anvil-cost.poor { color: #b71c1c; }
+#inventory-modal.pinv-mb .pinv-anvil-box .pinv-label { align-self: flex-start; }
+/* 🏆 logros: aviso arriba y la lista del menú de pausa (scripts/play-ach.js, scripts/play-menu.js) */
+.ach-toast { position: fixed; top: 12px; right: 12px; z-index: 100060; display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 10px; background: #1f1f1f; border: 3px solid #555; border-radius: 6px; box-shadow: inset 2px 2px 0 #3a3a3a, 0 6px 18px rgba(0,0,0,.5); color: #fff; font-family: 'Pixeltype', 'RainyHearts', monospace; transform: translateY(-140%); transition: transform .35s ease; pointer-events: none; max-width: calc(100vw - 32px); }
+.ach-toast.show { transform: none; }
+.ach-toast-ic { font-size: 26px; line-height: 1; }
+.ach-toast-t { color: #ffe066; font-size: 18px; line-height: 1; }
+.ach-toast-n { font-size: 20px; line-height: 1.1; }
+.pm-ach { display: flex; flex-direction: column; gap: 6px; }
+.pm-ach-row { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: "pos name num" "bar bar bar"; gap: 3px 8px; align-items: center; width: 100%; padding: 7px 10px; background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.12); border-radius: 6px; color: #fff; font-size: 14px; cursor: pointer; text-align: left; }
+.pm-ach-row:hover { background: rgba(255,255,255,.14); }
+.pm-ach-row.me { border-color: #ffd54a; }
+.pm-ach-row.open { background: rgba(255,213,74,.14); }
+.pm-ach-pos { grid-area: pos; color: #ffd54a; font-weight: 700; }
+.pm-ach-name { grid-area: name; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.pm-ach-num { grid-area: num; color: #cfcfcf; }
+.pm-ach-bar { grid-area: bar; height: 5px; background: rgba(0,0,0,.35); border-radius: 3px; overflow: hidden; }
+.pm-ach-bar i { display: block; height: 100%; background: linear-gradient(90deg, #7bd34f, #ffd54a); }
+.pm-ach-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px; padding: 6px; background: rgba(15,15,15,.9); border-radius: 6px; }
+.pm-ach-it { display: flex; align-items: center; gap: 6px; padding: 4px 6px; background: rgba(255,255,255,.06); border-radius: 4px; color: #8d8d8d; font-size: 12px; }
+.pm-ach-it.got { background: rgba(123,211,79,.18); color: #e9ffe0; }
+.pm-ach-ic { font-size: 15px; flex: 0 0 auto; }
+.pm-ach-tx { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

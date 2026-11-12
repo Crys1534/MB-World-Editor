@@ -74,6 +74,8 @@
         return (v === null || v === undefined || v === '' || v === 0) ? 'air' : String(v);
     }
     const key = (x, y) => 'blockX' + x + 'Y' + y;
+    const ach = (n) => { try { if (window.mbwAch) window.mbwAch.unlock(n); } catch (e) { /* nada */ } };   // 🏆 logro (scripts/play-ach.js)
+    const nearMe = (x, y, r) => { const w = W(); return Math.hypot(x - w.worldX, y - w.worldY) <= (r || 8); };
     // 🔊 sonidos del juego (scripts/game-sfx.js). gx, gy = posición como la guarda el juego (y hacia abajo = negativo,
     // igual que worldY y los mobs): el volumen baja con la distancia al Player y suena del lado donde está.
     const SFX = () => window.mbSfx || null;
@@ -925,6 +927,7 @@
                         if (inId === 'TNT') { if (l.input[1] <= 0) l.input = nil(); explode(bx, by, 5, PLAYER_ID); changed = true; return; }
                         if (emptyIt(out)) l.output = Array.isArray(into) ? [into[0], 0, 0, { type: into[1] }] : [into, 0, 0, {}];
                         l.output[1] = (Number(l.output[1]) || 0) + 1;
+                        if (l.output[0] === 'ii' && nearMe(bx + .5, -by, 10)) ach(8);
                         if (l.input[1] <= 0) l.input = nil();
                     }
                 }
@@ -1104,10 +1107,16 @@
     // Lo que suelta un mob al morir (Entity_Mob.killMob, tal cual): sus drops (con "botín" del encantamiento Looting, si murió
     // quemándose suelta la carne cocida, la oveja suelta lana de su color si no estaba trasquilada, los bebés no sueltan...),
     // lo que traía en las manos / su armadura / la silla, y experiencia si lo mató el Player (o su lobo).
+    const KILL_ACH = { pig: 12, cow: 13, sheep: 14, zombie: 15, skeleton: 16, spider: 17, nethereye: 18, blaze: 19, enderman: 20, creeper: 21, enderdragon: 36, slime: 37, magmacube: 38, zombiepigman: 41 };
     function killMob(id, m) {
         const a = D.mobs[m.type] || {};
         const d = tmpOf(id);
         m.dead = 1;
+        // 🏆 logro de matar (al que lo mató; si fue otro jugador, se le manda a él)
+        let ka = KILL_ACH[m.type];
+        if (m.type === 'cow' && m.variant) ka = 13;
+        if (m.type === 'chicken' && d.onFire > 0) ka = 22;
+        if (ka != null) { if (m.lastDamageID === PLAYER_ID) ach(ka); else if (mpHost() && isRemoteId(m.lastDamageID)) mpSend({ tipo: 'juego_logro_dar', a: m.lastDamageID.slice(RP.length), i: ka }); }
         // 🎮 si lo mató otro jugador, la experiencia le sale a ÉL, en su pantalla (lo que suelta cae al suelo y lo ven todos)
         const lootTo = (mpHost() && isRemoteId(m.lastDamageID)) ? m.lastDamageID.slice(RP.length) : null;
         if (lootTo) S.lootTo = [];
@@ -1495,6 +1504,7 @@
         const cropN = CROPS[t] ? cropStage(x, y) : 0;
         const brewData = (t === 'brew' && mbwom.toBrew && mbwom.toBrew[key(x, y)]) ? JSON.parse(JSON.stringify(mbwom.toBrew[key(x, y)])) : null;
         if (!byCmd) blockSnd(t, 'break', x, y);
+        if (!byCmd) { if (t === 'wd1' || t === 'wd') ach(0); else if (t === 'ob') ach(27); else if (t === 'gd') ach(28); else if (t === 'dmore') ach(29); }
         setBlock(x, y, null);
         if (w.gamemode == 1) return;
         if (!byCmd) damageTool();
@@ -1742,6 +1752,7 @@
                 if (bd(selType(), 'drink') != null || selType() === 'potion') snd('drink' + ((Math.random() * 2 | 0) + 1)); else snd('eat' + ((Math.random() * 4 | 0) + 1));
                 const ate = selType();
                 if (fd && fd.hunger != null) w.food = Math.min(1000, w.food + fd.hunger);
+                ach(25);
                 if (fd && fd.health != null) w.health = Math.min(20, w.health + fd.health);
                 // efectos (como el juego: la manzana dorada regenera, la carne cruda da hambre, la papa venenosa envenena...)
                 if (fd && fd.effects) Object.keys(fd.effects).forEach(function (k) { const e = fd.effects[k]; if (e.chance == null || Math.random() < 1 / e.chance) addEffect(k, e.duration == null ? 10 : e.duration, 1); });
@@ -1767,7 +1778,7 @@
             if (rightFresh && useItemLife(mw, bx, by)) { S.mine = null; S.swing = 15; return; }        // 🔥 mechero, 🎣 caña, azadón, harina de hueso, balsa, vagoneta
             if (rightFresh && !S.p.sneaking && blockDist(bx, by) <= REACH + 1 && useBlock(bx, by)) { S.mine = null; S.swing = 15; return; }   // puertas, trampillas, bloque musical, camas
             S.rightFresh = rightFresh;
-            if (S.placeDelay >= 6 && placeBlock(mw)) { S.placeDelay = 0; S.swing = 15; const px2 = Math.floor(mw.x), py2 = Math.floor(mw.y); if (CROPS[fg(px2, py2)] && !cropStage(px2, py2)) setCrop(px2, py2, 1); }
+            if (S.placeDelay >= 6 && placeBlock(mw)) { S.placeDelay = 0; S.swing = 15; ach(1); const px2 = Math.floor(mw.x), py2 = Math.floor(mw.y); if (CROPS[fg(px2, py2)] && !cropStage(px2, py2)) setCrop(px2, py2, 1); }
             S.rightFresh = false;
             S.mine = null;
             return;
@@ -1850,7 +1861,7 @@
     function usePortal(kind) {
         const sc = mbwom.currentScene || 1;
         if (kind === 2) changeDim(sc === 3 ? 1 : 3, 'portal');
-        else changeDim(sc === 2 ? 1 : 2, 'portal');
+        else { changeDim(sc === 2 ? 1 : 2, 'portal'); if ((mbwom.currentScene || 1) === 2) ach(31); }
     }
     function changeDim(n, why) {
         n = Number(n);
@@ -2107,11 +2118,11 @@
     window.mbwPlayCommand = runCommand;
 
     // ------------------------------------------------------------------ cofres y hornos (abrir)
-    const BOX = { chest: 1, oven: 1, dispense: 1, dropper: 1, enchant: 1, craft: 1, brew: 1 };
+    const BOX = { chest: 1, oven: 1, dispense: 1, dropper: 1, enchant: 1, craft: 1, brew: 1, anvil: 1, echest: 1 };
     // el aviso de abajo: "Doble clic para abrir el cofre" (en el celular, "Toca dos veces..."), según el bloque bajo el cursor
     function boxLabel(t) {
         const touch = document.body.classList.contains('is-touch');
-        const what = t === 'craft' ? tr('play_box_craft', 'the crafting table') : t === 'brew' ? tr('play_box_brew', 'the brewing stand') : t === 'enchant' ? tr('play_box_enchant', 'the enchantment table') : t === 'oven' ? tr('play_box_furnace', 'the furnace') : t === 'dispense' ? tr('play_box_dispenser', 'the dispenser') : t === 'dropper' ? tr('play_box_dropper', 'the dropper') : tr('play_box_chest', 'the chest');
+        const what = t === 'craft' ? tr('play_box_craft', 'the crafting table') : t === 'brew' ? tr('play_box_brew', 'the brewing stand') : t === 'anvil' ? tr('play_box_anvil', 'the anvil') : t === 'echest' ? tr('play_box_echest', 'the ender chest') : t === 'enchant' ? tr('play_box_enchant', 'the enchantment table') : t === 'oven' ? tr('play_box_furnace', 'the furnace') : t === 'dispense' ? tr('play_box_dispenser', 'the dispenser') : t === 'dropper' ? tr('play_box_dropper', 'the dropper') : tr('play_box_chest', 'the chest');
         return (touch ? tr('play_dbl_tap_open', 'Double-tap to open {what}') : tr('play_dbl_click_open', 'Double-click to open {what}')).replace('{what}', what);
     }
     function openBox(x, y) {
@@ -2123,6 +2134,8 @@
         else if (t === 'enchant') ok = openEnchant(x, y);
         else if (t === 'craft' && typeof window.openCraftingTable === 'function') ok = window.openCraftingTable(x, y);   // 🛠 mesa de crafteo: 3×3
         else if (t === 'brew' && typeof window.openBrewingStand === 'function') ok = window.openBrewingStand(x, y);   // 🧪 soporte de pociones
+        else if (t === 'anvil' && typeof window.openAnvil === 'function') ok = window.openAnvil(x, y);                 // ⚒ yunque
+        else if (t === 'echest' && typeof window.openEnderChest === 'function') { ok = window.openEnderChest(x, y); if (ok) sndAt('chestopen', x + .5, -(y + .5)); }   // 🟪 cofre de ender
         if (ok) {
             S.keys = {}; S.mouse.left = S.mouse.right = false; S.mine = null; S.openBoxAt = { x: x, y: y };
             // el último clic (o toque) del doble clic cae sobre la ventana que se acaba de abrir: ese no cuenta (si no, tomaba un objeto)
@@ -2277,6 +2290,7 @@
             const got = enchRoll(type, o.lvl);
             if (!target[3] || typeof target[3] !== 'object' || Array.isArray(target[3])) target[3] = {};
             Object.keys(got).forEach(function (k) { target[3][k] = 'enchant'; });
+            ach(45);
             E.done = '✨ ' + Object.keys(got).map(enchLabel).join(', ');
         }
         if (target !== it && addToInventory(target[0], 1, target[2], target[3]) > 0) addDrop(target[0], w.worldX, w.worldY - .5, 1, target[2], target[3]);
@@ -2338,6 +2352,7 @@
         if (mpGuest()) mpSend({ tipo: 'juego_tiempo', tim: 2 });
         w.tim = 2; w.day = (Number(w.day) || 0) + 1;
         flashMsg('☀ ' + tr('play_good_morning', 'Good morning!'));
+        ach(26);
         hud.dirty = true;
     }
 
@@ -2360,7 +2375,7 @@
             if (simFar(x + .5)) return;
             if ((10 * Math.random() | 0) !== 1) return;
             const n = Number(Wh[k]) || 0;
-            if (n < 7) { setCrop(x, y, n + 1); return; }
+            if (n < 7) { setCrop(x, y, n + 1); if (n + 1 === 7 && nearMe(x + .5, -y, 24)) ach(23); return; }
             if ((t === 'wseed' || t === 'pseed') && Math.random() < 1 / 3) growFruit(x, y, t === 'wseed' ? 'mel' : 'pk');
         });
     }
@@ -2388,7 +2403,7 @@
     // 🦴 harina de hueso: el cultivo crece de golpe; en el pasto salen flores y pasto alto
     function useBonemeal(x, y) {
         const t = fg(x, y);
-        if (CROPS[t] && t !== 'nw') { if (cropStage(x, y) === 7) return false; setCrop(x, y, 7); growParts(x, y); return true; }
+        if (CROPS[t] && t !== 'nw') { if (cropStage(x, y) === 7) return false; setCrop(x, y, 7); ach(23); growParts(x, y); return true; }
         if ((t === 'dt' && Number(st(x, y)) === 1) || t === 'sd') {
             for (let dx = -5; dx <= 5; dx++) for (let dy = -5; dy <= 5; dy++) {
                 const X = x + dx, Y = y + dy;
@@ -2423,8 +2438,8 @@
         const P = (x, y) => fg(x, y) === 'portalstone';
         if (canFireExistAt(bx, by) || (fg(bx, by) === 'air' && P(bx, by - 1))) {
             // 🌀 marco de piedra del portal (2 de ancho): se prende el portal al Nether
-            if (P(bx, by - 1) && P(bx + 1, by - 1) && P(bx + 2, by - 1) && P(bx + 2, by) && P(bx - 1, by - 1) && P(bx - 1, by) && fg(bx + 1, by) === 'air') { setBlock(bx, by, 'portal'); setBlock(bx + 1, by, 'portal'); damageTool(); return true; }
-            if (P(bx, by - 1) && P(bx - 1, by - 1) && P(bx - 2, by - 1) && P(bx - 2, by) && P(bx + 1, by - 1) && P(bx + 1, by) && fg(bx - 1, by) === 'air') { setBlock(bx, by, 'portal'); setBlock(bx - 1, by, 'portal'); damageTool(); return true; }
+            if (P(bx, by - 1) && P(bx + 1, by - 1) && P(bx + 2, by - 1) && P(bx + 2, by) && P(bx - 1, by - 1) && P(bx - 1, by) && fg(bx + 1, by) === 'air') { setBlock(bx, by, 'portal'); setBlock(bx + 1, by, 'portal'); damageTool(); ach(31); return true; }
+            if (P(bx, by - 1) && P(bx - 1, by - 1) && P(bx - 2, by - 1) && P(bx - 2, by) && P(bx + 1, by - 1) && P(bx + 1, by) && fg(bx - 1, by) === 'air') { setBlock(bx, by, 'portal'); setBlock(bx - 1, by, 'portal'); damageTool(); ach(31); return true; }
             if (canFireExistAt(bx, by) && putFire(bx, by)) { damageTool(); return true; }
             return false;
         }
@@ -2484,6 +2499,7 @@
                 dropXP(w.worldX, w.worldY - 1, 1, 5);
                 sndAt('splash', b.x, b.y);
                 flashMsg('🎣 ' + tr('play_fish_caught', 'You caught a fish!'));
+                ach(39);
             }
             damageTool();
             return true;
@@ -2572,6 +2588,7 @@
                     l.fuelUsed--;
                     l.input[1]--; if (l.input[1] <= 0) l.input = nil();
                     sndAt('drink1', bx + .5, -(by + .5), { vol: .4 });
+                    if (nearMe(bx + .5, -by, 10)) ach(43);
                 }
             } else l.brewTimer = 0;
             if (JSON.stringify(l) !== before) { changed = true; netMark(bx, by); }
@@ -2612,6 +2629,7 @@
                     if (m.type === 'sheep' || m.type === 'wolf') { const col = Math.random() < .5 ? m.color : o.color; if (col != null) ex.color = col; }
                     spawnMob(m.type, (m.x + o.x) / 2, (m.y + o.y) / 2, ex);
                     dropXP(m.x, m.y - 1, 3);
+                    if (nearMe(m.x, m.y, 16)) ach(44);
                     hearts(m, 6);
                     m.breedTimer = o.breedTimer = -300 * FPS;
                 } else if (o) o.breedTimer = 0;
@@ -2651,6 +2669,12 @@
             if (w.gamemode != 1) { const it = selItem(); if (it[1] > 1) { it[1]--; const left = addToInventory('mbk', 1, 0, {}); if (left > 0) addDrop('mbk', w.worldX, w.worldY - 1, 1); } else inv()[selIndex()] = ['mbk', 1, 0, {}]; }
             sndAt('cow' + ((Math.random() * 4 | 0) + 1), m.x, m.y - 1);
             hud.dirty = true;
+            return true;
+        }
+        if (id === 'bone' && m.type === 'wolf' && !m.tamed) {                         // 🐕 domesticar un lobo con huesos (1 de cada 3)
+            reduceSelected(1);
+            if ((3 * Math.random() | 0) === 0) { m.tamed = true; m.tamedBy = 'player'; m.target = null; m.aggressiveness = 0; hearts(m, 6); ach(11); if (mpGuest()) mpSend({ tipo: 'juego_domar', id: mid }); }
+            else for (let i = 0; i < 4; i++) addPart({ x: m.x + (Math.random() - .5), y: -m.y + 1 + Math.random() * .5, vy: .02, life: 25, size: .1, col: '#777' });
             return true;
         }
         const a = D.mobs[m.type];
@@ -2802,6 +2826,16 @@
         }
     }
     window.mbwPlay.life = { brewTick: function () { tickBrewing(); }, cropTick: function () { const t = S.tick; S.tick = DAY_TICKS * 3 + 7; tickCrops(); S.tick = t; }, fireTick: function () { const t = S.tick; S.tick = 29; tickFire(); S.tick = t; }, bob: function () { return S.bob; }, sleeping: function () { return !!S.sleep; }, fires: function () { return S.fires; } };   // (lo usan las pruebas)
+    // ⚒ se usó el yunque: suena, logro, y 12 % de que se gaste (3 golpes y se rompe)
+    window.mbwPlay.anvilUsed = function (x, y) {
+        sndAt('anvilsound', x + .5, -(y + .5));
+        ach(40);
+        if (fg(x, y) !== 'anvil' || W().gamemode == 1 || Math.random() >= .12) return '';
+        const n = (Number(st(x, y)) || 1) + 1;
+        if (n > 3) { setBlock(x, y, null); sndAt('anvilsound', x + .5, -(y + .5), { rate: .6 }); return 'broke'; }
+        setBlock(x, y, 'anvil', n); return 'worn';
+    };
+    window.mbwPlay.onCrafted = function (id) { const M = { craft: 3, WoodenPickaxe: 4, StonePickaxe: 5, IronPickaxe: 6, oven: 7, th: 9, cake: 24, portalstone: 30 }; if (M[id] != null) ach(M[id]); };
     window.mbwPlay.ride = function () { return S.ride ? { kind: S.ride.kind, id: S.ride.id } : null; };
     window.mbwPlay.placeVehicle = placeVehicle;
 
@@ -3274,7 +3308,7 @@
             S.rsOn.set(k, on);
             if (t === 'light') { const cur = mbwom.getBlockState(x, y) || {}, was = Array.isArray(cur.hasSignal) && Number(cur.hasSignal[0]) > 0; if (was !== on) { const ns = JSON.parse(JSON.stringify(cur)); ns.type = 'light'; ns.hasSignal = on ? [15] : undefined; mbwom.setBlockState(x, y, ns); if (typeof window.renderBlock === 'function') window.renderBlock(x, y); } return; }
             if (prev === on || (prev === undefined && !on)) return;          // (solo cuando cambia)
-            if (dm) { const cur = DOOR_RE.exec(fg(x, y)); if (cur) { const isOpen = cur[2] === '1'; if (isOpen !== on) useBlock(x, y); } return; }
+            if (dm) { const cur = DOOR_RE.exec(fg(x, y)); if (cur) { const isOpen = cur[2] === '1'; if (isOpen !== on) { useBlock(x, y); if (on && nearMe(x + .5, -y, 10)) ach(32); } } return; }
             if (t === 'td1' || t === 'td2') { if ((t === 'td1') !== on) useBlock(x, y); return; }
             if (t === 'fncg' || t === 'nfncg') { if ((st(x, y) == 1) !== on) useBlock(x, y); return; }
             if (t === 'piston' || t === 'spiston' || t === 'piston1' || t === 'spiston1') { pistonSet(x, y, on); return; }
@@ -3888,7 +3922,7 @@
     function toggleInv() {
         const m = document.getElementById('inventory-modal');
         if (m && m.style.display === 'block') { if (typeof toggleInventory === 'function') toggleInventory(); }
-        else if (typeof window.togglePlayerInventory === 'function') { S.keys = {}; window.togglePlayerInventory(); }
+        else if (typeof window.togglePlayerInventory === 'function') { S.keys = {}; window.togglePlayerInventory(); ach(2); }
         hud.dirty = true;
     }
     function onKeyDown(e) {
@@ -4059,7 +4093,8 @@
         // arena y grava cerca: se revisan para que caigan si no tienen nada abajo
         const x0 = Math.max(0, Math.floor(px) - 60), x1 = Math.floor(px) + 60;
         for (let x = x0; x <= x1; x++) { const col = mbwom.scene[x]; if (!col) continue; for (let y = 0; y < col.length; y++) if (col[y] === 'sd' || col[y] === 'gv') S.sandCheck.set(x + ',' + y, 2); }
-        S.playing = true; S.mp = mpMode; S.openBoxAt = null; S.ride = null; S.bob = null; S.sleep = null; S.fires = new Set();
+        S.playing = true; S.mp = mpMode; S.openBoxAt = null; S.ride = null; try { if (window.mbwAch) window.mbwAch.start(); } catch (e) { /* nada */ }
+        S.ride = null; S.bob = null; S.sleep = null; S.fires = new Set();
         window.mbwPlaying = true;
         document.body.classList.add('mbw-playing');
         // el bloque Barrier no se ve jugando: si el mundo tiene alguno, el dibujo del mundo se rehace sin ellos
@@ -4152,6 +4187,7 @@
         cancelAnimationFrame(S.raf);
         if (keep) { try { const cs = syncScene(); mbwom.world.scene = mbwom.world.scene || cs; S.keptAt = Date.now(); if (typeof window.markWorldUnsaved === 'function') window.markWorldUnsaved(); } catch (e) { console.error('play keep', e); } }
         else { try { restoreSnapshot(); } catch (e) { console.error('play restore', e); alert('Error restoring the world: ' + e.message); } }
+        try { if (window.mbwAch) window.mbwAch.afterRestore(); } catch (e) { /* nada */ }   // 🏆 los logros no se pierden
         S.snapshot = null; S.drops = []; S.falling = []; S.arrows = []; S.orbs = []; S.tmp = new Map(); S.keys = {}; S.mine = null;
         if (window.mbSfx) { window.mbSfx.stopLoops(); window.mbSfx.stopMusic(); }   // 🔊 se apaga la música, la lluvia, bajo el agua...
         try { const gw = document.getElementById('gr-weather'); if (gw && typeof setWeatherEffect === 'function') setWeatherEffect(gw.value); } catch (e) { /* nada */ }   // (el clima vuelve al de World Settings)
@@ -4218,7 +4254,7 @@
         const nw = function (d) {
             if (S.playing) {
                 const t = d && typeof d.tipo === 'string' ? d.tipo : '';
-                if (!(S.mp && t.indexOf('juego_') === 0) && t !== 'chat' && t !== 'spectator_update') return;
+                if (!(S.mp && t.indexOf('juego_') === 0) && t !== 'chat' && t !== 'spectator_update' && t !== 'ender_cofre') return;   // (el cofre de ender sí: es de todos)
             }
             return o.apply(this, arguments);
         };
