@@ -3893,3 +3893,25 @@ body.mbw-playing #sm-banner { display: none !important; }
 .it-bub-btns button { border: none; border-radius: 6px; padding: 7px 12px; cursor: pointer; font-weight: bold; font-size: 13px; }
 .it-bub-inv { background: #9b59b6; color: #fff; }
 .it-bub-ok { background: #dfe6e9; color: #2c3e50; }
+
+/* 🩺 Prueba de conexión (scripts/net-test.js) */
+.nt-open-btn { display: block; margin: 10px auto 0; background: transparent; color: #bdc3c7; border: 1px solid #5d6d7e; border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 15px; }
+.nt-open-btn:hover { color: #fff; border-color: #95a5a6; }
+#nt-modal { position: fixed; inset: 0; z-index: 10000050; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 12px; box-sizing: border-box; }
+.nt-win { width: 520px; max-width: 100%; max-height: 100%; overflow-y: auto; background: #1f2430; color: #ecf0f1; border: 1px solid #3d4556; border-radius: 12px; padding: 16px; box-shadow: 0 12px 36px rgba(0,0,0,.6); font-size: 14px; }
+.nt-head { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: bold; }
+.nt-head span { flex: 1; }
+.nt-x { background: none; border: none; color: #bdc3c7; font-size: 18px; cursor: pointer; }
+.nt-sub { color: #aab3bf; margin: 6px 0 8px; line-height: 1.35; }
+.nt-meta { color: #7f8c9b; font-size: 12px; margin-bottom: 8px; }
+.nt-rows { display: flex; flex-direction: column; gap: 6px; }
+.nt-row { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,.04); border-left: 3px solid #5d6d7e; }
+.nt-row b { display: block; font-size: 14px; }
+.nt-row span:not(.nt-ic) { color: #c8d0da; font-size: 13px; line-height: 1.3; }
+.nt-ic { font-size: 18px; line-height: 1.2; }
+.nt-ok { border-left-color: #2ecc71; } .nt-warn { border-left-color: #f1c40f; } .nt-bad { border-left-color: #e74c3c; } .nt-run { border-left-color: #3498db; }
+.nt-verdict { margin-top: 12px; padding: 10px 12px; border-radius: 8px; font-weight: bold; line-height: 1.35; }
+.nt-v-ok { background: rgba(46, 204, 113, .18); } .nt-v-warn { background: rgba(241, 196, 15, .18); } .nt-v-bad { background: rgba(231, 76, 60, .2); }
+.nt-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+.nt-btns button { background: #34495e; color: #fff; border: none; border-radius: 6px; padding: 7px 12px; cursor: pointer; font-size: 13px; }
+.nt-btns button:disabled { opacity: .5; cursor: default; }

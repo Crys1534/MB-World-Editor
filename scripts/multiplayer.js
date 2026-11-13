@@ -884,11 +884,11 @@ function mpJoinWatchdog(conn, hostId) {
         const ov = document.getElementById('loading-overlay'); if (ov) ov.style.display = 'none';
         const st = document.getElementById('multiplayer-status'); if (st) { st.style.display = 'block'; st.innerText = 'Status: ' + tmsg('mp_conn_fail_short', 'Could not connect') + ' 🔴'; st.style.color = '#e74c3c'; }
         console.warn('🌐 No se pudo entrar a', hostId, key, Math.round((Date.now() - t0) / 1000) + ' s', conn.peerConnection && conn.peerConnection.iceConnectionState);
-        if (confirm(tmsg(key, fb) + '\n\n' + tmsg('mp_conn_retry', 'Try again?'))) setTimeout(function () { if (typeof window.joinMultiplayerSession === 'function') window.joinMultiplayerSession(hostId, true); }, 300);
+        if (confirm(tmsg(key, fb) + '\n\n' + tmsg('mp_conn_test_hint', 'To see what blocks it: Multiplayer > 🩺 Test my connection.') + '\n\n' + tmsg('mp_conn_retry', 'Try again?'))) setTimeout(function () { if (typeof window.joinMultiplayerSession === 'function') window.joinMultiplayerSession(hostId, true); }, 300);
     };
     setTimeout(function () {
         if (miConexionAlHost !== conn || conn.open) return;
-        fail('mp_conn_fail_nat', "Could not connect to that world. Usually it is the internet connection: the network of one of the two blocks direct connections (some mobile data, school or work Wi-Fi, a VPN). Try another network (Wi-Fi ↔ mobile data) on either side.");
+        fail('mp_conn_fail_nat', "Could not connect to that world. Usually it is the internet connection: the network of one of the two blocks direct connections (some mobile data, school or work Wi-Fi, a VPN). Try another network (Wi-Fi / mobile data) on either side.");
     }, 20000);
     setTimeout(function () {
         if (miConexionAlHost !== conn || !conn.open || conn.__migrated) return;
