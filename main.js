@@ -757,6 +757,9 @@ function getBlockCache(x, y) {
 }
 
 function getBlockObject(states) {
+    // 🛏 la cama como objeto se llama "bed" (el color va aparte); se dibuja con la mitad de la almohada (bed1) de su color
+    if (states && states.type === 'bed') states = { type: 'bed1', states1: (typeof states.states1 === 'string' && states.states1) ? states.states1 : 'red' };
+    else if (states && (states.type === 'bed1' || states.type === 'bed2') && !(typeof states.states1 === 'string' && states.states1)) states = Object.assign({}, states, { states1: 'red' });   // (camas viejas sin color)
     const renderer = blockData[states.type] || renderers.default;
     return renderer(states);
 }
@@ -2220,6 +2223,7 @@ window.itemTexVariant = function (itemId, damage, extras) {
     if (!itemId || itemId === 'mh') return undefined;
     const t = (extras && typeof extras === 'object') ? extras.type : undefined;
     if (typeof t === 'string' && t && TM[itemId + '_' + t]) return t;
+    if (itemId === 'bed' || itemId === 'bed1') return (typeof t === 'string' && TM['bed1_' + t]) ? t : (typeof damage === 'string' && TM['bed1_' + damage] ? damage : 'red');   // 🛏 (sin color: roja)
     if (typeof damage === 'string' && damage && isNaN(Number(damage)) && TM[itemId + '_' + damage]) return damage;
     return undefined;
 };

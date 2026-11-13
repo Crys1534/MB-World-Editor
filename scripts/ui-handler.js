@@ -385,6 +385,19 @@ function isHiddenByRotate(blockId) {
 }
 window.isHiddenByRotate = isHiddenByRotate;
 
+// 🪗 grupos del acordeón del inventario: pistones (normal y pegajoso) y las etapas de crecimiento de cada cultivo
+const mbwInvOpenGroups = new Set();
+window.mbwInvOpenGroups = mbwInvOpenGroups;
+window.mbwInvGroupOf = function (id) {
+    id = String(id);
+    let m = /^(s?piston)[12]?(_\d+)?$/.exec(id);
+    if (m) return m[1];
+    m = /^(seed|wseed|pseed|bseed|nw)(_\d+)?$/.exec(id);
+    if (m) return 'crop:' + m[1];
+    m = /^(carrot|potato)_\d+$/.exec(id);
+    if (m) return 'crop:' + m[1];
+    return null;
+};
 function populateInventory() {
     const grid = document.getElementById('inventory-grid');
     grid.innerHTML = '';
@@ -603,9 +616,20 @@ function populateInventory() {
     // Las variantes que Rotate ya produce (escaleras _2 a _4, losas _2, dispenser/dropper _2 a _4) no se muestran
     blocksToShow = blocksToShow.filter(item => !isHiddenByRotate(item));
 
+    // 🪗 ACORDEÓN: los pistones y las etapas de cada cultivo van juntos en un solo cuadro (el primero del grupo) con un botón ▸
+    // que muestra o esconde los demás. Buscando se ve todo suelto.
+    const groupOf = window.mbwInvGroupOf;
+    const gCount = {}, gFirst = {};
+    if (!invSearchAll) blocksToShow.forEach(id => { const g = groupOf(id); if (g) { gCount[g] = (gCount[g] || 0) + 1; if (!(g in gFirst)) gFirst[g] = id; } });
+    blocksToShow = blocksToShow.filter(id => { const g = invSearchAll ? null : groupOf(id); return !g || gCount[g] < 2 || gFirst[g] === id || mbwInvOpenGroups.has(g); });
+
     blocksToShow.forEach(blockType => {
         const item = document.createElement('div');
         item.className = 'inv-item';
+        const grp = invSearchAll ? null : groupOf(blockType);
+        const inGroup = grp && gCount[grp] >= 2;
+        const isHead = inGroup && gFirst[grp] === blockType;
+        const baseBg = (inGroup && !isHead) ? '#6E7A86' : '#8B8B8B';   // (los de dentro del acordeón, un poco azulados)
         item.title = blockType; 
         item.dataset.search = mbwItemSearchText(blockType);   // la búsqueda usa el nombre ("golden carrot") y también el código ("gcarrot")
         
@@ -620,13 +644,26 @@ function populateInventory() {
         item.style.minWidth = '64px';
         item.style.minHeight = '64px';
         item.style.flexShrink = '0';
-        item.style.background = '#8B8B8B'; 
+        item.style.background = baseBg; 
         item.style.border = '4px inset #FFF'; 
         item.style.display = 'flex';
         item.style.justifyContent = 'center';
         item.style.alignItems = 'center';
         item.style.boxSizing = 'border-box';
         item.style.cursor = 'pointer';
+        if (inGroup) item.classList.add(isHead ? 'inv-acc-head' : 'inv-acc-child');
+        if (isHead) {
+            const open = mbwInvOpenGroups.has(grp);
+            const tg = document.createElement('button');
+            tg.type = 'button';
+            tg.className = 'inv-acc-toggle' + (open ? ' open' : '');
+            tg.textContent = open ? '◂' : '▸ ' + gCount[grp];
+            tg.title = (typeof window.tmsg === 'function' && window.tmsg(open ? 'inv_acc_close' : 'inv_acc_open', '')) || (open ? 'Hide variants' : 'Show variants');
+            const flip = (e) => { e.stopPropagation(); e.preventDefault(); if (mbwInvOpenGroups.has(grp)) mbwInvOpenGroups.delete(grp); else mbwInvOpenGroups.add(grp); populateInventory(); };
+            tg.addEventListener('click', flip);
+            ['pointerdown', 'mousedown', 'touchstart'].forEach(n => tg.addEventListener(n, (e) => e.stopPropagation(), { passive: true }));
+            item.appendChild(tg);
+        }
         
         const cvs = document.createElement('canvas');
         cvs.width = 16;  
@@ -655,10 +692,10 @@ function populateInventory() {
              ctx.fillRect(4, 4, 8, 8);
         }
         
-        item.appendChild(cvs);
+        if (isHead) item.insertBefore(cvs, item.firstChild); else item.appendChild(cvs);
 
         item.onmouseenter = () => { item.style.background = '#A0A0A0'; };
-        item.onmouseleave = () => { item.style.background = '#8B8B8B'; };
+        item.onmouseleave = () => { item.style.background = baseBg; };
 
         grid.appendChild(item);
     });

@@ -282,6 +282,7 @@
         return null;
     }
     window.mbwPlay.mineBlock = function (x, y) { mineBlock(x, y); };   // (lo usan las pruebas)
+    window.mbwPlay.placeAt = function (x, y) { return placeBlock({ x: x + .5, y: y + .5 }); };   // (lo usan las pruebas)
     window.mbwPlay.dropStuck = function (i) { const d = S.drops[i]; return d ? dropStuck(d) : null; };
     function tickDrops() {
         const w = W();
@@ -1985,6 +1986,20 @@
         if (S.p.inWater) f *= 2;
         return (Math.max(1, Math.floor(f)) / 25 * FPS) | 0;
     }
+    // 🛏🚪 bloques de 2 partes: al quitar una, la otra también se quita (sin soltar nada; la que se rompió ya suelta 1)
+    const DOOR_PART = /^(dr|bdr|idr)([1-4])$/;
+    function removePartner(x, y, t, s1) {
+        let px = null, py = null, ok = null;
+        if (t === 'bed1') { px = x + 1; py = y; ok = /^bed[12]$/; }
+        else if (t === 'bed2') { px = x - 1; py = y; ok = /^bed[12]$/; }
+        else if (DOOR_PART.test(t)) { const n = +t.slice(-1), fam = t.slice(0, -1); px = x; py = (n === 1 || n === 3) ? y + 1 : y - 1; ok = new RegExp('^' + fam + '[1-4]$'); }
+        else if (/^s?piston[12]$/.test(t)) {
+            const v = DIRV[Number(s1) || 1] || DIRV[1], head = t.slice(-1) === '1';
+            px = head ? x + v[0] : x - v[0]; py = head ? y + v[1] : y - v[1]; ok = head ? /^s?piston2$/ : /^s?piston1$/;
+        }
+        if (px == null || py < 0 || !ok.test(fg(px, py))) return;
+        setBlock(px, py, null);
+    }
     function mineBlock(x, y, byCmd) {
         const w = W();
         const t = fg(x, y);
@@ -1996,6 +2011,7 @@
         if (!byCmd) blockSnd(t, 'break', x, y);
         if (!byCmd) { if (t === 'wd1' || t === 'wd') ach(0); else if (t === 'ob') ach(27); else if (t === 'gd') ach(28); else if (t === 'dmore') ach(29); }
         setBlock(x, y, null);
+        removePartner(x, y, t, s1);                                    // 🛏🚪 la otra mitad (cama, puerta, pistón) se va sin soltar nada, como Game.requestRemove
         if (w.gamemode == 1) return;
         if (!byCmd) damageTool();
         const dw = bd(t, 'dropsWith');
@@ -2009,7 +2025,8 @@
             drop = Math.random() < 1 / 12 ? 'sl' : null;
         }
         if (Array.isArray(drop)) drop = drop[0];
-        const ex = (typeof s1 === 'string' && s1 && (t === 'cloth' || t === 'carpet' || t === 'bdcloth' || t === 'bed')) ? { type: s1 } : {};
+        let ex = (typeof s1 === 'string' && s1 && (t === 'cloth' || t === 'carpet' || t === 'bdcloth' || t === 'bed' || t === 'bed1' || t === 'bed2')) ? { type: s1 } : {};
+        if (drop === 'bed' && !ex.type) ex = { type: 'red' };            // (camas viejas sin color: rojas, como World.migrateItems)
         if (drop) addDrop(drop, x + .5, -y - .5, 1, 0, ex);
         if (chestItems) chestItems.forEach(function (it) { if (!isEmpty(it)) addDrop(it[0], x + .5, -y - .5, it[1], it[2], it[3]); });
         if (CROPS[t]) cropDrops(t, cropN, x, y);                       // 🌾 el cultivo grande suelta su cosecha
@@ -2085,6 +2102,24 @@
             const o = order.find(function (q) { return solid(bx + q[0], by + q[1]); });
             if (!o) return false;
             s1 = o[2];
+        }
+        // 🛏 cama: 2 bloques (bed1 aquí, bed2 a la derecha), los dos con el color; 🚪 puertas: 2 bloques (abajo y arriba). Como Game.placeBlock
+        if (id === 'bed') {
+            const r = fg(bx + 1, by);
+            if (r !== 'air' && bd(r, 'replaceable') == null && bd(r, 'liquid') == null) return false;
+            const col = typeof s1 === 'string' && s1 ? s1 : 'white';
+            setBlock(bx, by, 'bed1', col); setBlock(bx + 1, by, 'bed2', col);
+            blockSnd('bed1', 'place', bx, by); reduceSelected(1);
+            return true;
+        }
+        const DOORS = { dr: ['dr1', 'dr2'], bbdr: ['bdr1', 'bdr2'], idr: ['idr3', 'idr4'] };
+        if (DOORS[id]) {
+            const up = fg(bx, by + 1);
+            if (fg(bx, by - 1) === 'air' || !(up === 'air' || bd(up, 'replaceable') != null)) return false;
+            const side = Math.floor(w.worldX) > bx ? 1 : 2;
+            setBlock(bx, by, DOORS[id][0], side); setBlock(bx, by + 1, DOORS[id][1], side);
+            blockSnd(DOORS[id][0], 'place', bx, by); reduceSelected(1);
+            return true;
         }
         setBlock(bx, by, id, s1);
         blockSnd(id, 'place', bx, by);
