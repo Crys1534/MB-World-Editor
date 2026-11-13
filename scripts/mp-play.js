@@ -371,6 +371,7 @@
         if (t === 'juego_guardo') { if ((amHost() || (M.on && M.role === 'host')) && d.uid) storePlayer(String(d.uid), d.autor, d.data); return; }
         if (!M.on) return;                                            // (lo de abajo solo sirve jugando)
         if (t === 'juego_jugador') { onPlayer(d); return; }
+        if (t === 'juego_emote') { const r = M.remotes[d.peerId]; if (r && window.customEmotes && window.customEmotes[d.e]) { r.emote = { e: String(d.e), t: Date.now() }; if (typeof worldDirty !== 'undefined') worldDirty = true; } return; }   // 😀
         if (t === 'juego_bloques' || t === 'juego_cambios') { applyBlocks(Number(d.s) || 1, d.c); return; }
         if (t === 'juego_pedir' && M.role === 'host') { if (window.mbwAch) { window.mbwAch.apply(d.uid, d.autor, null); sendTo(d.peerId, { tipo: 'juego_logros', t: window.mbwAch.table() }); } sendChangesTo(d.peerId); sendMobListTo(d.peerId); sendDropsTo(d.peerId); sendPlayerTo(d.peerId, d.uid, d.autor); return; }
         if (t === 'juego_tuyo') { if (M.skipMine) M.skipMine = false; else if (M.role === 'guest' && !M.roomHostAtStart && window.mbwPlay.net && window.mbwPlay.net.loadMine) window.mbwPlay.net.loadMine(d.data, d.spawn); M.guestCmds = !!d.cmds; return; }
@@ -586,6 +587,7 @@
             c2.fillRect(-tw / 2 - 4, -ph - fs - 8, tw + 8, fs + 5);
             c2.fillStyle = '#fff';
             c2.fillText(r.name, 0, -ph - 5);
+            if (r.emote && window.mbwPlay && window.mbwPlay.drawEmote && !window.mbwPlay.drawEmote(c2, r.emote, 0, -ph - fs - 10)) r.emote = null;   // 😀 su emote
             c2.restore();
         });
     };

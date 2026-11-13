@@ -3702,6 +3702,7 @@
         S.arrows.forEach(function (r) { const p = toScreen(r.x, r.y); const a = Math.atan2(r.vy, r.vx); c2.beginPath(); c2.moveTo(p.x, p.y); c2.lineTo(p.x - Math.cos(a) * tileSize * .6, p.y - Math.sin(a) * tileSize * .6); c2.stroke(); });
         drawParticles(c2);
         drawShots(c2);
+        if (S.emote) { const b0 = mobBounds(PLAYER_ID), p0 = toScreen(W().worldX, b0.t); if (!drawEmote(c2, S.emote, p0.x, p0.y)) S.emote = null; }
         drawBobber(c2);
         drawBars(c2);
         if (S.mine && S.mine.total > 1) {                       // grietas del bloque que se pica
@@ -3738,7 +3739,7 @@
                 // (lo de la cámara: viñeta, ⏸ y 💬, coordenadas, efectos y el morado del portal van DENTRO del recuadro de la cámara)
                 '<div class="ph-area"><div class="ph-vig"></div><div class="ph-portal"></div>' +
                 '<div class="ph-top"><button type="button" class="ph-gear" aria-label="Menu">⚙</button><div class="ph-msg"></div></div>' +
-                '<button type="button" class="ph-chat-btn">💬</button><div class="ph-coords"></div><div class="ph-effects"></div></div>' +
+                '<button type="button" class="ph-chat-btn"><img src="assets/chat.png" alt=""></button><div class="ph-coords"></div><div class="ph-effects"></div></div>' +
                 '<div class="ph-bars"><div class="ph-left"><div class="ph-armor"></div><div class="ph-hearts"></div></div><div class="ph-right"><div class="ph-air"></div><div class="ph-food"></div></div></div>' +
                 '<div class="ph-xp"><div class="ph-xp-fill"></div><b class="ph-xp-lv"></b></div>' +
                 '<div class="ph-iname"></div>' +
@@ -3766,6 +3767,7 @@
             });
             el.querySelector('.ph-inv').addEventListener('click', function (e) { e.stopPropagation(); toggleInv(); });
             chat.build(el);
+            emo.build(el);
             el.querySelector('.ph-chat-btn').addEventListener('click', function (e) { e.stopPropagation(); if (chat.open) chat.close(); else chat.show(''); });
             const mb = el.querySelector('.ph-mode');
             mb.addEventListener('click', function (e) { e.stopPropagation(); S.touchMode = S.touchMode === 'mine' ? 'place' : 'mine'; hud.dirty = true; });
@@ -3811,6 +3813,7 @@
             if (!this.el) return;
             const w = W();
             this.place(w);
+            try { emo.update(); } catch (e) { /* nada */ }
             const um = modalOpen();                                   // con el inventario / un cofre / un horno abierto, el HUD se esconde (no tapa la ventana)
             if (um !== this.underModal) { this.underModal = um; this.el.classList.toggle('under-modal', um); }
             const msg = this.el.querySelector('.ph-msg');
@@ -3890,7 +3893,7 @@
             this.el.querySelector('.ph-mode').textContent = S.touchMode === 'mine' ? '⛏' : '🧱';
             this.el.querySelector('.ph-mode').title = S.touchMode === 'mine' ? tr('play_mode_mine', 'Tap = break / hit') : tr('play_mode_place', 'Tap = place / use');
         },
-        destroy: function () { if (chat.open) chat.close(); chat.el = null; chat.input = null; if (this.el) this.el.remove(); this.el = null; }
+        destroy: function () { if (chat.open) chat.close(); chat.el = null; chat.input = null; chat.qc = null; emo.el = null; emo.picking = false; if (this.el) this.el.remove(); this.el = null; }
     };
     function flashMsg(t) { S.msg = t; S.msgT = 2 * FPS; }
     // 💬 Chat / consola de comandos del mundo (T, Enter o / para abrirlo; en el celular, el botón 💬).
@@ -4008,7 +4011,10 @@
             if (!this.el) return;
             this.open = true; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mine = null;
             if (S.joyReset) S.joyReset();
-            this.el.classList.add('open'); this.input.value = prefix || ''; this.hi = -1; this.dirty = true; this.tabBase = null; this.tabN = 0; this.sug();
+            this.el.classList.add('open'); this.input.value = prefix || ''; this.hi = -1; this.dirty = true; this.tabBase = null; this.tabN = 0;
+            if (this.qc) { const bx = this.el.querySelector('.ph-chat-sug'); if (bx) bx.innerHTML = ''; this.qc.reset(); }   // (siempre empieza en la primera lista)
+            this.sug();
+            if (window.mbwKbUpdate) window.mbwKbUpdate();
             const inp = this.input;
             // 📱 en el celular NO se abre el teclado solo: salen las sugerencias para tocarlas (el teclado sale al tocar la caja)
             if (document.body.classList.contains('is-touch') && !prefix) { try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); } catch (e) { /* nada */ } return; }
@@ -4021,10 +4027,10 @@
             const v = this.open ? this.input.value : '';
             if (!this.open) { box.innerHTML = ''; box.style.display = 'none'; this.cur = null; return; }
             if (!v.trim()) {
-                // caja vacía: siempre a la mano los comandos de siempre (un toque los pone; los que no piden nada más se mandan con ➤)
+                // caja vacía: botones grandes (Teleport ›, Game mode ›, Weather ›, Time ›), como en Minecraft
                 this.cur = null;
-                box.innerHTML = '<div class="ph-sug-list ph-sug-quick">' + quickCmds().map(function (c) { return '<button type="button" data-q="' + esc(c) + '">' + esc(c) + '</button>'; }).join('') + '</div>';
-                box.style.display = 'block';
+                if (!this.qc && window.mbwQuickCmd) this.qc = window.mbwQuickCmd(box, quickCtx);
+                if (this.qc) { if (!box.querySelector('.qc')) this.qc.render(); box.style.display = 'block'; }
                 return;
             }
             const r = this.cur = suggest(this.tabBase != null ? this.tabBase : v);
@@ -4097,6 +4103,116 @@
         }
     };
     window.mbwPlay.chat = chat;
+    // lo que hacen los botones grandes del chat (scripts/world-chat.js)
+    const quickCtx = {
+        run: function (c) { chat.close(); say('> ' + c); try { runCommand(c); } catch (e) { say('[INFO] Error: ' + e.message); } hud.dirty = true; },
+        players: function () {
+            const R = (S.mp && window.mbwMpPlay) ? window.mbwMpPlay.remotes || {} : {};
+            return Object.keys(R).filter(function (k) { return R[k] && R[k].name; }).map(function (k) { return { name: String(R[k].name), sk: R[k].sk || '', id: k }; });
+        },
+        tpPlayer: function (p) {
+            const R = (S.mp && window.mbwMpPlay) ? window.mbwMpPlay.remotes || {} : {}, r = R[p.id];
+            if (!r) { chat.close(); say('[INFO] ' + tr('mpplay_tp_noone', 'There is no player called "{name}" in this game.').replace('{name}', p.name)); return; }
+            if (!/\s/.test(p.name)) { quickCtx.run('/tp @' + p.name); return; }
+            chat.close(); say('> /tp @' + p.name);
+            if (r.s !== (mbwom.currentScene || 1) && !changeDimension(r.s)) { say('[INFO] ' + tr('mpplay_tp_dim', '{name} is in another dimension.').replace('{name}', p.name)); return; }
+            try { runCommand('/tp ' + r.tx + ' ' + (-r.ty)); } catch (e) { /* nada */ }
+        },
+        marks: function () { return window.mbwChatMarks ? window.mbwChatMarks() : []; },
+        tpMark: function (b) {
+            chat.close(); say('> /tp ' + b.x + ' ' + b.y + '  (⭐ ' + b.name + ')');
+            try {
+                if (b.dim && b.dim !== (mbwom.currentScene || 1)) runCommand('/tp dimension ' + ['', 'overworld', 'nether', 'end'][b.dim]);
+                if (!b.dim || b.dim === (mbwom.currentScene || 1)) runCommand('/tp ' + (Number(b.x) + .5) + ' ' + b.y);
+            } catch (e) { say('[INFO] Error: ' + e.message); }
+            hud.dirty = true;
+        }
+    };
+    // ---------------------------------------------------------------- 😀 EMOTES
+    // Al pasar el mouse sobre mi personaje (en el celular: al tocarlo) sale arriba un botón con el dibujo del chat; al tocarlo, los
+    // emotes (los mismos del chat de la sala: window.customEmotes). El elegido sale arriba de mi cabeza 3 segundos y lo ven todos.
+    const EMO_MS = 3000, emoImgs = {};
+    function emoImg(n) { const src = (window.customEmotes || {})[n]; if (!src) return null; let i = emoImgs[n]; if (!i) { i = emoImgs[n] = new Image(); i.src = src; } return i; }
+    function doEmote(n) {
+        if (!(window.customEmotes || {})[n]) return false;
+        S.emote = { e: n, t: Date.now() };
+        mpSend({ tipo: 'juego_emote', e: n, autor: myNameNet() });
+        emo.pick(false); emo.until = 0;
+        return true;
+    }
+    // (cx, cy) = en la pantalla, el centro de arriba de la cabeza
+    function drawEmote(c2, e, cx, cy) {
+        if (!e) return false;
+        const age = Date.now() - e.t; if (age > EMO_MS || age < 0) return false;
+        const im = emoImg(e.e); if (!im || !im.complete || !im.naturalWidth) return true;
+        const pop = Math.min(1, age / 160), out = age > EMO_MS - 350 ? Math.max(0, (EMO_MS - age) / 350) : 1;
+        const s = Math.max(18, tileSize * 1.05) * (.55 + .45 * pop), pad = s * .14, bw = s + pad * 2, by = cy - bw - 8;
+        c2.save();
+        c2.globalAlpha = out;
+        c2.fillStyle = 'rgba(255,255,255,.93)'; c2.strokeStyle = 'rgba(0,0,0,.55)'; c2.lineWidth = 2;
+        c2.beginPath();
+        c2.rect(cx - bw / 2, by, bw, bw);
+        c2.moveTo(cx - 5, by + bw); c2.lineTo(cx, by + bw + 6); c2.lineTo(cx + 5, by + bw);
+        c2.fill(); c2.stroke();
+        c2.imageSmoothingEnabled = false;
+        c2.drawImage(im, cx - s / 2, by + pad, s, s);
+        c2.restore();
+        return true;
+    }
+    window.mbwPlay.drawEmote = drawEmote;
+    window.mbwPlay.emote = doEmote;
+    function overMe() {
+        const w = W(); if (!w || w.dead > 0) return false;
+        const mw = mouseWorld(), b = mobBounds(PLAYER_ID), y = -mw.y;
+        return mw.x >= b.l - .25 && mw.x <= b.r + .25 && y >= b.t - .35 && y <= b.b + .05;
+    }
+    const emo = {
+        el: null, until: 0, over: false, picking: false,
+        build: function (root) {
+            const el = this.el = document.createElement('div');
+            el.className = 'ph-emote';
+            el.innerHTML = '<div class="ph-emote-pick"></div><button type="button" class="ph-emote-btn"><img src="assets/chat.png" alt=""></button>';
+            root.appendChild(el);
+            const btn = el.querySelector('.ph-emote-btn');
+            btn.title = tr('play_emote_tip', 'Emotes');
+            btn.addEventListener('click', function (e) { e.stopPropagation(); emo.pick(!emo.picking); });
+            el.addEventListener('pointerenter', function () { emo.over = true; });
+            el.addEventListener('pointerleave', function () { emo.over = false; emo.until = performance.now() + 700; });
+            el.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+        },
+        pick: function (on) {
+            this.picking = !!on;
+            if (!this.el) return;
+            const p = this.el.querySelector('.ph-emote-pick');
+            if (on) {
+                p.innerHTML = '';
+                Object.keys(window.customEmotes || {}).forEach(function (n) {
+                    const b = document.createElement('button'); b.type = 'button'; b.title = ':' + n + ':'; b.setAttribute('data-e', n);
+                    const im = document.createElement('img'); im.src = window.customEmotes[n]; im.alt = n; b.appendChild(im);
+                    b.addEventListener('click', function (e) { e.stopPropagation(); doEmote(n); });
+                    p.appendChild(b);
+                });
+                this.until = performance.now() + 6000;
+            }
+            this.el.classList.toggle('picking', this.picking);
+        },
+        update: function () {
+            if (!this.el) return;
+            const now = performance.now();
+            if (!S.playing || chat.open || S.paused || modalOpen()) { this.el.style.display = 'none'; this.picking = false; this.el.classList.remove('picking'); return; }
+            if (S.mouse.inside && !document.body.classList.contains('is-touch') && overMe()) this.until = now + 900;
+            const on = this.over || this.picking || now < this.until;
+            this.el.style.display = on ? 'flex' : 'none';
+            if (!on) return;
+            const w = W(), b = mobBounds(PLAYER_ID);
+            const p = window.mbwPlay.toClient(w.worldX, -b.t), p1 = window.mbwPlay.toClient(w.worldX, -b.t + 1);
+            const k = Math.max(.2, Math.abs(p.y - p1.y) / Math.max(1, tileSize));   // (cuántos px de la pantalla mide 1 px del dibujo, con el zoom)
+            const up = (S.emote && Date.now() - S.emote.t < EMO_MS) ? (Math.max(18, tileSize * 1.05) * 1.3 + 16) * k : 0;   // (si hay un emote, el botón va más arriba)
+            this.el.style.left = p.x + 'px';
+            this.el.style.top = (p.y - up - 6) + 'px';
+        }
+    };
+    window.mbwPlay.emoteUi = emo;
     // 🕹️ Joystick (celular): un círculo; el punto del centro se arrastra con el dedo.
     // A los lados = caminar; hasta la orilla = correr; arriba = saltar (o subir volando); abajo = agacharse (o bajar volando).
     function joystick(base) {
@@ -4193,6 +4309,7 @@
         e.preventDefault(); e.stopImmediatePropagation();
         if (e.type === 'pointerdown') {
             S.mouse.x = e.clientX; S.mouse.y = e.clientY; S.mouse.inside = true;
+            if (e.pointerType === 'touch' && overMe()) { emo.until = performance.now() + 4500; return; }   // 😀 tocar a mi personaje: el botón de emotes
             // (en el celular, tocar con un Command Book en la mano lo usa, sin importar si está en ⛏ o 🧱)
             const right = e.button === 2 || (e.pointerType === 'touch' && (S.touchMode === 'place' || selType() === 'cbook'));
             // dos toques / dos clics rápidos sobre un cofre o un horno: se abre

@@ -83,6 +83,18 @@ window.processLocalCommand = function(text) {
             }
             break;
 
+        case 'weather': {
+            // /weather clear|rain|thunder  (también /weather set rain)
+            const wv = String((args[1] === 'set' ? args[2] : args[1]) || '').toLowerCase();
+            const sel = document.getElementById('gr-weather');
+            if (!sel || ['clear', 'rain', 'thunder'].indexOf(wv) < 0) { window.agregarMensajeChatPublico("System", "Uso: /weather [clear|rain|thunder]"); break; }
+            sel.value = wv;
+            sel.dispatchEvent(new Event('change'));
+            if (typeof setWeatherEffect === 'function') { try { setWeatherEffect(wv); } catch (e) { /* nada */ } }
+            window.agregarMensajeChatPublico("System", (window.tmsg ? window.tmsg('qc_weather_set', 'Weather: {w}') : 'Weather: {w}').replace('{w}', wv));
+            break;
+        }
+
         case 'fly':
             if (typeof mbwom !== 'undefined' && mbwom.world) {
                 mbwom.world.fly = !mbwom.world.fly; 
@@ -99,29 +111,10 @@ window.processLocalCommand = function(text) {
                 const destY = parseFloat(args[2]);
 
                 if (!isNaN(destX) && !isNaN(destY)) {
-                    if (typeof mbwom !== 'undefined' && mbwom.world) {
-                        
-                        // 1. Guardamos la nueva posición en la base de datos del mundo
-                        mbwom.world.worldX = destX;
-                        mbwom.world.worldY = destY; 
-                        
-                        // 2. ✨ FIX: Movemos la CÁMARA del editor físicamente
-                        if (typeof camera !== 'undefined') {
-                            camera.x = destX;
-                            // En Mine Blocks la cámara en Y suele coincidir con worldY, pero si ves que
-                            // vas en dirección contraria, cámbialo a: camera.y = -destY;
-                            camera.y = destY; 
-                        }
-
-                        // 3. Forzamos un refresco de pantalla si la función existe
-                        if (typeof render === 'function') {
-                            render();
-                        } else if (typeof draw === 'function') {
-                            draw();
-                        }
-
-                        window.agregarMensajeChatPublico("System", `Teletransportado a X: ${destX}, Y: ${destY}`);
-                    }
+                    // (Y = número de bloque hacia arriba, el mismo que se ve en la esquina; el Player queda parado ahí)
+                    if (typeof window.mbwEditorTp === 'function') window.mbwEditorTp(destX, destY);
+                    else if (typeof mbwom !== 'undefined' && mbwom.world) { mbwom.world.worldX = destX + .5; mbwom.world.worldY = -destY; }
+                    window.agregarMensajeChatPublico("System", `Teletransportado a X: ${destX}, Y: ${destY}`);
                 } else {
                     window.agregarMensajeChatPublico("Error", "Las coordenadas deben ser números. Uso: /tp [x] [y]");
                 }

@@ -236,6 +236,7 @@
         centerCameraOn(b.x, b.y);
         return true;
     }
+    window.mbwBookmarks = { list: function () { return bmList().slice(); }, go: function (id) { return bmGo(id); }, center: function (x, y) { centerCameraOn(x, y); } };
     function bmDelete(id) { bmWrite(bmList().filter((q) => q.id !== id)); }
     function bmRename(id, name) {
         const list = bmList().map((q) => q.id === id ? Object.assign({}, q, { name: String(name || '').trim().slice(0, 40) || q.name }) : q);

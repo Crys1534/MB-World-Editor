@@ -1084,7 +1084,7 @@ function recibirMensajeDeRed(datos) {
 
     if (datos.tipo === "cursor") {
         const key = datos.peerId || datos.autor;
-        window.networkCursors[key] = { x: datos.x, y: datos.y, name: datos.autor, scene: datos.s || 0, lastUpdate: Date.now() };
+        window.networkCursors[key] = { x: datos.x, y: datos.y, name: datos.autor, scene: datos.s || 0, sk: /^[0-9]{1,12}$/.test(String(datos.sk || '')) ? String(datos.sk) : '', lastUpdate: Date.now() };
         if (typeof worldDirty !== 'undefined') worldDirty = true;
     }
     if (datos.tipo === "camara" && typeof window.mpOnCamera === 'function') window.mpOnCamera(datos);
@@ -1956,6 +1956,7 @@ window.sendNetworkCursorOptimized = function(exactWorldX, exactWorldY) {
             autor: myName,
             peerId: peer ? peer.id : null,
             s: (typeof mbwom !== 'undefined' && mbwom.currentScene) || 1,
+            sk: (function () { try { return localStorage.getItem('mbw_play_skin') || ''; } catch (e) { return ''; } })(),   // (la skin: para su cabeza en la lista de 💬 Teleport > Quién)
             x: exactWorldX,
             y: exactWorldY
         });
