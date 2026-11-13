@@ -34,7 +34,8 @@
             mapName: window.mpSelectedMapName || null, mapThumb: window.mpSelectedMapThumb || null,
             perms: Object.assign({}, window.mpEditPerms || {}),
             levels: Object.assign({}, window.mpPermLevels || {}),
-            permWorld: window.mpPermWorldKey || null
+            permWorld: window.mpPermWorldKey || null,
+            persist: window.mpPersist !== false, owner: window.mpOwner || null, desc: window.mpRoomDesc || ''
         };
     }
     window.mpHostCfg = hostCfg;
@@ -127,6 +128,9 @@
         window.mpEditPerms = Object.assign({}, cfg.perms || {});
         window.mpPermLevels = Object.assign({}, cfg.levels || {});
         window.mpPermWorldKey = cfg.permWorld || cfg.mapName || window.mpPermWorldKey;
+        window.mpPersist = cfg.persist !== false;                   // 💾 (scripts/mp-saved.js)
+        if (cfg.owner) window.mpOwner = cfg.owner;
+        if (cfg.desc != null) window.mpRoomDesc = cfg.desc;
         window.multiplayerAccess = cfg.access || 'public';
         window.multiplayerPlayerLimit = cfg.max || 5;
         if (cfg.mapName) window.mpSelectedMapName = cfg.mapName;
@@ -146,7 +150,7 @@
                 if (typeof database !== 'undefined') {
                     window.myRoomRef = database.ref('servers/' + pid);
                     window.myRoomRef.set({ hostName: myName(), hostUid: myUid(), mapName: window.mpSelectedMapName || null, mapThumb: window.mpSelectedMapThumb || null,
-                        access: window.multiplayerAccess, currentPlayers: 1, maxPlayers: window.multiplayerPlayerLimit,
+                        access: window.multiplayerAccess, currentPlayers: 1, maxPlayers: window.multiplayerPlayerLimit, desc: window.mpRoomDesc || '',
                         timestamp: (typeof firebase !== 'undefined' && firebase.database && firebase.database.ServerValue) ? firebase.database.ServerValue.TIMESTAMP : Date.now() });
                     window.myRoomRef.onDisconnect().remove();
                 }

@@ -5147,6 +5147,7 @@
     // Mientras se juega, lo que se guarda / descarga / sube es la FOTO (el mundo de antes de jugar)
     function withSnapshot(fn, self, args) {
         if (!S.playing || !S.snapshot) return fn.apply(self, args);
+        if (window.__mbwSaveLive && !S.test) { syncScene(); return fn.apply(self, args); }   // 💾 servidor guardado en línea: con lo que pasó jugando
         const liveWorld = mbwom.world;
         const cur = syncScene();
         const tmpW = snapWorld();

@@ -117,11 +117,15 @@ window.loadPublicServers = function() {
     listDiv.innerHTML = '<p style="text-align: center; color: #bdc3c7; font-size: 24px;">Searching for worlds...</p>';
 
     database.ref('servers').off('value');
-    database.ref('servers').on('value', (snapshot) => {
-        const servers = snapshot.val();
+    // 💾 los servidores guardados en línea (scripts/mp-saved.js) salen debajo de los que están abiertos ahora
+    if (window.mbwSavedServers) window.mbwSavedServers.watch(() => render(window.__mbwLastServers || null));
+    database.ref('servers').on('value', (snapshot) => { window.__mbwLastServers = snapshot.val(); render(window.__mbwLastServers); });
+    function render(servers) {
+        const savedHtml = window.mbwSavedServers ? window.mbwSavedServers.html(servers || {}) : '';
 
         if (!servers) {
-            listDiv.innerHTML = '<p style="text-align: center; color: #95a5a6; font-size: 24px; margin-top: 15px;">No public servers available right now.</p>';
+            listDiv.innerHTML = (savedHtml ? '' : '<p style="text-align: center; color: #95a5a6; font-size: 24px; margin-top: 15px;">No public servers available right now.</p>') + savedHtml;
+            if (window.mbwSavedServers) window.mbwSavedServers.bind(listDiv);
             return;
         }
 
@@ -181,9 +185,10 @@ window.loadPublicServers = function() {
         }
         
         // ✨ FIX: Inyección única
-        listDiv.innerHTML = htmlBuilder; 
+        listDiv.innerHTML = htmlBuilder + savedHtml; 
         listDiv.querySelectorAll('.mp-join-btn').forEach(b => b.addEventListener('click', () => joinMultiplayerSession(b.getAttribute('data-room'))));
-    });
+        if (window.mbwSavedServers) window.mbwSavedServers.bind(listDiv);
+    }
 }
 
 // ✨ FIX: FUNCIÓN RESTAURADA PARA MOSTRAR JUGADORES ONLINE Y ABRIR CHATS

@@ -388,7 +388,8 @@ window.prepareServerMap = async function() {
 // ==========================================
 // ✨ CONEXIÓN DE SERVIDORES (HOST/CLIENTE)
 // ==========================================
-window.hostMultiplayerSession = function() {
+window.hostMultiplayerSession = function(opts) {
+    opts = opts || {};
     if (peer) peer.destroy();
     if (window.myRoomRef) window.myRoomRef.remove();
 
@@ -401,9 +402,13 @@ window.hostMultiplayerSession = function() {
 
     isHost = true;
     misClientes = []; 
-    window.mpGen = 0;
-    window.mpEditPerms = {};      // quién puede editar el mundo (por defecto nadie: solo ver; los "Editor" guardados de este mundo, al entrar)
-    window.mpPermLevels = {};     // View / Editor / Builder de cada uno en esta sesión (scripts/mp-live.js)
+    window.mpGen = Number(opts.gen) || 0;
+    window.mpEditPerms = Object.assign({}, opts.perms || {});      // quién puede editar el mundo (por defecto nadie: solo ver; los "Editor" guardados de este mundo, al entrar)
+    window.mpPermLevels = Object.assign({}, opts.levels || {});    // View / Editor / Builder de cada uno en esta sesión (scripts/mp-live.js)
+    // 💾 servidor guardado en línea (scripts/mp-saved.js): ¿se guarda al irse todos? y quién lo creó
+    window.mpPersist = opts.persist !== false;
+    window.mpRoomDesc = typeof opts.desc === 'string' ? opts.desc : '';
+    window.mpOwner = opts.owner || { uid: localStorage.getItem('mbw_uid'), name: localStorage.getItem('mbw_username') || 'Player' };
     window.mpPermWorldKey = window.mpSelectedMapName || ((document.getElementById('filename-display') || {}).value) || 'world';
     if (typeof window.mpMarkServerTab === 'function') window.mpMarkServerTab();   // la pestaña de este mundo es la del servidor
     
@@ -415,7 +420,7 @@ window.hostMultiplayerSession = function() {
     }
 
     // Le pasamos tu nueva ID aleatoria de 8 caracteres al motor
-    peer = new Peer(miIdPersonalizada); 
+    peer = new Peer(opts.peerId || miIdPersonalizada);   // (un servidor guardado que se vuelve a abrir conserva su código)
 
     peer.on('open', function(id) {
         const peerInput = document.getElementById('my-peer-id');
@@ -438,6 +443,7 @@ window.hostMultiplayerSession = function() {
             hostName: hostName, hostUid: myUID, 
             mapName: window.mpSelectedMapName, mapThumb: window.mpSelectedMapThumb,
             access: window.multiplayerAccess, currentPlayers: 1, maxPlayers: window.multiplayerPlayerLimit,
+            desc: window.mpRoomDesc || '',
             timestamp: firebase.database.ServerValue.TIMESTAMP
         });
         window.myRoomRef.onDisconnect().remove();

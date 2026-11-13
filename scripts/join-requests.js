@@ -180,7 +180,7 @@
             window.mpSelectedMapThumb = null;
             window.multiplayerAccess = 'private';
             if (!(window.multiplayerPlayerLimit >= 2)) window.multiplayerPlayerLimit = 2;
-            window.hostMultiplayerSession();
+            window.hostMultiplayerSession({ persist: false });   // (una sala de paso para dejar entrar a alguien: no se guarda en línea)
             const t0 = Date.now();
             const iv = setInterval(() => {
                 if (window.currentRoomId && typeof isHost !== 'undefined' && isHost) { clearInterval(iv); resolve(window.currentRoomId); }
