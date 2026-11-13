@@ -388,6 +388,20 @@ window.prepareServerMap = async function() {
 // ==========================================
 // ✨ CONEXIÓN DE SERVIDORES (HOST/CLIENTE)
 // ==========================================
+// 🌐 Servidores para que dos computadoras se encuentren por internet (WebRTC). Varios STUN por si uno falla, y los TURN de PeerJS
+// (un "puente" para cuando la red de alguno no deja conexiones directas). window.MBW_TURN = [{ urls, username, credential }] agrega más.
+window.mbwIceServers = function () {
+    const list = [
+        { urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' },
+        { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' }
+    ];
+    return Array.isArray(window.MBW_TURN) ? list.concat(window.MBW_TURN) : list;
+};
+window.mbwNewPeer = function (id) {
+    const opts = { config: { iceServers: window.mbwIceServers(), sdpSemantics: 'unified-plan' } };
+    return id ? new Peer(id, opts) : new Peer(opts);
+};
+
 window.hostMultiplayerSession = function(opts) {
     opts = opts || {};
     if (peer) peer.destroy();
@@ -421,7 +435,7 @@ window.hostMultiplayerSession = function(opts) {
     }
 
     // Le pasamos tu nueva ID aleatoria de 8 caracteres al motor
-    peer = new Peer(miIdPersonalizada); 
+    peer = window.mbwNewPeer(miIdPersonalizada); 
 
     peer.on('open', function(id) {
         const peerInput = document.getElementById('my-peer-id');
@@ -509,12 +523,13 @@ window.joinMultiplayerSession = function(directId = null, skipHostConfirm = fals
     
     // Destruimos cualquier peer viejo que se haya quedado atascado
     if (peer) peer.destroy(); 
-    peer = new Peer(); 
+    peer = window.mbwNewPeer(); 
 
     peer.on('open', function() {
         window.isConnecting = false; // 🔓 Quitamos el candado
-        miConexionAlHost = peer.connect(hostId);
+        miConexionAlHost = peer.connect(hostId, { reliable: true });
         setupClientConnection(miConexionAlHost);
+        mpJoinWatchdog(miConexionAlHost, hostId);
     });
 
     peer.on('error', function(err) {
@@ -715,22 +730,33 @@ async function mpSendWorld(conn, canGzip, opts) {
 const MP_LIVE_WHILE_LOADING = { chat: 1, sync_players: 1, kicked: 1, error_conexion: 1 };
 function mpClientData(conn, data) {
     if (!data || typeof data !== 'object') return false;
+    // (si la conexión entrega las cosas en otro orden —pasaba en redes lentas—, las partes que llegan antes de "map_start" se
+    //  guardan, y "map_end" espera a que lleguen todas en vez de fallar)
     if (data.tipo === "map_start") {
         window.mpMapDownload = { id: data.id, name: data.name, enc: data.enc, size: data.size, chunks: data.chunks, got: 0, parts: new Array(data.chunks), queue: [], q: !!data.q };
+        const early = window.mpEarlyChunks && window.mpEarlyChunks[data.id];
+        if (early) { Object.keys(early).forEach(i => { if (!window.mpMapDownload.parts[i]) { window.mpMapDownload.parts[i] = early[i]; window.mpMapDownload.got++; } }); }
+        window.mpEarlyChunks = null;
         if (typeof updateLoadingBar === 'function') updateLoadingBar(0, "Downloading map... 0%");
         return true;
     }
     const dl = window.mpMapDownload;
     if (data.tipo === "map_chunk") {
-        if (!dl || dl.id !== data.id) return true;
+        if (!dl || dl.id !== data.id) {
+            const E = window.mpEarlyChunks = window.mpEarlyChunks || {};
+            (E[data.id] = E[data.id] || {})[data.i] = new Uint8Array(data.data);
+            return true;
+        }
         if (!dl.parts[data.i]) { dl.parts[data.i] = new Uint8Array(data.data); dl.got++; }
         const pct = Math.floor(dl.got / dl.chunks * 100);
         if (typeof updateLoadingBar === 'function' && (dl.got % 4 === 0 || dl.got === dl.chunks)) updateLoadingBar(Math.round(pct * 0.2), "Downloading map... " + pct + "%");
+        if (dl.ended && dl.got === dl.chunks && !dl.finishing) { dl.finishing = true; mpFinishMap(dl); }
         return true;
     }
     if (data.tipo === "map_end") {
         if (!dl || dl.id !== data.id) return true;
-        mpFinishMap(dl);
+        if (dl.got < dl.chunks) { dl.ended = true; return true; }   // (todavía faltan partes en camino)
+        if (!dl.finishing) { dl.finishing = true; mpFinishMap(dl); }
         return true;
     }
     // mientras baja y se arma el mapa, los cambios que llegan se guardan y se aplican al final (para no perder ninguno)
@@ -842,6 +868,33 @@ function avisarEnChatDeSala(texto) {
     if (!isMultiplayer) return;
     enviarMensajeEnRed({ tipo: "chat", autor: "System", texto: texto });
     if (isHost) recibirMensajeDeRed({ tipo: "chat", autor: "System", texto: texto });
+}
+
+// ⏱ Entrar a un mundo: si en 20 s no se logra la conexión (o el mapa no empieza a llegar), se avisa qué pasa en vez de quedarse
+// sin hacer nada. Lo más común: la red de uno de los dos no deja conexiones directas (algunos datos móviles, Wi-Fi de escuela o
+// trabajo, VPN). Se puede volver a intentar o cambiar de red.
+function mpJoinWatchdog(conn, hostId) {
+    const t0 = Date.now();
+    const fail = function (key, fb) {
+        if (miConexionAlHost !== conn) return;
+        conn.__byMe = true;
+        try { conn.close(); } catch (e) { /* nada */ }
+        miConexionAlHost = null; isMultiplayer = false;
+        window.mpMapDownload = null;
+        const ov = document.getElementById('loading-overlay'); if (ov) ov.style.display = 'none';
+        const st = document.getElementById('multiplayer-status'); if (st) { st.style.display = 'block'; st.innerText = 'Status: ' + tmsg('mp_conn_fail_short', 'Could not connect') + ' 🔴'; st.style.color = '#e74c3c'; }
+        console.warn('🌐 No se pudo entrar a', hostId, key, Math.round((Date.now() - t0) / 1000) + ' s', conn.peerConnection && conn.peerConnection.iceConnectionState);
+        if (confirm(tmsg(key, fb) + '\n\n' + tmsg('mp_conn_retry', 'Try again?'))) setTimeout(function () { if (typeof window.joinMultiplayerSession === 'function') window.joinMultiplayerSession(hostId, true); }, 300);
+    };
+    setTimeout(function () {
+        if (miConexionAlHost !== conn || conn.open) return;
+        fail('mp_conn_fail_nat', "Could not connect to that world. Usually it is the internet connection: the network of one of the two blocks direct connections (some mobile data, school or work Wi-Fi, a VPN). Try another network (Wi-Fi ↔ mobile data) on either side.");
+    }, 20000);
+    setTimeout(function () {
+        if (miConexionAlHost !== conn || !conn.open || conn.__migrated) return;
+        if (window.mpMapDownload || (window.mpMapAt && window.mpMapAt > t0)) return;
+        fail('mp_conn_fail_map', "You connected, but the world did not arrive. Ask the host to reload the page (or update the app) and try again.");
+    }, 35000);
 }
 
 function setupClientConnection(conn) {

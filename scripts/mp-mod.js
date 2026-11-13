@@ -253,7 +253,7 @@
         try { if (R.np) { const o = R.np; R.np = null; setTimeout(() => { try { o.destroy(); } catch (e) { /* nada */ } }, 0); } } catch (e) { /* nada */ }
         try { if (typeof peer !== 'undefined' && peer && peer !== R.np) { const o = peer; setTimeout(() => { try { o.destroy(); } catch (e) { /* nada */ } }, 0); } } catch (e) { /* nada */ }
         let np;
-        try { np = new Peer(); } catch (e) { schedule(R, RC_EVERY); return; }
+        try { np = window.mbwNewPeer ? window.mbwNewPeer() : new Peer(); } catch (e) { schedule(R, RC_EVERY); return; }
         R.np = np;
         peer = np;
         const ids = targets(R);

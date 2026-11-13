@@ -136,7 +136,7 @@
         if (cfg.mapName) window.mpSelectedMapName = cfg.mapName;
         if (cfg.mapThumb) window.mpSelectedMapThumb = cfg.mapThumb;
         window.mpPrevOrder = players().map(p => p.uid);   // el orden en que habían entrado
-        const np = new Peer(id);
+        const np = window.mbwNewPeer ? window.mbwNewPeer(id) : new Peer(id);
         peer = np;
         M.timer = setTimeout(() => { if (window.mpMigrating === M) { isHost = false; next(M); } }, TRY_MS);
         np.on('open', function (pid) {
