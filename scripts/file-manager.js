@@ -108,6 +108,8 @@ const fileManager = {
    }
 
    mbwom.world = parsedWorld;
+   // 🕰 Mundos de versiones viejas del juego (scripts/world-upgrade.js): se ponen al día igual que lo hace el juego al abrirlos
+   try { if (typeof window.mbwUpgradeWorld === 'function') { const up = window.mbwUpgradeWorld(mbwom.world); if (up && up.changed) console.log('🕰 Mundo de la versión ' + up.from + ' actualizado a ' + up.to); } } catch (e) { console.warn('world upgrade', e); }
    // Creepers de mundos viejos sin el dato "fuse" (explotan al instante en el juego real): se les completa al abrir el mundo
    try { if (typeof window.mbwFixWorldMobs === 'function') { const fixedC = window.mbwFixWorldMobs(mbwom.world); if (fixedC) console.log('🔧 ' + fixedC + ' creeper(s) sin "fuse" arreglados al abrir el mundo'); } } catch (e) { /* no es grave */ }
    // 🩺 Reglas del juego original (scripts/world-validator.js): se arregla lo seguro al abrir y se avisa si queda algo raro
