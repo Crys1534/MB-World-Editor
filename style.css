@@ -3844,3 +3844,6 @@ body.kb-open #mbw-play-hud .ph-chat.open .ph-chat-sug { max-height: 24vh; }
 .ss-open:hover { background: #d35400; }
 .ss-del { background: #7f2a1f; color: #fff; border: none; padding: 6px 8px; border-radius: 4px; cursor: pointer; font-size: 16px; }
 @media (max-width: 600px) { .ss-row { flex-wrap: wrap; } .ss-thumb { width: 56px; height: 36px; } .ss-name { font-size: 20px; } }
+.ss-closed { color: #bdc3c7; font-size: 20px; }
+.ss-official { display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 8px 0; padding: 8px 10px; border-radius: 6px; background: rgba(241, 196, 15, .12); border: 1px solid rgba(241, 196, 15, .45); color: #f5d76e; font-size: 18px; }
+.ss-official input { width: 18px; height: 18px; cursor: pointer; }

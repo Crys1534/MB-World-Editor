@@ -405,10 +405,9 @@ window.hostMultiplayerSession = function(opts) {
     window.mpGen = Number(opts.gen) || 0;
     window.mpEditPerms = Object.assign({}, opts.perms || {});      // quién puede editar el mundo (por defecto nadie: solo ver; los "Editor" guardados de este mundo, al entrar)
     window.mpPermLevels = Object.assign({}, opts.levels || {});    // View / Editor / Builder de cada uno en esta sesión (scripts/mp-live.js)
-    // 💾 servidor guardado en línea (scripts/mp-saved.js): ¿se guarda al irse todos? y quién lo creó
-    window.mpPersist = opts.persist !== false;
+    // 💾 el servidor permanente de Crystal (scripts/mp-saved.js): se guarda en línea y nadie más es su anfitrión
+    window.mpOfficial = !!opts.official;
     window.mpRoomDesc = typeof opts.desc === 'string' ? opts.desc : '';
-    window.mpOwner = opts.owner || { uid: localStorage.getItem('mbw_uid'), name: localStorage.getItem('mbw_username') || 'Player' };
     window.mpPermWorldKey = window.mpSelectedMapName || ((document.getElementById('filename-display') || {}).value) || 'world';
     if (typeof window.mpMarkServerTab === 'function') window.mpMarkServerTab();   // la pestaña de este mundo es la del servidor
     
@@ -420,7 +419,7 @@ window.hostMultiplayerSession = function(opts) {
     }
 
     // Le pasamos tu nueva ID aleatoria de 8 caracteres al motor
-    peer = new Peer(opts.peerId || miIdPersonalizada);   // (un servidor guardado que se vuelve a abrir conserva su código)
+    peer = new Peer(miIdPersonalizada); 
 
     peer.on('open', function(id) {
         const peerInput = document.getElementById('my-peer-id');
@@ -443,7 +442,7 @@ window.hostMultiplayerSession = function(opts) {
             hostName: hostName, hostUid: myUID, 
             mapName: window.mpSelectedMapName, mapThumb: window.mpSelectedMapThumb,
             access: window.multiplayerAccess, currentPlayers: 1, maxPlayers: window.multiplayerPlayerLimit,
-            desc: window.mpRoomDesc || '',
+            desc: window.mpRoomDesc || '', official: window.mpOfficial ? true : null,
             timestamp: firebase.database.ServerValue.TIMESTAMP
         });
         window.myRoomRef.onDisconnect().remove();

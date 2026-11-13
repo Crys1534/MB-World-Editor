@@ -35,7 +35,7 @@
             perms: Object.assign({}, window.mpEditPerms || {}),
             levels: Object.assign({}, window.mpPermLevels || {}),
             permWorld: window.mpPermWorldKey || null,
-            persist: window.mpPersist !== false, owner: window.mpOwner || null, desc: window.mpRoomDesc || ''
+            official: !!window.mpOfficial, desc: window.mpRoomDesc || ''
         };
     }
     window.mpHostCfg = hostCfg;
@@ -61,6 +61,7 @@
     // =====================================================================
     window.mpHostLeaving = function () {
         if (!amHost() || !inMp() || typeof misClientes === 'undefined' || !misClientes.length) return false;
+        if (window.mpOfficial) return false;   // 💾 el servidor permanente solo tiene una anfitriona: si se va, se cierra (scripts/mp-saved.js)
         const cfg = hostCfg();
         cfg.players = players();
         misClientes.forEach(c => { try { c.send({ tipo: 'host_migra', cfg: cfg }); } catch (e) { /* nada */ } });
@@ -78,6 +79,7 @@
         if (!inMp() || amHost() || conn.__kicked || conn.__hostClosed || conn.__byMe) return false;
         const cfg = (conn.__migrate) || window.mpRoomCfg;
         if (!cfg || !cfg.base) return false;
+        if (cfg.official) return false;        // 💾 (servidor permanente: no pasa a otro anfitrión)
         if (conn.__migrate && Array.isArray(conn.__migrate.players)) window.roomPlayers = conn.__migrate.players;
         const cands = successors(cfg);
         if (!cands.length) return false;
@@ -128,8 +130,6 @@
         window.mpEditPerms = Object.assign({}, cfg.perms || {});
         window.mpPermLevels = Object.assign({}, cfg.levels || {});
         window.mpPermWorldKey = cfg.permWorld || cfg.mapName || window.mpPermWorldKey;
-        window.mpPersist = cfg.persist !== false;                   // 💾 (scripts/mp-saved.js)
-        if (cfg.owner) window.mpOwner = cfg.owner;
         if (cfg.desc != null) window.mpRoomDesc = cfg.desc;
         window.multiplayerAccess = cfg.access || 'public';
         window.multiplayerPlayerLimit = cfg.max || 5;

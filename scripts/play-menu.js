@@ -226,7 +226,7 @@
             if (!done) { window.multiplayerAccess = v; if (ref) ref.update({ access: v }); }
         })));
         // 💾 guardar el servidor en línea para que se pueda volver a abrir cuando ya no quede nadie (scripts/mp-saved.js)
-        if (window.mbwSavedServers) f.appendChild(row(tr('ss_keep', 'Keep this server online when everyone leaves'), check(window.mpPersist !== false, function (on) { window.mbwSavedServers.setPersist(on); }), tr('ss_keep_tip', 'The world is saved online every 2 minutes. When nobody is left, anyone who can join can open it again from the server list.')));
+        { const sr = window.mbwSavedServers && window.mbwSavedServers.checkboxRow('ss-official pm-ss'); if (sr) f.appendChild(sr); }   // (solo la dueña del editor)
         // 👥 los que están en tu mundo (expulsar) y a quién invitar (amigos primero), sin salir del Modo Jugar
         f.appendChild(peopleBox());
         f.appendChild(row(tr('pm_guest_cmds', 'Guests can use commands'), check(M() && M().allowCmds ? M().allowCmds() : false, function (on) { if (M() && M().setAllowCmds) M().setAllowCmds(on); }), tr('pm_guest_cmds_tip', 'By default only the host can use commands (gamemode, tp, give...)')));
