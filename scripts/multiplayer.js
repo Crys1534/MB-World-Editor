@@ -397,6 +397,20 @@ window.mbwIceServers = function () {
     ];
     return Array.isArray(window.MBW_TURN) ? list.concat(window.MBW_TURN) : list;
 };
+// 🌉 Puente propio de Cloudflare (Claude outputs/turn-worker.js): al abrir el editor se piden usuario y contraseña de TURN
+// (duran 24 h; se guardan para no pedirlos a cada rato). Si el Worker todavía no existe o falla, se sigue sin él.
+window.MBW_TURN_URL = window.MBW_TURN_URL || 'https://mbwe-turn.crystalsnow1534.workers.dev/ice';
+(function loadTurn() {
+    const KEY = 'mbw_turn_cache';
+    const use = function (list) { if (Array.isArray(list) && list.length) window.MBW_TURN = list.filter(s => s && s.urls); };
+    try { const c = JSON.parse(localStorage.getItem(KEY) || 'null'); if (c && c.exp > Date.now() + 2 * 3600000 && Array.isArray(c.list)) { use(c.list); return; } } catch (e) { /* nada */ }
+    if (typeof fetch !== 'function' || !window.MBW_TURN_URL) return;
+    window.mbwTurnLoading = fetch(window.MBW_TURN_URL, { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(function (d) {
+        if (!d || !Array.isArray(d.iceServers)) return;
+        use(d.iceServers);
+        try { localStorage.setItem(KEY, JSON.stringify({ list: window.MBW_TURN, exp: Date.now() + (Number(d.ttl) || 86400) * 1000 })); } catch (e) { /* nada */ }
+    }).catch(function () { /* sin puente propio */ });
+})();
 window.mbwNewPeer = function (id) {
     const opts = { config: { iceServers: window.mbwIceServers(), sdpSemantics: 'unified-plan' } };
     return id ? new Peer(id, opts) : new Peer(opts);

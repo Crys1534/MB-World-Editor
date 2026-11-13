@@ -96,7 +96,9 @@
             step('nat', sym ? 'warn' : 'ok', sym ? tr('nt_nat_sym', 'Strict network (symmetric NAT): it changes the port for every connection, so direct connections with other players usually fail. Common with mobile data and shared networks.') : tr('nt_nat_ok', 'Normal network: other players can connect directly.'));
         } else if (sg1.length || sc1.length) step('nat', 'warn', tr('nt_nat_unknown', 'Could only check with one server: unknown.'));
         else step('nat', 'bad', tr('nt_nat_none', 'No public address: direct connections will not work.'));
-        // 5. TURN (puente)
+        // 5. TURN (puente): el propio de Cloudflare (si ya está) y el de PeerJS
+        if (window.mbwTurnLoading) { try { await Promise.race([window.mbwTurnLoading, sleep(4000)]); } catch (e) { /* nada */ } }
+        R.ownTurn = Array.isArray(window.MBW_TURN) && window.MBW_TURN.length > 0;
         const ts = turnServers();
         if (!ts.length) step('turn', 'warn', tr('nt_turn_none', 'There is no bridge (TURN) set up.'));
         else {
@@ -104,7 +106,7 @@
             const tg = await gather(ts, 'relay', 9000);
             const relay = tg.cands.filter(x => x.type === 'relay');
             R.relay = relay.length > 0;
-            step('turn', relay.length ? 'ok' : 'bad', relay.length ? tr('nt_turn_ok', 'The bridge (TURN) answers: if a direct connection is not possible, it can go through the bridge.') : tr('nt_turn_bad', 'The bridge (TURN) does not answer from this network.'));
+            step('turn', relay.length ? 'ok' : 'bad', (relay.length ? tr('nt_turn_ok', 'The bridge (TURN) answers: if a direct connection is not possible, it can go through the bridge.') : tr('nt_turn_bad', 'The bridge (TURN) does not answer from this network.')) + ' ' + (R.ownTurn ? tr('nt_turn_own', '(own bridge: Cloudflare)') : tr('nt_turn_peerjs', '(PeerJS bridge only)')));
         }
         // veredicto
         let v;
