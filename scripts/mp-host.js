@@ -61,7 +61,6 @@
     // =====================================================================
     window.mpHostLeaving = function () {
         if (!amHost() || !inMp() || typeof misClientes === 'undefined' || !misClientes.length) return false;
-        if (window.mpOfficial) return false;   // 💾 el servidor permanente solo tiene una anfitriona: si se va, se cierra (scripts/mp-saved.js)
         const cfg = hostCfg();
         cfg.players = players();
         misClientes.forEach(c => { try { c.send({ tipo: 'host_migra', cfg: cfg }); } catch (e) { /* nada */ } });
@@ -79,7 +78,6 @@
         if (!inMp() || amHost() || conn.__kicked || conn.__hostClosed || conn.__byMe) return false;
         const cfg = (conn.__migrate) || window.mpRoomCfg;
         if (!cfg || !cfg.base) return false;
-        if (cfg.official) return false;        // 💾 (servidor permanente: no pasa a otro anfitrión)
         if (conn.__migrate && Array.isArray(conn.__migrate.players)) window.roomPlayers = conn.__migrate.players;
         const cands = successors(cfg);
         if (!cands.length) return false;
@@ -131,6 +129,7 @@
         window.mpPermLevels = Object.assign({}, cfg.levels || {});
         window.mpPermWorldKey = cfg.permWorld || cfg.mapName || window.mpPermWorldKey;
         if (cfg.desc != null) window.mpRoomDesc = cfg.desc;
+        window.mpOfficial = !!cfg.official;                         // 💾 el servidor permanente sigue guardándose con el anfitrión nuevo
         window.multiplayerAccess = cfg.access || 'public';
         window.multiplayerPlayerLimit = cfg.max || 5;
         if (cfg.mapName) window.mpSelectedMapName = cfg.mapName;
@@ -150,7 +149,7 @@
                 if (typeof database !== 'undefined') {
                     window.myRoomRef = database.ref('servers/' + pid);
                     window.myRoomRef.set({ hostName: myName(), hostUid: myUid(), mapName: window.mpSelectedMapName || null, mapThumb: window.mpSelectedMapThumb || null,
-                        access: window.multiplayerAccess, currentPlayers: 1, maxPlayers: window.multiplayerPlayerLimit, desc: window.mpRoomDesc || '',
+                        access: window.multiplayerAccess, currentPlayers: 1, maxPlayers: window.multiplayerPlayerLimit, desc: window.mpRoomDesc || '', official: window.mpOfficial ? true : null,
                         timestamp: (typeof firebase !== 'undefined' && firebase.database && firebase.database.ServerValue) ? firebase.database.ServerValue.TIMESTAMP : Date.now() });
                     window.myRoomRef.onDisconnect().remove();
                 }

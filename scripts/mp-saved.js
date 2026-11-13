@@ -1,9 +1,10 @@
 // ==========================================================
 // 💾 EL SERVIDOR PERMANENTE DE CRYSTAL (va después de scripts/mp-mod.js)
 //
-//  · Hay UN solo servidor guardado en línea, el de la dueña del editor (sus cuentas: OWNERS).
-//  · Solo ella lo abre y solo ella es su anfitriona: si se va, el servidor se cierra para todos (no pasa a otro
-//    jugador) y el mundo queda guardado. Los demás lo ven en la lista ("🔒 cerrado") y entran cuando ella lo abre.
+//  · Hay UN solo servidor guardado en línea, el de la dueña del editor (sus cuentas: OWNERS). Solo ella lo crea
+//    (casilla 💾) y lo borra (🗑).
+//  · Cuando no hay nadie, cualquiera que pueda entrar ("Quién puede entrar", baneados) lo ABRE desde la lista y es
+//    el anfitrión. Si el anfitrión se va y quedan jugadores, otro sigue de anfitrión (y sigue guardando).
 //  · Mientras está abierto, se guarda en Firebase 15 s después de abrirlo, cada 2 minutos (si cambió) y al salir.
 //    Jugando (Modo Jugar) se guarda lo que pasó jugando (menos en una prueba 🧪). Solo se guarda UNA copia.
 //  · Cualquier servidor que ella abra se puede volver "su servidor permanente" con la casilla 💾
@@ -59,7 +60,7 @@
     // ------------------------------------------------------------------ guardar
     const st = { last: null, lastAt: 0, busy: false, started: 0, status: '', denied: false };
     function canSave() {
-        return !st.denied && isOwner() && !!window.mpOfficial && inMp() && amHost() && !!db() && typeof mbwom !== 'undefined' && !!mbwom.world;
+        return !st.denied && !!window.mpOfficial && inMp() && amHost() && !window.mpMigrating && !!db() && typeof mbwom !== 'undefined' && !!mbwom.world;
     }
     function worldJson() {
         const F = fm(); if (!F || typeof F.prepareNetworkJson !== 'function') return null;
@@ -94,7 +95,8 @@
             const mref = D.ref(META + '/' + KEY);
             const old = (await mref.once('value')).val() || {};
             const meta = Object.assign({}, cfg, {
-                ownerName: myName().slice(0, 40), ownerUid: myUid(),
+                ownerName: isOwner() ? myName().slice(0, 40) : String(old.ownerName || 'Crystal').slice(0, 40), ownerUid: isOwner() ? myUid() : (old.ownerUid || null),
+                lastHostName: myName().slice(0, 40),
                 mapThumb: (thumb.length < 90000 && /^(assets\/|data:image\/(png|jpeg|webp);base64,)/.test(thumb)) ? thumb : (old.mapThumb || null),
                 bans: bans, rev: rev, chunks: n, bytes: data.length, rawBytes: json.length,
                 savedAt: firebase.database.ServerValue.TIMESTAMP, v: 2
@@ -171,16 +173,15 @@
         const thumb = /^(assets\/[\w\- .\/]+\.(png|jpg|jpeg|gif|webp)|data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+\/=]+)$/i.test(raw) ? raw : 'assets/Superflat World.png';
         const desc = s.desc ? `<span class="ss-desc">${esc(String(s.desc).slice(0, 120))}</span>` : '';
         const mb = (Number(s.bytes) || 0) / 1048576;
-        const right = mine
-            ? `<button type="button" class="ss-del" title="${esc(tr('ss_delete', 'Delete'))}">🗑</button><button type="button" class="ss-open">${esc(tr('ss_open', 'OPEN'))}</button>`
-            : `<span class="ss-closed">🔒 ${esc(tr('ss_closed', 'Closed'))}</span>`;
-        return `<div class="ss-head">💾 ${esc(mine ? tr('ss_title_mine', 'Your permanent server (open it to be the host)') : tr('ss_title', 'Permanent server'))}</div>
+        const right = (mine ? `<button type="button" class="ss-del" title="${esc(tr('ss_delete', 'Delete'))}">🗑</button>` : '') +
+            `<button type="button" class="ss-open">${esc(tr('ss_open', 'OPEN'))}</button>`;
+        return `<div class="ss-head">💾 ${esc(mine ? tr('ss_title_mine', 'Your permanent server (open it to be the host)') : tr('ss_title', 'Permanent server (nobody is playing: open it to be the host)'))}</div>
                 <div class="ss-row">
                     <div class="ss-left">
                         <div class="ss-thumb" style="background-image: url(&quot;${esc(thumb)}&quot;);"></div>
                         <div style="min-width: 0;">
                             <strong class="ss-name">${esc(s.mapName || 'World')}</strong>
-                            <span class="ss-sub">${esc(mine ? tr('ss_saved_ago', 'saved {when}', { when: ago(s.savedAt) }) + (mb >= .05 ? ' · ' + mb.toFixed(1) + ' MB' : '') : tr('ss_wait_owner', 'Opens when {name} comes in', { name: s.ownerName || 'Crystal' }))}</span>
+                            <span class="ss-sub">${esc(tr('ss_by', 'by {name}', { name: s.ownerName || 'Crystal' }) + ' · ' + tr('ss_saved_ago', 'saved {when}', { when: ago(s.savedAt) }) + (mb >= .05 ? ' · ' + mb.toFixed(1) + ' MB' : ''))}</span>
                             ${desc}
                         </div>
                     </div>
@@ -201,12 +202,16 @@
         return Promise.all([D.ref(DATA + '/' + KEY).remove(), D.ref(META + '/' + KEY).remove()]).catch(e => console.warn('💾 delete', e));
     }
 
-    // ------------------------------------------------------------------ abrirlo (solo la dueña; ella es la anfitriona)
+    // ------------------------------------------------------------------ abrirlo (cualquiera que pueda entrar: pasa a ser el anfitrión)
     const op = { busy: false };
     async function openSaved() {
-        const D = db(); if (!D || !isOwner() || op.busy) return false;
+        const D = db(); if (!D || op.busy) return false;
         const s = saved;
-        if (!s || !s.rev) return false;
+        if (!s || !s.rev || !canSee(s)) return false;
+        // ¿alguien lo abrió hace un momento? Entonces se entra a ese
+        const act = window.__mbwLastServers || {};
+        const liveId = Object.keys(act).find(id => act[id] && act[id].official);
+        if (liveId) { if (typeof joinMultiplayerSession === 'function') joinMultiplayerSession(liveId); return true; }
         if (inMp()) {
             if (!confirm(tr('ss_leave_confirm', 'You are in a server. Leave it to open this one?'))) return false;
             try { window.disconnectFromMultiplayer(true); } catch (e) { /* nada */ }
@@ -214,12 +219,12 @@
         op.busy = true;
         const me = myUid(), lockRef = D.ref(META + '/' + KEY + '/lock');
         try {
-            // 🔒 (por si lo abre a la vez desde dos aparatos)
+            // 🔒 que no lo abran dos personas a la vez
             const tx = await lockRef.transaction(function (cur) {
                 if (cur && cur.uid !== me && Date.now() - Number(cur.at || 0) < LOCK_MS) return;
                 return { uid: me, at: Date.now() };
             });
-            if (!tx.committed) { alert(tr('ss_busy', 'It is being opened from another device right now. Try again in a moment.')); return false; }
+            if (!tx.committed) { alert(tr('ss_busy', 'Someone else is opening this server right now. Try again in a moment.')); return false; }
             toast('💾 ' + tr('ss_opening', 'Downloading the world…'), String(s.mapName || ''));
             if (typeof updateLoadingBar === 'function') { const ov = document.getElementById('loading-overlay'); if (ov) ov.style.display = 'flex'; updateLoadingBar(5, tr('ss_opening', 'Downloading the world…')); }
             const meta = (await D.ref(META + '/' + KEY).once('value')).val() || s;
@@ -276,7 +281,7 @@
         const c = document.createElement('input'); c.type = 'checkbox'; c.checked = !!window.mpOfficial;
         c.addEventListener('change', function () { if (!setOfficial(c.checked)) c.checked = !!window.mpOfficial; });
         const sp = document.createElement('span'); sp.textContent = '💾 ' + tr('ss_official', 'My permanent server (saved online)');
-        lab.title = tr('ss_official_tip', 'Saved online every 2 minutes and when you leave. Only you can open it again from the server list, and only you are its host: when you leave, it closes for everyone.');
+        lab.title = tr('ss_official_tip', 'Saved online every 2 minutes and when the host leaves. When nobody is playing, anyone who can join can open it again from the server list and be the host.');
         lab.appendChild(c); lab.appendChild(sp);
         return lab;
     }
