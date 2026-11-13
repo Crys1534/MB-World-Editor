@@ -52,6 +52,8 @@
             if (p.me) r.appendChild(el('span', 'pm-tag pm-me', tr('pm_you', 'you')));
             if (!p.online) r.appendChild(el('span', 'pm-last', ago(p.last)));
             r.appendChild(bars(p.ping || 0, p.online));
+            // 🎒 el que lleva la partida puede ver y cambiar el inventario de los demás (scripts/mp-inv.js)
+            if (!p.me && p.uid && window.mbwMpInv && window.mbwMpInv.canUse()) r.appendChild(btn('🎒', 'pm-mini pm-inv', function () { window.mbwMpInv.open(p.uid, p.name); }));
             box.appendChild(r);
         });
         if (withLast && !off.length && !inRoom()) box.appendChild(el('div', 'pm-pl-note', tr('pm_solo_note', 'Playing on your own. In a multiplayer room, everyone who plays this world shows up here.')));

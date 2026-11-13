@@ -772,7 +772,7 @@ function findMobAt(wx, wy) {
         const m = mbwom.mobs[key];
         if (!m || !m.type) continue;
         const info = getMobDrawInfo(m, true);   // true = no empezar descargas de skins solo por hacer clic
-        const mx = Number(m.x), bottom = -Number(m.y);
+        const mx = Number(m.x), bottom = -Number(m.y) - (m.type === 'enderdragon' ? info.h / 2 : 0);   // (el dragón se dibuja centrado en su "y")
         const left = mx - info.w / 2, right = mx + info.w / 2, top = bottom + info.h;
         if (wx < left || wx > right || wy < bottom || wy > top) continue;
 

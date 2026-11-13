@@ -337,13 +337,60 @@ function makeWorldCacheBuilder() {
     };
 }
 
+// 🧩 MUNDOS ENORMES: el dibujo del mundo (worldCache) se arma POR PARTES. Primero lo que se ve (y un poco a los lados),
+// y lo demás poco a poco, sin congelar la pantalla (en ratitos de ~6 ms). Si la cámara llega a una parte que todavía no está,
+// esa parte se arma en ese momento (window.mbwLazyCols). Los mundos chicos se arman de una vez, como siempre.
+const LAZY_MIN_BLOCKS = 120000;
+let lazyCache = null;
+function worldBlockCount(scene) { let n = 0; for (let x = 0; x < scene.length; x++) { const c = scene[x]; if (c) n += c.length; } return n; }
+function lazyCenter(scene) {
+    try { if (window.mbwPlaying && mbwom.world && isFinite(Number(mbwom.world.worldX))) return Math.floor(Number(mbwom.world.worldX)); } catch (e) { /* nada */ }
+    try { if (typeof camera !== 'undefined' && isFinite(camera.x) && typeof grid !== 'undefined' && grid.width) return Math.floor(camera.x + grid.width / 2); } catch (e) { /* nada */ }
+    try { if (mbwom.world && isFinite(Number(mbwom.world.worldX))) return Math.floor(Number(mbwom.world.worldX)); } catch (e) { /* nada */ }
+    return Math.floor(scene.length / 2);
+}
+window.mbwLazyCols = function (x0, x1) {
+    const L = lazyCache;
+    if (!L || L.token !== worldCacheToken || L.cache !== window.worldCache) return;
+    const a = Math.max(0, Math.floor(x0)), b = Math.min(L.scene.length - 1, Math.ceil(x1));
+    for (let x = a; x <= b; x++) if (!L.done[x]) { L.done[x] = 1; L.left--; L.build(x, L.cache); }
+};
+window.mbwLazyBusy = function () { return !!(lazyCache && lazyCache.token === worldCacheToken && lazyCache.left > 0); };
+function startLazyCache(scene, build, cache) {
+    const token = worldCacheToken;
+    const L = lazyCache = { token: token, scene: scene, build: build, cache: cache, done: new Uint8Array(scene.length), left: scene.length, c: lazyCenter(scene), d: 0 };
+    const view = (typeof grid !== 'undefined' && grid.width) ? grid.width : 60;
+    window.mbwLazyCols(L.c - view - 40, L.c + view + 40);              // lo que se ve, ya
+    const step = function () {
+        if (lazyCache !== L || L.token !== worldCacheToken || L.cache !== window.worldCache) return;
+        const t0 = performance.now(), n = scene.length;
+        while (L.left > 0 && performance.now() - t0 < 6) {                 // del centro hacia los lados
+            for (let k = 0; k < 24 && L.left > 0; k++) {
+                const d = ++L.d, xs = [L.c + d, L.c - d];
+                for (let i = 0; i < 2; i++) { const x = xs[i]; if (x >= 0 && x < n && !L.done[x]) { L.done[x] = 1; L.left--; build(x, cache); } }
+                if (L.c + d >= n && L.c - d < 0) { for (let x = 0; x < n; x++) if (!L.done[x]) { L.done[x] = 1; L.left--; build(x, cache); } L.left = 0; }
+            }
+        }
+        if (L.left > 0) { setTimeout(step, 12); return; }
+        window.worldCacheSource.set(cache, scene);                         // (ya completo: se puede reutilizar al cambiar de pestaña)
+        lazyCache = null;
+        worldDirty = true;
+        try { if (window.mbwFarView && window.mbwFarView.invalidate) window.mbwFarView.invalidate(); } catch (e) { /* nada */ }
+        try { if (window.mbwDarkness && window.mbwDarkness.invalidate) window.mbwDarkness.invalidate(); } catch (e) { /* nada */ }
+    };
+    setTimeout(step, 30);
+}
 function initializeWorldCache() {
     worldCacheToken++;
+    lazyCache = null;
     window.worldCache = [];
     if (typeof mbwom !== 'undefined' && mbwom.scene && Array.isArray(mbwom.scene)) {
         const build = makeWorldCacheBuilder();
-        for (let x = 0; x < mbwom.scene.length; x++) build(x, window.worldCache);
-        window.worldCacheSource.set(window.worldCache, mbwom.scene);
+        if (!window.mbwLazyOff && worldBlockCount(mbwom.scene) >= LAZY_MIN_BLOCKS) startLazyCache(mbwom.scene, build, window.worldCache);   // 🧩 mundo enorme: por partes
+        else {
+            for (let x = 0; x < mbwom.scene.length; x++) build(x, window.worldCache);
+            window.worldCacheSource.set(window.worldCache, mbwom.scene);
+        }
     }
     worldDirty = true;
 }
@@ -358,6 +405,8 @@ function initializeWorldCacheAsync(onProgress) {
         if (!scene) { worldDirty = true; resolve(); return; }
         const build = makeWorldCacheBuilder();
         const total = scene.length;
+        // 🧩 mundo enorme: solo lo que se ve (al instante) y lo demás se termina de armar ya con el mundo abierto
+        if (!window.mbwLazyOff && worldBlockCount(scene) >= LAZY_MIN_BLOCKS) { startLazyCache(scene, build, cache); if (onProgress) onProgress(1); worldDirty = true; resolve(); return; }
         let x = 0;
         const step = () => {
             if (token !== worldCacheToken) { resolve(); return; }   // otra construcción empezó: esta ya no hace falta
@@ -468,6 +517,7 @@ function paintWorldBackground(tctx, tw, th) {
 }
 
 function renderWorldToBuffer() {
+    if (lazyCache) window.mbwLazyCols(camera.x - 20, camera.x + grid.width + 20);   // 🧩 (mundo enorme: lo que se ve tiene que estar armado)
     paintWorldBackground(offscreenCtx, offscreenCanvas.width, offscreenCanvas.height);
 
     // 🧩 ▶ Modo Jugar: el mundo se pega por trozos ya dibujados (scripts/chunk-render.js); si no se puede, bloque por bloque
@@ -612,6 +662,7 @@ window.toggleSmoothScroll = function(enabled) {
 })();
 
 function renderSmoothBuffers() {
+    if (lazyCache) window.mbwLazyCols(camera.x - 20, camera.x + grid.width + 20);   // 🧩
     sizeSmoothBuffers();
     paintWorldBackground(bgCtx, bgCanvas.width, bgCanvas.height);
 
@@ -999,7 +1050,8 @@ function drawMobs() {
             const screenX = (mobWorldX - camera.x) * tileSize;
             const screenY = canvas.height - (mobWorldY - camera.y) * tileSize;
             
-            if (screenX < -200 || screenX > canvas.width + 200 || screenY < -200 || screenY > canvas.height + 200) {
+            const cullPad = mob.type === 'enderdragon' ? tileSize * 14 : 200;   // (el dragón es muy grande)
+            if (screenX < -cullPad || screenX > canvas.width + cullPad || screenY < -cullPad || screenY > canvas.height + cullPad) {
                 continue;
             }
             
@@ -1013,7 +1065,7 @@ function drawMobs() {
 
             if (mobImg && mobImg.complete && mobImg.naturalWidth > 0) {
                 ctx.save(); 
-                ctx.translate(screenX, screenY);
+                ctx.translate(screenX, screenY + (mob.type === 'enderdragon' ? mobHeight / 2 : 0));   // 🐉 (el dragón: su "y" es el centro, como en el juego)
                 if (mob.direction === 1) ctx.scale(-1, 1);
                 ctx.imageSmoothingEnabled = false;
 
@@ -1586,7 +1638,28 @@ window.updateTimeIcon = function() {
 // nextFrameAt va "sumando" el intervalo (no usa la hora de cada cuadro), así en pantallas de 120 o 144 Hz el límite de 60 sale 60 de verdad.
 let nextFrameAt = 0;
 window.framesDrawn = 0;   // cuántos cuadros se dibujaron de verdad (lo lee el medidor de FPS de la barra de estado)
+// 🔋 AHORRO DE BATERÍA: en el editor, si nadie toca nada por 5 segundos y no hay nada que redibujar, se dibujan
+// pocos cuadros por segundo (10 si hay nubes o lluvia, 4 si no se mueve nada). Al tocar, mover el mouse o una tecla, vuelve a lo normal.
+// (Jugando no se baja nunca. Configuration > Display > "Battery saver" lo apaga: localStorage mbw_idle_saver = '0')
+let lastInputAt = performance.now(), lastIdleDraw = 0;
+['pointermove', 'pointerdown', 'keydown', 'wheel', 'touchstart', 'resize'].forEach(function (n) { window.addEventListener(n, function () { lastInputAt = performance.now(); }, { passive: true, capture: true }); });
+window.mbwIdleFps = function (now) {
+    try { if (localStorage.getItem('mbw_idle_saver') === '0') return 0; } catch (e) { /* nada */ }
+    if (window.mbwPlaying || now - lastInputAt < 5000 || worldDirty) return 0;
+    if (typeof camera !== 'undefined' && (Math.abs(camera.velX || 0) > .001 || Math.abs(camera.velY || 0) > .001)) return 0;
+    if (typeof isMultiplayer !== 'undefined' && isMultiplayer) return 15;   // (los cursores de los demás se mueven)
+    const clouds = window.mbwClouds && window.mbwClouds.isOn && window.mbwClouds.isOn();
+    const rain = typeof isRaining !== 'undefined' && isRaining;
+    return (clouds || rain) ? 10 : 4;
+};
 function mainLoop(ts) {
+    const idleFps = window.mbwIdleFps(performance.now());
+    if (idleFps) {
+        const now0 = performance.now();
+        if (now0 - lastIdleDraw < 1000 / idleFps - 2) { requestAnimationFrame(mainLoop); return; }   // 🔋 (descansando)
+        lastIdleDraw = now0;
+    }
+    window.mbwIdleNow = !!idleFps;
     const limit = window.fpsLimit | 0;
     if (limit > 0) {
         const now = (typeof ts === 'number') ? ts : performance.now();

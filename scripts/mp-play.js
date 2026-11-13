@@ -371,6 +371,8 @@
         if (t === 'juego_guardo') { if ((amHost() || (M.on && M.role === 'host')) && d.uid) storePlayer(String(d.uid), d.autor, d.data); return; }
         if (!M.on) return;                                            // (lo de abajo solo sirve jugando)
         if (t === 'juego_jugador') { onPlayer(d); return; }
+        if (t === 'juego_inv_pedir' || t === 'juego_inv' || t === 'juego_inv_poner') { if (window.mbwMpInv) window.mbwMpInv.onNet(d); return; }   // 🎒
+        if (t === 'juego_tiro') { if (d.peerId !== myPeer() && window.mbwPlay && window.mbwPlay.net && window.mbwPlay.net.shot) window.mbwPlay.net.shot(d); return; }   // 🏹 lo que tiró otro (solo se ve)
         if (t === 'juego_emote') { const r = M.remotes[d.peerId]; if (r && window.customEmotes && window.customEmotes[d.e]) { r.emote = { e: String(d.e), t: Date.now() }; if (typeof worldDirty !== 'undefined') worldDirty = true; } return; }   // 😀
         if (t === 'juego_bloques' || t === 'juego_cambios') { applyBlocks(Number(d.s) || 1, d.c); return; }
         if (t === 'juego_pedir' && M.role === 'host') { if (window.mbwAch) { window.mbwAch.apply(d.uid, d.autor, null); sendTo(d.peerId, { tipo: 'juego_logros', t: window.mbwAch.table() }); } sendChangesTo(d.peerId); sendMobListTo(d.peerId); sendDropsTo(d.peerId); sendPlayerTo(d.peerId, d.uid, d.autor); return; }
@@ -432,7 +434,7 @@
         });
         M.mobSent.forEach(function (id) { if (!mbwom.mobs[id]) { g.push(id); M.mobSent.delete(id); M.mobSig.delete(id); } });
         const N = window.mbwPlay.net, arr = N ? N.arrows() : [];
-        const a = (arr || []).filter(function (r) { return !r.ghost && xs.some(function (q) { return Math.abs(r.x - q) < 48; }); }).map(function (r) { return [r3(r.x), r3(r.y), r3(r.vx), r3(r.vy)]; });
+        const a = (arr || []).filter(function (r) { return !r.ghost && xs.some(function (q) { return Math.abs(r.x - q) < 48; }); }).map(function (r) { const q = [r3(r.x), r3(r.y), r3(r.vx), r3(r.vy)]; if (r.fb) q.push(r.fb); return q; });
         if (!p.length && !nf && !g.length && !a.length && !M.hadArrows) return;
         M.hadArrows = a.length > 0;
         send({ tipo: 'juego_mobs', s: sc, p: p, f: f, g: g, a: a });

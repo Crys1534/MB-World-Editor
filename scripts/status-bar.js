@@ -83,9 +83,9 @@ window.toggleFullscreenHUD = function () {
                 if (drawn <= 0) drawn = window.fpsLimit > 0 ? Math.min(frames, Math.ceil(window.fpsLimit * elapsed / 1000)) : frames;
                 const fps = Math.max(0, Math.round(drawn * 1000 / elapsed));
                 window.currentFPS = fps;
-                fpsDisplay.innerText = fps + ' FPS';
+                fpsDisplay.innerText = (window.mbwIdleNow ? '🔋 ' : '') + fps + ' FPS';   // (🔋 = ahorro de batería: no se está tocando nada)
                 // El semáforo se mide contra la meta: 60 sin límite, o el límite elegido (a 30 FPS "30" es lo esperado, no un bajón)
-                const ratio = fps / (window.fpsLimit > 0 ? window.fpsLimit : 60);
+                const ratio = window.mbwIdleNow ? 1 : fps / (window.fpsLimit > 0 ? window.fpsLimit : 60);
                 fpsDisplay.style.color = ratio >= 50 / 60 ? '#2ecc71'   // verde
                                        : ratio >= 0.5     ? '#f1c40f'   // amarillo
                                        :                    '#e74c3c';  // rojo

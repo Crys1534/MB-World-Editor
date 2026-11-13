@@ -82,6 +82,7 @@ loadScene: function (index) {
         return undefined; // Si no hay mapa o no hay columna, regresa undefined
 	},
 	setBlock: function (x, y, id) {
+		window.mbwBlockEdits = (window.mbwBlockEdits || 0) + 1;   // (para saber si hay que revisar los bloques otra vez al guardar)
 		if (!this.scene[x]) {
 			this.scene[x] = [];
 		}

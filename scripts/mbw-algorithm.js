@@ -41,8 +41,25 @@ const mbwAlgorithm = (function () {
   return parts.join('');
  }
 
+ // ⚡ más rápido todavía: todo de una en un solo arreglo y el navegador lo convierte en texto (TextDecoder).
+ // Solo si no aparece ninguna "mitad de emoji" (surrogate); si aparece, se usa la forma de arriba (da el mismo resultado).
+ let dec = null; try { dec = new TextDecoder('utf-16le'); } catch (e) { dec = null; }
+ function fast(string, sign) {
+  const n = string.length;
+  if (!dec || n < 200000) return shift(string, sign);
+  const buf = new Uint16Array(n);
+  let m = 0;
+  for (let j = 0; j < n; j++) {
+   const v = string.charCodeAt(j) + sign * OFFSETS[m];
+   if (v < 0 || v > 65535 || (v >= 0xD800 && v <= 0xDFFF)) return shift(string, sign);
+   buf[j] = v;
+   if (++m === 33) m = 0;
+  }
+  return dec.decode(buf);
+ }
+
  return {
-  decode: function (string) { return shift(string, -1); },
-  encode: function (string) { return shift(string, 1); }
+  decode: function (string) { return fast(string, -1); },
+  encode: function (string) { return fast(string, 1); }
  };
 })();

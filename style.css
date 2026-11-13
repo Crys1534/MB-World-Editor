@@ -3781,3 +3781,44 @@ body.kb-open #mbw-play-hud .ph-chat.open .ph-chat-sug { max-height: 24vh; }
 #mbw-play-hud .ph-emote-pick button { width: 44px; height: 44px; padding: 4px; border: 2px solid transparent; border-radius: 6px; background: rgba(255,255,255,.12); cursor: pointer; }
 #mbw-play-hud .ph-emote-pick button:hover { border-color: #fff; background: rgba(255,255,255,.28); }
 #mbw-play-hud .ph-emote-pick img { width: 100%; height: 100%; object-fit: contain; image-rendering: pixelated; pointer-events: none; }
+
+/* ☠ Modo Jugar: pantalla de muerte (como Minecraft) */
+#mbw-play-hud .ph-death { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(120, 0, 0, .45); pointer-events: auto; z-index: 20; opacity: 0; transition: opacity .6s; }
+#mbw-play-hud .ph-death.show { opacity: 1; }
+#mbw-play-hud .ph-death-in { display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; color: #fff; font-family: 'Pixeltype', 'Segoe UI', monospace; text-shadow: 2px 2px 0 #3a0000; padding: 0 16px; }
+#mbw-play-hud .ph-death h2 { margin: 0 0 6px; font-size: clamp(40px, 9vw, 72px); font-weight: normal; letter-spacing: 1px; }
+#mbw-play-hud .ph-death-why { font-size: 26px; }
+#mbw-play-hud .ph-death-score { font-size: 24px; margin-bottom: 10px; }
+#mbw-play-hud .ph-death-score b { color: #ffff55; font-weight: normal; }
+#mbw-play-hud .ph-death button { width: min(380px, 80vw); min-height: 44px; font: 24px/1 'Pixeltype', 'Segoe UI', monospace; color: #e0e0e0; background: #6f6f6f; border: 2px solid #000; box-shadow: inset 2px 2px 0 #a8a8a8, inset -2px -3px 0 #3d3d3d; cursor: pointer; text-shadow: 2px 2px 0 #333; }
+#mbw-play-hud .ph-death button:hover:not(:disabled) { background: #7b8bd0; box-shadow: inset 2px 2px 0 #b5c0f0, inset -2px -3px 0 #46518a; color: #ffffa0; }
+#mbw-play-hud .ph-death button:disabled { opacity: .55; cursor: default; }
+
+/* 🎒 (anfitrión) inventario de otro jugador */
+#mp-inv-view { position: fixed; inset: 0; z-index: 100080; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.55); padding: 10px; box-sizing: border-box; }
+#mp-inv-view .miv-win { background: #c6c6c6; border: 3px solid #1e1e1e; box-shadow: inset 3px 3px 0 #fff, inset -3px -3px 0 #555; padding: 10px 12px 12px; max-width: 100%; max-height: 100%; overflow: auto; color: #3a3a3a; font-family: 'Pixeltype', 'Segoe UI', monospace; }
+#mp-inv-view .miv-head { display: flex; align-items: center; gap: 10px; font-size: 26px; margin-bottom: 4px; }
+#mp-inv-view .miv-title { flex: 1; }
+#mp-inv-view .miv-x { width: 32px; height: 30px; border: 2px solid #1e1e1e; background: #8b8b8b; color: #fff; cursor: pointer; }
+#mp-inv-view .miv-note { font-size: 17px; color: #555; margin-bottom: 8px; }
+#mp-inv-view .miv-body { display: flex; gap: 10px; align-items: flex-start; }
+#mp-inv-view .miv-armor { display: grid; gap: 2px; }
+#mp-inv-view .miv-grid { display: grid; grid-template-columns: repeat(9, 40px); gap: 2px; }
+#mp-inv-view .miv-grid .miv-hot:nth-of-type(37) { margin-top: 0; }
+#mp-inv-view .miv-slot { position: relative; width: 40px; height: 40px; padding: 3px; background: #8b8b8b; border: 2px solid; border-color: #373737 #fff #fff #373737; cursor: pointer; }
+#mp-inv-view .miv-slot canvas { width: 100%; height: 100%; image-rendering: pixelated; pointer-events: none; }
+#mp-inv-view .miv-slot.on { outline: 3px solid #ffd23f; outline-offset: -1px; background: #a7a7a7; }
+#mp-inv-view .miv-hot { margin-top: 6px; }
+#mp-inv-view .miv-n { position: absolute; right: 2px; bottom: 0; color: #fff; font: 18px/1 'Pixeltype', monospace; text-shadow: 2px 2px 0 #3f3f3f; pointer-events: none; }
+#mp-inv-view .miv-sel { font-size: 20px; margin: 8px 0 6px; min-height: 20px; }
+#mp-inv-view .miv-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+#mp-inv-view .miv-btns button { min-height: 38px; padding: 0 12px; font: 20px/1 'Pixeltype', 'Segoe UI', monospace; color: #fff; background: #6f6f6f; border: 2px solid #000; box-shadow: inset 2px 2px 0 #a8a8a8, inset -2px -3px 0 #3d3d3d; cursor: pointer; }
+#mp-inv-view .miv-btns button:hover:not(:disabled) { background: #7b8bd0; }
+#mp-inv-view .miv-btns button:disabled { opacity: .45; cursor: default; }
+@media (max-width: 520px) { #mp-inv-view .miv-grid { grid-template-columns: repeat(9, 32px); } #mp-inv-view .miv-slot { width: 32px; height: 32px; padding: 2px; } #mp-inv-view .miv-body { flex-direction: column; } #mp-inv-view .miv-armor { grid-auto-flow: column; } }
+
+/* 🐉 Modo Jugar: barra de vida del Ender Dragon */
+#mbw-play-hud .ph-boss { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); width: min(420px, 60vw); display: none; text-align: center; pointer-events: none; }
+#mbw-play-hud .ph-boss-n { color: #fff; font: 22px/1 'Pixeltype', 'Segoe UI', monospace; text-shadow: 2px 2px 0 #000; margin-bottom: 4px; }
+#mbw-play-hud .ph-boss-bar { height: 10px; background: #3b0f4a; border: 2px solid #120018; box-shadow: 0 0 0 1px rgba(255,255,255,.25); }
+#mbw-play-hud .ph-boss-fill { height: 100%; width: 100%; background: linear-gradient(#ff7bff, #b623c9); transition: width .25s; }

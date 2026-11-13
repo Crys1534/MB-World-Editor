@@ -62,7 +62,8 @@
             const scene = world['scene' + s];
             if (!Array.isArray(scene)) continue;
             const states = isObj(world['states' + s]) ? world['states' + s] : (world['states' + s] = {});
-            for (let x = 0; x < scene.length; x++) {
+            // (opts.skipBlocks: al guardar seguido sin haber cambiado ningún bloque, no hace falta revisar los miles de bloques otra vez)
+            if (!opts.skipBlocks) for (let x = 0; x < scene.length; x++) {
                 const col = scene[x];
                 if (!Array.isArray(col)) { if (col != null && add('badColumn', 'error', 'x=' + x, true)) scene[x] = []; continue; }
                 for (let y = 0; y < col.length; y++) {

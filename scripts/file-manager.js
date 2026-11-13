@@ -439,7 +439,11 @@ prepareData: function(opts) {
         // 🩺 antes de escribir el archivo se reparan las cosas seguras (versión, variantes "dt_1", cofres incompletos...)
         try {
             if (typeof window.mbwCheckWorld === 'function') {
-                const chk = window.mbwCheckWorld(mbwom.world, { repair: true, safeOnly: true });
+                // ⚡ si desde la última revisión no se cambió ningún bloque (mismo mundo), no se vuelven a revisar todos los bloques
+                const L = window.__mbwLastCheck, ed = window.mbwBlockEdits || 0;
+                const skip = !!(L && L.world === mbwom.world && L.edits === ed && Date.now() - L.t < 10 * 60000);
+                const chk = window.mbwCheckWorld(mbwom.world, { repair: true, safeOnly: true, skipBlocks: skip });
+                if (!skip) window.__mbwLastCheck = { world: mbwom.world, edits: ed, t: Date.now() };
                 if (chk.fixed) {
                     console.log('🩺 ' + chk.fixed + ' cosa(s) reparadas al guardar (reglas del juego)');
                     if (chk.issues.some(i => (i.code === 'variantId' || i.code === 'alias') && i.fixed) && typeof initializeWorldCache === 'function') { try { initializeWorldCache(); worldDirty = true; } catch (e) { /* nada */ } }

@@ -47,7 +47,7 @@
     const S = {
         playing: false, snapshot: null, scene: 1, old: null,
         p: null, keys: {}, dbl: {}, mouse: { x: 0, y: 0, left: false, right: false, inside: false, leftEdge: false, rightEdge: false },
-        tmp: new Map(), drops: [], falling: [], arrows: [], shots: [], draw: null, sandCheck: new Map(), leafQ: new Map(), liqFresh: new Set(), orbs: [], xpT: 0,
+        tmp: new Map(), drops: [], falling: [], arrows: [], shots: [], fballs: [], eyes: [], draw: null, sandCheck: new Map(), leafQ: new Map(), liqFresh: new Set(), orbs: [], xpT: 0,
         tick: 0, acc: 0, last: 0, raf: 0, mine: null, placeDelay: 0, useTimer: -1, msg: '', msgT: 0,
         sign: { text: '', a: 0, on: false }, iname: { key: null, text: '', t: 0 },
         touchMode: 'mine', fires: new Set(), ride: null, bob: null, sleep: null
@@ -545,6 +545,7 @@
     function ouch(b, a, c) {
         const w = W();
         if (w.dead > 0 || w.gamemode == 1 || w.gamemode == 3) return;
+        S.lastHurt = { c: c, mob: S.hitBy && Date.now() - S.hitBy.t < 300 ? S.hitBy.m : (c === 'attack' || c === 'arrow' ? (S.lastHurt && S.lastHurt.mob) : null) }; S.hitBy = null;
         if (effLv('fireresistance') && (c === 'fire' || c === 'lava' || c === 'burning')) return;   // (poción de resistencia al fuego)
         if (['anvil', 'fall', 'lava', 'acid', 'explosion', 'fire', 'lightning', 'attack', 'arrow', 'cactus'].indexOf(c) >= 0) {
             let d = 1;
@@ -941,21 +942,20 @@
     }
     function deathCheck() {
         const w = W();
-        if (!(w.health <= 0 || (w.dead | 0) !== 0)) return;
+        if (!(w.health <= 0 || (w.dead | 0) !== 0)) { if (deathUi.el && deathUi.el.style.display === 'flex') deathUi.hide(); return; }   // (revivió por otro lado: /heal, el anfitrión...)
         w.dead = (w.dead | 0) + 1;
         if (w.dead === 1) {
             const by = (S.mp && S.lastPvp && Date.now() - S.lastPvp.t < 5000) ? S.lastPvp.name : '';
-            flashMsg(by ? tr('mpplay_killed_by', '💀 {name} defeated you').replace('{name}', by) : tr('play_dead', '💀 You died'));
             if (S.mp) mpSend({ tipo: 'juego_muerte', autor: myNameNet(), por: by });
+            flashMsg(by ? tr('mpplay_killed_by', '💀 {name} defeated you').replace('{name}', by) : tr('play_dead', '💀 You died'));
+            S.dropped = false; S.respawnReq = false;
+            deathUi.show(by ? tr('mpplay_killed_by', '💀 {name} defeated you').replace('{name}', by).replace('💀 ', '') : deathText(), Math.floor(Number(w.experience) || 0));
+            for (let i = 0; i < 18; i++) addPart({ x: w.worldX + (Math.random() - .5) * .8, y: -w.worldY + Math.random() * 1.8, vx: (Math.random() - .5) * .06, vy: Math.random() * .05, life: 30, size: .12, col: Math.random() < .5 ? '#d8d8d8' : '#9a9a9a' });   // 💨
         }
-        if (w.dead <= 30) return;
-        if (gameRule('keepinventory') != true) {                      // suelta todo (como el juego)
-            const list = inv();
-            for (let i = 0; i < 45; i++) if (!isEmpty(list[i])) { addDrop(list[i][0], w.worldX, w.worldY, list[i][1], list[i][2], list[i][3]); list[i] = empty(); }
-            for (let i = 0; i < 4; i++) { const ar = w.armors[i]; if (ar && ar[0] && ar[0] !== 'air') addDrop(ar[0], w.worldX, w.worldY, 1, ar[1], ar[2]); w.armors[i] = ['air', 0, {}]; }
-            dropXP(w.worldX, w.worldY - .5, Math.floor(.5 * (Number(w.experience) || 0)), 0, true);   // la mitad de la experiencia
-            w.experience = 0;
-        }
+        if (w.dead === 30 && !S.dropped) { S.dropped = true; dropAll(); }
+        if (w.dead <= 30 || !S.respawnReq) return;                       // ☠ pantalla de muerte: espera a "Respawn"
+        if (!S.dropped) { S.dropped = true; dropAll(); }
+        S.respawnReq = false; deathUi.hide();
         w.xSpeed = 0; w.ySpeed = 0; w.health = 20; w.food = 1000; w.dead = 0;
         if ((mbwom.currentScene || 1) !== 1 && dimReady(1)) { stopSpect(true); changeDim(1, 'respawn'); }    // (como el juego: se revive en el Overworld)
         const sp = spawnPoint();
@@ -964,6 +964,58 @@
         hud.dirty = true;
         camSnap();
     }
+    function dropAll() {
+        const w = W();
+        if (gameRule('keepinventory') != true) {                      // suelta todo (como el juego)
+            const list = inv();
+            for (let i = 0; i < 45; i++) if (!isEmpty(list[i])) { addDrop(list[i][0], w.worldX, w.worldY, list[i][1], list[i][2], list[i][3]); list[i] = empty(); }
+            for (let i = 0; i < 4; i++) { const ar = w.armors[i]; if (ar && ar[0] && ar[0] !== 'air') addDrop(ar[0], w.worldX, w.worldY, 1, ar[1], ar[2]); w.armors[i] = ['air', 0, {}]; }
+            dropXP(w.worldX, w.worldY - .5, Math.floor(.5 * (Number(w.experience) || 0)), 0, true);   // la mitad de la experiencia
+            w.experience = 0;
+        }
+    }
+    // ☠ por qué morí (lo último que me dolió)
+    function deathText() {
+        const h = S.lastHurt || {}, c = h.c || '', mob = h.mob ? (D.mobs[h.mob] && D.mobs[h.mob].name) || h.mob : '';
+        const T = {
+            attack: mob ? tr('death_slain_by', 'You were slain by {mob}') : tr('death_slain', 'You were slain'),
+            arrow: mob ? tr('death_shot_by', 'You were shot by {mob}') : tr('death_shot', 'You were shot'),
+            fall: tr('death_fall', 'You fell from a high place'), lava: tr('death_lava', 'You tried to swim in lava'), acid: tr('death_acid', 'You fell into acid'),
+            fire: tr('death_fire', 'You went up in flames'), burning: tr('death_fire', 'You went up in flames'), water: tr('death_drown', 'You drowned'),
+            explosion: tr('death_boom', 'You blew up'), hunger: tr('death_starve', 'You starved to death'), cactus: tr('death_cactus', 'You were pricked to death'),
+            suffocate: tr('death_suffocate', 'You suffocated in a wall'), void: tr('death_void', 'You fell out of the world'), poison: tr('death_poison', 'You were poisoned'),
+            lightning: tr('death_lightning', 'You were struck by lightning'), anvil: tr('death_anvil', 'You were squashed by a falling anvil')
+        };
+        return (T[c] || tr('death_generic', 'You died')).replace('{mob}', mob);
+    }
+    const deathUi = {
+        el: null,
+        show: function (why, score) {
+            if (!document.getElementById('mbw-play-hud')) return;
+            if (!this.el) {
+                const el = this.el = document.createElement('div');
+                el.className = 'ph-death';
+                el.innerHTML = '<div class="ph-death-in"><h2></h2><div class="ph-death-why"></div><div class="ph-death-score"></div><button type="button" class="ph-death-re"></button><button type="button" class="ph-death-quit"></button></div>';
+                el.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+                el.querySelector('.ph-death-re').addEventListener('click', function (e) { e.stopPropagation(); S.respawnReq = true; this.disabled = true; });
+                el.querySelector('.ph-death-quit').addEventListener('click', function (e) { e.stopPropagation(); if (window.mbwPlayMenu && window.mbwPlayMenu.open) window.mbwPlayMenu.open(); });
+                document.getElementById('mbw-play-hud').appendChild(el);
+            }
+            const el = this.el;
+            el.querySelector('h2').textContent = tr('death_title', 'You died!');
+            el.querySelector('.ph-death-why').textContent = why || '';
+            el.querySelector('.ph-death-score').innerHTML = '';
+            const sc = document.createElement('span'); sc.textContent = tr('death_score', 'Score') + ': '; const b = document.createElement('b'); b.textContent = String(score || 0);
+            el.querySelector('.ph-death-score').appendChild(sc); el.querySelector('.ph-death-score').appendChild(b);
+            const re = el.querySelector('.ph-death-re'); re.textContent = tr('death_respawn', 'Respawn'); re.disabled = true;
+            el.querySelector('.ph-death-quit').textContent = tr('death_menu', 'Menu');
+            setTimeout(function () { re.disabled = false; }, 900);           // (un ratito, para no darle sin querer)
+            el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+            el.style.display = 'flex';
+        },
+        hide: function () { if (this.el) { this.el.style.display = 'none'; this.el.classList.remove('show'); } }
+    };
+    window.mbwPlay.respawn = function () { S.respawnReq = true; };
     function spawnPoint() {
         return spGet() || ((S.scene || 1) === (mbwom.currentScene || 1) ? { x: S.start.x, y: S.start.y } : safeSpot(dimWidth() / 2, -120));
     }
@@ -1083,6 +1135,30 @@
         return false;
     }
     function maxHealth(m) { const a = D.mobs[m.type] || {}; if ((m.type === 'slime' || m.type === 'magmacube') && m.size > 0) return Math.pow(2, m.size) * (a.health || 4) / 2; return a.health || 10; }
+    // ✨ partículas: un mob lastimado (unas chispitas rojas) y comiendo (migajas del color de la comida)
+    function hurtParts(id, m, amount) {
+        if (OPTS.particles === 'none') return;
+        const b = mobBounds(id); if (!b) return;
+        const n = Math.min(10, 3 + Math.ceil(amount));
+        for (let i = 0; i < n; i++) addPart({ x: b.l + Math.random() * (b.r - b.l), y: -(b.t + Math.random() * (b.b - b.t)), vx: (Math.random() - .5) * .07, vy: Math.random() * .06, g: .006, life: 16, size: .08, col: Math.random() < .6 ? '#c81e1e' : '#ff5a5a' });
+    }
+    const crumbCol = {};
+    function eatParts(id) {
+        if (OPTS.particles === 'none') return;
+        let cols = crumbCol[id];
+        if (!cols) {
+            cols = ['#b5793b', '#8a5a2b'];
+            try {                                                       // (los colores de su dibujo)
+                const im = iconFor(id, {}), cv = document.createElement('canvas'); cv.width = cv.height = 8;
+                const c = cv.getContext('2d'); c.drawImage(im, 0, 0, 8, 8); const d = c.getImageData(0, 0, 8, 8).data, L = [];
+                for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 200) L.push('rgb(' + d[i] + ',' + d[i + 1] + ',' + d[i + 2] + ')');
+                if (L.length > 3) cols = L;
+            } catch (e) { /* nada */ }
+            crumbCol[id] = cols;
+        }
+        const w = W(), dir = S.p && S.p.xScale < 0 ? -1 : 1;
+        for (let i = 0; i < 3; i++) addPart({ x: w.worldX + dir * .35 + (Math.random() - .5) * .2, y: -w.worldY + 1.45, vx: dir * Math.random() * .04, vy: Math.random() * .05, g: .006, life: 18, size: .07, col: cols[Math.random() * cols.length | 0] });
+    }
     function hurtMob(id, amount, cause, by) {
         const m = mbwom.mobs[id]; if (!m || m.dead > 0) return;
         if (by === PLAYER_ID && cause === 'attack') amount = Math.max(.5, amount + 3 * effLv('strength') - 4 * effLv('weakness'));   // (pociones de fuerza / debilidad)
@@ -1090,7 +1166,7 @@
         if (!isFinite(Number(m.health))) m.health = maxHealth(m);
         if (m.type === 'cow' && m.variant === 'cowctus' && cause === 'cactus') return;
         m.health = Math.round(m.health - amount);
-        if (amount > 0) mobSnd(m, 'hurt');
+        if (amount > 0) { mobSnd(m, 'hurt'); hurtParts(id, m, amount); }
         if (by) m.lastDamageID = by;
         if (cause === 'lava' || cause === 'fire') tmpOf(id).onFire = 8 * FPS;     // (si muere quemándose suelta la carne cocida)
         if ((cause === 'attack' || cause === 'projectile') && by && by !== id) {
@@ -1249,7 +1325,7 @@
             if (r.ghost) continue;                                     // 🎮 (invitado: la flecha es del anfitrión, solo se ve)
             const dmg = Math.max(1, Math.round(Math.hypot(r.vx, r.vy) / 4));
             const pb = mobBounds(PLAYER_ID);
-            if (r.x > pb.l && r.x < pb.r && r.y > pb.t && r.y < pb.b) { ouch(1, dmg, 'arrow'); S.arrows.splice(i, 1); continue; }
+            if (r.x > pb.l && r.x < pb.r && r.y > pb.t && r.y < pb.b) { S.hitBy = { m: 'skeleton', t: Date.now() }; ouch(1, dmg, 'arrow'); S.arrows.splice(i, 1); continue; }
             if (mpHost()) {
                 const R = window.mbwMpPlay.remotes; let hit = null;
                 for (const k in R) { const b = plBounds(RP + k); if (b && r.x > b.l && r.x < b.r && r.y > b.t && r.y < b.b) { hit = RP + k; break; } }
@@ -1260,8 +1336,10 @@
     // ---------------------------------------------------------------- 🏹 lo que lanza el Player (Entity_Projectile del juego)
     //  · arco / shuriken de hueso / lanza: se mantiene el clic derecho para tensar y al soltar sale (más fuerza mientras más se tensa)
     //  · bola de nieve: sale al hacer clic. Las flechas y shurikens que caen en un bloque se quedan clavados y se pueden recoger.
-    const SHOT = { bow: 'arrow', bshur: 'shuriken', spear: 'spear', snowb: 'snowball' };
-    const SHOT_ITEM = { arrow: 'arrow', shuriken: 'bshur', spear: 'spear', snowball: 'snowb' };
+    //  · huevo (a veces sale un pollito), huevo de fuego (prende fuego donde cae) y perla de ender (te lleva a donde cae): también se tensan
+    const SHOT = { bow: 'arrow', bshur: 'shuriken', spear: 'spear', snowb: 'snowball', egg: 'egg', fireegg: 'fireegg', ep: 'pearl' };
+    const SHOT_ITEM = { arrow: 'arrow', shuriken: 'bshur', spear: 'spear', snowball: 'snowb', egg: 'egg', fireegg: 'fireegg', pearl: 'ep' };
+    const SHOT_BREAKS = { snowball: 1, egg: 1, fireegg: 1, pearl: 1 };    // (estos no se quedan clavados: se rompen al caer)
     function invFind(id) { const L = inv(); for (let i = 0; i < 45; i++) { const it = L[i]; if (!isEmpty(it) && it[0] === id && Number(it[1]) > 0) return i; } return -1; }
     function invTake(i) { const L = inv(), it = L[i]; if (isEmpty(it)) return; it[1] -= 1; if (it[1] <= 0) L[i] = empty(); hud.dirty = true; }
     function aimFrom(mw) { const w = W(); return Math.atan2(-mw.y - (w.worldY - 1.5), mw.x - w.worldX); }
@@ -1282,9 +1360,48 @@
             damageTool(); snd('bowsfx');
         } else { if (w.gamemode == 1) o.inf = true; reduceSelected(1); snd(kind === 'shuriken' ? 'shurikenthrow' : 'throwsfx'); }
         S.shots.push(o);
+        // 🎮 los demás lo ven volar (solo se dibuja allá: el daño lo manda quien lo tiró)
+        mpSend({ tipo: 'juego_tiro', k: kind, x: o.x, y: o.y, vx: o.vx, vy: o.vy, s: mbwom.currentScene || 1 });
         return true;
     }
-    function shotDmg(o) { return o.kind === 'arrow' ? 3 + 3 * (o.power || 0) : o.kind === 'snowball' ? 0 : 3; }
+    // lo que tiró otro jugador: solo para verlo
+    function ghostShot(d) {
+        if (!d || !SHOT_ITEM[d.k] || Number(d.s) !== (mbwom.currentScene || 1)) return;
+        const n = (v) => { v = Number(v); return isFinite(v) ? v : 0; };
+        S.shots.push({ kind: String(d.k), x: n(d.x), y: n(d.y), vx: n(d.vx), vy: n(d.vy), rot: Math.atan2(n(d.vy), n(d.vx)), age: 0, cd: 0, hurtCd: 0, ghost: true, inf: true });
+    }
+    // 🥚 🔥 🟣 al caer (o pegarle a un mob): x, y = donde cayó; bx, by = el bloque de aire de antes (para el pollito, el fuego o llegar)
+    function shotImpact(o, mobId) {
+        if (o.ghost) return;
+        const w = W();
+        const px = o.x - o.vx / 30, py = o.y - o.vy / 30;               // (el punto de antes de chocar)
+        if (o.kind === 'egg') {
+            for (let i = 0; i < 6; i++) addPart({ x: o.x + (Math.random() - .5) * .3, y: -o.y + (Math.random() - .5) * .3, vx: (Math.random() - .5) * .06, vy: Math.random() * .05, g: .006, life: 16, size: .08, col: '#f3ead2' });
+            if ((Math.random() * 8 | 0) === 0) {
+                const n = (Math.random() * 32 | 0) === 0 ? 4 : 1;
+                for (let k = 0; k < n; k++) newMobAny({ type: 'chicken', x: px, y: py + .5, babyTimer: 1200 * FPS });
+            }
+        } else if (o.kind === 'fireegg') {
+            sndAt('firethrow', o.x, o.y);
+            const bx = Math.floor(px), by = Math.floor(-py);
+            for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) if ((dx === 0 && dy === 0) || Math.random() < .5) { if (canFireExistAt(bx + dx, by + dy)) putFire(bx + dx, by + dy); }
+            if (mobId && !mpGuest()) { tmpOf(mobId).onFire = 8 * FPS; hurtMob(mobId, 2, 'fire', PLAYER_ID); }
+        } else if (o.kind === 'pearl') {
+            // 🟣 llego a donde cayó (un poquito antes del bloque, para no quedar adentro) y me duele un poco
+            let tx = px, ty = py;
+            const b = mobBounds(PLAYER_ID), hh = b.b - b.t;
+            for (let k = 0; k < 12 && collision(tx - .3, ty - hh, .6, hh - .05, .1); k++) { tx -= o.vx / 30 / 3; ty -= o.vy / 30 / 3 + .05; }
+            w.worldX = tx; w.worldY = ty; w.xSpeed = 0; w.ySpeed = 0; w.riding = '';
+            if (S.p) { S.p.falling = S.p.wasFalling = false; S.p.wasFallingSpeed = 0; }
+            camSnap();
+            for (let i = 0; i < 14; i++) addPart({ x: tx + (Math.random() - .5) * .8, y: -ty + 1 + (Math.random() - .5) * 1.6, vx: (Math.random() - .5) * .05, vy: (Math.random() - .5) * .05, life: 22, size: .1, col: '#b04ad8', glow: true });
+            sndAt('Portal' + ((Math.random() * 5 | 0) + 1), tx, ty);
+            if (w.gamemode != 1) ouch(1, 2, 'fall');
+            ach(34);
+        }
+    }
+    function newMobAny(m) { const ex = Object.assign({}, m); delete ex.type; delete ex.x; delete ex.y; return spawnMob(m.type, m.x, m.y, ex); }
+    function shotDmg(o) { return o.kind === 'arrow' ? 3 + 3 * (o.power || 0) : (o.kind === 'snowball' || o.kind === 'egg' || o.kind === 'pearl' || o.kind === 'fireegg') ? 0 : 3; }
     function shotHitMob(o, id) {
         const m = mbwom.mobs[id]; if (!m) return;
         let dmg = shotDmg(o);
@@ -1300,7 +1417,7 @@
         }
         if (o.kind === 'snowball') splashSnow(o.x, o.y);
     }
-    function splashSnow(x, y) { for (let i = 0; i < 8; i++) addPart({ x: x + (Math.random() - .5) * .4, y: -y + (Math.random() - .5) * .4, vx: (Math.random() - .5) * .08, vy: Math.random() * .06, life: 18, size: .09, col: '#f4f8ff' }); }
+    function splashSnow(x, y) { for (let i = 0; i < 8; i++) addPart({ x: x + (Math.random() - .5) * .4, y: -y + (Math.random() - .5) * .4, vx: (Math.random() - .5) * .08, vy: Math.random() * .06, g: .006, life: 18, size: .09, col: '#f4f8ff' }); }
     function tickShots() {
         const w = W(), list = S.shots;
         for (let i = list.length - 1; i >= 0; i--) {
@@ -1309,7 +1426,7 @@
             if (++o.age > 60 * FPS) { list.splice(i, 1); continue; }
             if (o.cd > 0) o.cd--;
             if (o.stuck) {                                              // clavada: se puede recoger
-                if (o.inf || w.gamemode == 3 || o.cd > 0) continue;
+                if (o.inf || o.ghost || w.gamemode == 3 || o.cd > 0) continue;
                 const pb = mobBounds(PLAYER_ID);
                 if (pb && o.x > pb.l - .33 && o.x < pb.r + .33 && o.y > pb.t - .33 && o.y < pb.b + .33) {
                     if (addToInventory(SHOT_ITEM[o.kind], 1, 0, {}) === 0) { pickSnd(); list.splice(i, 1); }
@@ -1320,7 +1437,7 @@
             else o.rot = Math.atan2(o.vy, o.vx);
             o.x += o.vx / 30; o.y += o.vy / 30;
             if (o.hurtCd > 0) o.hurtCd--;
-            else {
+            else if (!o.ghost) {
                 let hit = null;
                 for (const k in mbwom.mobs) {
                     const m = mbwom.mobs[k]; if (!m || m.dead > 0) continue;
@@ -1329,19 +1446,22 @@
                 }
                 if (hit) {
                     shotHitMob(o, hit);
+                    if (SHOT_BREAKS[o.kind]) { shotImpact(o, hit); list.splice(i, 1); continue; }
                     // la lanza a veces sigue; lo demás se queda en el mob (se va)
                     if (o.kind === 'spear' && Math.random() >= 1 / 3) { o.hurtCd = 5; o.vx *= .3; o.vy = 0; }
                     else { list.splice(i, 1); continue; }
                 }
             }
             const bx = Math.floor(o.x), by = Math.floor(-o.y), here = fg(bx, by);
+            if (!o.ghost) { const ck = crystalAt(o.x, o.y); if (ck) { breakCrystal(ck); list.splice(i, 1); continue; } }   // 💎 una flecha rompe el cristal
             if (collision(o.x, o.y, 0, 0, .1, true, false)) {
                 if (o.kind === 'snowball') { splashSnow(o.x, o.y); list.splice(i, 1); continue; }
+                if (SHOT_BREAKS[o.kind] || o.ghost) { shotImpact(o, null); list.splice(i, 1); continue; }
                 o.vx = o.vy = 0; o.stuck = true; o.cd = 0;
                 sndAt('Trrrr', o.x, o.y);
                 continue;
             }
-            if (here === 'la') { if (o.kind === 'snowball') { list.splice(i, 1); continue; } o.flame = true; }
+            if (here === 'la') { if (SHOT_BREAKS[o.kind]) { list.splice(i, 1); continue; } o.flame = true; }
             else if (here === 'ad') { list.splice(i, 1); continue; }
             else if (here === 'wr') o.flame = false;
             o.vy += .25; o.vx *= .995;
@@ -1358,6 +1478,18 @@
             if (o.flame) { c2.fillStyle = 'rgba(255,140,0,.45)'; c2.fillRect(-s / 4, -s / 4, s / 2, s / 2); }
             c2.restore();
         });
+        // 🏹 tensando: el arco (o lo que se va a lanzar) en la mano, apuntando al mouse; la flecha se va jalando hacia atrás
+        if (S.draw) {
+            const w = W(), k = Math.min(1, S.draw.t / drawFull(S.draw.id)), ang = aimFrom(mouseWorld());
+            const b = (k * 10 + 27) / 30 * .85;                                   // (Game.useItemAnimation: bowDrawbackX / Y)
+            const hp = toScreen(w.worldX + Math.cos(ang) * b, w.worldY - 1.5 + Math.sin(ang) * b), s = tileSize * .8;
+            c2.save(); c2.imageSmoothingEnabled = false; c2.translate(hp.x, hp.y); c2.rotate(ang + Math.PI / 4);
+            try {
+                c2.drawImage(iconFor(S.draw.id, selExtra()), -s / 2, -s / 2, s, s);
+                if (S.draw.id === 'bow') { const back = tileSize * .32 * k; c2.translate(-back * Math.SQRT1_2, back * Math.SQRT1_2); c2.drawImage(iconFor('arrow', {}), -s / 2, -s / 2, s, s); }
+            } catch (e) { /* nada */ }
+            c2.restore();
+        }
         // tensando el arco: una barrita sobre el Player
         if (S.draw && S.draw.t > 2) {
             const w = W(), p = toScreen(w.worldX, w.worldY - 2.2), k = Math.min(1, S.draw.t / drawFull(S.draw.id)), bw = tileSize * .9;
@@ -1388,10 +1520,150 @@
         S.draw = { id: id, slot: selIndex(), t: 0 };
         return true;
     }
+    // ---------------------------------------------------------------- 🐉 EL ENDER DRAGON (World.js mobData.enderdragon)
+    //  · vuela de un lugar a otro (a veces cerca de ti), rompe los bloques que toca (en el End), te pega si lo tocas y a veces
+    //    escupe una ráfaga de bolas de fuego. Los cristales del End (world.enderCrystals) lo curan: rómpelos primero (con un golpe o una flecha).
+    //  · arriba sale su barra de vida. Al morir sube brillando, suelta escamas de dragón y experiencia; si es el del End ("official"):
+    //    logro "Slay the ender dragon" y aparece el portal de salida (con su cofre: diamantes y el huevo del dragón).
+    const DRG_HP = 333;
+    function endCrystals() { const o = mbwom.world && mbwom.world.enderCrystals; return ((mbwom.currentScene || 1) === 3 && o && typeof o === 'object') ? o : null; }
+    function colTop(x) { const col = mbwom.scene && mbwom.scene[x]; if (!col) return 0; let t = col.length; while (t > 0 && !col[t - 1]) t--; return t; }
+    function dragonTick(id, c, a, d) {
+        const w = W();
+        c.x = Number(c.x) || 0; c.y = Number(c.y) || 0;
+        if (!isFinite(Number(c.health))) c.health = DRG_HP;
+        if (c.dead > 0) { dragonDying(id, c); return; }
+        if (c.health <= 0) {
+            c.dead = 1; c.speedX = c.speedY = 0;
+            mobSnd(c, 'death'); if (SFX()) SFX().music('enderdragondeath');
+            return;
+        }
+        c.flyBob = ((Number(c.flyBob) || 0) + 1) % 100000;
+        // 💎 el cristal más cercano (a menos de 30) lo va curando
+        const C = endCrystals(); d.beam = null;
+        if (C) { let best = 30; Object.keys(C).forEach(function (k) { const q = C[k]; if (!Array.isArray(q)) return; const dd = Math.hypot(c.x - q[0] - .5, c.y + q[1] + .5); if (dd <= best) { best = dd; d.beam = k; } }); }
+        if (d.beam && c.flyBob % ((80 / 25 * FPS) | 0) === 0) c.health = Math.min(c.health + 1, DRG_HP);
+        if (mpGuest()) return;
+        // 🧱 rompe lo que toca (en el End)
+        const f = Math.floor(c.x), g = Math.floor(-c.y);
+        if ((mbwom.currentScene || 1) === 3 && c.flyBob % 3 === 0) {
+            for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+                const t = fg(f + dx, g + dy);
+                if (t && t !== 'air' && bd(t, 'dragonDontBreak') != 1 && bd(t, 'liquid') != 1 && t !== 'br' && t !== 'b') { setBlock(f + dx, g + dy, null); if (Math.random() < .5) addPart({ x: f + dx + .5, y: g + dy + .5, vx: (Math.random() - .5) * .1, vy: (Math.random() - .5) * .1, life: 18, size: .14, col: 'rgba(255,255,255,.6)' }); }
+            }
+        }
+        // 🎯 a dónde va (como el juego: llega cerca o, de vez en cuando, cambia)
+        if (c.spotX == null || (Math.abs(c.spotX - c.x) < 5 && Math.abs(c.spotY - c.y) < 5) || Math.random() < 1 / (100 * FPS / 25)) {
+            if ((mbwom.currentScene || 1) !== 3 || Math.random() < 1 / 3) { c.spotX = w.worldX + 50 * Math.random() - 25; c.spotY = w.worldY + 30 * Math.random() - 20 - 2; }
+            else { const sx = Math.random() * Math.max(30, dimWidth() / 3 - 30) + 15; c.spotX = sx; c.spotY = -(colTop(Math.floor(sx)) + 8 + 14 * Math.random()); }
+            c.spotY = Math.min(c.spotY, -(colTop(Math.floor(c.spotX)) + 4));   // (siempre por arriba del suelo)
+        }
+        const dx = c.spotX - c.x, dy = c.spotY - c.y, dd = Math.max(.01, Math.hypot(dx, dy));
+        c.speedX = (Number(c.speedX) || 0) * .985 + dx / dd * .006;
+        c.speedY = (Number(c.speedY) || 0) * .985 + dy / dd * .006;
+        const vm = Math.hypot(c.speedX, c.speedY), VMAX = .2;
+        if (vm > VMAX) { c.speedX *= VMAX / vm; c.speedY *= VMAX / vm; }
+        c.x += c.speedX; c.y += c.speedY + Math.sin(c.flyBob / 9) * .015;
+        if (Math.abs(c.speedX) > .01) c.direction = c.speedX > 0 ? 1 : 0;
+        if (c.y < -400) c.y = -400;
+        // 🔥 ráfaga de bolas de fuego hacia el Player
+        if (!(c.fbN > 0) && Math.random() < 1 / (200 * FPS / 25) && w.gamemode != 3 && Math.hypot(w.worldX - c.x, w.worldY - c.y) < 40) c.fbN = 5 + (Math.random() * 5 | 0);
+        if (c.fbN > 0 && c.flyBob % 6 === 0) { c.fbN--; shootFireball(id, { x: c.x + (c.direction === 1 ? 2.5 : -2.5), y: c.y + 2 }, w.worldX, w.worldY - 1, false); }
+        // 💥 si me toca: me pega y me empuja
+        if (!(c.attackCooldown > 0)) {
+            if (w.gamemode != 1 && w.gamemode != 3 && !(w.dead > 0) && intersects(mobBounds(id), mobBounds(PLAYER_ID))) {
+                c.attackCooldown = 40; S.hitBy = { m: 'enderdragon', t: Date.now() };
+                ouch(1, 5, 'attack'); w.xSpeed = (w.worldX > c.x ? 1 : -1) * migSpeed(14); w.ySpeed = migSpeed(8);
+            }
+        } else c.attackCooldown--;
+        if (mpHost()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const b = plBounds(RP + k); if (b && !(c['hitR' + k] > 0) && intersects(mobBounds(id), b)) { c['hitR' + k] = 40; hitRemote(RP + k, 5, 'attack'); } if (c['hitR' + k] > 0) c['hitR' + k]--; } }
+    }
+    function dragonDying(id, c) {
+        c.dead++;
+        const T = 600;
+        if (c.dead < T) {
+            c.y -= c.dead < 300 ? .06 : c.dead < 340 ? .035 : c.dead < 360 ? .012 : 0;
+            if (Math.random() < .5) addPart({ x: c.x + (Math.random() - .5) * 6, y: -c.y + (Math.random() - .5) * 4, vx: (Math.random() - .5) * .2, vy: (Math.random() - .5) * .2, life: 26, size: .18, col: Math.random() < .5 ? '#ffe6ff' : '#d58cff', glow: true });
+            if (c.dead % 10 === 0 && !mpGuest()) { addDrop('dscl', c.x + 20 * Math.random() - 10, c.y - 1 + 2 * Math.random(), 1); dropXP(c.x, c.y, 20, 0, true); }
+            return;
+        }
+        // ☠ se acabó
+        if (!mpGuest()) {
+            if (c.official) {
+                const by = c.lastDamageID;
+                if (by === PLAYER_ID || nearMe(c.x, c.y, 80)) ach(36);
+                if (mpHost() && isRemoteId(by)) mpSend({ tipo: 'juego_logro_dar', a: by.slice(RP.length), i: 36 });
+                exitPortal();
+                flashMsg('🐉 ' + tr('play_dragon_dead', 'The Ender Dragon was defeated!'));
+                say('[INFO] 🐉 ' + tr('play_dragon_dead', 'The Ender Dragon was defeated!'));
+                if (typeof window.celebrate === 'function') { try { window.celebrate(); } catch (e) { /* nada */ } }
+            } else for (let i = 0; i < 15; i++) { addDrop('dscl', c.x + 6 * Math.random() - 3, c.y - 1 + 2 * Math.random(), 1); }
+        }
+        delete mbwom.mobs[id]; S.tmp.delete(id);
+        S.boss = null;
+    }
+    // 🌀 el portal de regreso (World.js: 7 marcos con ojo junto a donde estás y el cofre con 16 diamantes y el huevo del dragón)
+    function exitPortal() {
+        const w = W(); if (W().defeatedEnder && mbwom.world.mbweExitPortal) return;
+        const left = w.worldX <= dimWidth() / 6, step = left ? 1 : -1;
+        const c0 = Math.round(w.worldX + 10 * step); let cx = c0, tries = 30;
+        while (tries-- > 0 && !(mbwom.scene[cx] && fg(cx, colTop(cx) - 1) === 'es')) cx += step;
+        if (tries < 0) cx = c0;                                          // (sin piedra del End cerca: junto a ti)
+        const dy = colTop(cx);
+        for (let m = 0; m < 7; m++) { const x = cx + m * step; setBlock(x, dy, 'pf', 2); for (let k = 1; k <= 3; k++) setBlock(x, dy + k, null); }
+        const chx = cx + 7 * step;
+        setBlock(chx, dy, 'chest');
+        let ch = mbwom.chests; if (!ch || typeof ch !== 'object') { ch = {}; mbwom.chests = ch; mbwom.world['chests' + (mbwom.currentScene || 1)] = ch; }
+        const L = []; for (let i = 0; i < 27; i++) L.push(empty());
+        L[11] = ['dm', 8, 0, {}]; L[13] = ['degg', 1, 0, {}]; L[15] = ['dm', 8, 0, {}];
+        ch[key(chx, dy)] = L;
+        w.defeatedEnder = true; mbwom.world.mbweExitPortal = [cx, dy];
+    }
+    // 💎 cristales del End: se dibujan sobre su pilar; con un golpe o una flecha explotan
+    function crystalAt(gx, gy) { const C = endCrystals(); if (!C) return null; for (const k in C) { const q = C[k]; if (Array.isArray(q) && Math.abs(q[0] + .5 - gx) < .8 && Math.abs(-(q[1] + .5) - gy) < .9) return k; } return null; }
+    function breakCrystal(k) {
+        const C = endCrystals(); if (!C || !C[k]) return false;
+        const q = C[k]; delete C[k];
+        explode(q[0] + .5, q[1] + .5, 3, PLAYER_ID);
+        return true;
+    }
+    function drawDragonExtras(c2) {
+        const C = endCrystals();
+        if (C) Object.keys(C).forEach(function (k) {
+            const q = C[k]; if (!Array.isArray(q)) return;
+            const p = toScreen(q[0] + .5, -(q[1] + .5)), r = tileSize * (.42 + .06 * Math.sin(S.tick / 8)), a2 = S.tick / 20;
+            c2.save(); c2.translate(p.x, p.y); c2.rotate(a2);
+            c2.fillStyle = 'rgba(230,120,255,.35)'; c2.fillRect(-r * 1.2, -r * 1.2, r * 2.4, r * 2.4);
+            c2.rotate(-a2 * 2); c2.strokeStyle = '#f7d7ff'; c2.lineWidth = 2; c2.strokeRect(-r, -r, r * 2, r * 2);
+            c2.fillStyle = '#c04df0'; c2.fillRect(-r / 2, -r / 2, r, r);
+            c2.restore();
+        });
+        // el rayo del cristal que lo está curando
+        for (const id in mbwom.mobs) {
+            const m = mbwom.mobs[id]; if (!m || m.type !== 'enderdragon') continue;
+            const d = S.tmp.get(id); if (!d || !d.beam || !C || !C[d.beam]) continue;
+            const q = C[d.beam], a = toScreen(q[0] + .5, -(q[1] + .5)), b = toScreen(m.x, m.y);
+            c2.save(); c2.strokeStyle = 'rgba(255,170,255,.8)'; c2.lineWidth = Math.max(2, tileSize / 10); c2.setLineDash([tileSize / 4, tileSize / 6]); c2.lineDashOffset = -S.tick;
+            c2.beginPath(); c2.moveTo(a.x, a.y); c2.lineTo(b.x, b.y); c2.stroke(); c2.restore();
+        }
+    }
+    // la barra de vida del jefe (arriba al centro), si hay un dragón cerca
+    function bossUpdate() {
+        const w = W(); let best = null, bd2 = 120;
+        for (const id in mbwom.mobs) { const m = mbwom.mobs[id]; if (!m || m.type !== 'enderdragon') continue; const dd = Math.hypot(m.x - w.worldX, m.y - w.worldY); if (dd < bd2) { bd2 = dd; best = m; } }
+        const root = document.getElementById('mbw-play-hud'); if (!root) return;
+        let el = root.querySelector('.ph-boss');
+        if (!best) { if (el) el.style.display = 'none'; return; }
+        if (!el) { el = document.createElement('div'); el.className = 'ph-boss'; el.innerHTML = '<div class="ph-boss-n"></div><div class="ph-boss-bar"><div class="ph-boss-fill"></div></div>'; root.appendChild(el); }
+        el.style.display = 'block';
+        const n = tr('mob_enderdragon', 'Ender Dragon'); const ne = el.querySelector('.ph-boss-n'); if (ne.textContent !== n) ne.textContent = n;
+        el.querySelector('.ph-boss-fill').style.width = Math.max(0, Math.min(100, (Number(best.health) || 0) / DRG_HP * 100)) + '%';
+    }
     function mobTick(id, c) {
         const a = D.mobs[c.type];
         if (!a) return;
         const w = W(), d = tmpOf(id);
+        if (c.type === 'enderdragon') { dragonTick(id, c, a, d); return; }   // 🐉
         if (c.dead > 0) { c.dead++; c.speedX = 0; if (c.dead > 40) { delete mbwom.mobs[id]; S.tmp.delete(id); } return; }
         if (!isFinite(Number(c.health))) c.health = maxHealth(c);
         if (c.health <= 0) { killMob(id, c); return; }
@@ -1586,6 +1858,7 @@
         } else if (toPlayer) {
             if (a.attackContact == 1 && intersects(mobBounds(id), mobBounds(PLAYER_ID)) && (c.type !== 'slime' || (c.size || 1) > 1)) {
                 c.attackCooldown = a.attackFrequency || 26;
+                S.hitBy = { m: c.type, t: Date.now() };
                 ouch(1, Math.max(1, c.attackDamage != null ? c.attackDamage : a.attackDamage != null ? a.attackDamage : 2), 'attack');
             }
             did = true; tx = w.worldX; ty = w.worldY;
@@ -1595,6 +1868,92 @@
         }
         const dist = Math.hypot(tx - c.x, ty - c.y);
         if (a.attackBow == 1) { if (did && dist < 10) { shootArrow(c, { x: tx, y: ty - 1 }); c.attackCooldown = a.attackFrequency || 40; } else c.attackCooldown = -30; }
+        // 🔥 ghast (una bola grande que explota) y blaze (tres bolitas que queman) — Entity_Mob: attackCharge / attackTripleCharge
+        if (c.type === 'ghast') { if (did && dist < 28 && dist > 3) { shootFireball(id, c, tx, ty - 1, true); c.attackCooldown = a.attackFrequency || 180; } else c.attackCooldown = -30; }
+        else if (c.type === 'blaze') {
+            if (did && dist < 16) {
+                c.burst = (c.burst > 0 ? c.burst : 3) - 1;
+                shootFireball(id, c, tx, ty - 1, false);
+                c.attackCooldown = c.burst > 0 ? 15 : (a.attackFrequency || 400) / 2 * (Math.random() + .5);
+            } else c.attackCooldown = -30;
+        }
+    }
+    // ---------------------------------------------------------------- 🔥 bolas de fuego (Entity_Projectile "fireball")
+    //  · la del ghast vuela derecho y explota al chocar; si el Player le pega (clic) se regresa: si le pega al ghast que la tiró,
+    //    le quita 20 y sale el logro "Slay a ghast by its fireball".
+    //  · las del blaze son chiquitas: queman (al Player o al mob) y prenden fuego donde caen.
+    function shootFireball(id, m, tx, ty, big) {
+        const t = Math.atan2(ty - m.y, tx - m.x) + (big ? 5 : 15) * (Math.random() - .5) / 180 * Math.PI, sp = migSpeed(9);
+        const off = big ? 3 : 1;
+        S.fballs.push({ x: m.x + off * Math.cos(t), y: m.y - (big ? 2 : 1) + off * Math.sin(t), vx: sp * Math.cos(t), vy: sp * Math.sin(t), by: id, big: big, age: 0, ret: null });
+        sndAt('firethrow', m.x, m.y);
+    }
+    function deflectFireball(mw) {
+        const w = W(), gx = mw.x, gy = -mw.y;
+        for (let i = 0; i < S.fballs.length; i++) {
+            const f = S.fballs[i];
+            if (Math.hypot(f.x - gx, f.y - gy) > 1.3 || Math.hypot(f.x - w.worldX, f.y - (w.worldY - 1)) > REACH + 1) continue;
+            const ang = Math.atan2(gy - (w.worldY - 1.5), gx - w.worldX), sp = Math.max(migSpeed(9), Math.hypot(f.vx, f.vy));
+            const back = Math.atan2(-f.vy, -f.vx);                       // (más o menos hacia donde vino, ajustado a donde se apuntó)
+            const a2 = back + Math.max(-.6, Math.min(.6, Math.atan2(Math.sin(ang - back), Math.cos(ang - back))));
+            f.vx = Math.cos(a2) * sp; f.vy = Math.sin(a2) * sp; f.ret = PLAYER_ID; f.age = 0;
+            snd('Trrrr');
+            return true;
+        }
+        return false;
+    }
+    function fireballHit(f, mobId) {
+        if (f.big) {
+            if (f.ret === PLAYER_ID && mobId && mobId === f.by && mbwom.mobs[f.by] && mbwom.mobs[f.by].type === 'ghast') { ach(42); hurtMob(f.by, 20, 'projectile', PLAYER_ID); }
+            explode(f.x, -f.y, 2, f.ret === PLAYER_ID ? PLAYER_ID : f.by);
+        } else {
+            const bx = Math.floor(f.x - f.vx / 30), by = Math.floor(-(f.y - f.vy / 30));
+            if (canFireExistAt(bx, by)) putFire(bx, by);
+            if (mobId && mbwom.mobs[mobId]) { tmpOf(mobId).onFire = 5 * FPS; hurtMob(mobId, 5, 'fire', f.ret === PLAYER_ID ? PLAYER_ID : f.by); }
+        }
+    }
+    function tickFireballs() {
+        if (!S.fballs.length) return;
+        const w = W();
+        for (let i = S.fballs.length - 1; i >= 0; i--) {
+            const f = S.fballs[i];
+            if (++f.age > 12 * FPS) { S.fballs.splice(i, 1); continue; }
+            f.x += f.vx / 30; f.y += f.vy / 30;
+            if (f.ghost) continue;                                       // (la del anfitrión: aquí solo se ve)
+            if (Math.random() < .5) addPart({ x: f.x + (Math.random() - .5) * .3, y: -f.y + (Math.random() - .5) * .3, vx: 0, vy: .01, life: 12, size: f.big ? .14 : .08, col: Math.random() < .5 ? '#ff9a1f' : '#ffd84a', glow: true });
+            // al Player (y a los otros jugadores, desde el anfitrión)
+            if (f.ret !== PLAYER_ID && w.gamemode != 3 && !(w.dead > 0)) {
+                const pb = mobBounds(PLAYER_ID);
+                if (f.x > pb.l - .2 && f.x < pb.r + .2 && f.y > pb.t && f.y < pb.b) {
+                    if (w.gamemode != 1) { ouch(1, f.big ? 6 : 5, f.big ? 'explosion' : 'fire'); }
+                    if (f.big) explode(f.x, -f.y, 2, f.by); else fireballHit(f, null);
+                    S.fballs.splice(i, 1); continue;
+                }
+                if (mpHost()) {
+                    const R = window.mbwMpPlay.remotes; let hit = null;
+                    for (const k in R) { const b = plBounds(RP + k); if (b && f.x > b.l && f.x < b.r && f.y > b.t && f.y < b.b) { hit = RP + k; break; } }
+                    if (hit) { hitRemote(hit, f.big ? 6 : 5, f.big ? 'explosion' : 'fire'); if (f.big) explode(f.x, -f.y, 2, f.by); S.fballs.splice(i, 1); continue; }
+                }
+            }
+            // a los mobs (no al que la tiró, salvo que se la regresaron)
+            let mh = null;
+            for (const k in mbwom.mobs) {
+                if (k === f.by && f.ret !== PLAYER_ID) continue;
+                const m = mbwom.mobs[k]; if (!m || m.dead > 0) continue;
+                const b = mobBounds(k);
+                if (b && f.x > b.l && f.x < b.r && f.y > b.t && f.y < b.b) { mh = k; break; }
+            }
+            if (mh) { fireballHit(f, mh); S.fballs.splice(i, 1); continue; }
+            if (collision(f.x, f.y, 0, 0, .1, true, false) || bd(fg(Math.floor(f.x), Math.floor(-f.y)), 'liquid') == 1) { if (fg(Math.floor(f.x), Math.floor(-f.y)) !== 'wr') fireballHit(f, null); S.fballs.splice(i, 1); continue; }
+        }
+    }
+    function drawFireballs(c2) {
+        S.fballs.forEach(function (f) {
+            const p = toScreen(f.x, f.y), r = tileSize * (f.big ? .5 : .22);
+            const g = c2.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+            g.addColorStop(0, '#fff6c0'); g.addColorStop(.45, '#ffb21f'); g.addColorStop(1, 'rgba(220,60,0,0)');
+            c2.fillStyle = g; c2.beginPath(); c2.arc(p.x, p.y, r, 0, Math.PI * 2); c2.fill();
+        });
     }
 
     // ------------------------------------------------------------------ picar y poner (Game.mineAndPlaceCode)
@@ -1613,7 +1972,7 @@
         const hit = window.findMobAt(mw.x, mw.y);
         if (!hit || !mbwom.mobs[hit.key] || mbwom.mobs[hit.key].dead > 0) return null;
         const m = hit.mob;
-        if (Math.hypot(m.x - w.worldX, m.y - w.worldY) > 3.5) return null;
+        if (Math.hypot(m.x - w.worldX, m.y - w.worldY) > (m.type === 'enderdragon' ? 12 : 3.5)) return null;   // (el dragón es enorme)
         return hit.key;
     }
     function miningTime(t) {
@@ -1894,6 +2253,7 @@
                     else if (ate === 'lade' || ate === 'orade' || ate === 'apade') addDrop('potion', w.worldX, w.worldY, 1, 0, { type: 'empty' });
                 }
             } else if (S.useTimer % 20 === 0) snd('eat' + ((Math.random() * 2 | 0) + 1), { vol: .3 });   // (mientras come: mordiditas suaves)
+            if (S.useTimer > 0 && S.useTimer % 6 === 0 && selType() !== 'potion' && selType() !== 'mbk') eatParts(selType());   // 🍖 migajitas
             return;
         }
         const mw = mouseWorld();
@@ -1906,12 +2266,13 @@
             const bx = Math.floor(mw.x), by = Math.floor(mw.y);
             if (rightFresh && BOX[fg(bx, by)] && blockDist(bx, by) <= REACH + 1) { openBox(bx, by); return; }   // clic derecho en un cofre / horno: se abre
             if (rightFresh && !S.ride) { const v = vehicleUnderMouse(mw); if (v && Math.hypot(vPos(v.kind, v.d).x - W().worldX, vPos(v.kind, v.d).y - W().worldY) < 4 && mount(v.kind, v.id)) { S.mine = null; return; } }   // 🛶🚃 subirse
+            if (rightFresh && selType() !== 'bl') { const bk = balloonAt(mw.x, -mw.y, 'string'); if (bk && grabBalloon(bk)) { S.mine = null; return; } }   // 🎈 agarrar un globo
             if (rightFresh && useOnMob(mw)) { S.mine = null; S.swing = 15; return; }                   // 🐄 criar / ordeñar
             if (rightFresh && useItemLife(mw, bx, by)) { S.mine = null; S.swing = 15; return; }        // 🔥 mechero, 🎣 caña, azadón, harina de hueso, balsa, vagoneta
             if (rightFresh && !S.p.sneaking && blockDist(bx, by) <= REACH + 1 && useBlock(bx, by)) { S.mine = null; S.swing = 15; return; }   // puertas, trampillas, bloque musical, camas
             if (SHOT[selType()]) { startDraw(rightFresh); S.mine = null; return; }      // 🏹 arco, ❄ bola de nieve, shuriken de hueso, lanza
             S.rightFresh = rightFresh;
-            if (S.placeDelay >= 6 && placeBlock(mw)) { S.placeDelay = 0; S.swing = 15; ach(1); const px2 = Math.floor(mw.x), py2 = Math.floor(mw.y); if (CROPS[fg(px2, py2)] && !cropStage(px2, py2)) setCrop(px2, py2, 1); }
+            if (S.placeDelay >= 6 && placeBlock(mw)) { S.placeDelay = 0; S.swing = 15; ach(1); const px2 = Math.floor(mw.x), py2 = Math.floor(mw.y); golemCheck(px2, py2); if (CROPS[fg(px2, py2)] && !cropStage(px2, py2)) setCrop(px2, py2, 1); }
             S.rightFresh = false;
             S.mine = null;
             return;
@@ -1919,6 +2280,9 @@
         if (!left) { S.mine = null; return; }
         if (leftFresh) { const v = vehicleUnderMouse(mw); if (v && (!S.ride || S.ride.id !== v.id)) { breakVehicle(v); S.mine = null; S.swing = 15; return; } }   // 🛶🚃 romper
         if (S.placeDelay < 6) return;
+        if (leftFresh) { const bk = balloonAt(mw.x, -mw.y, 'body'); if (bk && popBalloon(bk)) { S.swing = 15; S.placeDelay = 0; S.mine = null; return; } }   // 🎈 ¡pop!
+        if (leftFresh) { const ck = crystalAt(mw.x, -mw.y); if (ck && blockDist(Math.floor(mw.x), Math.floor(mw.y)) <= REACH + 1 && breakCrystal(ck)) { S.swing = 15; S.placeDelay = 0; S.mine = null; return; } }   // 💎
+        if (leftFresh && deflectFireball(mw)) { S.swing = 15; S.placeDelay = 0; S.mine = null; return; }   // 🔥 regresarle la bola de fuego al ghast
         const mid = mobUnderMouse(mw);
         if (mid) { attackMob(mid); buzz(15); S.swing = 15; S.placeDelay = 0; S.mine = null; return; }
         const pid = playerUnderMouse(mw);                              // 🎮 otro jugador
@@ -2007,7 +2371,7 @@
         if (from === 1) w.portalCoords = [Number(w.worldX), Number(w.worldY)];        // (para volver del Nether a donde estaba)
         // lo que estaba suelto en esta dimensión se queda aquí (al volver sigue)
         S.dimStash = S.dimStash || {};
-        S.dimStash[from] = { drops: S.drops, orbs: S.orbs, falling: S.falling, arrows: S.arrows }; S.shots = []; S.draw = null;
+        S.dimStash[from] = { drops: S.drops, orbs: S.orbs, falling: S.falling, arrows: S.arrows }; S.shots = []; S.fballs = []; S.eyes = []; S.draw = null;
         syncScene();
         snapDim(n);                                                        // 📸 primera vez en esta dimensión: su foto (todavía sin cambios)
         mbwom.loadScene(n); mbwom.currentScene = n; w.scene = n;
@@ -2470,7 +2834,8 @@
         if (S.sleep) return true;
         const hx = t === 'bed2' ? x - 1 : x;
         spSet(hx + 1, -(y + 1));                                       // la cama es tu nuevo lugar para aparecer
-        S.sleep = { t: 0 };
+        S.sleep = { t: 0, x: hx + 1, y: y, back: { x: w.worldX, y: w.worldY } };
+        w.worldX = hx + 1; w.worldY = -(y + .55);                       // 🛏 acostado en la cama
         w.xSpeed = 0; w.ySpeed = 0; S.keys = {};
         info2(tr('play_bed_spawn', 'Respawn point set.'));
         return true;
@@ -2480,8 +2845,12 @@
         if (!S.sleep) return;
         S.keys = {};
         if (++S.sleep.t < 4 * FPS) return;
+        const sl = S.sleep;
         S.sleep = null;
         const w = W();
+        if (sl.back) { w.worldX = sl.back.x; w.worldY = sl.back.y; } else { w.worldX = sl.x; w.worldY = -(sl.y + 1); }   // (se levanta donde estaba parado)
+        if (S.p) S.p.falling = true;
+        S.wake = performance.now();                                    // ☀ la pantalla se aclara poco a poco
         if (mpGuest()) mpSend({ tipo: 'juego_tiempo', tim: 2 });
         w.tim = 2; w.day = (Number(w.day) || 0) + 1;
         flashMsg('☀ ' + tr('play_good_morning', 'Good morning!'));
@@ -3031,7 +3400,7 @@
             if (key2('down')) dismount();                                      // (agacharse = bajarse)
         }
     }
-    window.mbwPlay.life = { brewTick: function () { tickBrewing(); }, cropTick: function () { const t = S.tick; S.tick = DAY_TICKS * 3 + 7; tickCrops(); S.tick = t; }, fireTick: function () { const t = S.tick; S.tick = 29; tickFire(); S.tick = t; }, bob: function () { return S.bob; }, sleeping: function () { return !!S.sleep; }, fires: function () { return S.fires; }, shots: function () { return S.shots; }, drawing: function () { return S.draw; }, bonemeal: function (x, y) { return useBonemeal(x, y); }, saplingTick: function () { const t = S.tick, R = Math.random; S.tick = (45 / 25 * FPS) | 0; Math.random = function () { return 1 / 70 + 1e-6; }; try { tickSaplings(); } finally { Math.random = R; S.tick = t; } } };   // (lo usan las pruebas)
+    window.mbwPlay.life = { brewTick: function () { tickBrewing(); }, cropTick: function () { const t = S.tick; S.tick = DAY_TICKS * 3 + 7; tickCrops(); S.tick = t; }, fireTick: function () { const t = S.tick; S.tick = 29; tickFire(); S.tick = t; }, bob: function () { return S.bob; }, sleeping: function () { return !!S.sleep; }, fires: function () { return S.fires; }, shots: function () { return S.shots; }, fballs: function () { return S.fballs; }, drawing: function () { return S.draw; }, bonemeal: function (x, y) { return useBonemeal(x, y); }, saplingTick: function () { const t = S.tick, R = Math.random; S.tick = (45 / 25 * FPS) | 0; Math.random = function () { return 1 / 70 + 1e-6; }; try { tickSaplings(); } finally { Math.random = R; S.tick = t; } } };   // (lo usan las pruebas)
     // ⚒ se usó el yunque: suena, logro, y 12 % de que se gaste (3 golpes y se rompe)
     window.mbwPlay.anvilUsed = function (x, y) {
         sndAt('anvilsound', x + .5, -(y + .5));
@@ -3068,11 +3437,186 @@
         const id = selType();
         if (id === 'fas') return useFlint(mw, bx, by);
         if (id === 'fr') return useRod(mw);
+        if (id === 'eoe') return useEye(mw, bx, by);
+        if (id === 'bl') return useBalloon(mw, bx, by);
         if (blockDist(bx, by) > REACH + 1) return false;
         if (/Hoe$/.test(id)) return useHoe(bx, by);
         if (id === 'bonem') { if (useBonemeal(bx, by)) { reduceSelected(1); return true; } return false; }
         if (id === 'raft' || id.slice(0, 4) === 'cart') return placeVehicle(id, bx, by);
         return false;
+    }
+
+    // ---------------------------------------------------------------- 🟢 OJO DE ENDER y el portal del End
+    //  · en un marco del portal ("pf") vacío: el ojo se queda puesto (estado 2: el marco con el ojo verde).
+    //    Cuando TODOS los marcos de la fila tienen ojo, el portal se abre (logro "Unlock the ender portal") y al pararse encima se va al End.
+    //  · en otra parte (en el mundo normal): se avienta y vuela hacia el portal más cercano; luego cae (a veces se rompe).
+    function pfRow(x, y) {                                            // los marcos seguidos de esa fila
+        let a = x, b = x;
+        while (fg(a - 1, y) === 'pf' && x - a < 30) a--;
+        while (fg(b + 1, y) === 'pf' && b - x < 30) b++;
+        const L = []; for (let i = a; i <= b; i++) L.push(i);
+        return L;
+    }
+    // (una fila de 3 o más marcos: se abre cuando TODOS tienen ojo · 1 o 2 marcos sueltos con ojo, hechos en el editor: ya funcionan)
+    function pfOpen(x, y) { if (fg(x, y) !== 'pf') return false; const L = pfRow(x, y); return L.every(function (i) { return Number(st(i, y)) === 2; }); }
+    window.mbwPlay.pfOpen = pfOpen;
+    function useEye(mw, bx, by) {
+        const w = W();
+        if (fg(bx, by) === 'pf' && blockDist(bx, by) <= REACH + 1) {
+            if (Number(st(bx, by)) === 2) return false;
+            setBlock(bx, by, 'pf', 2);
+            if (w.gamemode != 1) reduceSelected(1);
+            sndAt('Portal' + ((Math.random() * 5 | 0) + 1), bx + .5, -(by + .5));
+            for (let i = 0; i < 8; i++) addPart({ x: bx + .5 + (Math.random() - .5) * .8, y: by + 1.1, vx: (Math.random() - .5) * .03, vy: .03, life: 20, size: .09, col: '#3fd27a', glow: true });
+            if (pfRow(bx, by).length >= 3 && pfOpen(bx, by)) { ach(35); sndAt('portal', bx + .5, -(by + .5)); flashMsg('🟢 ' + tr('play_end_open', 'The End portal is open!')); }
+            return true;
+        }
+        if ((mbwom.currentScene || 1) !== 1) return false;
+        const t = nearestPf();
+        const dir = t ? (t.x + .5 > w.worldX ? 1 : -1) : (Math.random() < .5 ? -1 : 1);
+        S.eyes.push({ x: w.worldX, y: w.worldY - 1.6, dir: dir, age: 0, tx: t ? t.x + .5 : null });
+        if (w.gamemode != 1) reduceSelected(1);
+        snd('throwsfx');
+        return true;
+    }
+    let pfCache = null;
+    function nearestPf() {
+        const w = W(), now = performance.now();
+        if (!pfCache || now - pfCache.t > 15000) {
+            const L = [];
+            const sc = mbwom.scene || [];
+            for (let x = 0; x < sc.length; x++) { const col = sc[x]; if (!col) continue; for (let y = 0; y < col.length; y++) if (col[y] === 'pf') { L.push({ x: x, y: y }); break; } }
+            pfCache = { t: now, list: L };
+        }
+        let best = null, bd2 = Infinity;
+        pfCache.list.forEach(function (q) { const d = Math.abs(q.x + .5 - w.worldX); if (d < bd2) { bd2 = d; best = q; } });
+        return best;
+    }
+    function tickEyes() {
+        for (let i = S.eyes.length - 1; i >= 0; i--) {
+            const e = S.eyes[i];
+            e.age++;
+            if (e.age < 2.2 * FPS) {
+                e.y -= .03 * (1 - e.age / (2.2 * FPS)) + .005;                // sube...
+                const near = e.tx != null && Math.abs(e.tx - e.x) < 1.5;
+                if (!near) e.x += e.dir * .09;                             // ...y vuela hacia el portal
+                if (Math.random() < .6) addPart({ x: e.x + (Math.random() - .5) * .3, y: -e.y + (Math.random() - .5) * .3, vx: 0, vy: 0, life: 14, size: .07, col: '#a24fe0', glow: true });
+            } else {                                                       // ...y cae: 4 de 5 veces se puede recoger
+                S.eyes.splice(i, 1);
+                if (Math.random() < .8) addDrop('eoe', e.x, e.y, 1, 0, {});
+                else { sndAt('glass1', e.x, e.y); for (let k = 0; k < 10; k++) addPart({ x: e.x, y: -e.y, vx: (Math.random() - .5) * .08, vy: Math.random() * .06, life: 18, size: .07, col: '#3fd27a' }); }
+            }
+        }
+    }
+    function drawEyes(c2) {
+        S.eyes.forEach(function (e) { const p = toScreen(e.x, e.y), s2 = tileSize * .55; try { c2.drawImage(iconFor('eoe', {}), p.x - s2 / 2, p.y - s2 / 2, s2, s2); } catch (er) { /* nada */ } });
+    }
+
+    // ---------------------------------------------------------------- 🎈 GLOBOS (Game: world.balloons)
+    //  · en la mano: flota arriba del Player.
+    //  · clic derecho en una cerca: se amarra ahí · en un mob: lo amarra y lo va levantando · en otra parte: se suelta y se va volando.
+    //  · clic derecho en el hilo de un globo: lo vuelves a agarrar · clic izquierdo en el globo: ¡pop!
+    const BAL_COLORS = { red: '#e33b3b', orange: '#f08a24', yellow: '#f5d327', lime: '#7fd13b', green: '#3c9a3c', lightblue: '#6cc3f0', cyan: '#2fb5b5', blue: '#3a5be0', purple: '#9b4fd8', magenta: '#d64fc2', pink: '#f5a2c4', white: '#f2f2f2', lightgray: '#bdbdbd', gray: '#6e6e6e', black: '#2a2a2a', brown: '#8b5a2b' };
+    const balColor = (t) => BAL_COLORS[String(t || 'red').toLowerCase()] || BAL_COLORS.red;
+    const FENCE = { fnc: 1, nfnc: 1, fncg: 1, nfncg: 1 };
+    function bStore(create) {
+        let o = mbwom.balloons;
+        if (!o || typeof o !== 'object' || Array.isArray(o)) { if (!create) return null; o = {}; mbwom.balloons = o; mbwom.world['balloons' + (mbwom.currentScene || 1)] = o; }
+        return o;
+    }
+    function balAnchor(b) {                                           // a dónde va amarrado el hilo (null = suelto)
+        const a = b.attached; if (!a) return null;
+        if (a.type === 'block') { if (!FENCE[fg(a.x, a.y)]) { b.attached = null; return null; } return { x: a.x + .5, y: -a.y - .9 }; }
+        if (a.type === 'mob') { const m = mbwom.mobs[a.id]; if (!m || m.dead > 0) { b.attached = null; return null; } const mb = mobBounds(a.id); return mb ? { x: (mb.l + mb.r) / 2, y: mb.t + .1 } : null; }
+        return null;
+    }
+    function useBalloon(mw, bx, by) {
+        const w = W(), it = selItem(), ex = (it && it[3]) || {};
+        const life = Math.max(1, (bd('bl', 'life') || 10) - (Number(it[2]) || 0));
+        const b = { x: w.worldX + .3, y: w.worldY - 3.3, sx: w.worldX + .3, sy: w.worldY - 1, type: ex.type || 'red', life: life, attached: null, vx: 0, vy: 0, age: 0 };
+        const hit = typeof window.findMobAt === 'function' ? window.findMobAt(mw.x, mw.y) : null;
+        const mid = hit && mbwom.mobs[hit.key] && !(mbwom.mobs[hit.key].dead > 0) && Math.hypot(hit.mob.x - w.worldX, hit.mob.y - w.worldY) <= REACH + 1 ? hit.key : null;
+        if (FENCE[fg(bx, by)] && blockDist(bx, by) <= REACH + 1) b.attached = { type: 'block', x: bx, y: by };
+        else if (mid && mbwom.mobs[mid] && mbwom.mobs[mid].type !== 'enderdragon') b.attached = { type: 'mob', id: mid };
+        const st0 = bStore(true);
+        let n = 1, id; do id = 'balloon' + (n++); while (st0[id]);
+        st0[id] = b;
+        inv()[selIndex()] = empty(); hud.dirty = true;
+        snd('throwsfx');
+        return true;
+    }
+    function balloonAt(gx, gy, part) {                                // part: 'body' (el globo) o 'string' (la punta del hilo)
+        const o = bStore(false); if (!o) return null;
+        for (const k in o) {
+            const b = o[k]; if (!b) continue;
+            if (part === 'body' ? Math.hypot(b.x - gx, b.y + .1 - gy) < .65 : Math.abs(b.sx - gx) < 1 && Math.abs(b.sy - gy) < 1) return k;
+        }
+        return null;
+    }
+    function grabBalloon(k) {
+        const o = bStore(false), b = o && o[k]; if (!b) return false;
+        const ex = { type: b.type || 'red' };
+        if (addToInventory('bl', 1, Math.max(0, (bd('bl', 'life') || 10) - (b.life || 10)), ex) > 0) return false;
+        delete o[k]; pickSnd();
+        return true;
+    }
+    function popBalloon(k) {
+        const o = bStore(false), b = o && o[k]; if (!b) return false;
+        delete o[k];
+        sndAt('pop', b.x, b.y);
+        for (let i = 0; i < 10; i++) addPart({ x: b.x + (Math.random() - .5) * .5, y: -b.y + (Math.random() - .5) * .5, vx: (Math.random() - .5) * .1, vy: (Math.random() - .5) * .1, life: 14, size: .09, col: balColor(b.type) });
+        return true;
+    }
+    function tickBalloons() {
+        const o = bStore(false); if (!o) return;
+        const lift = {};
+        for (const k in o) {
+            const b = o[k]; if (!b || typeof b !== 'object') { delete o[k]; continue; }
+            b.x = Number(b.x) || 0; b.y = Number(b.y) || 0; b.age = (b.age || 0) + 1;
+            const an = balAnchor(b);
+            if (an) {
+                // amarrado: el globo se queda flotando 2.5 arriba de donde está amarrado (meciéndose)
+                const tx = an.x + Math.sin((S.tick + k.length * 40) / 40) * .25, ty = an.y - 2.5;
+                b.vx = (b.vx || 0) * .9 + (tx - b.x) * .02; b.vy = (b.vy || 0) * .9 + (ty - b.y) * .02;
+                b.sx = an.x; b.sy = an.y;
+                if (b.attached.type === 'mob') lift[b.attached.id] = (lift[b.attached.id] || 0) + 1;
+            } else {
+                // suelto: sube y se va (a los 40 s, o muy arriba, desaparece)
+                b.vy = (b.vy || 0) * .98 - .002; b.vx = (b.vx || 0) * .98 + Math.sin(b.age / 50) * .0008;
+                b.sx = b.x; b.sy = b.y + 2.4;
+                if (b.age > 40 * FPS || b.y < -300) { delete o[k]; continue; }
+            }
+            b.x += b.vx; b.y += b.vy;
+        }
+        // 🐔 los mobs con globos suben (más globos, más rápido)
+        if (!mpGuest()) Object.keys(lift).forEach(function (id) { const m = mbwom.mobs[id]; if (!m) return; const sp = migSpeed(Math.min(4, 1.2 * lift[id])); m.speedY = Math.max(Number(m.speedY) || 0, sp); m.y -= m.falling ? sp / 2 / 30 : .3; m.falling = true; });
+    }
+    function drawBalloons(c2) {
+        const o = bStore(false), w = W();
+        const one = function (x, y, sx, sy, col) {
+            const p = toScreen(x, y), q = toScreen(sx, sy), r = tileSize * .5;
+            c2.save();
+            c2.strokeStyle = 'rgba(240,240,240,.85)'; c2.lineWidth = Math.max(1, tileSize / 24);
+            c2.beginPath(); c2.moveTo(p.x, p.y + r * 1.1); c2.quadraticCurveTo((p.x + q.x) / 2 + r * .3, (p.y + q.y) / 2, q.x, q.y); c2.stroke();
+            c2.fillStyle = col; c2.beginPath(); c2.ellipse(p.x, p.y, r * .85, r, 0, 0, Math.PI * 2); c2.fill();
+            c2.beginPath(); c2.moveTo(p.x - r * .18, p.y + r * 1.12); c2.lineTo(p.x + r * .18, p.y + r * 1.12); c2.lineTo(p.x, p.y + r * .9); c2.fill();
+            c2.fillStyle = 'rgba(255,255,255,.45)'; c2.beginPath(); c2.ellipse(p.x - r * .3, p.y - r * .35, r * .18, r * .28, -.5, 0, Math.PI * 2); c2.fill();
+            c2.restore();
+        };
+        if (o) for (const k in o) { const b = o[k]; if (b) one(b.x, b.y, b.sx, b.sy, balColor(b.type)); }
+        // el que tengo en la mano
+        if (selType() === 'bl' && !(w.dead > 0)) { const it = selItem(), hx = w.worldX + (S.p && S.p.xScale < 0 ? -.35 : .35); one(hx + Math.sin(S.tick / 35) * .15, w.worldY - 3.4, hx, w.worldY - 1.1, balColor(it && it[3] && it[3].type)); }
+    }
+
+    // ---------------------------------------------------------------- ⛄ GÓLEM DE NIEVE: calabaza (o calabaza con luz) arriba de 2 bloques de nieve
+    function golemCheck(x, y) {
+        const t = fg(x, y);
+        if ((t !== 'pk' && t !== 'jl') || fg(x, y - 1) !== 'snowblock' || fg(x, y - 2) !== 'snowblock') return false;
+        [0, 1, 2].forEach(function (k) { setBlock(x, y - k, null); });
+        const id = spawnMob('snowgolem', x + .5, -(y - 2));
+        for (let i = 0; i < 16; i++) addPart({ x: x + .5 + (Math.random() - .5), y: y - 1 + (Math.random() - .5) * 2.4, vx: (Math.random() - .5) * .06, vy: Math.random() * .05, life: 22, size: .1, col: '#ffffff' });
+        sndAt('snow1', x + .5, -(y - 1));
+        return !!id;
     }
 
     // ------------------------------------------------------------------ paso del juego
@@ -3092,7 +3636,7 @@
             const bx = Math.floor(w.worldX), by = Math.floor(-w.worldY);
             const isP = function (x, y) { return fg(x, y) === 'portal'; };
             const nether = isP(bx, by) || isP(bx, by + 1) || isP(Math.floor(w.worldX - .3), by) || isP(Math.floor(w.worldX + .3), by);
-            const isF = function (x, y) { return fg(x, y) === 'pf' && Number(st(x, y)) === 2; };
+            const isF = function (x, y) { return fg(x, y) === 'pf' && Number(st(x, y)) === 2 && pfOpen(x, y); };   // (toda la fila con ojos)
             const end = !nether && (isF(bx, by) || isF(bx, by - 1));
             // (como pediste: hay que quedarse 4 segundos en el portal; la pantalla se va poniendo morada)
             if (nether || end) { if (!S.portalLock) { S.portalT = (S.portalT || 0) + 1; S.portalKind = nether ? 1 : 2; if (S.portalT === 1) sndAt('Portal' + ((Math.random() * 5 | 0) + 1)); if (S.portalT >= 4 * FPS) { S.portalLock = true; S.portalT = 0; S.portalGo = S.portalKind; } } }
@@ -3121,6 +3665,9 @@
         tickArrows();
         tickSaplings();
         tickShots();
+        tickEyes();
+        tickBalloons();
+        tickFireballs();
         if (mpGuest()) { if (window.mbwMpPlay.mobLerp) window.mbwMpPlay.mobLerp(); }
         else for (const id in mbwom.mobs) {
             const m = mbwom.mobs[id];
@@ -3449,7 +3996,7 @@
         return false;
     }
     function rsSolid(t) { return !!t && t !== 'air' && bd(t, 'walkThroughBlock') != 1 && bd(t, 'liquid') == null; }
-    function rsConsumer(t) { return t === 'light' || DOOR_RE.test(t) || t === 'td1' || t === 'td2' || t === 'fncg' || t === 'nfncg' || t === 'dispense' || t === 'dropper' || t === 'piston' || t === 'spiston' || t === 'piston1' || t === 'spiston1' || t === 'TNT' || t === 'note'; }
+    function rsConsumer(t) { return t === 'light' || t === 'railp' || t === 'raila' || DOOR_RE.test(t) || t === 'td1' || t === 'td2' || t === 'fncg' || t === 'nfncg' || t === 'dispense' || t === 'dropper' || t === 'piston' || t === 'spiston' || t === 'piston1' || t === 'spiston1' || t === 'TNT' || t === 'note'; }
     function tickRedstone() {
         if (mpGuest() || !mbwom.scene) return;
         const w = W();
@@ -3515,6 +4062,7 @@
             const k = rsKey(x, y), prev = S.rsOn.get(k);
             S.rsOn.set(k, on);
             if (t === 'light') { const cur = mbwom.getBlockState(x, y) || {}, was = Array.isArray(cur.hasSignal) && Number(cur.hasSignal[0]) > 0; if (was !== on) { const ns = JSON.parse(JSON.stringify(cur)); ns.type = 'light'; ns.hasSignal = on ? [15] : undefined; mbwom.setBlockState(x, y, ns); if (typeof window.renderBlock === 'function') window.renderBlock(x, y); } return; }
+            if (t === 'railp' || t === 'raila') { const was = !!(mbwom.hasSignal && mbwom.hasSignal[key(x, y)]); if (was !== on) { if (!mbwom.hasSignal || typeof mbwom.hasSignal !== 'object') { mbwom.hasSignal = {}; mbwom.world['hasSignal' + (mbwom.currentScene || 1)] = mbwom.hasSignal; } if (on) mbwom.hasSignal[key(x, y)] = [15]; else delete mbwom.hasSignal[key(x, y)]; } return; }   // 🚃 rieles con energía
             if (prev === on || (prev === undefined && !on)) return;          // (solo cuando cambia)
             if (dm) { const cur = DOOR_RE.exec(fg(x, y)); if (cur) { const isOpen = cur[2] === '1'; if (isOpen !== on) { useBlock(x, y); if (on && nearMe(x + .5, -y, 10)) ach(32); } } return; }
             if (t === 'td1' || t === 'td2') { if ((t === 'td1') !== on) useBlock(x, y); return; }
@@ -3701,7 +4249,21 @@
         });
         S.arrows.forEach(function (r) { const p = toScreen(r.x, r.y); const a = Math.atan2(r.vy, r.vx); c2.beginPath(); c2.moveTo(p.x, p.y); c2.lineTo(p.x - Math.cos(a) * tileSize * .6, p.y - Math.sin(a) * tileSize * .6); c2.stroke(); });
         drawParticles(c2);
+        drawBalloons(c2);
+        if (S.sleep) {                                                    // 💤
+            const w0 = W(), t0 = S.sleep.t;
+            c2.save(); c2.fillStyle = '#fff'; c2.strokeStyle = 'rgba(0,0,0,.6)'; c2.lineWidth = 3; c2.textAlign = 'center';
+            for (let k = 0; k < 3; k++) {
+                const ph0 = ((t0 + k * 25) % 75) / 75, p0 = toScreen(w0.worldX - 1.1 + ph0 * .6, w0.worldY - .6 - ph0 * 1.6);
+                c2.globalAlpha = Math.sin(ph0 * Math.PI); c2.font = 'bold ' + Math.round(tileSize * (.35 + ph0 * .3)) + 'px Arial';
+                c2.strokeText('Z', p0.x, p0.y); c2.fillText('Z', p0.x, p0.y);
+            }
+            c2.restore();
+        }
+        drawDragonExtras(c2);
         drawShots(c2);
+        drawEyes(c2);
+        drawFireballs(c2);
         if (S.emote) { const b0 = mobBounds(PLAYER_ID), p0 = toScreen(W().worldX, b0.t); if (!drawEmote(c2, S.emote, p0.x, p0.y)) S.emote = null; }
         drawBobber(c2);
         drawBars(c2);
@@ -3723,6 +4285,7 @@
         }
         const w = W();
         if (S.sleep) { c2.fillStyle = 'rgba(0,0,10,' + Math.min(.92, S.sleep.t / (2.5 * FPS)) + ')'; c2.fillRect(0, 0, canvas.width, canvas.height); }   // 🛏 durmiendo
+        else if (S.wake) { const k = 1 - (performance.now() - S.wake) / 1400; if (k <= 0) S.wake = 0; else { c2.fillStyle = 'rgba(0,0,10,' + (.92 * k) + ')'; c2.fillRect(0, 0, canvas.width, canvas.height); } }   // ☀ despertando
         if ((S.p && S.p.hurt > 0 && OPTS.effects !== false) || w.dead > 0) { c2.fillStyle = w.dead > 0 ? 'rgba(140,0,0,.35)' : 'rgba(255,0,0,.12)'; c2.fillRect(0, 0, canvas.width, canvas.height); }
         c2.restore();
         if (S.p && S.p.hurt > 0) S.p.hurt--;
@@ -3814,6 +4377,7 @@
             const w = W();
             this.place(w);
             try { emo.update(); } catch (e) { /* nada */ }
+            if (S.tick % 5 === 0) { try { bossUpdate(); } catch (e) { /* nada */ } }
             const um = modalOpen();                                   // con el inventario / un cofre / un horno abierto, el HUD se esconde (no tapa la ventana)
             if (um !== this.underModal) { this.underModal = um; this.el.classList.toggle('under-modal', um); }
             const msg = this.el.querySelector('.ph-msg');
@@ -4160,6 +4724,9 @@
         return true;
     }
     window.mbwPlay.drawEmote = drawEmote;
+    window.mbwPlay.iconFor = function (id, ex) { return iconFor(id, ex || {}); };
+    window.mbwPlay.give = function (id, n, dmg, ex) { return addToInventory(id, n, dmg, ex); };
+    window.mbwPlay.hudDirty = function () { hud.dirty = true; };
     window.mbwPlay.emote = doEmote;
     function overMe() {
         const w = W(); if (!w || w.dead > 0) return false;
@@ -4415,7 +4982,7 @@
         if (w.gamemode != 1) w.fly = false;
         inv();
         for (const id in mbwom.mobs) { const m = mbwom.mobs[id]; if (m && typeof m === 'object') { m.target = null; m.focus = null; m.speedX = Number(m.speedX) || 0; m.speedY = Number(m.speedY) || 0; } }
-        S.p = newPlayer(); S.tmp = new Map(); S.drops = []; S.falling = []; S.arrows = []; S.shots = []; S.draw = null; S.orbs = []; S.liqFresh = new Set(); S.sandCheck = new Map(); S.leafQ = new Map(); S.dropSeq = 0; S.dropBase = Date.now().toString(36); S.lastPvp = null; S.parts = []; S.wetWas = {}; S.spawnT = new Map(); S.spawnOn = new Set(); S.selShow = null; S.selPrev = null; S.rsOn = new Map(); S.rsReady = false; S.btn = new Map(); S.plates = new Set(); S.portalLock = true; S.portalGo = 0; S.dimStash = {}; S.spect = null; S.tick = 0; S.acc = 0; S.last = 0; S.mine = null; S.useTimer = -1; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mobErr = false;
+        S.p = newPlayer(); S.tmp = new Map(); S.drops = []; S.falling = []; S.arrows = []; S.shots = []; S.fballs = []; S.eyes = []; S.draw = null; S.orbs = []; S.liqFresh = new Set(); S.sandCheck = new Map(); S.leafQ = new Map(); S.dropSeq = 0; S.dropBase = Date.now().toString(36); S.lastPvp = null; S.parts = []; S.wetWas = {}; S.spawnT = new Map(); S.spawnOn = new Set(); S.selShow = null; S.selPrev = null; S.rsOn = new Map(); S.rsReady = false; S.btn = new Map(); S.plates = new Set(); S.portalLock = true; S.portalGo = 0; S.dimStash = {}; S.spect = null; S.tick = 0; S.acc = 0; S.last = 0; S.mine = null; S.useTimer = -1; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mobErr = false;
         // arena y grava cerca: se revisan para que caigan si no tienen nada abajo
         const x0 = Math.max(0, Math.floor(px) - 60), x1 = Math.floor(px) + 60;
         for (let x = x0; x <= x1; x++) { const col = mbwom.scene[x]; if (!col) continue; for (let y = 0; y < col.length; y++) if (col[y] === 'sd' || col[y] === 'gv') S.sandCheck.set(x + ',' + y, 2); }
@@ -4514,7 +5081,7 @@
         if (keep) { try { const cs = syncScene(); mbwom.world.scene = mbwom.world.scene || cs; S.keptAt = Date.now(); if (typeof window.markWorldUnsaved === 'function') window.markWorldUnsaved(); } catch (e) { console.error('play keep', e); } }
         else { try { restoreSnapshot(); } catch (e) { console.error('play restore', e); alert('Error restoring the world: ' + e.message); } }
         try { if (window.mbwAch) window.mbwAch.afterRestore(); } catch (e) { /* nada */ }   // 🏆 los logros no se pierden
-        S.snapshot = null; S.drops = []; S.falling = []; S.arrows = []; S.shots = []; S.draw = null; S.orbs = []; S.tmp = new Map(); S.keys = {}; S.mine = null;
+        S.snapshot = null; S.drops = []; S.falling = []; S.arrows = []; S.shots = []; S.fballs = []; S.eyes = []; S.draw = null; S.orbs = []; S.tmp = new Map(); S.keys = {}; S.mine = null;
         if (window.mbSfx) { window.mbSfx.stopLoops(); window.mbSfx.stopMusic(); }   // 🔊 se apaga la música, la lluvia, bajo el agua...
         try { const gw = document.getElementById('gr-weather'); if (gw && typeof setWeatherEffect === 'function') setWeatherEffect(gw.value); } catch (e) { /* nada */ }   // (el clima vuelve al de World Settings)
         window.mbwPlaying = false;
@@ -4663,7 +5230,8 @@
         c2.save();
         c2.imageSmoothingEnabled = false;
         c2.translate(sx, sy);
-        if (S.p && S.p.xScale < 0) c2.scale(-1, 1);
+        if (S.sleep) { c2.translate(ph / 2, -pw / 2 + tileSize * .12); c2.rotate(-Math.PI / 2); }   // 🛏 acostado (la cabeza hacia la cabecera)
+        else if (S.p && S.p.xScale < 0) c2.scale(-1, 1);
         if (S.p && S.p.hurt > 0) c2.globalAlpha = 0.85;
         const sk = skinSheet(S.skin), sheet = sk || frank;
         const nf = Math.max(1, Math.floor((sheet.naturalWidth || sheet.width) / 16)), fi = fr.f < nf ? fr.f : 0;
@@ -4742,8 +5310,13 @@
                 list.forEach(function (e) { if (e[0] === 'd') addDrop(e[1], e[2], e[3], e[4], e[5], e[6]); else if (e[0] === 'x') dropXP(e[1], e[2], e[3], 0, true); });
             },
             newMob: function (m) { if (!S.playing || !m || !m.type || !D.mobs[m.type]) return null; const id = spawnMob(String(m.type), Number(m.x) || 0, Number(m.y) || 0); Object.keys(m).forEach(function (k) { if (k !== 'type') mbwom.mobs[id][k] = m[k]; }); return id; },
-            setArrows: function (list) { S.arrows = (list || []).map(function (r) { return { x: r[0], y: r[1], vx: r[2], vy: r[3], age: 0, ghost: true }; }); },
-            arrows: function () { return S.arrows.concat(S.shots.filter(function (o) { return !o.stuck; })); },
+            setArrows: function (list) {
+                list = list || [];
+                S.arrows = list.filter(function (r) { return !r[4]; }).map(function (r) { return { x: r[0], y: r[1], vx: r[2], vy: r[3], age: 0, ghost: true }; });
+                S.fballs = list.filter(function (r) { return r[4]; }).map(function (r) { return { x: r[0], y: r[1], vx: r[2], vy: r[3], big: r[4] === 1, age: 0, ghost: true }; });   // 🔥 (las bolas de fuego del anfitrión)
+            },
+            arrows: function () { return S.arrows.concat(S.fballs.filter(function (f) { return !f.ghost; }).map(function (f) { return { x: f.x, y: f.y, vx: f.vx, vy: f.vy, fb: f.big ? 1 : 2 }; })); },                  // (lo que tira el Player va aparte: juego_tiro)
+            shot: function (d) { ghostShot(d); },
             forget: function (id) { S.tmp.delete(id); },
             heldId: function () { return selType(); },
             gm: function () { return W().gamemode; },
