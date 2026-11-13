@@ -47,9 +47,18 @@ window.nextPaint = function () {
 
 // Abre un mundo que ya viene como texto JSON (el que manda el anfitrión de un servidor),
 // igual que si se abriera su archivo: misma barra de carga, cámara en el jugador, pestaña, etc.
-window.loadWorldFromJson = function (json, filename) {
+window.loadWorldFromJson = function (json, filename, opts) {
     fileManager.file = new File([], filename || 'Multiplayer World.mbw', { type: 'text/plain' });
-    return fileManager.load({ json: json });
+    // (un mundo de servidor que vuelve a llegar —reconectar, volver a abrirlo— usa la MISMA pestaña: no se duplica)
+    const T = typeof WorldTabsManager !== 'undefined' ? WorldTabsManager : null;
+    let reuse = opts && opts.reuseTab;
+    if (T && opts && opts.fromServer) {
+        if (!reuse || !T.openWorlds.some(w => w.id === reuse && w.filename === fileManager.file.name)) {
+            const same = T.openWorlds.find(w => w.fromServer && w.filename === fileManager.file.name);
+            reuse = same ? same.id : null;
+        }
+    }
+    return fileManager.load({ json: json, reuseTab: reuse || null, fromServer: !!(opts && opts.fromServer) });
 };
 
 // Lee un archivo .mbw mostrando el avance REAL de la lectura (0 a 20 %) y luego lo carga
@@ -97,7 +106,12 @@ const fileManager = {
        const isServerTab = typeof isMultiplayer !== 'undefined' && isMultiplayer && window.mpWorldTabId && w0 && w0.id === window.mpWorldTabId;
        const isDefault = WorldTabsManager.openWorlds.length === 1 && (w0.filename === "world.mbw" || untouchedStarter) && !isServerTab;
        
-       if (isDefault) {
+       const reuseTab = event && event.reuseTab && WorldTabsManager.openWorlds.find(w => w.id === event.reuseTab);
+       if (reuseTab) {
+           if (WorldTabsManager.activeWorldId !== reuseTab.id) WorldTabsManager.switchWorld(reuseTab.id);
+           reuseTab.filename = fileManager.file.name;
+           WorldTabsManager.renderTabs();
+       } else if (isDefault) {
            WorldTabsManager.openWorlds[0].filename = fileManager.file.name;
            WorldTabsManager.openWorlds[0].isStarter = !!window.mbwStarterPending && window.mbwStarterPending === fileManager.file;
            if (window.mbwStarterPending === fileManager.file) window.mbwStarterPending = null;
@@ -105,6 +119,7 @@ const fileManager = {
        } else {
            WorldTabsManager.addWorld(fileManager.file.name, true, false);
        }
+       if (event && event.fromServer) { const at = WorldTabsManager.openWorlds.find(w => w.id === WorldTabsManager.activeWorldId); if (at) at.fromServer = true; }
    }
 
    mbwom.world = parsedWorld;

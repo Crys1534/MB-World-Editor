@@ -272,7 +272,7 @@
     let lastPop = 0;
     function pickSnd() { const n = performance.now(); if (n - lastPop < 60) return; lastPop = n; snd('pop', { vary: .45 }); }   // 🔊 el "pop" del juego
     window.mbwPlay.pickSnd = pickSnd;
-    function solidAt(x, y) { const t = fg(x, y); return t !== 'air' && bd(t, 'walkThroughBlock') != 1; }
+    function solidAt(x, y) { const t = fg(x, y); return t !== 'air' && bd(t, 'walkThroughBlockHit') != 1 && bd(t, 'halfBlock') != 1 && bd(t, 'stairBlock') != 1; }   // (los objetos tirados atraviesan hojas, troncos, plantas...)
     function dropStuck(d) { return solidAt(Math.floor(d.x), Math.floor(-d.y)); }
     function freeNear(bx, by) {                                    // el hueco libre más cercano (primero arriba, luego a los lados)
         for (let r = 1; r <= 4; r++) {
@@ -295,8 +295,8 @@
             d.vy = Math.min(migSpeed(14), d.vy + .5);
             d.vx *= .9;
             const nx = d.x + d.vx / 30, ny = d.y + d.vy / 30;
-            if (!collision(nx - .15, ny - .25, .3, 0, .1, true, false)) d.x = nx; else d.vx = 0;
-            if (collision(d.x - .15, ny, .3, 0, .1, true, false)) { d.vy = 0; } else d.y = ny;
+            if (!collision(nx - .15, ny - .25, .3, 0, .1, true, true)) d.x = nx; else d.vx = 0;
+            if (collision(d.x - .15, ny, .3, 0, .1, true, true)) { d.vy = 0; } else d.y = ny;
             if (d.age > 300 * FPS || d.y > 10) { S.drops.splice(i, 1); continue; }
             if (d.age > (d.pd != null ? d.pd : PICKUP_DELAY) && !(w.dead > 0) && w.gamemode != 3 && Math.abs(d.x - w.worldX) < 1.5 && Math.abs(d.y - (w.worldY - 1)) < 1.5) {
                 // 🎮 invitado: se lo pide al anfitrión (si dos lo tocan a la vez, se lo lleva el primero)
@@ -590,13 +590,20 @@
     function setOpt(k, v) { if (!(k in OPT_DEF)) return; OPTS[k] = v; try { localStorage.setItem(OPT_KEY, JSON.stringify(OPTS)); } catch (e) { /* nada */ } applyOpts(); }
     // 🦘 salto automático de 1 bloque: caminando contra un escalón de 1 bloque (con lugar arriba), salta solo
     function autoJumpNow(bx, by) {
-        if (!OPTS.autoJump || S.p.falling || S.p.sneaking || key2('down')) return false;   // (agachado: nunca)
+        const P = S.p;
+        // (recién caído de algo alto: se espera a estar bien parado unos pasos; si no, al aterrizar saltaba solo)
+        if (P.falling || Math.abs(W().ySpeed || 0) > .5) { P.ajGround = 0; return false; }
+        P.ajGround = (P.ajGround || 0) + 1;
+        if (!OPTS.autoJump || P.sneaking || key2('down') || P.ajGround < 4) return false;   // (agachado: nunca)
         const dir = key2('right') ? 1 : key2('left') ? -1 : 0;
         if (!dir) return false;
         const w = W(), fx = Math.floor(w.worldX + dir * .9);              // (el bloque que está a 0.9 cuadros adelante)
         if (fx === bx) return false;
         const fy = Math.floor(-w.worldY + .1);                            // (la fila de los pies: parado, el Player se hunde 1/15 en el piso)
         const solid = function (x, y) { const t = fg(x, y); return t !== 'air' && bd(t, 'walkThroughBlockHit') != 1 && bd(t, 'liquid') == null; };
+        if (solid(bx, fy)) return false;                                  // (los pies todavía metidos en el piso: no está parado arriba)
+        const t = fg(fx, fy);
+        if (bd(t, 'halfBlock') == 1 || bd(t, 'stairBlock') == 1) return false;   // (losas y escaleras: no)
         return solid(fx, fy) && !solid(fx, fy + 1) && !solid(fx, fy + 2) && !solid(bx, fy + 2);
     }
     function doPlayerLogic() {
@@ -1284,8 +1291,8 @@
             const nx = o.x + o.vx / 30, ny = o.y + o.vy / 30;
             if (dist < 6 && alive) { o.x = nx; o.y = ny; }
             else {
-                if (!collision(nx - .1, o.y - .2, .2, 0, .1, true, false)) o.x = nx; else o.vx = 0;
-                if (collision(o.x - .1, ny, .2, 0, .1, true, false)) o.vy = 0; else o.y = ny;
+                if (!collision(nx - .1, o.y - .2, .2, 0, .1, true, true)) o.x = nx; else o.vx = 0;
+                if (collision(o.x - .1, ny, .2, 0, .1, true, true)) o.vy = 0; else o.y = ny;
             }
             if (o.age > 300 * FPS || o.y > 10) { S.orbs.splice(i, 1); continue; }
             if (alive && o.age > 15 && dist < .9) {
@@ -1322,7 +1329,7 @@
             r.age++;
             r.vy += .25; r.vx *= .995;
             r.x += r.vx / 30; r.y += r.vy / 30;
-            if (r.age > 400 || collision(r.x, r.y, 0, 0, .1, true, false)) { S.arrows.splice(i, 1); continue; }
+            if (r.age > 400 || collision(r.x, r.y, 0, 0, .1, true, true)) { S.arrows.splice(i, 1); continue; }
             if (r.ghost) continue;                                     // 🎮 (invitado: la flecha es del anfitrión, solo se ve)
             const dmg = Math.max(1, Math.round(Math.hypot(r.vx, r.vy) / 4));
             const pb = mobBounds(PLAYER_ID);
@@ -1455,7 +1462,7 @@
             }
             const bx = Math.floor(o.x), by = Math.floor(-o.y), here = fg(bx, by);
             if (!o.ghost) { const ck = crystalAt(o.x, o.y); if (ck) { breakCrystal(ck); list.splice(i, 1); continue; } }   // 💎 una flecha rompe el cristal
-            if (collision(o.x, o.y, 0, 0, .1, true, false)) {
+            if (collision(o.x, o.y, 0, 0, .1, true, true)) {
                 if (o.kind === 'snowball') { splashSnow(o.x, o.y); list.splice(i, 1); continue; }
                 if (SHOT_BREAKS[o.kind] || o.ghost) { shotImpact(o, null); list.splice(i, 1); continue; }
                 o.vx = o.vy = 0; o.stuck = true; o.cd = 0;
@@ -1945,7 +1952,7 @@
                 if (b && f.x > b.l && f.x < b.r && f.y > b.t && f.y < b.b) { mh = k; break; }
             }
             if (mh) { fireballHit(f, mh); S.fballs.splice(i, 1); continue; }
-            if (collision(f.x, f.y, 0, 0, .1, true, false) || bd(fg(Math.floor(f.x), Math.floor(-f.y)), 'liquid') == 1) { if (fg(Math.floor(f.x), Math.floor(-f.y)) !== 'wr') fireballHit(f, null); S.fballs.splice(i, 1); continue; }
+            if (collision(f.x, f.y, 0, 0, .1, true, true) || bd(fg(Math.floor(f.x), Math.floor(-f.y)), 'liquid') == 1) { if (fg(Math.floor(f.x), Math.floor(-f.y)) !== 'wr') fireballHit(f, null); S.fballs.splice(i, 1); continue; }
         }
     }
     function drawFireballs(c2) {
@@ -2000,6 +2007,20 @@
         if (px == null || py < 0 || !ok.test(fg(px, py))) return;
         setBlock(px, py, null);
     }
+    // 🌱 Hierba alta (Game.mineBlock "lgr"): con tijeras o toque de seda suelta la hierba; si no, cada semilla tiene su probabilidad
+    //    (fortuna sube un poco cada una): trigo 1 de 5, remolacha 1 de 30, calabaza 1 de 70, sandía 1 de 90
+    function heldEnch() { const it = selItem(); return (it && it[3] && typeof it[3] === 'object') ? it[3] : {}; }
+    function fortuneLv() { const e = heldEnch(); for (let n = 3; n >= 1; n--) if (e['fortune' + n] != null) return n; return 0; }
+    function grassDrops(x, y, tool) {
+        const B = fortuneLv(), px = x + .5, py = -(y + .5);
+        if (tool === 'Shear' || heldEnch().silkTouch != null) { addDrop('lgr', px, py, 1, 0, {}); return; }
+        const r = (n) => Math.random() * n | 0;
+        if (r(5 + r(B + 1)) >= 4) addDrop('seed', px, py, 1, 0, {});
+        if (r(30 + 2 * r(B + 1)) >= 29) addDrop('bseed', px, py, 1, 0, {});
+        if (r(70 + 3 * r(B + 1)) >= 69) addDrop('pseed', px, py, 1, 0, {});
+        if (r(90 + 3 * r(B + 1)) >= 89) addDrop('wseed', px, py, 1, 0, {});
+    }
+    window.mbwPlay.grassDrops = grassDrops;
     function mineBlock(x, y, byCmd) {
         const w = W();
         const t = fg(x, y);
@@ -2017,6 +2038,7 @@
         const dw = bd(t, 'dropsWith');
         const tool = selType();
         if (dw && !dw[tool]) return;                               // hace falta la herramienta correcta para que suelte algo
+        if (t === 'lgr') { grassDrops(x, y, tool); return; }        // 🌱 la hierba alta suelta semillas (Game.mineBlock)
         let drop = bd(t, 'dropDifferent');
         if (drop === 'na') drop = null; else if (drop == null) drop = t;
         if (t === 'lv' || t.substr(0, 2) === 'lv') {                // hojas: a veces un brote; 🍎 las que tienen fruta sueltan su fruta
@@ -2469,7 +2491,8 @@
         if (window.MP_MOD_CMDS && window.MP_MOD_CMDS.indexOf(d[0]) >= 0 && typeof window.mpModCommand === 'function') { say('[INFO] ' + window.mpModCommand(d[0], c.split(/\s+/).slice(1).join(' '))); return; }
         // 🎮 en una partida, por defecto SOLO el anfitrión puede usar comandos (él lo puede permitir en su menú de pausa)
         if (mpGuest() && !(window.mbwMpPlay && window.mbwMpPlay.guestCmds)) { say('[INFO] ' + tr('mpplay_cmds_host', 'Only the host can use commands in this game.')); return; }
-        if (!cheatsOn()) { say('[INFO] ' + tr('play_cheats_off', 'Commands are disabled in this world. Turn on "Commands" in World Settings (the game would not run them either).')); return; }
+        // (el anfitrión de una partida siempre puede usar comandos, aunque el mundo los tenga apagados)
+        if (!cheatsOn() && !mpHost()) { say('[INFO] ' + tr('play_cheats_off', 'Commands are disabled in this world. Turn on "Commands" in World Settings (the game would not run them either).')); return; }
         const fb = gameRule('sendcommandfeedback') !== false;
         // (en una partida, lo que dice un comando también les sale a los demás, como en el juego: "[Ana: ...]")
         const info = (t) => { if (!fb) return; say('[INFO] ' + t); if (S.mp) mpSend({ tipo: 'juego_sys', autor: myNameNet(), k: 'cmd', t: String(t).slice(0, 200) }); };
@@ -4041,6 +4064,7 @@
         if (!(w.dead > 0) && w.gamemode != 3) feet(w.worldX, w.worldY);
         if (mpHost()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (r) feet(r.tx, r.ty); } }
         for (const id in mbwom.mobs) { const m = mbwom.mobs[id]; if (m && !(m.dead > 0)) feet(m.x, m.y); }
+        S.drops.forEach(function (d) { feet(d.x, d.y - .05); });     // (también los objetos tirados aprietan la placa)
         // la zona: alrededor de cada jugador
         const centers = [[Math.floor(w.worldX), Math.floor(-w.worldY)]];
         if (mpHost()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (r) centers.push([Math.floor(r.tx), Math.floor(-r.ty)]); } }
@@ -4073,7 +4097,10 @@
         const hot = new Set();
         sources.forEach(function (c) { hot.add(rsKey(c[0], c[1])); });
         power.forEach(function (v, k) { if (v > 0) hot.add(k); });
-        const near = function (x, y) { return N4.some(function (d) { return hot.has(rsKey(x + d[0], y + d[1])); }); };
+        // (palanca, antorcha, botón y placa también encienden lo que está en diagonal: radio de 1 bloque alrededor)
+        const src = new Set(); sources.forEach(function (c) { src.add(rsKey(c[0], c[1])); });
+        const N8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]];
+        const near = function (x, y) { return N4.some(function (d) { return hot.has(rsKey(x + d[0], y + d[1])); }) || N8.some(function (d) { return src.has(rsKey(x + d[0], y + d[1])); }); };
         const fed = function (x, y) {
             if (near(x, y)) return true;
             return N4.some(function (d) { const bx = x + d[0], by = y + d[1]; return rsSolid(fg(bx, by)) && !rsConsumer(fg(bx, by)) && near(bx, by); });

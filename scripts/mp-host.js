@@ -35,7 +35,7 @@
             perms: Object.assign({}, window.mpEditPerms || {}),
             levels: Object.assign({}, window.mpPermLevels || {}),
             permWorld: window.mpPermWorldKey || null,
-            official: !!window.mpOfficial, desc: window.mpRoomDesc || ''
+            slot: window.mpSlot || null, slotOwner: window.mpSlotOwner || null, server: !!window.mpServerKind, desc: window.mpRoomDesc || ''
         };
     }
     window.mpHostCfg = hostCfg;
@@ -129,7 +129,8 @@
         window.mpPermLevels = Object.assign({}, cfg.levels || {});
         window.mpPermWorldKey = cfg.permWorld || cfg.mapName || window.mpPermWorldKey;
         if (cfg.desc != null) window.mpRoomDesc = cfg.desc;
-        window.mpOfficial = !!cfg.official;                         // 💾 el servidor permanente sigue guardándose con el anfitrión nuevo
+        window.mpSlot = cfg.slot || null; window.mpSlotOwner = cfg.slotOwner || null;   // 💾 el servidor permanente sigue guardándose con el anfitrión nuevo
+        window.mpServerKind = !!cfg.server;
         window.multiplayerAccess = cfg.access || 'public';
         window.multiplayerPlayerLimit = cfg.max || 5;
         if (cfg.mapName) window.mpSelectedMapName = cfg.mapName;
@@ -149,7 +150,7 @@
                 if (typeof database !== 'undefined') {
                     window.myRoomRef = database.ref('servers/' + pid);
                     window.myRoomRef.set({ hostName: myName(), hostUid: myUid(), mapName: window.mpSelectedMapName || null, mapThumb: window.mpSelectedMapThumb || null,
-                        access: window.multiplayerAccess, currentPlayers: 1, maxPlayers: window.multiplayerPlayerLimit, desc: window.mpRoomDesc || '', official: window.mpOfficial ? true : null,
+                        access: window.multiplayerAccess, currentPlayers: 1, maxPlayers: window.multiplayerPlayerLimit, desc: window.mpRoomDesc || '', slot: window.mpSlot || null, server: window.mpServerKind ? true : null,
                         timestamp: (typeof firebase !== 'undefined' && firebase.database && firebase.database.ServerValue) ? firebase.database.ServerValue.TIMESTAMP : Date.now() });
                     window.myRoomRef.onDisconnect().remove();
                 }

@@ -405,8 +405,10 @@ window.hostMultiplayerSession = function(opts) {
     window.mpGen = Number(opts.gen) || 0;
     window.mpEditPerms = Object.assign({}, opts.perms || {});      // quién puede editar el mundo (por defecto nadie: solo ver; los "Editor" guardados de este mundo, al entrar)
     window.mpPermLevels = Object.assign({}, opts.levels || {});    // View / Editor / Builder de cada uno en esta sesión (scripts/mp-live.js)
-    // 💾 el servidor permanente de Crystal (scripts/mp-saved.js): se guarda en línea y nadie más es su anfitrión
-    window.mpOfficial = !!opts.official;
+    // 💾 servidor permanente (scripts/mp-saved.js): en qué lugar se guarda y de quién es · 🔒 servidor = mapa para jugar (scripts/server-map.js)
+    window.mpSlot = opts.slot || null;
+    window.mpSlotOwner = opts.slotOwner || null;
+    window.mpServerKind = !!opts.server;
     window.mpRoomDesc = typeof opts.desc === 'string' ? opts.desc : '';
     window.mpPermWorldKey = window.mpSelectedMapName || ((document.getElementById('filename-display') || {}).value) || 'world';
     if (typeof window.mpMarkServerTab === 'function') window.mpMarkServerTab();   // la pestaña de este mundo es la del servidor
@@ -442,7 +444,7 @@ window.hostMultiplayerSession = function(opts) {
             hostName: hostName, hostUid: myUID, 
             mapName: window.mpSelectedMapName, mapThumb: window.mpSelectedMapThumb,
             access: window.multiplayerAccess, currentPlayers: 1, maxPlayers: window.multiplayerPlayerLimit,
-            desc: window.mpRoomDesc || '', official: window.mpOfficial ? true : null,
+            desc: window.mpRoomDesc || '', slot: window.mpSlot || null, server: window.mpServerKind ? true : null,
             timestamp: firebase.database.ServerValue.TIMESTAMP
         });
         window.myRoomRef.onDisconnect().remove();
@@ -486,6 +488,7 @@ window.joinMultiplayerSession = function(directId = null, skipHostConfirm = fals
 
     // 🔒 2. Activamos el candado
     window.isConnecting = true; 
+    window.mpJoinAt = Date.now();   // (el Modo Jugar automático espera a que llegue el mapa: scripts/mp-play.js)
 
     // Limpieza de seguridad: Si ya estábamos en un server, nos desconectamos limpiamente
     // (Como jugador O como anfitrión.) La desconexión limpia también borra nuestra sala de
@@ -743,9 +746,10 @@ async function mpFinishMap(dl) {
         dl.parts = null;
         const bytes = dl.enc === 'gzip' ? await mpGunzip(all) : all;
         const json = new TextDecoder().decode(bytes);
-        await window.loadWorldFromJson(json, (dl.name || 'Multiplayer World') + '.mbw');
+        await window.loadWorldFromJson(json, (dl.name || 'Multiplayer World') + '.mbw', { fromServer: true, reuseTab: window.mpWorldTabId || null });
         if (typeof window.mpMarkServerTab === 'function') window.mpMarkServerTab();   // esta pestaña es la del servidor
         window.mpMapDownload = null;
+        window.mpMapAt = Date.now();
         dl.queue.forEach(d => { try { recibirMensajeDeRed(d); } catch (e) { /* nada */ } });
         if (typeof window.mpResetWorldWatch === 'function') window.mpResetWorldWatch();
         // (ya no sale la ventana de "mapa descargado": el mundo simplemente aparece)
@@ -1023,6 +1027,7 @@ function recibirMensajeDeRed(datos) {
 }
     if (datos.tipo === "sync_mundo") {
         mbwom.world = datos.mundo; 
+        window.mpMapAt = Date.now();
         if (typeof window.playerInvRefresh === 'function') window.playerInvRefresh();
         if (typeof mbwom.loadScene === 'function') mbwom.loadScene(1); 
         mbwom.mobs = {};

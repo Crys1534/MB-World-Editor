@@ -3846,3 +3846,50 @@ body.kb-open #mbw-play-hud .ph-chat.open .ph-chat-sug { max-height: 24vh; }
 @media (max-width: 600px) { .ss-row { flex-wrap: wrap; } .ss-thumb { width: 56px; height: 36px; } .ss-name { font-size: 20px; } }
 .ss-official { display: flex; align-items: center; gap: 8px; cursor: pointer; margin: 8px 0; padding: 8px 10px; border-radius: 6px; background: rgba(241, 196, 15, .12); border: 1px solid rgba(241, 196, 15, .45); color: #f5d76e; font-size: 18px; }
 .ss-official input { width: 18px; height: 18px; cursor: pointer; }
+
+/* 🛠 crafteo más a la izquierda: encima de la papelera (la papelera queda abajo, a la altura de las botas) */
+#inventory-modal.pinv-mb .pinv-top > #pinv-trash.pinv-trash-side { margin-left: calc(var(--s) * .15); position: relative; z-index: 2; }
+#inventory-modal.pinv-mb .pinv-top > #pinv-trash.pinv-trash-side ~ #pinv-craft-box { margin: 0 0 0 calc(var(--s) * -1); padding: 0; }
+#inventory-modal.pinv-mb .pinv-top > #pinv-trash.pinv-trash-side ~ #pinv-craft-box .pinv-craft { gap: calc(var(--s) * .18); }
+#inventory-modal.pinv-mb .pinv-top > #pinv-trash.pinv-trash-side ~ #pinv-craft-box .pinv-craft-arrow { width: calc(var(--s) * .6); }
+#inventory-modal.pinv-mb .pinv-top > #pinv-trash.pinv-trash-side ~ #pinv-craft-box .pinv-craft.pinv-craft-3 .pinv-slot.pinv-craft-out { width: var(--s); height: var(--s); }
+#inventory-modal.pinv-mb .pinv-top > #pinv-trash.pinv-trash-side ~ #pinv-craft-box .pinv-craft-extra { justify-content: flex-start; }
+#inventory-modal.pinv-mb .pinv-top > #pinv-trash.pinv-trash-side ~ #pinv-craft-box .pinv-book-btn { margin-left: calc(var(--s) * 1.2); }
+
+/* 🔒 Mapa de servidor: solo Play y Test (scripts/server-map.js) */
+body.mbw-server-map #ribbon .tab-content,
+body.mbw-server-map #ribbon .ribbon-tabs-container > .tab-btn:not(#btn-world-info),
+body.mbw-server-map #addons-dropdown-container,
+body.mbw-server-map #toolbar-sidebar,
+body.mbw-server-map #float-hotbar,
+body.mbw-server-map #float-chat-btn ~ #hotbar-container { opacity: .35; pointer-events: none; filter: grayscale(.6); }
+#sm-banner { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); z-index: 40; background: rgba(20, 24, 33, .88); color: #f5d76e; border: 1px solid rgba(241, 196, 15, .6); border-radius: 18px; padding: 6px 14px; font-size: 14px; font-weight: bold; pointer-events: auto; white-space: nowrap; box-shadow: 0 2px 8px rgba(0,0,0,.4); }
+body.mbw-playing #sm-banner { display: none !important; }
+
+/* ＋ Invitar a editar · 💡 recomendación (scripts/invite-tip.js) */
+.mp-live-zone { display: flex; align-items: center; gap: 6px; }
+.mp-invite-plus { width: 30px; height: 30px; border-radius: 50%; border: 2px dashed rgba(255,255,255,.55); background: rgba(52, 152, 219, .25); color: #fff; font-size: 20px; font-weight: bold; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; flex-shrink: 0; }
+.mp-invite-plus:hover { background: rgba(52, 152, 219, .55); border-style: solid; }
+.it-picker { position: fixed; z-index: 100050; width: 300px; max-width: calc(100vw - 16px); background: #1f2430; color: #ecf0f1; border: 1px solid #3d4556; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.55); padding: 10px; font-family: inherit; }
+.it-head { font-weight: bold; font-size: 15px; margin-bottom: 8px; }
+.it-search { width: 100%; box-sizing: border-box; padding: 7px 9px; border-radius: 6px; border: 1px solid #3d4556; background: #141821; color: #fff; font-size: 14px; margin-bottom: 8px; }
+.it-list { max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.it-row { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 6px; background: rgba(255,255,255,.04); }
+.it-av { width: 28px; height: 28px; border-radius: 50%; background-size: cover; background-position: center; flex-shrink: 0; image-rendering: pixelated; }
+.it-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.it-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #2ecc71; margin-left: 4px; vertical-align: middle; }
+.it-inv { background: #9b59b6; color: #fff; border: none; border-radius: 5px; padding: 5px 10px; cursor: pointer; font-size: 13px; }
+.it-inv:hover { background: #8e44ad; }
+.it-state { font-size: 12px; color: #95a5a6; }
+.it-sent { color: #2ecc71; }
+.it-empty, .it-note { color: #95a5a6; font-size: 12px; margin: 6px 2px 0; }
+.it-spot { position: fixed; inset: 0; z-index: 100040; }
+.it-hole { position: fixed; border-radius: 12px; box-shadow: 0 0 0 200vmax rgba(0,0,0,.74); border: 2px solid #f1c40f; cursor: pointer; animation: itPulse 1.6s ease-in-out infinite; }
+@keyframes itPulse { 0%, 100% { border-color: #f1c40f; } 50% { border-color: #fff; } }
+.it-bubble { position: fixed; background: #fffbe8; color: #2c3e50; border-radius: 10px; padding: 12px 14px; box-shadow: 0 8px 24px rgba(0,0,0,.5); font-size: 14px; }
+.it-bubble b { display: block; font-size: 15px; margin-bottom: 4px; }
+.it-bubble p { margin: 0 0 10px; line-height: 1.35; }
+.it-bub-btns { display: flex; gap: 8px; justify-content: flex-end; }
+.it-bub-btns button { border: none; border-radius: 6px; padding: 7px 12px; cursor: pointer; font-weight: bold; font-size: 13px; }
+.it-bub-inv { background: #9b59b6; color: #fff; }
+.it-bub-ok { background: #dfe6e9; color: #2c3e50; }

@@ -188,6 +188,7 @@
             }, 100);
         });
     }
+    window.mbwEnsureEditRoom = ensureRoom;   // (lo usa el botón ＋ de invitar: scripts/invite-tip.js)
     window.acceptJoinRequest = function (fromUid) {
         const ref = myRef(fromUid);
         return ensureRoom().then((roomId) => {

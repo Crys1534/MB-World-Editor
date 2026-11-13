@@ -129,7 +129,7 @@
             const n = (window.roomPlayers || []).length || 1, max = Number(window.multiplayerPlayerLimit) || 2;
             h += '<div class="sw-live-head"><span class="sw-dot' + (hosting() ? '' : ' sw-dot-wait') + '"></span>' + esc(hosting() ? tr('sw_running', 'Server running') : tr('sw_starting', 'Starting...')) + '</div>';
             h += '<div class="sw-live-stats" id="sw-live-stats">' + esc(tr('sw_players_now', 'Players: {n}/{max}', { n: n, max: max })) + '</div>';
-            h += '<div id="sw-official"></div>';   // 💾 (solo la dueña del editor: scripts/mp-saved.js)
+            h += '<div id="sw-official"></div>';   // 💾 hacerlo permanente (scripts/mp-saved.js)
             h += optionsHTML();
             h += '<div class="sw-label">' + esc(tr('sw_in_server', 'Players in your world')) + '</div>';
             h += '<div id="sw-perm-list" class="sw-invite-list sw-perm-list">' + permRows() + '</div>';
@@ -286,8 +286,13 @@
             window.mpSelectedMapThumb = await smallThumb(it.kind === 'open' && it.active ? $('canvas') : (it.thumb || null));
             if (!(Number(window.multiplayerPlayerLimit) >= 2)) window.multiplayerPlayerLimit = 2;
             if (ACCESS.indexOf(window.multiplayerAccess) < 0) window.multiplayerAccess = 'public';
-            window.hostMultiplayerSession();
+            // 🔒 un servidor es para JUGAR: el mapa queda solo con Play y Test para siempre (se avisa antes) — scripts/server-map.js
+            const SM = window.mbwServerMap;
+            if (SM && !SM.confirmLock()) return false;
+            if (SM) SM.lock();
+            window.hostMultiplayerSession({ server: true });
             setMpView('create-setup');
+            if (SM) SM.startPlaying();                                        // (el anfitrión entra solo al Modo Jugar)
             return true;
         } finally {
             SW.starting = false;

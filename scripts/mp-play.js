@@ -329,7 +329,10 @@
         if (d.para && d.para !== myPeer()) return;                        // (un mensaje para otro jugador)
         if (t === 'juego_inicio' || t === 'juego_activo') {
             if (d.peerId === myPeer() || (M.on && M.role === 'host')) return;
-            const isNew = !M.session || t === 'juego_inicio';
+            // (una conexión nueva con el anfitrión —volví a entrar al servidor— cuenta como partida nueva: entro solo otra vez)
+            const conn = typeof miConexionAlHost !== 'undefined' ? miConexionAlHost : null;
+            const newConn = !!conn && conn !== M.lastConn; if (newConn) M.lastConn = conn;
+            const isNew = !M.session || t === 'juego_inicio' || newConn;
             M.leaderPeer = d.peerId || M.leaderPeer;
             const newHost = M.session && M.hostName && d.autor && d.autor !== M.hostName;
             M.session = true; M.hostName = d.autor || 'Host'; M.lastAlive = Date.now(); M.guestCmds = !!d.cmds;
@@ -622,6 +625,7 @@
         if (M.on || amHost() || !inMp()) { M.autoJoin = false; return; }   // (el anfitrión que salió de jugar: le queda el botón Join)
         if (!M.session || Date.now() - M.lastAlive > ALIVE_MS * 3) return;
         if (!onServerTab() || window.mpMapDownload || typeof mbwom === 'undefined' || !mbwom.scene) return;   // (espera a que termine de bajar el mapa / a volver a la pestaña del servidor)
+        if (window.mpJoinAt && !(window.mpMapAt > window.mpJoinAt) && Date.now() - window.mpJoinAt < 30000) return;   // (recién entré: todavía no llega el mapa)
         M.autoJoin = false;
         hideBanner();
         if (typeof window.mbwStartPlay === 'function') window.mbwStartPlay();

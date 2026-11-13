@@ -363,6 +363,9 @@
   }
  }
 
+ let shiftSweep = null;
+ window.addEventListener('pointerup', () => { shiftSweep = null; }, true);
+ window.addEventListener('pointercancel', () => { shiftSweep = null; }, true);
  function slotEl(addr, ghostPart) {
   const it = getSlot(addr);
   const d = document.createElement('div');
@@ -371,6 +374,16 @@
   d.onclick = (e) => { if (dragEat(e)) return; onSlot(addr, e, false); };
   d.oncontextmenu = (e) => { e.preventDefault(); ctxFired = true; if (dragEat(e)) return; onSlot(addr, e, true); };
   d.addEventListener('pointerdown', (e) => dragStart(addr, d, e));
+  // ⇧ Shift + clic izquierdo sostenido: al pasar por otras casillas también se mueven de golpe (vaciar un cofre rápido)
+  d.addEventListener('pointerdown', (e) => { if (e.shiftKey && e.button === 0 && !heldItem) { shiftSweep = { done: new Set([addr.k + addr.i]), origin: addr, originMoved: false }; } });
+  d.addEventListener('pointerenter', (e) => {
+   if (!shiftSweep || !(e.buttons & 1) || !e.shiftKey || heldItem) return;
+   const k = addr.k + addr.i; if (shiftSweep.done.has(k)) return;
+   shiftSweep.done.add(k);
+   const mv = (a) => { if (getSlot(a) && a.k !== 'o' && a.k !== 'w' && a.k !== 'a') onSlot(a, { shiftKey: true, currentTarget: d, target: d }, false); };
+   if (!shiftSweep.originMoved) { shiftSweep.originMoved = true; mv(shiftSweep.origin); }   // (la primera casilla: su clic ya no llega porque se soltó en otra)
+   mv(addr);
+  });
   if (it && it.missing) d.classList.add('pinv-missing');             // 📖 (recetario) falta este material
   if (it) {
    const c = document.createElement('canvas');
