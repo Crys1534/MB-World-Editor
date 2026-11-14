@@ -193,6 +193,8 @@
             box.appendChild(buildRow(k, m, canGroup(prev, m), k === lastMine));
             prev = m;
         });
+        // 👥 en un grupo: las fotitos de quién vio hasta dónde
+        if (isGroupId(mc.uid) && window.mbwGroupSeenPaint) window.mbwGroupSeenPaint(box, keys, function (k) { return box.querySelector('[data-key="' + k + '"]'); }, mc.reads, null);
         if (opts.anchorOlder) box.scrollTop = box.scrollHeight - prevH + prevTop;
         else if (stick) toBottom();
         else box.scrollTop = prevTop;
@@ -242,7 +244,7 @@
             const list = dmReactionList(m);
             if (list.length) row.appendChild(buildReactions(k, list));
         }
-        if (isLastMine) {
+        if (isLastMine && !isGroupId(mc.uid)) {          // (en un grupo: las fotitos de quién lo vio)
             const read = m.status === 'read';
             // las palomitas se dibujan aquí mismo (juntas, en una línea con el texto); el texto "✓✓" lo cambiaba
             // el sistema de íconos por dos dibujos que la ventanita ponía uno ENCIMA del otro
@@ -412,6 +414,8 @@
     function detach() {
         mc.subs.forEach(function (s) { try { s[0].off(s[1], s[2]); } catch (e) { /* ya no estaba */ } });
         mc.subs = [];
+        if (mc.readsOff) { mc.readsOff(); mc.readsOff = null; }
+        mc.reads = null;
         mc.token++;
     }
     function attach() {
@@ -432,6 +436,11 @@
             mc.msgs.set(snap.key, v);
             scheduleRender();
         });
+        if (isGroupId(mc.uid) && window.mbwGroupReadsWatch) {   // 👀 quién vio qué
+            const off = window.mbwGroupReadsWatch(mc.uid, function (r) { if (token !== mc.token) return; mc.reads = r; scheduleRender(); });
+            mc.readsOff = off;
+            if (window.mbwGroupPfpOf) window.mbwGroupPfpOf(mc.uid).then(function (p) { if (token === mc.token && mc.pfp) { mc.face = p; mc.pfp.src = safePfp(p); } });
+        }
         if (isGroupId(mc.uid)) {                        // 👥 grupo: cuántos miembros (sin "escribiendo" ni "activo")
             listen(d.ref(window.mbwGroupRef(mc.uid) + '/members'), 'value', function (snap) { if (token !== mc.token) return; const n = Object.keys(snap.val() || {}).length; if (mc.status) { mc.status.classList.remove('on'); mc.status.textContent = '👥 ' + n; } });
         } else {
@@ -489,6 +498,7 @@
             }
         });
         if (n) d.ref('private_chats/' + mc.chatId).update(upd).catch(function () { /* sin conexión */ });
+        if (isGroupId(mc.uid) && window.mbwGroupReadMark) { const ks = sortedKeys(); if (ks.length) window.mbwGroupReadMark(mc.chatId, ks[ks.length - 1]); }   // 👀
         const ref = d.ref('user_chats/' + me + '/' + mc.uid);
         ref.once('value').then(function (s) { if (s.exists() && s.val() && s.val().unreadCount) ref.update({ unreadCount: 0 }); }).catch(function () { /* sin conexión */ });
     }
@@ -545,7 +555,9 @@
             const muted = typeof window.isChatMuted === 'function' && window.isChatMuted(uid);
             window.dmMenuItem(menu, muted ? dmt('dm_unmute', 'Turn notifications on') : dmt('dm_mute', 'Mute chat'), ICON(muted ? 'bell' : 'bellOff'), function () { if (window.toggleChatMute) window.toggleChatMute(uid); paintMuted(); });
             const arch = typeof window.isChatArchived === 'function' && window.isChatArchived(uid);
+            if (isGroupId(uid) && window.mbwGroupPickPfp) window.dmMenuItem(menu, '🖼 ' + dmt('grp_change_pfp', 'Change group picture'), null, function () { window.mbwGroupPickPfp(uid); });
             window.dmMenuItem(menu, arch ? dmt('dm_unarchive', 'Unarchive chat') : dmt('dm_archive', 'Archive chat'), ICON(arch ? 'unarchive' : 'archive'), function () { if (window.toggleChatArchive) window.toggleChatArchive(uid); });
+            if (isGroupId(uid)) return;                     // (un grupo: sin amigos / bloquear)
             menu.appendChild(el('div', 'dc-menu-sep'));
             let friends = [];
             try { if (typeof misAmigosConfirmados !== 'undefined' && Array.isArray(misAmigosConfirmados)) friends = misAmigosConfirmados; } catch (e) { friends = []; }
@@ -557,6 +569,8 @@
 
     // ------------------------------------------------------------------ abrir / minimizar / cerrar
     function isGroupId(id) { return !!(window.mbwIsGroup && window.mbwIsGroup(id)); }
+    // 🖼 cambió la foto de un grupo: se ve al momento en la mini ventana
+    window.addEventListener('mbw-group-pfp', function (e) { const d = e.detail || {}; if (mc.uid === d.gid && mc.pfp) { mc.face = d.pfp; mc.pfp.src = safePfp(d.pfp); } });
     function open(uid, name, pfp) {
         const me = myUid();
         if (!uid || !me || !db()) return false;
@@ -589,7 +603,8 @@
         paintVisibility();
         requestAnimationFrame(autoSize);
         if (window.mbwChatHead) { window.mbwChatHead.pin(uid, mc.who, inf.pfp); window.mbwChatHead.setActive(uid); }
-        setTimeout(function () { toBottom(); try { mc.input.focus(); } catch (e) { /* sin foco */ } }, 0);
+        // (📱 en celular/tablet no: el teclado taparía el chat. Se abre al tocar la caja de escribir)
+        setTimeout(function () { toBottom(); if (!document.body.classList.contains('is-touch')) { try { mc.input.focus(); } catch (e) { /* sin foco */ } } }, 0);
         scheduleRead();
         return true;
     }

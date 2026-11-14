@@ -2,7 +2,8 @@
 // 🎮 JUGAR EN MULTIJUGADOR (como un mundo LAN de Minecraft) — Etapa 1
 // =====================================================================
 // Cada quien juega en su propia computadora o celular, con SU Player (su vida, su comida, su inventario), en el mismo mundo.
-//   • El anfitrión aprieta ▶ Play: empieza la partida. A los demás de la sala les sale un aviso con el botón "▶ Join".
+//   • Cualquiera aprieta ▶ Play (el anfitrión u otro jugador, si nadie está jugando): empieza la partida. A los demás les sale
+//     un aviso con el botón "▶ Join" (o entran solos). Quien la empieza la lleva (mobs, objetos del suelo...).
 //   • Cada jugador ve a los otros moverse (el mismo dibujo del Player del juego, con su nombre arriba).
 //   • Lo que uno rompe o pone (y lo que cambia en un cofre, una puerta, el agua que corre...) les llega a los demás.
 //   • Quien entra tarde recibe todo lo que ya se cambió en la partida.
@@ -92,13 +93,18 @@
         if (!onServerTab()) return 'solo';
         if (amHost()) return 'mp';
         if (M.session && Date.now() - M.lastAlive < ALIVE_MS * 3) return 'mp';
-        alert(tr('mpplay_wait_host', 'Only the host can start a game. When the host presses ▶ Play, you can join.'));
-        return false;
+        // ▶ nadie está jugando: cualquiera puede empezar la partida (no hay que esperar al anfitrión). Quien empieza la lleva
+        //   (mobs, objetos del suelo...) y los demás, también el anfitrión, entran con el aviso "▶ Join".
+        M.startLead = true;
+        return 'mp';
     };
+    // el peerId del anfitrión de la SALA (no siempre es el que lleva la partida)
+    M.roomHostPeer = function () { if (amHost()) return myPeer(); const c = g('miConexionAlHost'); return c && c.peer ? String(c.peer) : ''; };
     // ¿la partida ya la lleva otro? (el anfitrión salió de jugar y la partida siguió con otro jugador al mando)
     function otherLeads() { return !!(M.session && M.leaderPeer && M.leaderPeer !== myPeer() && Date.now() - M.lastAlive < ALIVE_MS * 3); }
     M.afterStart = function () {
-        M.on = true; M.role = (amHost() && !otherLeads()) ? 'host' : 'guest'; M.conn = g('miConexionAlHost');
+        M.on = true; M.role = ((amHost() || M.startLead) && !otherLeads()) ? 'host' : 'guest'; M.conn = g('miConexionAlHost');
+        M.startLead = false;
         M.roomHostAtStart = amHost();
         M.dirty = new Set(); M.known = new Map(); M.remotes = {}; M.queue = [];
         M.mobSig = new Map(); M.mobSent = new Set(); M.mobFullAt = 0; M.mobT = new Map();
@@ -207,7 +213,11 @@
     function allowCmds() { try { return !!(mbwom.world && mbwom.world.mbweAllowCmds); } catch (e) { return false; } }
     M.allowCmds = allowCmds;
     M.guestCmds = false;
-    M.setAllowCmds = function (on) { if (!mbwom.world) return; mbwom.world.mbweAllowCmds = !!on; if (M.on && M.role === 'host') send({ tipo: 'juego_activo', autor: myName(), peerId: myPeer(), cmds: !!on }); };
+    M.setAllowCmds = function (on) {
+        if (!mbwom.world) return; mbwom.world.mbweAllowCmds = !!on;
+        if (M.on && M.role === 'host') send({ tipo: 'juego_activo', autor: myName(), peerId: myPeer(), cmds: !!on });
+        else if (amHost()) send({ tipo: 'juego_permisos', peerId: myPeer(), cmds: !!on });   // (la partida la lleva otro: se lo digo)
+    };
     // 💾 los datos de MI Player en este mundo (invitado): posición, dimensión, inventario, armadura, vida, comida, experiencia...
     function myData() {
         const w = mbwom.world || {};
@@ -348,6 +358,11 @@
             M.session = false; M.autoJoin = false; hideBanner();
             M.leaderPeer = null;
             if (M.on && M.role === 'guest') stopGame(d.test ? tr('mpplay_ended_test', 'The host ended the test. Nothing was saved: the world is back to how it was.') : tr('mpplay_ended2', 'The host ended the game. Everything that happened was saved.'), !d.test);
+            return;
+        }
+        // 🏠 el anfitrión de la sala cambió "los invitados pueden usar comandos" mientras la partida la llevo yo
+        if (t === 'juego_permisos') {
+            if (M.on && M.role === 'host' && d.peerId && d.peerId === M.roomHostPeer()) { try { mbwom.world.mbweAllowCmds = !!d.cmds; } catch (e) { /* nada */ } send({ tipo: 'juego_activo', autor: myName(), peerId: myPeer(), cmds: !!d.cmds, tim: curTim() }); }
             return;
         }
         // 👑 el que llevaba la partida salió y me la pasó (o se la pasó a otro)

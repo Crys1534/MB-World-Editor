@@ -3934,3 +3934,11 @@ body.mbw-playing #sm-banner { display: none !important; }
 .nt-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
 .nt-btns button { background: #34495e; color: #fff; border: none; border-radius: 6px; padding: 7px 12px; cursor: pointer; font-size: 13px; }
 .nt-btns button:disabled { opacity: .5; cursor: default; }
+
+/* 👀 Visto en grupos: fotitos de quién vio hasta ese mensaje (scripts/chat-groups.js → mbwGroupSeenPaint) */
+.dc-seen-by { display: flex; justify-content: flex-end; align-items: center; gap: 3px; margin-top: 4px; flex-wrap: wrap; }
+.dc-seen-av { width: 16px; height: 16px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 1.5px var(--dc-bg, #313338); background: #555; }
+.dc-seen-more { font-size: 11px; opacity: .75; margin-left: 2px; }
+#full-dm-messages > .dc-seen-by { margin: -2px 16px 6px 0; }
+.mc-row .dc-seen-by { align-self: stretch; width: 100%; margin: 2px 2px 0 0; }
+.mc-sys .dc-seen-by { justify-content: center; margin-top: 2px; }

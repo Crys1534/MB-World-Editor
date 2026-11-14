@@ -565,7 +565,11 @@ function dmUpdateSeen() {
         const e = dmState.msgs[i];
         if (e.msg.sender === myUID && !e.msg.isDeleted) { last = e; break; }
     }
-    if (!last || dmIsGroupChat()) return;               // (en un grupo no hay "visto")
+    if (dmIsGroupChat()) {                               // 👥 en un grupo: las fotitos de quién vio hasta dónde
+        if (window.mbwGroupSeenPaint) window.mbwGroupSeenPaint(box, dmState.msgs.map(e => e.key), k => dmState.rows.get(k), dmState.reads, () => 'after');
+        return;
+    }
+    if (!last) return;
     const row = dmState.rows.get(last.key);
     if (!row || !row.isConnected) return;
     const read = last.msg.status === 'read';
@@ -635,6 +639,7 @@ window.dmMarkRead = function(forceUnreadReset) {
         }
     });
     if (n > 0) database.ref('private_chats/' + dmState.chatId).update(updates).catch(() => {});
+    if (dmIsGroupChat() && dmState.msgs.length && window.mbwGroupReadMark) window.mbwGroupReadMark(dmState.chatId, dmState.msgs[dmState.msgs.length - 1].key);   // 👀
     if (n > 0 || forceUnreadReset) {
         // El contador de la lista solo se toca si el registro ya existe (así no se crean registros vacíos)
         const ref = database.ref('user_chats/' + myUID + '/' + currentChatPartner.uid);
@@ -775,6 +780,8 @@ window.closeDmListeners = function() {
     dmState.typingRef = dmState.typingCb = null;
     if (dmState.statusRef && dmState.statusCb) dmState.statusRef.off('value', dmState.statusCb);
     dmState.statusRef = dmState.statusCb = null;
+    if (dmState.readsOff) { dmState.readsOff(); dmState.readsOff = null; }
+    dmState.reads = null;
     dmStopTyping();
     dmState.loadingOlder = false;
     dmState.newWhileAway = 0;
@@ -1134,6 +1141,7 @@ window.showChatHeaderMenu = function(anchor) {
     const r = anchor.getBoundingClientRect();
     dmOpenMenu(r.right - 200, r.bottom + 6, (menu) => {
         if (window.mbwShowPinned) dmMenuItem(menu, '📌 ' + dmT('dm_pinned', 'Pinned messages'), null, () => window.mbwShowPinned(currentChatId, anchor, (k) => dmJumpTo(k)));
+        if (window.mbwIsGroup && window.mbwIsGroup(partner.uid) && window.mbwGroupPickPfp) dmMenuItem(menu, '🖼 ' + dmT('grp_change_pfp', 'Change group picture'), null, () => window.mbwGroupPickPfp(partner.uid));
         const muted = window.isChatMuted(partner.uid);
         dmMenuItem(menu, muted ? dmT('dm_unmute', 'Activar notificaciones') : dmT('dm_mute', 'Silenciar chat'), muted ? DM_ICONS.bell : DM_ICONS.bellOff, () => window.toggleChatMute(partner.uid));
         const archived = window.isChatArchived(partner.uid);
@@ -1504,7 +1512,7 @@ window.renderChatList = function(container) {
                 .filter(uid => !window.isBlocked(uid))
                 .map(uid => {
                     const rec = chatEntries[uid] || {};
-                    if (window.mbwIsGroup && window.mbwIsGroup(uid)) return { uid, ...rec, name: String(rec.name || dmT('grp_world', 'World group')), pfp: window.mbwGroupPfp, isOnline: false, isFriend: false, isGroup: true };
+                    if (window.mbwIsGroup && window.mbwIsGroup(uid)) return { uid, ...rec, name: String(rec.name || dmT('grp_world', 'World group')), pfp: (window.mbwGroupPfpOk && window.mbwGroupPfpOk(rec.pfp)) ? rec.pfp : window.mbwGroupPfp, isOnline: false, isFriend: false, isGroup: true };
                     const info = window.resolveChatInfo(uid, rec, friends[uid]);
                     return { uid, ...rec, name: info.name, pfp: info.pfp, isOnline: info.online, isFriend: (uid in friends) };
                 })
@@ -1614,6 +1622,9 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp) {
     // Estado de la otra persona (activo ahora / hace X) · en un grupo: cuántos miembros tiene
     { const dot = $dm('chat-status-dot'); if (dot) { dot.style.display = isGroup ? 'none' : ''; dot.classList.remove('is-online'); } }
     if (isGroup) {
+        // 👀 quién vio qué (las fotitos debajo de los mensajes) y 🖼 la foto del grupo
+        if (window.mbwGroupReadsWatch) dmState.readsOff = window.mbwGroupReadsWatch(otherUid, r => { if (token !== dmState.token) return; dmState.reads = r; dmUpdateSeen(); });
+        if (window.mbwGroupPfpOf) window.mbwGroupPfpOf(otherUid).then(p => { if (token !== dmState.token || !currentChatPartner) return; currentChatPartner.pfp = p; if (headerPfp) headerPfp.src = p; });
         dmState.statusRef = database.ref(window.mbwGroupRef(otherUid) + '/members');
         dmState.statusCb = dmState.statusRef.on('value', snap => {
             const n = Object.keys(snap.val() || {}).length, t = $dm('chat-header-status-text');
@@ -1649,7 +1660,7 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp) {
     const list = $dm('full-chat-list-container');
     if (list) window.renderChatList(list);
 
-    if (input) input.focus();
+    if (input && !document.body.classList.contains('is-touch')) input.focus();   // (📱 en celular no se abre el teclado solo)
 };
 
 // Preparar la caja de escribir en cuanto exista en la página
@@ -1853,3 +1864,20 @@ window.mbwTicksSVG = function (double) {
         (double ? '<path d="M8.2 8 9.8 9.6 16.2 2.6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>' : '') +
         '</svg>';
 };
+
+// 🖼 cambió la foto de un grupo: se ve al momento en la cabecera y en la lista
+window.addEventListener('mbw-group-pfp', (e) => {
+    const d = e.detail || {};
+    if (currentChatPartner && currentChatPartner.uid === d.gid) {
+        currentChatPartner.pfp = d.pfp;
+        const h = $dm('full-chat-header-pfp'); if (h) h.src = d.pfp;
+    }
+    if (Array.isArray(dmChatCache)) dmChatCache.forEach(c => { if (c.uid === d.gid) c.pfp = d.pfp; });
+});
+// tocar la foto de la cabecera de un grupo = cambiarla
+document.addEventListener('click', (e) => {
+    const t = e.target;
+    if (!t || t.id !== 'full-chat-header-pfp' || !currentChatPartner || !(window.mbwIsGroup && window.mbwIsGroup(currentChatPartner.uid))) return;
+    e.stopPropagation();
+    if (window.mbwGroupPickPfp) window.mbwGroupPickPfp(currentChatPartner.uid);
+}, true);

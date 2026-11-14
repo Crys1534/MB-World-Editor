@@ -20,13 +20,14 @@
     const isEmpty = (it) => !Array.isArray(it) || !it[0] || it[0] === 'air' || !(Number(it[1]) > 0);
     const V = { open: false, uid: null, peer: null, name: '', inv: null, armors: null, sel: null, el: null, waiting: false };
 
-    function isLeader() { const m = M(); return !!(m && m.on && m.role === 'host'); }
+    // (el anfitrión de la sala, aunque otro jugador haya empezado la partida, o el que lleva la partida)
+    function isLeader() { const m = M(); return !!(m && m.on && (m.role === 'host' || (typeof isHost !== 'undefined' && isHost))); }
     const myUid = () => { try { return localStorage.getItem('mbw_uid') || ''; } catch (e) { return ''; } };
     function admin() { try { return !!(window.mbwSavedServers && window.mbwSavedServers.isAdmin && window.mbwSavedServers.isAdmin()); } catch (e) { return false; } }
     function adminUid(u) { try { return !!(window.mbwSavedServers && window.mbwSavedServers.isAdminUid && window.mbwSavedServers.isAdminUid(u)); } catch (e) { return false; } }
     function canUse() { const m = M(); return isLeader() || !!(m && m.on && admin()); }
     // (¿me puede pedir/cambiar el inventario? el que lleva la partida o Crystal)
-    function trusted(d) { const m = M(); return !!(d.peerId && ((m.role === 'guest' && d.peerId === m.leaderPeer) || adminUid(d.uid))); }
+    function trusted(d) { const m = M(); return !!(d.peerId && ((m.role === 'guest' && d.peerId === m.leaderPeer) || (m.roomHostPeer && d.peerId === m.roomHostPeer()) || adminUid(d.uid))); }
     function myInv() { try { return mbwom.world.inventoryList; } catch (e) { return null; } }
     function mineChanged() {
         if (window.mbwPlay && window.mbwPlay.hudDirty) window.mbwPlay.hudDirty();

@@ -14,6 +14,10 @@
 //   "Mensajes fijados" muestra la lista; tocar uno lo busca en la conversación.
 // · Hilos: desde un mensaje, "Crear hilo" (con nombre). Los mensajes del hilo van en private_chats/{chat}__t__{mensaje};
 //   el mensaje de origen muestra "🧵 nombre · N mensajes" y al tocarlo se abre el hilo en un panel al lado.
+// · 🖼 Foto del grupo: cualquier miembro la cambia (menú ⋮ de la cabecera, o tocando la foto). Va en info.pfp (JPEG chiquito,
+//   como la foto de perfil) y en la fila de la lista de cada miembro.
+// · 👀 Visto en grupos: cada miembro guarda hasta qué mensaje leyó (info.reads/{uid} = { k, t, n, p }). Debajo de ese mensaje
+//   sale su fotito (como en Messenger): así se ve quién vio cada mensaje.
 // Todo lo que escribe la gente se muestra como TEXTO (textContent).
 // =====================================================================
 (function () {
@@ -28,6 +32,8 @@
     const INC = function (n) { try { return firebase.database.ServerValue.increment(n); } catch (e) { return n; } };
     const el = function (tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
+    const okPfp = function (p) { return typeof p === 'string' && /^(assets\/|data:image\/(jpeg|png|webp);base64,|https:\/\/)/.test(p) && p.length < 120000; };
+    window.mbwGroupPfpOk = okPfp;
     window.mbwIsGroup = function (id) { return /^g_[A-Za-z0-9_-]{4,80}$/.test(String(id || '')); };
     window.mbwGroupPfp = GROUP_PFP;
 
@@ -46,11 +52,11 @@
     window.mbwGroupInfo = groupInfo;
 
     // la fila del grupo en la lista de chats de cada miembro (sube los "sin leer" de los demás)
-    function touchLists(gid, name, last, skipMe) {
+    function touchLists(gid, name, last, skipMe, pfp) {
         const d = db(), uid = me(); if (!d) return Promise.resolve();
         return members(gid).then(function (m) {
             Object.keys(m).forEach(function (u) {
-                const rec = { isGroup: true, name: String(name || 'Group'), pfp: GROUP_PFP, lastMsg: String(last || '').slice(0, 120), timestamp: TS() };
+                const rec = { isGroup: true, name: String(name || 'Group'), pfp: okPfp(pfp) ? pfp : GROUP_PFP, lastMsg: String(last || '').slice(0, 120), timestamp: TS() };
                 rec.unreadCount = (u === uid && skipMe !== false) ? 0 : INC(1);
                 d.ref('user_chats/' + u + '/' + gid).update(rec).catch(function () { /* nada */ });
             });
@@ -63,7 +69,7 @@
         const msg = { sender: uid, senderName: myName(), senderPfp: myPfp(), text: String(text), timestamp: TS(), status: 'sent' };
         if (extra && extra.replyTo) msg.replyTo = extra.replyTo;
         d.ref('private_chats/' + gid).push(msg);
-        groupInfo(gid).then(function (g) { touchLists(gid, g && g.name, myName() + ': ' + text); });
+        groupInfo(gid).then(function (g) { touchLists(gid, g && g.name, myName() + ': ' + text, undefined, g && g.pfp); });
         return true;
     };
     // 🤖 un mensaje del sistema en el grupo (kind: 'created' | 'joined' | 'left' | 'last')
@@ -72,7 +78,7 @@
         const msg = { sender: 'system', senderName: 'System', system: true, kind: kind, text: String(text || ''), timestamp: TS(), status: 'sent' };
         if (data) msg.data = data;
         d.ref('private_chats/' + gid).push(msg);
-        groupInfo(gid).then(function (g) { touchLists(gid, g && g.name, text, false); });
+        groupInfo(gid).then(function (g) { touchLists(gid, g && g.name, text, false, g && g.pfp); });
     }
     window.mbwGroupSystem = systemMsg;
     // el texto de un mensaje del sistema, en el idioma de quien lo lee
@@ -83,6 +89,7 @@
             case 'created': return '📅 ' + T('grp_created', 'Group of the world "{world}" created on {date}', { world: dd.world || '?', date: when(msg.timestamp) });
             case 'joined': return '→ ' + T('grp_joined', '{name} joined the world', { name: dd.name || '?' });
             case 'left': return '← ' + T('grp_left', '{name} disconnected from the world', { name: dd.name || '?' });
+            case 'pfp': return '🖼 ' + T('grp_pfp_changed', '{name} changed the group picture', { name: dd.name || '?' });
             case 'last': return '🔚 ' + T('grp_last', '{name} was the last one to disconnect: they have the most recent version of the world', { name: dd.name || '?' });
             default: return String(msg && msg.text || '');
         }
@@ -176,7 +183,7 @@
     function pinBubble(gid) {
         if (!window.mbwChatHead || !gid) return;
         pinnedGid = gid;
-        groupInfo(gid).then(function (g) { window.mbwChatHead.pin(gid, (g && g.name) || T('grp_world', 'World group'), GROUP_PFP, true); });
+        groupInfo(gid).then(function (g) { window.mbwChatHead.pin(gid, (g && g.name) || T('grp_world', 'World group'), okPfp(g && g.pfp) ? g.pfp : GROUP_PFP, true); });
     }
     function unpinBubble() { if (pinnedGid && window.mbwChatHead) window.mbwChatHead.unpin(pinnedGid, true); pinnedGid = null; }
     window.mbwWorldGroupBubble = pinBubble;
@@ -219,6 +226,106 @@
                 row.addEventListener('click', function () { box.remove(); if (typeof onPick === 'function') onPick(it.key); });
                 list.appendChild(row);
             });
+        });
+    };
+
+    // ------------------------------------------------------------------ 🖼 foto del grupo
+    // (la imagen se recorta cuadrada y se hace chiquita: 156×156 JPEG, igual que la foto de perfil)
+    function shrink(file) {
+        return new Promise(function (ok, bad) {
+            const rd = new FileReader();
+            rd.onerror = bad;
+            rd.onload = function (e) {
+                const img = new Image();
+                img.onerror = bad;
+                img.onload = function () {
+                    const S = 156, c = document.createElement('canvas'); c.width = S; c.height = S;
+                    const side = Math.min(img.width, img.height), ox = (img.width - side) / 2, oy = (img.height - side) / 2;
+                    const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(img, ox, oy, side, side, 0, 0, S, S);
+                    ok(c.toDataURL('image/jpeg', 0.75));
+                };
+                img.src = e.target.result;
+            };
+            rd.readAsDataURL(file);
+        });
+    }
+    window.mbwGroupSetPfp = function (gid, dataUrl) {
+        const d = db(); if (!d || !window.mbwIsGroup(gid) || !okPfp(dataUrl)) return Promise.resolve(false);
+        return d.ref(window.mbwGroupRef(gid) + '/pfp').set(dataUrl).then(function () {
+            return members(gid).then(function (m) {
+                Object.keys(m).forEach(function (u) { d.ref('user_chats/' + u + '/' + gid + '/pfp').set(dataUrl).catch(function () { /* nada */ }); });
+                systemMsg(gid, 'pfp', { name: myName() }, myName() + ' changed the group picture');
+                if (pinnedGid === gid && window.mbwChatHead) groupInfo(gid).then(function (g) { window.mbwChatHead.pin(gid, (g && g.name) || T('grp_world', 'World group'), dataUrl, true); });
+                try { window.dispatchEvent(new CustomEvent('mbw-group-pfp', { detail: { gid: gid, pfp: dataUrl } })); } catch (e) { /* nada */ }
+                return true;
+            });
+        });
+    };
+    // abre el selector de imagen y la pone como foto del grupo
+    window.mbwGroupPickPfp = function (gid) {
+        if (!window.mbwIsGroup(gid)) return;
+        const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.style.display = 'none';
+        document.body.appendChild(inp);
+        inp.addEventListener('change', function () {
+            const f = inp.files && inp.files[0]; inp.remove();
+            if (!f) return;
+            shrink(f).then(function (url) { return window.mbwGroupSetPfp(gid, url); }).then(function (ok) {
+                if (typeof window.mpToast === 'function') window.mpToast('🖼', ok ? T('grp_pfp_done', 'Group picture changed') : T('grp_pfp_fail', 'The picture could not be changed'));
+            }).catch(function () { if (typeof window.mpToast === 'function') window.mpToast('🖼', T('grp_pfp_fail', 'The picture could not be changed')); });
+        });
+        inp.click();
+    };
+    window.mbwGroupPfpOf = function (gid) { return groupInfo(gid).then(function (g) { return okPfp(g && g.pfp) ? g.pfp : GROUP_PFP; }); };
+
+    // ------------------------------------------------------------------ 👀 visto en grupos
+    const marked = {}, pfpSent = {};
+    // hasta qué mensaje leí este grupo (solo se escribe si es más nuevo que lo que ya guardé)
+    window.mbwGroupReadMark = function (gid, key) {
+        const d = db(), uid = me(); if (!d || !uid || !window.mbwIsGroup(gid) || !key) return;
+        if (marked[gid] && marked[gid] >= key) return;
+        marked[gid] = key;
+        const rec = { k: String(key), t: TS(), n: myName() };
+        if (!pfpSent[gid]) { rec.p = okPfp(myPfp()) ? myPfp() : 'assets/default pfp.png'; pfpSent[gid] = true; }
+        d.ref(window.mbwGroupRef(gid) + '/reads/' + uid).update(rec).catch(function () { delete marked[gid]; });
+    };
+    // escuchar quién leyó qué (cb recibe { uid: { k, t, n, p } }); devuelve la función para dejar de escuchar
+    window.mbwGroupReadsWatch = function (gid, cb) {
+        const d = db(); if (!d || !window.mbwIsGroup(gid)) return function () { /* nada */ };
+        const ref = d.ref(window.mbwGroupRef(gid) + '/reads');
+        const fn = function (s) { try { cb(s.val() || {}); } catch (e) { console.warn('reads', e); } };
+        ref.on('value', fn);
+        return function () { try { ref.off('value', fn); } catch (e) { /* nada */ } };
+    };
+    // pintar las fotitos: debajo del último mensaje que vio cada uno (de los que están cargados)
+    //   keys = llaves de los mensajes en orden · rowOf(k) = su fila · where(row) = dónde va la tira dentro de la fila
+    window.mbwGroupSeenPaint = function (box, keys, rowOf, reads, where) {
+        if (!box) return;
+        box.querySelectorAll('.dc-seen-by').forEach(function (n) { n.remove(); });
+        if (!reads || !keys || !keys.length) return;
+        const uid = me(), at = {};
+        Object.keys(reads).forEach(function (u) {
+            const r = reads[u]; if (u === uid || !r || typeof r.k !== 'string') return;
+            let tgt = null;
+            for (let i = keys.length - 1; i >= 0; i--) if (keys[i] <= r.k) { tgt = keys[i]; break; }
+            if (!tgt) return;                                              // (lo último que vio es más viejo que lo que se ve)
+            (at[tgt] = at[tgt] || []).push({ uid: u, n: String(r.n || '?'), p: okPfp(r.p) ? r.p : 'assets/default pfp.png', t: Number(r.t) || 0 });
+        });
+        Object.keys(at).forEach(function (k) {
+            const row = rowOf(k); if (!row || !row.isConnected) return;
+            const list = at[k].sort(function (a, b) { return a.t - b.t; });
+            const strip = el('div', 'dc-seen-by');
+            const MAX = 8;
+            list.slice(0, MAX).forEach(function (r) {
+                const im = el('img', 'dc-seen-av'); im.alt = ''; im.draggable = false; im.decoding = 'async';
+                im.src = r.p; im.onerror = function () { im.onerror = null; im.src = 'assets/default pfp.png'; };
+                let when = ''; try { when = r.t ? ' · ' + new Date(r.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''; } catch (e) { /* nada */ }
+                im.title = T('grp_seen_by', 'Seen by {name}', { name: r.n }) + when;
+                strip.appendChild(im);
+            });
+            if (list.length > MAX) strip.appendChild(el('span', 'dc-seen-more', '+' + (list.length - MAX)));
+            strip.title = T('grp_seen_by', 'Seen by {name}', { name: list.map(function (r) { return r.n; }).join(', ') });
+            const host = where ? where(row) : row;
+            if (host === 'after') row.after(strip); else host.appendChild(strip);   // ('after' = en su propia línea, debajo de la fila)
         });
     };
 
@@ -290,7 +397,7 @@
             ref.push({ sender: me(), senderName: myName(), text: text, timestamp: TS() });
             parentRef.child('thread').update({ count: INC(1), last: TS(), lastBy: myName() });
         });
-        setTimeout(function () { try { inp.focus(); } catch (e) { /* nada */ } }, 30);
+        if (!document.body.classList.contains('is-touch')) setTimeout(function () { try { inp.focus(); } catch (e) { /* nada */ } }, 30);   // (📱 sin teclado al abrir el hilo)
     };
     window.mbwThreadClose = function () { if (thr) { try { thr.ref.off('child_added', thr.cb); } catch (e) { /* nada */ } if (thr.el) thr.el.remove(); thr = null; } };
     window.mbwThreadState = function () { return thr ? { chatId: thr.chatId, key: thr.key } : null; };

@@ -95,6 +95,8 @@
     const mpGuest = () => !!(S.mp && window.mbwMpPlay && window.mbwMpPlay.role === 'guest');
     const mpHost = () => !!(S.mp && window.mbwMpPlay && window.mbwMpPlay.role === 'host');
     // 👑 Crystal (los admins de scripts/mp-saved.js): comandos sin restricciones, como el anfitrión
+    // 🏠 el anfitrión de la SALA (comandos sin límite). Ojo: la partida la puede llevar otro jugador (el que empezó a jugar): eso es mpHost()
+    const roomHost = () => !!(S.mp && typeof isHost !== 'undefined' && isHost);
     const isAdminMe = () => { try { return !!(window.mbwSavedServers && window.mbwSavedServers.isAdmin && window.mbwSavedServers.isAdmin()); } catch (e) { return false; } };
     const isAdminUid = (u) => { try { return !!(window.mbwSavedServers && window.mbwSavedServers.isAdminUid && window.mbwSavedServers.isAdminUid(u)); } catch (e) { return false; } };
     const myUidNet = () => { try { return localStorage.getItem('mbw_uid') || ''; } catch (e) { return ''; } };
@@ -2517,7 +2519,7 @@
     // ↩ /back: al lugar donde moriste (si caíste al vacío, al suelo más cercano de ahí)
     //   Se espera 3 segundos antes de ir. Solo 1 vez cada hora (en una partida), menos el anfitrión (y Crystal).
     const TP_WAIT = 3000, BACK_EVERY = 60 * 60 * 1000, BACK_KEY = 'mbw_back_at';
-    function backFree() { return !S.mp || mpHost() || isAdminMe(); }
+    function backFree() { return !S.mp || roomHost() || isAdminMe(); }
     function doBack() {
         const w = W(), b = S.deathPos;
         if (!b) { say('[INFO] ' + tr('play_back_none', 'You have not died yet: /back takes you to the place where you died.')); return; }
@@ -2624,9 +2626,9 @@
         // ↩ /back: todos lo pueden usar siempre (aunque no tengan permiso para comandos): volver a donde moriste
         if (d[0] === 'back') { doBack(); return; }
         // 👑 el anfitrión y Crystal: sin restricciones (también lo que el anfitrión manda hacer a otro jugador: opt.forced)
-        const boss = !!opt.forced || mpHost() || isAdminMe();
+        const boss = !!opt.forced || roomHost() || isAdminMe();
         // 🎮 en una partida, por defecto SOLO el anfitrión puede usar comandos (él lo puede permitir en su menú de pausa)
-        if (!boss && mpGuest() && !(window.mbwMpPlay && window.mbwMpPlay.guestCmds)) { say('[INFO] ' + tr('mpplay_cmds_host', 'Only the host can use commands in this game.')); return; }
+        if (!boss && S.mp && !(window.mbwMpPlay && (mpHost() ? window.mbwMpPlay.allowCmds() : window.mbwMpPlay.guestCmds))) {   /* (también el invitado que empezó la partida) */ say('[INFO] ' + tr('mpplay_cmds_host', 'Only the host can use commands in this game.')); return; }
         // (el anfitrión de una partida siempre puede usar comandos, aunque el mundo los tenga apagados)
         if (!boss && !cheatsOn()) { say('[INFO] ' + tr('play_cheats_off', 'Commands are disabled in this world. Turn on "Commands" in World Settings (the game would not run them either).')); return; }
         const fb = gameRule('sendcommandfeedback') !== false;
@@ -5561,7 +5563,7 @@
             cmd: function (d) {
                 const M = window.mbwMpPlay;
                 if (!S.playing || !d || !M || d.peerId === (M.myId && M.myId())) return false;
-                const ok = (d.peerId && d.peerId === M.leaderPeer) || isAdminUid(d.uid);
+                const ok = (d.peerId && (d.peerId === M.leaderPeer || (M.roomHostPeer && d.peerId === M.roomHostPeer()))) || isAdminUid(d.uid);
                 if (!ok) return false;
                 const c = String(d.c || '').slice(0, 200);
                 if (!/^\/(tp|heal|kill|give|clear|gamemode)(\s|$)/.test(c)) return false;
