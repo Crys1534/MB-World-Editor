@@ -3986,3 +3986,8 @@ body.is-touch #mbw-play-hud .ph-ptab { top: 66px; font-size: 12px; min-width: 12
 #mbw-play-hud .ph-pt-row.me .ph-pt-name { text-decoration: underline; text-underline-offset: 2px; }
 #mbw-play-hud .ph-pt-row.host .ph-pt-name { color: #87CEEB; font-weight: bold; }   /* celeste (sky blue), no cyan */
 #mbw-play-hud .ph-pt-ach { flex: 0 0 auto; font-size: .9em; opacity: .9; }
+
+/* 🔗 copiar el link para entrar a un servidor (scripts/url-join.js) */
+.uj-link { background: #2c3e50; color: #fff; border: 1px solid rgba(255,255,255,.35); border-radius: 4px; padding: 4px 8px; margin-right: 6px; font-size: 18px; cursor: pointer; line-height: 1; }
+.uj-link:hover { background: #3d5a73; }
+.uj-room-link { font-size: 18px !important; }

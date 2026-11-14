@@ -360,5 +360,5 @@
         return lab;
     }
 
-    window.mbwSavedServers = { watch: watch, html: html, bind: bind, open: openSaved, save: saveNow, remove: removeSaved, setPermanent: setPermanent, checkboxRow: checkboxRow, isAdmin: isAdmin, isAdminUid: isAdminUid, state: st, pack: pack, unpack: unpack, list: () => saved, used: used, SLOTS: SLOTS };
+    window.mbwSavedServers = { ready: function () { return saved !== null && saved !== undefined; }, get: function (k) { return saved ? saved[k] || null : null; }, slots: SLOTS, watch: watch, html: html, bind: bind, open: openSaved, save: saveNow, remove: removeSaved, setPermanent: setPermanent, checkboxRow: checkboxRow, isAdmin: isAdmin, isAdminUid: isAdminUid, state: st, pack: pack, unpack: unpack, list: () => saved, used: used, SLOTS: SLOTS };
 })();
