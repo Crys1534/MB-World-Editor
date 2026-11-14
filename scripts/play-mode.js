@@ -5612,13 +5612,32 @@
         let pre = null;
         const fm = window.fileManager || (typeof fileManager !== 'undefined' ? fileManager : null);
         try { if (fm && fm.prepareData) { const d = fm.prepareData(); pre = d && d.textData; } } catch (e) { pre = null; }   // (jugando, prepareData da el mundo de ANTES)
+        // 🚪 en un SERVIDOR, "Guardar y salir" sale del servidor por completo y cierra su pestaña (así su mundo no se queda abierto
+        //    en el editor, donde se podía mezclar con otro). Un servidor permanente se guarda SOLO en línea (no en My Worlds).
+        const inServer = typeof isMultiplayer !== 'undefined' && isMultiplayer && !!(window.mpServerKind || (W() && W().mbweServerMap));
+        const perm = !!(window.mbwIsPermServerWorld && window.mbwIsPermServerWorld(W()));
         stopPlay({ keep: true });
+        if (inServer) { leaveServerFully(fm, perm ? null : pre); return; }
         if (fm && typeof fm.saveLocal === 'function') {
             Promise.resolve(fm.saveLocal(false, { playBackup: pre })).then(function () {
                 const t = document.createElement('div'); t.className = 'play-saved-toast'; t.textContent = '💾 ' + tr('play_saved', 'World saved (Play mode)');
                 document.body.appendChild(t); setTimeout(function () { t.remove(); }, 2600);
             }).catch(function (e) { console.error('play save', e); });
         }
+    }
+    function leaveServerFully(fm, pre) {
+        const T = typeof WorldTabsManager !== 'undefined' ? WorldTabsManager : null;
+        const tabId = window.mpWorldTabId || (T ? T.activeWorldId : null);
+        if (pre !== null && fm && typeof fm.saveLocal === 'function') {          // (servidor normal: tu copia va a My Worlds, como siempre)
+            try { Promise.resolve(fm.saveLocal(false, { playBackup: pre })).catch(function (e) { console.error('play save', e); }); } catch (e) { /* nada */ }
+        }
+        // (el anfitrión de un servidor permanente lo guarda en línea al salir: scripts/mp-saved.js) — un momento después, para que
+        //  lo último que se mandó (tu Player al anfitrión) alcance a llegar
+        setTimeout(function () {
+            try { if (typeof isMultiplayer !== 'undefined' && isMultiplayer && typeof window.disconnectFromMultiplayer === 'function') window.disconnectFromMultiplayer(true); } catch (e) { console.warn('leave server', e); }
+            try { if (T && tabId && T.openWorlds.some(function (w) { return w.id === tabId; })) T.closeWorld(tabId, { stopPropagation: function () {} }); } catch (e) { console.warn('close server tab', e); }
+        }, 400);
+        flashToast('🚪 ' + (pre === null ? tr('play_left_perm', 'You left the server. It is saved online (not in My Worlds).') : tr('play_left_server', 'World saved. You left the server.')));
     }
     window.mbwPlay.saveAndQuit = saveAndQuit;
     window.mbwPlay.isTest = function () { return !!(S.playing && S.test); };

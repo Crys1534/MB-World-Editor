@@ -93,7 +93,11 @@
             if (hostOfRoom()) left.appendChild(btn(tr('pm_server', 'Server settings'), '', function () { show('server'); }));
             const guest = M() && M().on && M().role === 'guest';
             const test = !!(P() && P().isTest && P().isTest());
-            left.appendChild(btn(test ? '🧪 ' + tr('pm_quit_test', 'Quit test (nothing is saved)') : guest ? tr('pm_quit_guest', 'Save and Quit (leave the game)') : tr('pm_quit', 'Save and Quit'), 'pm-quit', function () { closeNow(); if (P() && P().saveAndQuit) P().saveAndQuit(); }));
+            const srv = !test && typeof isMultiplayer !== 'undefined' && isMultiplayer && !!window.mpServerKind;   // 🚪 en un servidor: se sale por completo
+            const perm = srv && !!(window.mbwIsPermServerWorld && typeof mbwom !== 'undefined' && window.mbwIsPermServerWorld(mbwom.world));
+            left.appendChild(btn(test ? '🧪 ' + tr('pm_quit_test', 'Quit test (nothing is saved)') : srv ? tr('pm_quit_server', 'Save and leave the server') : guest ? tr('pm_quit_guest', 'Save and Quit (leave the game)') : tr('pm_quit', 'Save and Quit'), 'pm-quit', function () { closeNow(); if (P() && P().saveAndQuit) P().saveAndQuit(); }));
+            if (srv) left.appendChild(el('p', 'pm-hint', perm ? tr('pm_quit_server_perm_hint', 'You leave the server completely and its tab closes. This permanent server is saved online only (never in My Worlds). The others keep playing.') : tr('pm_quit_server_hint', 'You leave the server completely and its tab closes. Your copy of the world is saved in My Worlds. The others keep playing.')));
+            else
             left.appendChild(el('p', 'pm-hint', test ? tr('pm_quit_test_hint', 'This is a test: when you leave, the world goes back to how it was before playing.') : guest ? tr('pm_quit_guest_hint2', 'Everything that happened is saved in your copy of the world (and your Player in the host\'s). The others keep playing.') : inRoom() ? tr('pm_quit_host_hint', 'Everything that happened is saved in your world. The others keep playing (one of them takes over the game).') : tr('pm_quit_hint', 'Everything that happened while playing is saved. How the world was before playing stays in the version history (Play mode column).')));
         } else if (p === 'options') {
             left.appendChild(el('h2', 'pm-title', tr('pm_options', 'Options')));

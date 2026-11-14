@@ -541,6 +541,11 @@ prepareData: function(opts) {
  },
 
 saveLocal: async function(isAutoSave = false, opts = null) {
+    // 🛡 el mundo de un servidor permanente vive SOLO en línea: nunca se guarda en My Worlds (así no se mezcla con otro mundo del mismo nombre)
+    if (typeof mbwom !== 'undefined' && mbwom.world && window.mbwIsPermServerWorld && window.mbwIsPermServerWorld(mbwom.world)) {
+        if (!isAutoSave) { const t = document.createElement('div'); t.className = 'play-saved-toast'; t.textContent = '🛡 ' + tmsg('ss_no_myworlds', 'This is a permanent server: it is saved online only, not in My Worlds.'); document.body.appendChild(t); setTimeout(() => t.remove(), 3200); }
+        return;
+    }
     const data = this.prepareData();
     if (!data) { 
         if (!isAutoSave) alert(tmsg('msg_no_world_save', "No hay mundo cargado para guardar.")); 
@@ -1125,6 +1130,7 @@ function startAutoSaveInterval(minutes) {
                     // FIX: Usamos tab.mbwomData.world, que es donde realmente guardas los datos del mundo[cite: 7]
                     let backgroundWorldData = (tab.mbwomData && tab.mbwomData.world) ? tab.mbwomData.world : null; 
                     
+                    if (backgroundWorldData && window.mbwIsPermServerWorld && window.mbwIsPermServerWorld(backgroundWorldData)) continue;   // 🛡 (servidor permanente: solo en línea)
                     if (backgroundWorldData && typeof localDB !== 'undefined') {
                         // Preparamos los datos crudos del mundo
                         let jsonString = JSON.stringify(backgroundWorldData);

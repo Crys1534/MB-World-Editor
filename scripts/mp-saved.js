@@ -69,17 +69,43 @@
     function canSave() {
         return !st.denied && !!mySlot() && inMp() && amHost() && !window.mpMigrating && !!db() && typeof mbwom !== 'undefined' && !!mbwom.world;
     }
-    function worldJson() {
-        const F = fm(); if (!F || typeof F.prepareNetworkJson !== 'function') return null;
-        window.__mbwSaveLive = true;
-        try { const d = F.prepareNetworkJson(); return d && d.json; } finally { window.__mbwSaveLive = false; }
+    // 🛡 Lo que se sube es SIEMPRE el mundo de la pestaña del servidor, y solo si ese mundo trae la marca de este lugar
+    //    (mbweSlot = "slotN", se pone al abrirlo o al volverlo permanente). Antes se subía el mundo que estuviera a la vista:
+    //    si el anfitrión tenía abierta otra pestaña (u otro mundo suyo), ESE mundo reemplazaba al servidor permanente.
+    function tabs() { return typeof WorldTabsManager !== 'undefined' ? WorldTabsManager : null; }
+    function serverTabGone() { const T = tabs(); return !!(window.mpWorldTabId && T && !T.openWorlds.some(w => w.id === window.mpWorldTabId)); }
+    function onServerWorld(fn) {
+        if (serverTabGone()) return null;                                   // (la pestaña del servidor ya se cerró: no hay nada que subir)
+        return typeof window.mpWithServerTab === 'function' ? window.mpWithServerTab(fn) : fn();
     }
+    let warnedAt = 0;
+    function refuse(k, why) {
+        st.status = 'blocked';
+        console.warn('🛡 Servidor permanente ' + k + ': NO se guardó (' + why + ').');
+        if (Date.now() - warnedAt > 60000) { warnedAt = Date.now(); toast('🛡 ' + tr('ss_guard_title', 'Permanent server protected'), tr('ss_guard_body', 'The world open now is not the server world, so it was NOT saved over the server.')); }
+        return null;
+    }
+    function worldJson(k) {
+        const F = fm(); if (!F || typeof F.prepareNetworkJson !== 'function') return null;
+        const r = onServerWorld(function () {
+            const w = typeof mbwom !== 'undefined' ? mbwom.world : null;
+            if (!w || w.mbweSlot !== k) return { bad: w ? 'the world has no mark of ' + k + (w.mbweSlot ? ' (it is from ' + w.mbweSlot + ')' : '') : 'no world' };
+            window.__mbwSaveLive = true;
+            try { const d = F.prepareNetworkJson(); return { json: d && d.json }; } finally { window.__mbwSaveLive = false; }
+        });
+        if (!r) return refuse(k, 'the server tab is closed');
+        if (r.bad) return refuse(k, r.bad);
+        return r.json || null;
+    }
+    // la marca del lugar va en el mundo de la pestaña del servidor
+    function stamp(k) { onServerWorld(function () { if (typeof mbwom !== 'undefined' && mbwom.world) { if (k) mbwom.world.mbweSlot = k; else delete mbwom.world.mbweSlot; } }); }
+    window.mbwIsPermServerWorld = function (w) { return !!(w && okSlot(w.mbweSlot)); };
     async function saveNow(why) {
         if (!canSave() || st.busy) return false;
         const k = mySlot();
         // (todo lo del mundo se toma AHORA, antes de esperar nada: si el anfitrión se está yendo, ya no estará después)
         let json;
-        try { json = worldJson(); } catch (e) { console.warn('💾 saved server: world', e); return false; }
+        try { json = worldJson(k); } catch (e) { console.warn('💾 saved server: world', e); return false; }
         if (!json) return false;
         const h = hash(json);
         if (h === st.last && why !== 'force') { st.lastAt = Date.now(); return false; }
@@ -223,7 +249,7 @@
     function removeSaved(k) {
         const D = db(); if (!D || !okSlot(k)) return Promise.resolve();
         if (saved && saved[k] && !canRemove(saved[k])) return Promise.resolve();
-        if (window.mpSlot === k) { window.mpSlot = null; window.mpSlotOwner = null; try { if (window.myRoomRef) window.myRoomRef.update({ slot: null }); } catch (e) { /* nada */ } }
+        if (window.mpSlot === k) { window.mpSlot = null; window.mpSlotOwner = null; stamp(null); try { if (window.myRoomRef) window.myRoomRef.update({ slot: null }); } catch (e) { /* nada */ } }
         return Promise.all([D.ref(DATA + '/' + k).remove(), D.ref(META + '/' + k).remove()]).catch(e => console.warn('💾 delete', e));
     }
 
@@ -289,7 +315,7 @@
             if (typeof window.loadWorldFromJson !== 'function') throw new Error('no loader');
             await window.loadWorldFromJson(json, fname, { fromServer: true });
             await new Promise(r => setTimeout(r, 300));
-            try { mbwom.world.mbweServerMap = true; } catch (e) { /* nada */ }   // (un mapa de servidor: solo Play y Test)
+            try { mbwom.world.mbweServerMap = true; mbwom.world.mbweSlot = k; } catch (e) { /* nada */ }   // (un mapa de servidor: solo Play y Test · 🛡 la marca de su lugar)
             window.mpSelectedMapName = meta.mapName || 'World';
             window.mpSelectedMapThumb = meta.mapThumb || null;
             window.mpSelectedMapData = null;
@@ -339,6 +365,7 @@
         }
         if (!k) { alert(tr('ss_full', 'The 9 places for permanent servers are taken. When someone removes theirs, a place becomes free.')); return false; }
         window.mpSlot = k; window.mpSlotOwner = { uid: myUid(), name: myName() };
+        stamp(k);                                                            // 🛡 el mundo del servidor queda marcado con su lugar
         try { if (window.myRoomRef) window.myRoomRef.update({ slot: k }); } catch (e) { /* nada */ }
         sendCfg();
         st.last = null; st.lastAt = 0; st.started = Date.now();

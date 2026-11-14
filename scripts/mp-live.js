@@ -108,6 +108,8 @@
         const cw = T.closeWorld;
         T.closeWorld = function (id) {
             const was = inMp() && !!window.mpWorldTabId && id === window.mpWorldTabId, host = amHost();
+            // 💾 servidor permanente: se guarda AHORA, con su pestaña todavía abierta (después ya no está y no se sube nada)
+            if (was && host && window.mbwSavedServers && typeof window.mbwSavedServers.save === 'function') { try { window.mbwSavedServers.save('leave'); } catch (e) { /* nada */ } }
             const r = cw.apply(this, arguments);
             if (was) leaveBecauseClosed(host);
             return r;
