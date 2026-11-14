@@ -3545,8 +3545,9 @@ body.mbw-playing.is-touch #chat-heads { bottom: 250px; }          /* (en el celu
 body.mbw-playing.is-touch #mini-chat { bottom: 250px; }
 /* el chat / consola del modo jugar con la letra RainyHearts */
 #mbw-play-hud .ph-chat-log, #mbw-play-hud .ph-chat-in, #mbw-play-hud .ph-sug, #mbw-play-hud .ph-sug * { font-family: 'RainyHearts', 'Pixeltype', 'Segoe UI', monospace; }
-#mbw-play-hud .ph-chat-log { font-size: 20px; line-height: 1.15; }
-body.is-touch #mbw-play-hud .ph-chat-log { font-size: 18px; }
+#mbw-play-hud .ph-chat-log { font-size: 26px; line-height: 1.15; }
+body.is-touch #mbw-play-hud .ph-chat-log { font-size: 22px; }
+#mbw-play-hud .ph-chat-in { font-size: 20px; }
 #mbw-play-hud .ph-chat-log b.ph-name { font-weight: bold; text-shadow: 1px 1px 0 #000, 1px 0 0 currentColor; }
 
 /* 🛠 crafteo del modo jugar (2×2 en el inventario, 3×3 en la mesa de crafteo) */
