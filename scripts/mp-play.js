@@ -482,7 +482,8 @@
         const meUid = myUid();
         out.push({ name: myName(), uid: meUid, online: true, me: true, host: amHost() || !inMp(), ping: M.role === 'host' || !M.on ? 0 : M.ping });
         seen[meUid] = 1;
-        Object.keys(M.remotes).forEach(function (k) { const r = M.remotes[k]; out.push({ name: r.name, uid: r.uid, online: true, host: M.role === 'guest' && r.name === M.hostName, ping: r.ping || 0 }); if (r.uid) seen[r.uid] = 1; });
+        const rh = M.roomHostPeer();                               // (👑 = el anfitrión de la SALA, aunque la partida la lleve otro)
+        Object.keys(M.remotes).forEach(function (k) { const r = M.remotes[k]; out.push({ name: r.name, uid: r.uid, online: true, host: rh ? k === rh : (M.role === 'guest' && r.name === M.hostName), ping: r.ping || 0 }); if (r.uid) seen[r.uid] = 1; });
         const P = (mbwom.world && mbwom.world.mbwePlayers) || {};
         Object.keys(P).forEach(function (u) { if (seen[u]) return; out.push({ name: P[u].name || 'Player', uid: u, online: false, last: P[u].last || 0 }); });
         return out;

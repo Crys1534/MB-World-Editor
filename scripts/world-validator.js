@@ -14,11 +14,13 @@
 
     // nombres que usaba el editor y que el juego llama de otra forma
     const ALIAS = { frodcarrot: 'coas', bsed: 'bseed', Scepter: 'scepter' };
-    // (firstTimes no se revisa: el juego mismo guarda marcas ahí en lugares vacíos)
+    // firstTimes: el juego guarda "true" (casi siempre en agua / lava / ácido, que todavía se van a mover) y "false".
+    //   "false" es lo mismo que no tener nada (hay miles de bloques iguales con false y sin dato), así que los false se quitan:
+    //   en mundos grandes eran ¼ del archivo. Los "true" NO se tocan.
     const BLOCK_DATA = ['states', 'chests', 'toSmelt', 'water', 'wheat', 'toBrew', 'signs', 'hasSignal', 'toGrow'];
     const CROPS = ['wseed', 'pseed', 'seed', 'carrot', 'potato', 'nw', 'bseed'];
     const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
-    const SAFE = { ver: 1, sceneNum: 1, variantId: 1, alias: 1, nullData: 1, chestPad: 1, chestBadSlot: 1, invPad: 1, stack: 1, rules: 1, crop: 1, achieve: 1, signType: 1, numbers: 1 };
+    const SAFE = { ver: 1, sceneNum: 1, variantId: 1, alias: 1, nullData: 1, orphan: 1, ftFalse: 1, chestPad: 1, chestBadSlot: 1, invPad: 1, stack: 1, rules: 1, crop: 1, achieve: 1, signType: 1, numbers: 1 };
 
     function known(id) { return typeof id === 'string' && G().has(id); }
     // "dt_1" -> { base: 'dt', v: 1 }
@@ -96,6 +98,16 @@
                     if (here == null || here === '' || here === 'air') { if (add('orphan', 'info', k + ' ' + key, true)) delete d[key]; }
                 }
             });
+            // 🧹 marcas de "primera vez" en false (= lo mismo que no tenerlas)
+            const ft = world['firstTimes' + s];
+            if (isObj(ft)) {
+                const off = Object.keys(ft).filter(function (key) { return ft[key] === false || ft[key] === null; });
+                if (off.length) {
+                    const doFix = add('ftFalse', 'info', off.length + ' (dim ' + s + ')', true);
+                    issues.ftFalse.count += off.length - 1;
+                    if (doFix) off.forEach(function (key) { delete ft[key]; });
+                }
+            }
             // cofres: 27 casillas, objetos que existan
             const chests = world['chests' + s];
             if (isObj(chests)) for (const key in chests) checkContainer(chests, key, g.chestSlots, 'chest ' + key);
@@ -192,6 +204,7 @@
         badColumn: ['val_bad_column', 'Broken columns of blocks.'],
         orphan: ['val_orphan', 'Leftover data of blocks that are not there any more (chests, signs, variants...).'],
         nullData: ['val_null_data', 'Empty block data (it came from an old multiplayer bug).'],
+        ftFalse: ['val_ft_false', '"First time" marks that say "no" (they are the same as having nothing: they only make the file heavier).'],
         chestPad: ['val_chest_pad', 'Chests with fewer than 27 slots.'],
         chestBadSlot: ['val_chest_bad', 'Broken chest slots.'],
         unknownItem: ['val_unknown_item', 'Items that do not exist in the game (in chests or in the inventory).'],

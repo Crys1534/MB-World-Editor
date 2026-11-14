@@ -261,12 +261,40 @@
     // ------------------------------------------------------------------ objetos tirados en el suelo
     function addDrop(id, x, y, count, dmg, extras) {
         if (!id || id === 'air' || id === 'na' || !(count > 0)) return;
-        const o = { id: String(id), n: count | 0, dmg: dmg || 0, ex: extras || {}, x: x, y: y, vx: migSpeed(4 * Math.random() - 2), vy: migSpeed(-4), age: 0 };
+        const o = { id: String(id), n: count | 0, dmg: dmg || 0, ex: extras || {}, x: x, y: y, vx: migSpeed(4 * Math.random() - 2), vy: migSpeed(-4), age: 0, born: Date.now() };
         S.drops.push(o);
         // 🎮 multijugador: todos ven el objeto (con un número para saber cuál es) y cae igual en todas las pantallas
         if (S.mp && window.mbwMpPlay) { o.nid = window.mbwMpPlay.myId() + ':' + S.dropBase + ':' + (++S.dropSeq); mpSend({ tipo: 'juego_suelta', d: packDrop(o) }); }
     }
-    const packDrop = (o, sc) => ({ nid: o.nid, id: o.id, n: o.n, dmg: o.dmg, ex: o.ex, x: o.x, y: o.y, vx: o.vx, vy: o.vy, age: o.age | 0, s: sc || mbwom.currentScene || 1 });
+    const packDrop = (o, sc) => ({ nid: o.nid, id: o.id, n: o.n, dmg: o.dmg, ex: o.ex, x: o.x, y: o.y, vx: o.vx, vy: o.vy, age: o.age | 0, born: o.born || Date.now(), s: sc || mbwom.currentScene || 1 });
+    // 🖥 SERVIDORES: los objetos tirados duran 24 horas (cada uno cuenta su propio tiempo, desde que cayó) y se guardan con el
+    //   mundo del servidor (mbweDrops), así siguen ahí aunque el servidor se cierre y se vuelva a abrir. Fuera de un servidor:
+    //   como en el juego, 5 minutos.
+    const DROP_DAY = 24 * 60 * 60 * 1000;
+    function isServer() { const w = W(); return !!(S.mp && !S.test && (window.mpServerKind || (w && w.mbweServerMap))); }
+    function packAllDrops() {
+        const out = [];
+        S.drops.forEach(function (d) { if (d.nid) out.push(packDrop(d)); });
+        Object.keys(S.dimStash || {}).forEach(function (k) { ((S.dimStash[k] || {}).drops || []).forEach(function (d) { if (d.nid) out.push(packDrop(d, Number(k))); }); });
+        return out;
+    }
+    // (el que lleva la partida, al empezar: vuelven los objetos que estaban tirados, menos los que ya cumplieron 24 h)
+    function restoreServerDrops() {
+        S.dropsRestored = true;
+        const w = W(), L = Array.isArray(w.mbweDrops) ? w.mbweDrops : [];
+        if (!L.length) return;
+        const now = Date.now(), cur = mbwom.currentScene || 1, sent = [];
+        L.forEach(function (o) {
+            if (!o || !o.nid || !(now - (Number(o.born) || 0) < DROP_DAY) || dropIdx(o.nid) >= 0) return;
+            const d = { nid: String(o.nid), id: String(o.id), n: o.n | 0, dmg: o.dmg || 0, ex: o.ex || {}, x: Number(o.x), y: Number(o.y), vx: 0, vy: 0, age: o.age | 0, born: Number(o.born) };
+            const sc = Number(o.s) || 1;
+            if (sc === cur) S.drops.push(d);
+            else { S.dimStash = S.dimStash || {}; const b = S.dimStash[sc] = S.dimStash[sc] || {}; b.drops = b.drops || []; b.drops.push(d); }
+            sent.push(packDrop(d, sc));
+        });
+        for (let i = 0; i < sent.length; i += 40) mpSend({ tipo: 'juego_suelos', l: sent.slice(i, i + 40) });
+    }
+    window.mbwPlay.serverDrops = { pack: function () { return packAllDrops(); }, isServer: function () { return isServer(); }, DAY: DROP_DAY };   // (pruebas)
     const dropIdx = (nid) => { for (let i = 0; i < S.drops.length; i++) if (S.drops[i].nid === nid) return i; return -1; };
     // 🧭 ¿x está lejos de todos los jugadores? (S.simX = sus x, se calcula al empezar cada paso)
     const SIM_DIST = 64, MOB_SIM = 40;
@@ -297,8 +325,12 @@
     window.mbwPlay.dropStuck = function (i) { const d = S.drops[i]; return d ? dropStuck(d) : null; };
     function tickDrops() {
         const w = W();
+        const srv = isServer(), now = Date.now();
+        if (srv && !S.dropsRestored && mpHost()) restoreServerDrops();
+        if (srv && S.tick % 50 === 0) Object.keys(S.dimStash || {}).forEach(function (k) { const b = S.dimStash[k]; if (b && b.drops) b.drops = b.drops.filter(function (d) { return now - (d.born || now) < DROP_DAY; }); });
         for (let i = S.drops.length - 1; i >= 0; i--) {
             const d = S.drops[i];
+            if (srv && now - (d.born || now) >= DROP_DAY) { S.drops.splice(i, 1); continue; }   // 🖥 (24 h tirado: se limpia, este solo)
             if (simFar(d.x)) continue;                              // 🧭 lejos de todos los jugadores: quieto
             d.age++;
             // 🧱 atrapado dentro de un bloque sólido (p. ej. rompiste grava y cayó la de arriba): sale al hueco libre más cercano
@@ -308,7 +340,7 @@
             const nx = d.x + d.vx / 30, ny = d.y + d.vy / 30;
             if (!collision(nx - .15, ny - .25, .3, 0, .1, true, true)) d.x = nx; else d.vx = 0;
             if (collision(d.x - .15, ny, .3, 0, .1, true, true)) { d.vy = 0; } else d.y = ny;
-            if (d.age > 300 * FPS || d.y > 10) { S.drops.splice(i, 1); continue; }
+            if ((!srv && d.age > 300 * FPS) || d.y > 10) { S.drops.splice(i, 1); continue; }   // (fuera de un servidor: 5 minutos, como el juego)
             if (d.age > (d.pd != null ? d.pd : PICKUP_DELAY) && !(w.dead > 0) && w.gamemode != 3 && Math.abs(d.x - w.worldX) < 1.5 && Math.abs(d.y - (w.worldY - 1)) < 1.5) {
                 // 🎮 invitado: se lo pide al anfitrión (si dos lo tocan a la vez, se lo lleva el primero)
                 if (S.mp && d.nid && mpGuest()) { if (!d.pend || S.tick - d.pend > 75) { d.pend = S.tick; mpSend({ tipo: 'juego_toma', nid: d.nid }); } continue; }
@@ -4607,9 +4639,135 @@
         if (S.sleep) { c2.fillStyle = 'rgba(0,0,10,' + Math.min(.92, S.sleep.t / (2.5 * FPS)) + ')'; c2.fillRect(0, 0, canvas.width, canvas.height); }   // 🛏 durmiendo
         else if (S.wake) { const k = 1 - (performance.now() - S.wake) / 1400; if (k <= 0) S.wake = 0; else { c2.fillStyle = 'rgba(0,0,10,' + (.92 * k) + ')'; c2.fillRect(0, 0, canvas.width, canvas.height); } }   // ☀ despertando
         if ((S.p && S.p.hurt > 0 && OPTS.effects !== false) || w.dead > 0) { c2.fillStyle = w.dead > 0 ? 'rgba(140,0,0,.35)' : 'rgba(255,0,0,.12)'; c2.fillRect(0, 0, canvas.width, canvas.height); }
+        try { marks.arrows(c2); } catch (e) { /* nada */ }
         c2.restore();
         if (S.p && S.p.hurt > 0) S.p.hurt--;
     }
+
+    // ------------------------------------------------------------------ ⭐ marcadores (todos pueden, sin permisos; hasta 10)
+    //   Botón ⭐ al lado de ⚙: poner un marcador donde estás (con nombre), ver a qué distancia está cada uno y borrarlos.
+    //   Son los mismos marcadores del editor (View > Bookmarks, de cada quien). En el mapa salen como estrellas y, si están
+    //   fuera de la pantalla, una flechita en la orilla dice hacia dónde quedan y a cuántos bloques.
+    const MARKS_MAX = 10;
+    const marks = {
+        open: false,
+        list: function () { try { return (window.mbwBookmarks && window.mbwBookmarks.list()) || []; } catch (e) { return []; } },
+        toggle: function (on) { this.open = on == null ? !this.open : !!on; this.render(); },
+        dist: function (b) { const w = W(); return Math.round(Math.hypot(Number(b.x) + .5 - Number(w.worldX), Number(b.y) - (-Number(w.worldY)))); },
+        render: function () {
+            const box = hud.el && hud.el.querySelector('.ph-marks'); if (!box) return;
+            box.style.display = this.open ? '' : 'none';
+            if (hud.el) hud.el.classList.toggle('marks-open', this.open);
+            if (!this.open) return;
+            const L = this.list(), cur = mbwom.currentScene || 1, DN = ['', '', ' (Nether)', ' (End)'];
+            box.innerHTML = '';
+            const head = document.createElement('div'); head.className = 'ph-mk-head';
+            head.textContent = '⭐ ' + tr('play_marks', 'Markers') + ' (' + L.length + '/' + MARKS_MAX + ')';
+            const x = document.createElement('button'); x.type = 'button'; x.className = 'ph-mk-x'; x.textContent = '✕'; x.onclick = function () { marks.toggle(false); };
+            head.appendChild(x); box.appendChild(head);
+            const form = document.createElement('form'); form.className = 'ph-mk-add'; form.autocomplete = 'off';
+            const inp = document.createElement('input'); inp.type = 'text'; inp.maxLength = 40; inp.placeholder = tr('play_marks_name', 'Name (optional)');
+            ['keydown', 'keyup', 'keypress'].forEach(function (n) { inp.addEventListener(n, function (e) { e.stopPropagation(); }); });
+            const add = document.createElement('button'); add.type = 'submit'; add.textContent = '➕ ' + tr('play_marks_add', 'Mark here');
+            const full = L.length >= MARKS_MAX;
+            add.disabled = full; inp.disabled = full;
+            form.appendChild(inp); form.appendChild(add);
+            form.onsubmit = function (e) {
+                e.preventDefault();
+                if (marks.list().length >= MARKS_MAX || !window.mbwBookmarks || !window.mbwBookmarks.add) return;
+                const w = W();
+                const b = window.mbwBookmarks.add({ x: Math.floor(Number(w.worldX)), y: Math.round(-Number(w.worldY)), dim: mbwom.currentScene || 1 }, inp.value);
+                if (b) flashMsg('⭐ ' + tr('play_marks_saved', 'Marker saved: {name}').replace('{name}', b.name));
+                marks.render();
+            };
+            box.appendChild(form);
+            if (full) { const n = document.createElement('div'); n.className = 'ph-mk-note'; n.textContent = tr('play_marks_full', 'You have 10 markers (the limit). Delete one to add another.'); box.appendChild(n); }
+            const ul = document.createElement('div'); ul.className = 'ph-mk-list';
+            if (!L.length) { const n = document.createElement('div'); n.className = 'ph-mk-note'; n.textContent = tr('play_marks_none', 'No markers yet. Go somewhere and press "Mark here".'); ul.appendChild(n); }
+            L.forEach(function (b) {
+                const r = document.createElement('div'); r.className = 'ph-mk-row'; r.dataset.id = b.id;
+                const nm = document.createElement('span'); nm.className = 'ph-mk-name'; nm.textContent = '⭐ ' + b.name; r.appendChild(nm);
+                const at = document.createElement('span'); at.className = 'ph-mk-at'; at.textContent = 'X ' + b.x + ' · Y ' + b.y + (DN[b.dim] || '');
+                r.appendChild(at);
+                const d = document.createElement('span'); d.className = 'ph-mk-d'; d.textContent = b.dim === cur ? marks.dist(b) + ' m' : '—'; r.appendChild(d);
+                const del = document.createElement('button'); del.type = 'button'; del.className = 'ph-mk-del'; del.textContent = '🗑'; del.title = tr('play_marks_del', 'Delete');
+                del.onclick = function () { if (window.mbwBookmarks && window.mbwBookmarks.remove) window.mbwBookmarks.remove(b.id); marks.render(); };
+                r.appendChild(del);
+                ul.appendChild(r);
+            });
+            box.appendChild(ul);
+        },
+        distances: function () {
+            const box = hud.el && hud.el.querySelector('.ph-marks'); if (!box) return;
+            const cur = mbwom.currentScene || 1, L = this.list();
+            box.querySelectorAll('.ph-mk-row').forEach(function (r) { const b = L.find(function (q) { return q.id === r.dataset.id; }); const d = r.querySelector('.ph-mk-d'); if (b && d) d.textContent = b.dim === cur ? marks.dist(b) + ' m' : '—'; });
+        },
+        // ➜ flechitas en la orilla para los marcadores que no se ven
+        arrows: function (c2) {
+            const L = this.list(); if (!L.length) return;
+            const cur = mbwom.currentScene || 1;
+            const A = window.mbwAspect, f = (A && A.active && A.frame) ? A.frame() : { x: 0, y: 0, w: canvas.width, h: canvas.height };
+            const cx = f.x + f.w / 2, cy = f.y + f.h / 2, pad = Math.max(18, tileSize * .9);
+            c2.save();
+            c2.font = 'bold ' + Math.max(11, Math.round(tileSize * .42)) + 'px Arial'; c2.textAlign = 'center'; c2.textBaseline = 'middle';
+            const used = [], lh = Math.max(14, Math.round(tileSize * .55));
+            L.slice().sort(function (a, b2) { return marks.dist(a) - marks.dist(b2); }).forEach(function (b) {
+                if (b.dim !== cur) return;
+                const p = toScreen(Number(b.x) + .5, -(Number(b.y) + .5));
+                if (p.x >= f.x && p.x <= f.x + f.w && p.y >= f.y && p.y <= f.y + f.h) return;   // (se ve: ya está la estrella)
+                const dx = p.x - cx, dy = p.y - cy;
+                const k = Math.min((f.w / 2 - pad) / Math.abs(dx || 1e-6), (f.h / 2 - pad) / Math.abs(dy || 1e-6));
+                const ax = cx + dx * k, ay = cy + dy * k, ang = Math.atan2(dy, dx), s = Math.max(9, tileSize * .38);
+                c2.save(); c2.translate(ax, ay); c2.rotate(ang);
+                c2.beginPath(); c2.moveTo(s, 0); c2.lineTo(-s * .7, -s * .75); c2.lineTo(-s * .35, 0); c2.lineTo(-s * .7, s * .75); c2.closePath();
+                c2.fillStyle = '#FFD700'; c2.fill(); c2.lineWidth = 1.5; c2.strokeStyle = '#7a5a00'; c2.stroke();
+                c2.restore();
+                // (el nombre va del lado de adentro de la flecha, sin taparla)
+                const side = ax <= f.x + pad + 2 ? 'left' : ax >= f.x + f.w - pad - 2 ? 'right' : 'center';
+                c2.textAlign = side;
+                const lx = side === 'left' ? ax + s * 1.4 : side === 'right' ? ax - s * 1.4 : Math.max(f.x + 60, Math.min(f.x + f.w - 60, ax));
+                let ty = side === 'center' ? ay - Math.sin(ang) * s * 2.2 : ay;
+                // (varios hacia el mismo lado: los nombres van uno debajo del otro, el más cercano primero)
+                for (let g = 0; g < 12 && used.some(function (u) { return Math.abs(u.x - lx) < 110 && Math.abs(u.y - ty) < lh; }); g++) ty += lh;
+                ty = Math.max(f.y + 10, Math.min(f.y + f.h - 10, ty));
+                used.push({ x: lx, y: ty });
+                c2.shadowColor = 'black'; c2.shadowBlur = 4; c2.fillStyle = '#fff';
+                c2.fillText(b.name + ' · ' + marks.dist(b) + ' m', lx, ty);
+                c2.shadowBlur = 0;
+            });
+            c2.restore();
+        }
+    };
+    window.mbwPlay.marks = marks;
+
+    // ------------------------------------------------------------------ 👥 tabla de jugadores conectados (a la derecha, en partidas)
+    //   De más a menos logros. El anfitrión sale en celeste.
+    const ptab = {
+        update: function () {
+            const box = hud.el && hud.el.querySelector('.ph-ptab'); if (!box) return;
+            const M = window.mbwMpPlay;
+            const on = !!(S.mp && M && M.playerList);
+            box.style.display = on ? '' : 'none';
+            if (!on) return;
+            const cnt = {};
+            try { (window.mbwAch ? window.mbwAch.ranking() : []).forEach(function (r) { cnt[r.uid] = r.count; }); } catch (e) { /* nada */ }
+            const list = M.playerList().filter(function (p) { return p.online; })
+                .map(function (p) { return { name: String(p.name || 'Player'), host: !!p.host, me: !!p.me, n: cnt[p.uid] || 0 }; })
+                .sort(function (a, b) { return b.n - a.n || a.name.localeCompare(b.name); });
+            const key = JSON.stringify(list);
+            if (key === this.key) return; this.key = key;
+            box.innerHTML = '';
+            const h = document.createElement('div'); h.className = 'ph-pt-head'; h.textContent = '👥 ' + tr('pm_players', 'Players') + ' (' + list.length + ')'; box.appendChild(h);
+            list.slice(0, 16).forEach(function (p, i) {
+                const r = document.createElement('div'); r.className = 'ph-pt-row' + (p.host ? ' host' : '') + (p.me ? ' me' : '');
+                const a = document.createElement('span'); a.className = 'ph-pt-pos'; a.textContent = (i + 1) + '.'; r.appendChild(a);
+                const n = document.createElement('span'); n.className = 'ph-pt-name'; n.textContent = p.name + (p.host ? ' 👑' : ''); r.appendChild(n);
+                const c = document.createElement('span'); c.className = 'ph-pt-ach'; c.textContent = '🏆 ' + p.n; r.appendChild(c);
+                box.appendChild(r);
+            });
+        }
+    };
+    window.mbwPlay.ptab = ptab;
 
     // ------------------------------------------------------------------ HUD (vida, comida, aire, hotbar, botones)
     const hud = {
@@ -4618,10 +4776,12 @@
             const el = this.el = document.createElement('div');
             el.id = 'mbw-play-hud';
             this.areaKey = null; this.effKey = null;                       // (HUD nuevo: se vuelve a acomodar)
+            ptab.key = null; marks.open = false;
             el.innerHTML =
                 // (lo de la cámara: viñeta, ⏸ y 💬, coordenadas, efectos y el morado del portal van DENTRO del recuadro de la cámara)
                 '<div class="ph-area"><div class="ph-vig"></div><div class="ph-portal"></div>' +
-                '<div class="ph-top"><button type="button" class="ph-gear" aria-label="Menu">⚙</button><div class="ph-msg"></div></div>' +
+                '<div class="ph-top"><div class="ph-topbtns"><button type="button" class="ph-marks-btn" aria-label="Markers">⭐</button><button type="button" class="ph-gear" aria-label="Menu">⚙</button></div><div class="ph-msg"></div></div>' +
+                '<div class="ph-marks" style="display:none"></div><div class="ph-ptab" style="display:none"></div>' +
                 '<button type="button" class="ph-chat-btn"><img src="assets/chat.png" alt=""></button><div class="ph-coords"></div><div class="ph-effects"></div></div>' +
                 '<div class="ph-bars"><div class="ph-left"><div class="ph-armor"></div><div class="ph-hearts"></div></div><div class="ph-right"><div class="ph-air"></div><div class="ph-food"></div></div></div>' +
                 '<div class="ph-xp"><div class="ph-xp-fill"></div><b class="ph-xp-lv"></b></div>' +
@@ -4634,6 +4794,8 @@
                 '<div class="ph-pad2"><button type="button" data-k="down" class="ph-sneak">⇩</button><button type="button" data-k="up" class="ph-jump">⇧</button><button type="button" class="ph-mode">⛏</button></div>';
             document.body.appendChild(el);
             el.querySelector('.ph-gear').addEventListener('click', function (e) { e.stopPropagation(); openPause(); });
+            el.querySelector('.ph-marks-btn').addEventListener('click', function (e) { e.stopPropagation(); marks.toggle(); });
+            ['pointerdown', 'mousedown', 'touchstart', 'click', 'wheel'].forEach(function (n) { el.querySelector('.ph-marks').addEventListener(n, function (e) { e.stopPropagation(); }); });
             joystick(el.querySelector('.ph-joy'));
             el.querySelectorAll('[data-k]').forEach(function (b) {
                 const k = b.getAttribute('data-k');
@@ -4704,6 +4866,8 @@
             const mtxt = S.msgT > 0 ? S.msg : '';
             if (msg.textContent !== mtxt) msg.textContent = mtxt;
             chat.render();
+            if (S.tick % 25 === 0) { try { ptab.update(); } catch (e) { /* nada */ } }
+            if (marks.open && S.tick % 15 === 0) { try { marks.distances(); } catch (e) { /* nada */ } }
             // 🪧 el letrero que se está leyendo
             const sg = this.el.querySelector('.ph-sign'), G = S.sign;
             if (G.a > 0) {
@@ -5338,6 +5502,7 @@
         if (w.gamemode != 1) w.fly = false;
         inv();
         for (const id in mbwom.mobs) { const m = mbwom.mobs[id]; if (m && typeof m === 'object') { m.target = null; m.focus = null; m.speedX = Number(m.speedX) || 0; m.speedY = Number(m.speedY) || 0; } }
+        S.dropsRestored = false;
         S.p = newPlayer(); S.tmp = new Map(); S.drops = []; S.falling = []; S.arrows = []; S.shots = []; S.fballs = []; S.eyes = []; S.draw = null; S.orbs = []; S.liqFresh = new Set(); S.sandCheck = new Map(); S.leafQ = new Map(); S.dropSeq = 0; S.dropBase = Date.now().toString(36); S.lastPvp = null; S.parts = []; S.wetWas = {}; S.spawnT = new Map(); S.spawnOn = new Set(); S.selShow = null; S.selPrev = null; S.rsOn = new Map(); S.rsReady = false; S.btn = new Map(); S.plates = new Set(); S.portalLock = true; S.portalGo = 0; S.dimStash = {}; S.spect = null; S.tick = 0; S.acc = 0; S.last = 0; S.mine = null; S.useTimer = -1; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mobErr = false;
         // arena y grava cerca: se revisan para que caigan si no tienen nada abajo
         const x0 = Math.max(0, Math.floor(px) - 60), x1 = Math.floor(px) + 60;
@@ -5469,7 +5634,7 @@
     // Mientras se juega, lo que se guarda / descarga / sube es la FOTO (el mundo de antes de jugar)
     function withSnapshot(fn, self, args) {
         if (!S.playing || !S.snapshot) return fn.apply(self, args);
-        if (window.__mbwSaveLive && !S.test) { syncScene(); return fn.apply(self, args); }   // 💾 servidor guardado en línea: con lo que pasó jugando
+        if (window.__mbwSaveLive && !S.test) { syncScene(); if (isServer()) mbwom.world.mbweDrops = packAllDrops(); return fn.apply(self, args); }   // 💾 servidor guardado en línea: con lo que pasó jugando (y lo tirado en el suelo)
         const liveWorld = mbwom.world;
         const cur = syncScene();
         const tmpW = snapWorld();
@@ -5724,7 +5889,7 @@
             // objetos en el suelo
             dropIn: function (o) {
                 if (!S.playing || !o || !o.nid || dropIdx(o.nid) >= 0) return;
-                const d = { nid: String(o.nid), id: String(o.id), n: o.n | 0, dmg: o.dmg || 0, ex: o.ex || {}, x: Number(o.x), y: Number(o.y), vx: Number(o.vx) || 0, vy: Number(o.vy) || 0, age: o.age | 0 };
+                const d = { nid: String(o.nid), id: String(o.id), n: o.n | 0, dmg: o.dmg || 0, ex: o.ex || {}, x: Number(o.x), y: Number(o.y), vx: Number(o.vx) || 0, vy: Number(o.vy) || 0, age: o.age | 0, born: Number(o.born) || Date.now() };
                 const sc = Number(o.s) || 0;
                 // (un objeto que cayó en otra dimensión se guarda para cuando vaya allá)
                 if (sc && sc !== (mbwom.currentScene || 1)) { S.dimStash = S.dimStash || {}; const b = S.dimStash[sc] = S.dimStash[sc] || {}; b.drops = b.drops || []; if (!b.drops.some(function (q) { return q.nid === d.nid; })) b.drops.push(d); return; }

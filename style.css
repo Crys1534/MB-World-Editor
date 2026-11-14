@@ -3954,3 +3954,35 @@ body.mbw-playing #sm-banner { display: none !important; }
 
 /* 🗑 en el Modo Jugar en supervivencia no hay bote de basura (como en el juego) */
 body.mbw-playing.play-survival #pinv-trash { display: none !important; }
+/* (sin bote de basura, la mesa de crafteo ya no se corre encima de la skin) */
+body.mbw-playing.play-survival #inventory-modal.pinv-mb .pinv-top > #pinv-trash.pinv-trash-side ~ #pinv-craft-box { margin: 0 0 0 calc(var(--s) * .25); }
+
+/* ⭐ marcadores del Modo Jugar (al lado de ⚙) y 👥 tabla de jugadores (derecha) */
+#mbw-play-hud .ph-topbtns { display: flex; gap: 8px; align-items: center; }
+#mbw-play-hud .ph-area .ph-marks-btn { width: 56px; height: 56px; border: none; border-radius: 12px; background: rgba(0,0,0,.35); color: #fff; font-size: 30px; line-height: 1; cursor: pointer; pointer-events: auto; opacity: .45; transition: opacity .15s; }
+#mbw-play-hud .ph-area .ph-marks-btn:hover, #mbw-play-hud.marks-open .ph-marks-btn { opacity: 1; }
+body.is-touch #mbw-play-hud .ph-area .ph-marks-btn { width: 48px; height: 48px; font-size: 25px; opacity: .6; }
+#mbw-play-hud .ph-marks { position: absolute; top: 76px; right: 10px; width: min(320px, calc(100% - 20px)); max-height: calc(100% - 96px); overflow-y: auto; background: rgba(20,20,24,.88); border: 2px solid rgba(255,255,255,.25); border-radius: 10px; padding: 8px 10px 10px; color: #fff; pointer-events: auto; font-size: 15px; z-index: 6; }
+body.is-touch #mbw-play-hud .ph-marks { top: 66px; }
+#mbw-play-hud .ph-mk-head { display: flex; align-items: center; justify-content: space-between; font-weight: bold; font-size: 17px; margin-bottom: 6px; }
+#mbw-play-hud .ph-mk-x { background: none; border: none; color: #fff; font-size: 18px; cursor: pointer; padding: 2px 6px; }
+#mbw-play-hud .ph-mk-add { display: flex; gap: 6px; margin-bottom: 8px; }
+#mbw-play-hud .ph-mk-add input { flex: 1 1 auto; min-width: 0; padding: 6px 8px; border-radius: 6px; border: 1px solid #666; background: #111; color: #fff; font-size: 15px; }
+#mbw-play-hud .ph-mk-add button { flex: 0 0 auto; padding: 6px 10px; border-radius: 6px; border: none; background: #3f8a2a; color: #fff; font-weight: bold; cursor: pointer; }
+#mbw-play-hud .ph-mk-add button:disabled { background: #555; cursor: default; }
+#mbw-play-hud .ph-mk-note { font-size: 13px; opacity: .75; margin: 4px 0; }
+#mbw-play-hud .ph-mk-row { display: grid; grid-template-columns: 1fr auto auto; grid-template-areas: "n d x" "a d x"; gap: 0 8px; align-items: center; padding: 5px 2px; border-top: 1px solid rgba(255,255,255,.12); }
+#mbw-play-hud .ph-mk-name { grid-area: n; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#mbw-play-hud .ph-mk-at { grid-area: a; font-size: 12px; opacity: .7; }
+#mbw-play-hud .ph-mk-d { grid-area: d; color: #FFD700; font-weight: bold; }
+#mbw-play-hud .ph-mk-del { grid-area: x; background: rgba(255,255,255,.08); border: none; border-radius: 6px; cursor: pointer; font-size: 16px; padding: 4px 6px; }
+#mbw-play-hud .ph-ptab { position: absolute; top: 76px; right: 10px; min-width: 150px; max-width: 220px; background: rgba(0,0,0,.42); border-radius: 8px; padding: 6px 8px; color: #fff; font-size: 14px; pointer-events: none; text-shadow: 1px 1px 0 #000; }
+body.is-touch #mbw-play-hud .ph-ptab { top: 66px; font-size: 12px; min-width: 120px; max-width: 170px; padding: 4px 6px; }
+#mbw-play-hud.marks-open .ph-ptab { display: none !important; }
+#mbw-play-hud .ph-pt-head { font-weight: bold; opacity: .85; margin-bottom: 3px; }
+#mbw-play-hud .ph-pt-row { display: flex; gap: 6px; align-items: center; line-height: 1.35; }
+#mbw-play-hud .ph-pt-pos { opacity: .6; min-width: 1.4em; }
+#mbw-play-hud .ph-pt-name { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#mbw-play-hud .ph-pt-row.me .ph-pt-name { text-decoration: underline; text-underline-offset: 2px; }
+#mbw-play-hud .ph-pt-row.host .ph-pt-name { color: #87CEEB; font-weight: bold; }   /* celeste (sky blue), no cyan */
+#mbw-play-hud .ph-pt-ach { flex: 0 0 auto; font-size: .9em; opacity: .9; }
