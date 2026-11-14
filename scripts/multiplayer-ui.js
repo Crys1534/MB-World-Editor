@@ -156,28 +156,28 @@ window.loadPublicServers = function() {
             const sid = esc(id);
             let buttonConfig = "";
             if (isAlreadyJoined) {
-                buttonConfig = `<button style="background: #3498db; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: not-allowed; font-family: 'Pixeltype', sans-serif; font-size: 24px; transition: 0.2s;" disabled>JOINED</button>`;
+                buttonConfig = `<button class="srv-go srv-go-joined" disabled>JOINED</button>`;
             } else if (isFull) {
-                buttonConfig = `<button style="background: #7f8c8d; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: not-allowed; font-family: 'Pixeltype', sans-serif; font-size: 24px; transition: 0.2s;" disabled>FULL</button>`;
+                buttonConfig = `<button class="srv-go srv-go-full" disabled>FULL</button>`;
             } else {
-                buttonConfig = `<button class="mp-join-btn" data-room="${sid}" style="background: #2ecc71; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-family: 'Pixeltype', sans-serif; font-size: 24px; transition: 0.2s;">JOIN</button>`;
+                buttonConfig = `<button class="mp-join-btn srv-go srv-go-join" data-room="${sid}">JOIN</button>`;
             }
 
             const rawThumb = String(s.mapThumb || '');
             const thumbUrl = /^(assets\/[\w\- .\/]+\.(png|jpg|jpeg|gif|webp)|data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+\/=]+)$/i.test(rawThumb) ? rawThumb : 'assets/Superflat World.png';
-            const desc = s.desc ? `<span style="color: #ecf0f1; font-size: 16px; display: block; opacity: .85; max-width: 380px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${esc(String(s.desc).slice(0, 120))}</span>` : '';
+            const desc = s.desc ? `<span class="srv-desc">${esc(String(s.desc).slice(0, 120))}</span>` : '';
+            const tt = (k, fb) => (typeof window.tmsg === 'function' ? window.tmsg(k, fb) : fb);
+            // 🃏 tarjeta (style.css .srv-card): foto · nombre y mapa · jugadores y botón. En pantallas angostas los botones bajan a su fila.
             htmlBuilder += `
-                <div style="background: rgba(52, 73, 94, 0.8); padding: 10px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #7f8c8d; gap: 12px; margin-bottom: 5px;">
-                    <div style="display: flex; align-items: center; gap: 15px; min-width: 0;">
-                        <div style="width: 80px; height: 50px; background-image: url(&quot;${esc(thumbUrl)}&quot;); background-size: cover; background-position: center; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2); image-rendering: pixelated; flex-shrink: 0;"></div>
-                        <div style="min-width: 0;">
-                            <strong style="color: #4DA6FF; font-size: 24px; display: block; line-height: 1;">${esc(s.hostName)}'s Room</strong>
-                            <span style="color: #bdc3c7; font-size: 18px;">Map: ${esc(s.mapName)}</span>
-                            ${desc}
-                        </div>
+                <div class="srv-card srv-live">
+                    <div class="srv-thumb" style="background-image: url(&quot;${esc(thumbUrl)}&quot;);"></div>
+                    <div class="srv-info">
+                        <strong class="srv-name">${esc(s.hostName)}'s Room</strong>
+                        <span class="srv-sub">${esc(tt('srv_map', 'Map') + ': ' + (s.mapName || ''))}</span>
+                        ${desc}
                     </div>
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="color: ${(isFull && !isAlreadyJoined) ? '#e74c3c' : '#2ecc71'}; font-size: 24px; font-weight: bold;">${Number(s.currentPlayers) | 0}/${Number(s.maxPlayers) | 0}</span>
+                    <div class="srv-actions">
+                        <span class="srv-count${(isFull && !isAlreadyJoined) ? ' is-full' : ''}">👥 ${Number(s.currentPlayers) | 0}/${Number(s.maxPlayers) | 0}</span>
                         ${buttonConfig}
                     </div>
                 </div>
@@ -277,6 +277,24 @@ window.renderPresenceList = function() {
     }
 
     if (listContainer) listContainer.innerHTML = htmlBuilder;
+    // 📱 cuántos hay en línea (sin contarme), en la pestaña "Online" del celular
+    const cnt = document.getElementById('mp-tab-count');
+    if (cnt) { const n = Object.keys(users).filter(k => k !== myUID).length; cnt.textContent = n > 0 ? String(n) : ''; }
+};
+
+// 📱 pantalla angosta con dedo (celular acostado, o parado aunque cuente como tableta): Multijugador con pestañas (style.css .mp-compact)
+(function () {
+    const sync = () => { const b = document.body; if (!b) return; b.classList.toggle('mp-compact', b.classList.contains('is-phone') || (b.classList.contains('is-touch') && window.innerWidth < 1000)); };
+    window.addEventListener('resize', sync); window.addEventListener('orientationchange', () => setTimeout(sync, 300));
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(sync, 0)); else setTimeout(sync, 0);
+    setInterval(sync, 2000);   // (is-phone / is-touch los pone scripts/mobile.js; por si cambian sin "resize")
+})();
+// 📱 pestañas del celular: "servers" (lista de servidores, crear) u "online" (quién está en línea)
+window.mbwMpTab = function (tab) {
+    const v = document.getElementById('mp-servers-view'); if (!v) return;
+    tab = tab === 'online' ? 'online' : 'servers';
+    v.setAttribute('data-tab', tab);
+    document.querySelectorAll('#mp-tabs .mp-tab').forEach(b => b.classList.toggle('is-on', b.getAttribute('data-mptab') === tab));
 };
 
 window.renderServerInvites = function(container) {

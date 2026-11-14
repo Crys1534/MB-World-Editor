@@ -194,6 +194,11 @@ function initBackstageMenu() {
                 <div style="flex: 1; display: flex; overflow: hidden; position: relative; width: 100%;">
                     
                     <div id="mp-servers-view" style="flex: 1; display: flex; flex-direction: row; padding: 0px; gap: 20px; width: 100%;">
+                        <!-- 📱 en el celular: dos pestañas (servidores / en línea) para que cada lista tenga toda la pantalla -->
+                        <div id="mp-tabs" class="mp-tabs" role="tablist">
+                            <button type="button" class="mp-tab is-on" data-mptab="servers" onclick="mbwMpTab('servers')">🌐 <span data-i18n="mp_public_servers">Public Servers</span></button>
+                            <button type="button" class="mp-tab" data-mptab="online" onclick="mbwMpTab('online')">🟢 <span data-i18n="mp_online">Online</span> <b id="mp-tab-count" class="mp-tab-count"></b></button>
+                        </div>
                         <div id="mp-main-wizard" style="flex: 1; padding: 0px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; color: white; font-family: 'Pixeltype', sans-serif;">
                             
                             <div id="mp-view-join" style="display: block; width: 100%; max-width: 500px; margin-top: 20px; text-align: left;">
@@ -233,7 +238,7 @@ function initBackstageMenu() {
 
                             <p id="multiplayer-status" style="display: none; margin-top: 25px; font-weight: bold; font-size: 28px; color: #bdc3c7;" data-i18n="mp_status_not_connected">Status: Not Connected</p>
                         </div>
-                        <div style="width: 364px; padding: 20px; display: flex; flex-direction: column; align-items: center; font-family: 'Pixeltype', sans-serif; border-left: 2px solid #34495e;">
+                        <div id="mp-online-col" style="width: 364px; padding: 20px; display: flex; flex-direction: column; align-items: center; font-family: 'Pixeltype', sans-serif; border-left: 2px solid #34495e;">
                             <h2 style="margin-top: 0; color: #2ecc71; font-size: 44px; text-shadow: 2px 2px 0 #000; margin-bottom: 15px;" data-i18n="mp_online">Online</h2>
                             <div id="mp-online-users-list" style="width: 100%; flex: 1; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; border: 2px solid #34495e;">
                                 <p style="text-align: center; color: #bdc3c7; font-size: 24px;" data-i18n="mp_loading_players">Cargando jugadores...</p>

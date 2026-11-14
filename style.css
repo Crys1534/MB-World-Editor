@@ -3997,3 +3997,69 @@ body.is-touch #mbw-play-hud .ph-ptab { top: 66px; font-size: 12px; min-width: 12
 .uj-room-link { font-size: 18px !important; }
 #mbw-play-hud .ph-mk-go { grid-area: g; background: #2f7fd1; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; padding: 4px 9px; }
 #mbw-play-hud .ph-mk-go:hover { background: #3b92ea; }
+
+
+/* ==========================================================================
+   🃏 MULTIJUGADOR — tarjetas de servidor (abiertos y permanentes) y, en el celular, pestañas
+   La tarjeta es una cuadrícula: [foto | nombre y datos | jugadores + botones]. Cuando la lista es angosta
+   (container query), los botones bajan a su propia fila y ya nada se encima.
+   ========================================================================== */
+#public-servers-list { container-type: inline-size; overflow-x: hidden; }
+.srv-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "thumb info actions"; align-items: center; gap: 6px 12px;
+    background: rgba(44, 62, 80, .85); border: 1px solid rgba(127, 140, 141, .7); border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; flex-shrink: 0; }
+.srv-card.srv-perm { border-style: dashed; }
+.srv-thumb { grid-area: thumb; width: 84px; height: 52px; background-size: cover; background-position: center; border-radius: 5px; border: 1px solid rgba(255,255,255,.2); image-rendering: pixelated; }
+.srv-info { grid-area: info; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.srv-name { color: #f5d76e; font-size: 24px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.srv-live .srv-name { color: #4DA6FF; }
+.srv-sub { color: #bdc3c7; font-size: 17px; line-height: 1.05; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.srv-desc { color: #ecf0f1; font-size: 16px; line-height: 1.05; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.srv-actions { grid-area: actions; display: flex; align-items: center; justify-content: flex-end; gap: 6px; flex-wrap: nowrap; }
+.srv-count { color: #2ecc71; font-size: 20px; font-weight: bold; white-space: nowrap; margin-right: 4px; }
+.srv-count.is-full { color: #e74c3c; }
+.srv-perm .srv-count { color: #95a5a6; }
+.srv-icon { width: 36px; height: 34px; display: inline-flex; align-items: center; justify-content: center; padding: 0 !important; margin: 0 !important; border-radius: 6px; font-size: 16px; line-height: 1; cursor: pointer; flex: none; }
+.srv-icon.ss-del { background: #7f2a1f; border: none; color: #fff; }
+.srv-icon.ss-adm { background: #2d4a6b; border: none; color: #fff; }
+.srv-icon.uj-link { background: #2c3e50; border: 1px solid rgba(255,255,255,.35); color: #fff; }
+.srv-icon .mbw-ic { width: 18px; height: 18px; }
+.srv-go { border: none; border-radius: 6px; color: #fff; font-family: 'Pixeltype', sans-serif; font-size: 24px; line-height: 1; padding: 7px 16px; cursor: pointer; white-space: nowrap; min-width: 84px; }
+.srv-go-join { background: #2ecc71; } .srv-go-join:hover { background: #36d97b; }
+.srv-go-open { background: #e67e22; } .srv-go-open:hover { background: #d35400; }
+.srv-go-joined { background: #3498db; cursor: not-allowed; }
+.srv-go-full { background: #7f8c8d; cursor: not-allowed; }
+@container (max-width: 340px) { .srv-go { min-width: 0; padding: 7px 12px; } .srv-icon { width: 32px; } }
+@container (max-width: 520px) {
+    .srv-card { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "thumb info" "actions actions"; }
+    .srv-actions { border-top: 1px solid rgba(255,255,255,.1); padding-top: 7px; flex-wrap: wrap; }
+    .srv-count { margin-right: auto; }
+    .srv-thumb { width: 64px; height: 42px; }
+}
+.mp-tabs { display: none; }
+
+/* 📱 celular: pestañas arriba y cada lista ocupa todo */
+body.mp-compact #mp-servers-view { flex-direction: column !important; gap: 6px !important; min-height: 0; }
+body.mp-compact .mp-tabs { display: flex; gap: 6px; padding: 6px 8px 0; flex: none; }
+body.mp-compact .mp-tab { flex: 1; background: rgba(0,0,0,.25); color: #bdc3c7; border: 2px solid #34495e; border-radius: 8px; padding: 6px 10px; font-family: 'Pixeltype', sans-serif; font-size: 24px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+body.mp-compact .mp-tab.is-on { background: #34495e; color: #fff; border-color: #4DA6FF; }
+body.mp-compact .mp-tab-count:not(:empty) { background: #2ecc71; color: #062; border-radius: 10px; padding: 1px 8px; font-size: 18px; }
+body.mp-compact #mp-servers-view:not([data-tab="online"]) #mp-online-col { display: none !important; }
+body.mp-compact #mp-servers-view[data-tab="online"] #mp-main-wizard { display: none !important; }
+body.mp-compact #mp-main-wizard { min-height: 0; }
+body.mp-compact #mp-servers-view > #mp-online-col { width: auto !important; flex: 1; min-height: 0; padding: 4px 8px 8px !important; border-left: none !important; }
+body.mp-compact #mp-online-col > h2 { display: none; }
+body.mp-compact #mp-online-users-list { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); align-content: start; }
+/* la vista de servidores: [título · crear · probar] arriba, la lista en todo lo que queda, la ayuda abajo en chiquito */
+body.mp-compact #mp-view-join:not([style*="display: none"]) { display: grid !important; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas: "title create test" "list list list" "hint hint hint"; gap: 6px 8px; max-width: none !important; width: 100%; height: 100%; margin: 0 !important; padding: 0 8px 4px !important; box-sizing: border-box; }
+body.mp-compact #mp-view-join > h2 { display: none; }   /* (la pestaña de arriba ya lo dice) */
+body.mp-compact #public-servers-list { grid-area: list; height: auto !important; min-height: 0; margin: 0 !important; padding: 6px !important; }
+body.mp-compact #mp-view-join .sw-join-hint { grid-area: hint; font-size: 15px; margin: 0; }
+body.mp-compact #mp-view-join #mp-create-btn { grid-area: create; width: auto; font-size: 20px; padding: 6px 14px; box-shadow: 0 2px 0 #1e8449; align-self: center; }
+body.mp-compact #mp-view-join #mp-nettest-btn { grid-area: test; margin: 0; align-self: center; padding: 6px 10px; font-size: 14px; }
+body.mp-compact #mp-view-join input[type="hidden"] { display: none; }
+body.mp-compact .ss-head { font-size: 18px; margin: 8px 0 4px; }
+body.mp-compact .srv-card { padding: 8px 10px; }
+body.mp-compact .srv-name { font-size: 22px; }
+body.mp-compact .srv-sub { font-size: 15px; }
+body.mp-compact .srv-desc { font-size: 14px; }

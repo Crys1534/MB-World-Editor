@@ -29,7 +29,7 @@
     // ---------------------------------------------------------- 🔗 en la lista de servidores
     function linkBtn(target) {
         const b = document.createElement('button');
-        b.type = 'button'; b.className = 'uj-link'; b.textContent = '🔗';
+        b.type = 'button'; b.className = 'uj-link srv-icon'; b.textContent = '🔗';
         b.title = tr('uj_copy_tip', 'Copy a link to join this server');
         b.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); window.mbwCopyServerLink(target); });
         return b;

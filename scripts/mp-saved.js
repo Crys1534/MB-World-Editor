@@ -217,20 +217,22 @@
             if (live[k] || !canSee(s)) return;                      // (abierto ahora: sale arriba como siempre)
             const raw = String(s.mapThumb || '');
             const thumb = /^(assets\/[\w\- .\/]+\.(png|jpg|jpeg|gif|webp)|data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+\/=]+)$/i.test(raw) ? raw : 'assets/Superflat World.png';
-            const desc = s.desc ? `<span class="ss-desc">${esc(String(s.desc).slice(0, 120))}</span>` : '';
+            const desc = s.desc ? `<span class="srv-desc">${esc(String(s.desc).slice(0, 120))}</span>` : '';
             const mb = (Number(s.bytes) || 0) / 1048576;
             count++;
             out += `
-                <div class="ss-row">
-                    <div class="ss-left">
-                        <div class="ss-thumb" style="background-image: url(&quot;${esc(thumb)}&quot;);"></div>
-                        <div style="min-width: 0;">
-                            <strong class="ss-name">${esc(s.mapName || 'World')}</strong>
-                            <span class="ss-sub">${esc(tr('ss_by', 'by {name}', { name: s.ownerName || 'Player' }) + ' · ' + tr('ss_saved_ago', 'saved {when}', { when: ago(s.savedAt) }) + (mb >= .05 ? ' · ' + mb.toFixed(1) + ' MB' : ''))}</span>
-                            ${desc}
-                        </div>
+                <div class="srv-card srv-perm ss-row">
+                    <div class="srv-thumb" style="background-image: url(&quot;${esc(thumb)}&quot;);"></div>
+                    <div class="srv-info">
+                        <strong class="srv-name">${esc(s.mapName || 'World')}</strong>
+                        <span class="srv-sub">${esc(tr('ss_by', 'by {name}', { name: s.ownerName || 'Player' }))}</span>
+                        <span class="srv-sub srv-when">${esc(tr('ss_saved_ago', 'saved {when}', { when: ago(s.savedAt) }) + (mb >= .05 ? ' · ' + mb.toFixed(1) + ' MB' : ''))}</span>
+                        ${desc}
                     </div>
-                    <div class="ss-right"><span class="ss-max">0/${Number(s.max) | 0}</span>${isAdmin() ? `<button type="button" class="ss-adm ss-dl" data-ss="${k}" title="${esc(tr('ss_dl_tip', 'Download the world of this server (.mbw)'))}">⬇</button><button type="button" class="ss-adm ss-rep" data-ss="${k}" title="${esc(tr('ss_rep_tip', 'Replace the world of this server with a .mbw file (only Crystal)'))}">📤</button>` : ''}${canRemove(s) ? `<button type="button" class="ss-del" data-ss="${k}" title="${esc(tr('ss_delete', 'Remove'))}">🗑</button>` : ''}<button type="button" class="ss-open" data-ss="${k}">${esc(tr('ss_open', 'OPEN'))}</button></div>
+                    <div class="srv-actions">
+                        <span class="srv-count">👥 0/${Number(s.max) | 0}</span>
+                        ${isAdmin() ? `<button type="button" class="srv-icon ss-adm ss-dl" data-ss="${k}" title="${esc(tr('ss_dl_tip', 'Download the world of this server (.mbw)'))}">⬇</button><button type="button" class="srv-icon ss-adm ss-rep" data-ss="${k}" title="${esc(tr('ss_rep_tip', 'Replace the world of this server with a .mbw file (only Crystal)'))}">📤</button>` : ''}${canRemove(s) ? `<button type="button" class="srv-icon ss-del" data-ss="${k}" title="${esc(tr('ss_delete', 'Remove'))}">🗑</button>` : ''}<button type="button" class="srv-go srv-go-open ss-open" data-ss="${k}">${esc(tr('ss_open', 'OPEN'))}</button>
+                    </div>
                 </div>`;
         });
         const head = `<div class="ss-head">💾 ${esc(tr('ss_title9', 'Permanent servers ({n} of 9 places used): open one to be the host', { n: used().length }))}</div>`;
