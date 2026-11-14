@@ -3971,7 +3971,7 @@ body.is-touch #mbw-play-hud .ph-marks { top: 66px; }
 #mbw-play-hud .ph-mk-add button { flex: 0 0 auto; padding: 6px 10px; border-radius: 6px; border: none; background: #3f8a2a; color: #fff; font-weight: bold; cursor: pointer; }
 #mbw-play-hud .ph-mk-add button:disabled { background: #555; cursor: default; }
 #mbw-play-hud .ph-mk-note { font-size: 13px; opacity: .75; margin: 4px 0; }
-#mbw-play-hud .ph-mk-row { display: grid; grid-template-columns: 1fr auto auto; grid-template-areas: "n d x" "a d x"; gap: 0 8px; align-items: center; padding: 5px 2px; border-top: 1px solid rgba(255,255,255,.12); }
+#mbw-play-hud .ph-mk-row { display: grid; grid-template-columns: 1fr auto auto auto; grid-template-areas: "n d g x" "a d g x"; gap: 0 8px; align-items: center; padding: 5px 2px; border-top: 1px solid rgba(255,255,255,.12); }
 #mbw-play-hud .ph-mk-name { grid-area: n; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #mbw-play-hud .ph-mk-at { grid-area: a; font-size: 12px; opacity: .7; }
 #mbw-play-hud .ph-mk-d { grid-area: d; color: #FFD700; font-weight: bold; }
@@ -3991,3 +3991,5 @@ body.is-touch #mbw-play-hud .ph-ptab { top: 66px; font-size: 12px; min-width: 12
 .uj-link { background: #2c3e50; color: #fff; border: 1px solid rgba(255,255,255,.35); border-radius: 4px; padding: 4px 8px; margin-right: 6px; font-size: 18px; cursor: pointer; line-height: 1; }
 .uj-link:hover { background: #3d5a73; }
 .uj-room-link { font-size: 18px !important; }
+#mbw-play-hud .ph-mk-go { grid-area: g; background: #2f7fd1; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; padding: 4px 9px; }
+#mbw-play-hud .ph-mk-go:hover { background: #3b92ea; }

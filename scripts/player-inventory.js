@@ -917,6 +917,8 @@
   drag = { btn: e.pointerType === 'touch' ? 0 : e.button, touch: e.pointerType === 'touch', slots: [addr], els: [el], id: e.pointerId,
    held0: held, heldObj: heldItem, count0: heldItem.count, orig: [{ a: addr, it: getSlot(addr) }] };
   el.classList.add('pinv-drag');
+  // ✋ en la mesa de crafteo, al apretar (clic, Shift + clic o mantener el dedo) el objeto ya se pone ahí, sin esperar a soltar
+  if (addr.k === 'k' && drag.btn !== 2) { const cur = getSlot(addr); if (!cur || (same(cur, held) && cur.qty < maxStack(held))) dragLive(drag); }
   window.addEventListener('pointermove', dragMove, true);
   window.addEventListener('pointerup', dragEnd, true);
   window.addEventListener('pointercancel', dragCancel, true);
@@ -938,7 +940,7 @@
  function dragLive(d) {
   d.orig.forEach((o) => setSlot(o.a, o.it));                          // (se vuelve a como estaba y se reparte otra vez entre todas)
   heldItem = d.heldObj; heldItem.count = d.count0;
-  if (d.slots.length >= 2) {
+  if (d.slots.length >= 1) {
    const held = d.held0;
    let left = d.count0;
    const per = Math.max(1, Math.floor(left / d.slots.length));
@@ -972,8 +974,8 @@
  function dragEnd(e) {
   if (!drag || e.pointerId !== drag.id) return;
   const d = drag; dragOff(); drag = null;
+  if (d.live) { eatUntil = performance.now() + 350; refreshCursor(); renderAll(); return; }   // (ya quedó puesto / repartido en vivo)
   if (d.slots.length < 2) return;                                     // una sola casilla: es un clic normal
-  if (d.live) { eatUntil = performance.now() + 350; refreshCursor(); renderAll(); return; }   // (ya quedó repartido en vivo)
   const held = fromHeld(heldItem); if (!held) return;
   let left = held.qty;
   const one = d.btn === 2;

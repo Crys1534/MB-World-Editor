@@ -4653,6 +4653,30 @@
         open: false,
         list: function () { try { return (window.mbwBookmarks && window.mbwBookmarks.list()) || []; } catch (e) { return []; } },
         toggle: function (on) { this.open = on == null ? !this.open : !!on; this.render(); },
+        // ➜ ir a un marcador: cualquiera, sin permisos de comandos; se espera 3 segundos (como /back)
+        go: function (b) {
+            if (!b) return;
+            const w = W();
+            if (w.dead > 0) return;
+            clearTimeout(S.markWait);
+            say('[INFO] ⭐ ' + tr('play_marks_wait', 'Teleporting you to "{name}" in 3 seconds...').replace('{name}', b.name));
+            flashMsg('⭐ ' + tr('play_marks_wait', 'Teleporting you to "{name}" in 3 seconds...').replace('{name}', b.name));
+            S.markWait = setTimeout(function () {
+                S.markWait = 0;
+                const w2 = W();
+                if (!S.playing || w2.dead > 0) return;
+                const dim = Number(b.dim) || 1;
+                if (dim !== (mbwom.currentScene || 1)) {
+                    if (!mbwom.world['scene' + dim]) { say('[INFO] ' + tr('ex_bm_dim_missing', 'That dimension is not generated in this world.')); return; }
+                    if (!changeDim(dim, 'cmd')) { say('[INFO] ' + tr('play_back_dim', 'You cannot go back to that dimension right now.')); return; }
+                }
+                const p = safeSpot(Number(b.x) + .5, -Number(b.y));
+                w2.worldX = p.x; w2.worldY = p.y; w2.xSpeed = 0; w2.ySpeed = 0; w2.riding = '';
+                if (S.p) { S.p.falling = S.p.wasFalling = false; S.p.wasFallingSpeed = 0; S.p.wasFallingAndNotFalling = 0; S.p.suffocate = 0; S.p.jumpTimer = 0; }
+                S.mine = null; S.ride = null; camSnap(); hud.dirty = true;
+                say('[INFO] ⭐ ' + tr('play_marks_done', 'You are at "{name}".').replace('{name}', b.name));
+            }, TP_WAIT);
+        },
         dist: function (b) { const w = W(); return Math.round(Math.hypot(Number(b.x) + .5 - Number(w.worldX), Number(b.y) - (-Number(w.worldY)))); },
         render: function () {
             const box = hud.el && hud.el.querySelector('.ph-marks'); if (!box) return;
@@ -4690,6 +4714,9 @@
                 const at = document.createElement('span'); at.className = 'ph-mk-at'; at.textContent = 'X ' + b.x + ' · Y ' + b.y + (DN[b.dim] || '');
                 r.appendChild(at);
                 const d = document.createElement('span'); d.className = 'ph-mk-d'; d.textContent = b.dim === cur ? marks.dist(b) + ' m' : '—'; r.appendChild(d);
+                const goB = document.createElement('button'); goB.type = 'button'; goB.className = 'ph-mk-go'; goB.textContent = '➜'; goB.title = tr('play_marks_go', 'Go there (3 seconds)');
+                goB.onclick = function () { marks.toggle(false); marks.go(b); };
+                r.appendChild(goB);
                 const del = document.createElement('button'); del.type = 'button'; del.className = 'ph-mk-del'; del.textContent = '🗑'; del.title = tr('play_marks_del', 'Delete');
                 del.onclick = function () { if (window.mbwBookmarks && window.mbwBookmarks.remove) window.mbwBookmarks.remove(b.id); marks.render(); };
                 r.appendChild(del);
@@ -5201,14 +5228,7 @@
         },
         marks: function () { return window.mbwChatMarks ? window.mbwChatMarks() : []; },
         back: function () { return !!S.deathPos; },                          // ↩ botón /back arriba de todo (después de morir)
-        tpMark: function (b) {
-            chat.close(); say('> /tp ' + b.x + ' ' + b.y + '  (⭐ ' + b.name + ')');
-            try {
-                if (b.dim && b.dim !== (mbwom.currentScene || 1)) runCommand('/tp dimension ' + ['', 'overworld', 'nether', 'end'][b.dim]);
-                if (!b.dim || b.dim === (mbwom.currentScene || 1)) runCommand('/tp ' + (Number(b.x) + .5) + ' ' + b.y);
-            } catch (e) { say('[INFO] Error: ' + e.message); }
-            hud.dirty = true;
-        }
+        tpMark: function (b) { chat.close(); marks.go(b); hud.dirty = true; }   // ⭐ (cualquiera, sin permisos, a los 3 segundos)
     };
     // ---------------------------------------------------------------- 😀 EMOTES
     // Al pasar el mouse sobre mi personaje (en el celular: al tocarlo) sale arriba un botón con el dibujo del chat; al tocarlo, los
