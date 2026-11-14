@@ -94,6 +94,10 @@
     // 🎮 invitado en una partida: lo que pasa SOLO en el mundo (agua que corre, hornos) lo hace el anfitrión y le llega por la red
     const mpGuest = () => !!(S.mp && window.mbwMpPlay && window.mbwMpPlay.role === 'guest');
     const mpHost = () => !!(S.mp && window.mbwMpPlay && window.mbwMpPlay.role === 'host');
+    // 👑 Crystal (los admins de scripts/mp-saved.js): comandos sin restricciones, como el anfitrión
+    const isAdminMe = () => { try { return !!(window.mbwSavedServers && window.mbwSavedServers.isAdmin && window.mbwSavedServers.isAdmin()); } catch (e) { return false; } };
+    const isAdminUid = (u) => { try { return !!(window.mbwSavedServers && window.mbwSavedServers.isAdminUid && window.mbwSavedServers.isAdminUid(u)); } catch (e) { return false; } };
+    const myUidNet = () => { try { return localStorage.getItem('mbw_uid') || ''; } catch (e) { return ''; } };
     const mpSend = (d) => { if (!S.mp || typeof window.enviarMensajeEnRed !== 'function') return; if (!d.peerId && window.mbwMpPlay && window.mbwMpPlay.myId) d.peerId = window.mbwMpPlay.myId(); window.enviarMensajeEnRed(d); };
     // 🎮 Etapa 2: los OTROS jugadores, para los mobs del anfitrión. Su id para los mobs es 'rp:' + su peerId.
     const RP = 'rp:';
@@ -232,11 +236,16 @@
     function damageTool() {
         if (W().gamemode == 1) return;
         const it = selItem();
-        if (!it || bd(it[0], 'tool') != 1) return;
+        if (!it || it[0] === 'bl') return;
         const life = bd(it[0], 'life');
         if (life == null) return;
+        // (irrompible / irrompibilidad I-IV: como Game.damageTool se gasta con probabilidad 2/3, 1/2, 1/3 o 1/4)
+        const ex = it[3] || {};
+        if (ex.unbreakable != null) return;
+        const P = ex.unbreaking1 != null ? 2 / 3 : ex.unbreaking2 != null ? 1 / 2 : ex.unbreaking3 != null ? 1 / 3 : ex.unbreaking4 != null ? 1 / 4 : 1;
+        if (P < 1 && Math.random() >= P) return;
         it[2] = (Number(it[2]) || 0) + 1;
-        if (it[2] >= life) inv()[selIndex()] = empty();
+        if (it[2] >= life) { inv()[selIndex()] = empty(); flashMsg('💥 ' + tr('play_tool_broke', 'Your tool broke!')); }
         hud.dirty = true;
     }
 
@@ -953,6 +962,7 @@
         if (!(w.health <= 0 || (w.dead | 0) !== 0)) { if (deathUi.el && deathUi.el.style.display === 'flex') deathUi.hide(); return; }   // (revivió por otro lado: /heal, el anfitrión...)
         w.dead = (w.dead | 0) + 1;
         if (w.dead === 1) {
+            S.deathPos = { x: Number(w.worldX), y: Number(w.worldY), s: mbwom.currentScene || 1, v: (S.lastHurt && S.lastHurt.c) === 'void' };   // ↩ para /back
             const by = (S.mp && S.lastPvp && Date.now() - S.lastPvp.t < 5000) ? S.lastPvp.name : '';
             if (S.mp) mpSend({ tipo: 'juego_muerte', autor: myNameNet(), por: by });
             flashMsg(by ? tr('mpplay_killed_by', '💀 {name} defeated you').replace('{name}', by) : tr('play_dead', '💀 You died'));
@@ -971,6 +981,7 @@
         S.p = newPlayer();
         hud.dirty = true;
         camSnap();
+        if (S.deathPos) say('[INFO] 💡 ' + tr('play_back_tip', 'Type /back to go back to where you died.'));
     }
     function dropAll() {
         const w = W();
@@ -1003,7 +1014,7 @@
             if (!this.el) {
                 const el = this.el = document.createElement('div');
                 el.className = 'ph-death';
-                el.innerHTML = '<div class="ph-death-in"><h2></h2><div class="ph-death-why"></div><div class="ph-death-score"></div><button type="button" class="ph-death-re"></button><button type="button" class="ph-death-quit"></button></div>';
+                el.innerHTML = '<div class="ph-death-in"><h2></h2><div class="ph-death-why"></div><div class="ph-death-score"></div><div class="ph-death-back"></div><button type="button" class="ph-death-re"></button><button type="button" class="ph-death-quit"></button></div>';
                 el.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
                 el.querySelector('.ph-death-re').addEventListener('click', function (e) { e.stopPropagation(); S.respawnReq = true; this.disabled = true; });
                 el.querySelector('.ph-death-quit').addEventListener('click', function (e) { e.stopPropagation(); if (window.mbwPlayMenu && window.mbwPlayMenu.open) window.mbwPlayMenu.open(); });
@@ -1017,6 +1028,7 @@
             el.querySelector('.ph-death-score').appendChild(sc); el.querySelector('.ph-death-score').appendChild(b);
             const re = el.querySelector('.ph-death-re'); re.textContent = tr('death_respawn', 'Respawn'); re.disabled = true;
             el.querySelector('.ph-death-quit').textContent = tr('death_menu', 'Menu');
+            el.querySelector('.ph-death-back').textContent = '💡 ' + tr('death_back_tip', 'After you respawn, type /back to come back here.');
             setTimeout(function () { re.disabled = false; }, 900);           // (un ratito, para no darle sin querer)
             el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
             el.style.display = 'flex';
@@ -2033,6 +2045,8 @@
         if (!byCmd) { if (t === 'wd1' || t === 'wd') ach(0); else if (t === 'ob') ach(27); else if (t === 'gd') ach(28); else if (t === 'dmore') ach(29); }
         setBlock(x, y, null);
         removePartner(x, y, t, s1);                                    // 🛏🚪 la otra mitad (cama, puerta, pistón) se va sin soltar nada, como Game.requestRemove
+        // 🧊 el hielo (y el hielo escarchado y la caña de azúcar del agua) deja agua al romperlo, como Game.mineBlock (en el Nether se evapora)
+        if (!byCmd && (t === 'ice' || t === 'fice' || t === 'sw')) { if ((mbwom.currentScene || 1) == 2) sndAt('sizzle', x + .5, -(y + .5)); else setLiq(x, y, 'wr', [10, 10]); }
         if (w.gamemode == 1) return;
         if (!byCmd) damageTool();
         const dw = bd(t, 'dropsWith');
@@ -2480,7 +2494,71 @@
     window.mbwPlay.spectating = function () { return S.spect ? S.spectName : ''; };
     window.mbwPlay.changeDim = changeDim;
     window.mbwPlay.usePortal = usePortal;
-    function runCommand(raw) {
+    // ↩ /back: al lugar donde moriste (si caíste al vacío, al suelo más cercano de ahí)
+    function doBack() {
+        const w = W(), b = S.deathPos;
+        if (!b) { say('[INFO] ' + tr('play_back_none', 'You have not died yet: /back takes you to the place where you died.')); return; }
+        if (w.dead > 0) { say('[INFO] ' + tr('play_back_dead', 'Respawn first, then type /back.')); return; }
+        if (b.s !== (mbwom.currentScene || 1) && !changeDim(b.s, 'cmd')) { say('[INFO] ' + tr('play_back_dim', 'You cannot go back to that dimension right now.')); return; }
+        let x = b.x, y = b.y;
+        if (b.v || -y < 1) { const p = safeSpot(x, -2); x = p.x; y = p.y; }
+        w.worldX = x; w.worldY = y; w.xSpeed = 0; w.ySpeed = 0; w.riding = '';
+        if (S.p) { S.p.falling = S.p.wasFalling = false; S.p.wasFallingSpeed = 0; S.p.wasFallingAndNotFalling = 0; S.p.suffocate = 0; S.p.jumpTimer = 0; }
+        S.mine = null; stopSpect(true); camSnap(); hud.dirty = true;
+        say('[INFO] ' + tr('play_back_done', 'Back where you died (x:{x}, y:{y}).').replace('{x}', Math.floor(x)).replace('{y}', Math.floor(-y)));
+    }
+    // 👑 (anfitrión / Crystal) usar un comando sobre otro jugador: se le manda y él lo hace en su partida (scripts/mp-play.js → net.cmd)
+    const OTHERS = { tp: 1, heal: 1, kill: 1, give: 1, clear: 1, gamemode: 2 };
+    function targets(tag) {
+        const want = String(tag || '').replace(/^@/, '').toLowerCase();
+        const R = (S.mp && window.mbwMpPlay) ? window.mbwMpPlay.remotes || {} : {};
+        const live = Object.keys(R).filter(function (k) { return R[k] && R[k].name; });
+        if (want === 'me' || want === 's' || want === String(myNameNet()).toLowerCase()) return [{ me: true, name: myNameNet() }];
+        const f = findRemote(want); if (f) return [{ id: f.id, name: f.r.name, r: f.r }];
+        if (want === 'a' || want === 'all' || want === 'everyone') return [{ me: true, name: myNameNet() }].concat(live.map(function (k) { return { id: k, name: R[k].name, r: R[k] }; }));
+        return null;
+    }
+    function onOthers(c, d, boss) {
+        const at = OTHERS[d[0]]; if (!at || !S.mp) return false;
+        const raw = c.split(/\s+/), tag = raw[at];
+        if (!tag || tag[0] !== '@') return false;
+        if (d[0] === 'tp' && raw.length === 2) return false;                 // (/tp @Ana solo: ir YO a donde está Ana)
+        const T = targets(tag);
+        if (!T) { say('[INFO] ' + tr('mpplay_tp_noone', 'There is no player called "{name}" in this game.').replace('{name}', tag.slice(1))); return true; }
+        if (!boss && T.some(function (t) { return !t.me; })) { say('[INFO] ' + tr('play_cmd_others_host', 'Only the host can use commands on other players.')); return true; }
+        const w = W(), sc = mbwom.currentScene || 1;
+        let cmd = '', s = 0;
+        if (d[0] === 'tp') {
+            if (d[2] === 'dimension' || d[2] === 'dim') cmd = '/tp dimension ' + (d[3] || '');
+            else if (raw[2] && raw[2][0] === '@') {
+                const D2 = targets(raw[2]);
+                if (!D2 || D2.length !== 1) { say('[INFO] ' + tr('mpplay_tp_noone', 'There is no player called "{name}" in this game.').replace('{name}', raw[2].slice(1))); return true; }
+                const t = D2[0];
+                if (t.me) { cmd = '/tp ' + Number(w.worldX) + ' ' + (-Number(w.worldY)); s = sc; }
+                else { cmd = '/tp ' + Number(t.r.tx) + ' ' + (-Number(t.r.ty)); s = Number(t.r.s) || 1; }
+            } else {
+                if (raw[2] == null || raw[3] == null) { say('[INFO] tp @player x y  ·  tp @player @player'); return true; }
+                if (/~/.test(raw[2] + raw[3])) cmd = '/tp ' + raw[2] + ' ' + raw[3];   // (~ = desde donde está ese jugador)
+                else {
+                    const x = parseFloat(raw[2]), y = parseFloat(raw[3]);
+                    if (isNaN(x) || isNaN(y)) { say('[INFO] Invalid location.'); return true; }
+                    cmd = '/tp ' + x + ' ' + y; s = sc;                         // (en MI dimensión)
+                }
+            }
+        } else if (d[0] === 'gamemode') cmd = '/gamemode ' + (raw[1] || '');
+        else cmd = '/' + d[0] + (raw.length > 2 ? ' ' + raw.slice(2).join(' ') : '');
+        T.forEach(function (t) {
+            if (t.me) {
+                if (s && s !== (mbwom.currentScene || 1) && !changeDim(s, 'cmd')) return;
+                runCommand(cmd, { forced: true });
+            } else mpSend({ tipo: 'juego_cmd', a: t.id, c: cmd, s: s, uid: myUidNet(), autor: myNameNet() });
+        });
+        const others = T.filter(function (t) { return !t.me; }).map(function (t) { return t.name; });
+        if (others.length) say('[INFO] 👑 ' + tr('play_cmd_sent', '{cmd} → {names}').replace('{cmd}', cmd).replace('{names}', others.join(', ')));
+        return true;
+    }
+    function runCommand(raw, opt) {
+        opt = opt || {};
         const w = W();
         let c = String(raw || '').trim();
         if (c[0] === '/' || c[0] === '\\') c = c.slice(1);
@@ -2489,13 +2567,19 @@
         if (d[0] === 'cls') { cmdLog.length = 0; chat.dirty = true; return; }
         // 🛡 /kick /ban /unban /banlist /mute /unmute: solo el anfitrión del servidor (scripts/mp-mod.js); no dependen de "Commands" del mundo
         if (window.MP_MOD_CMDS && window.MP_MOD_CMDS.indexOf(d[0]) >= 0 && typeof window.mpModCommand === 'function') { say('[INFO] ' + window.mpModCommand(d[0], c.split(/\s+/).slice(1).join(' '))); return; }
+        // ↩ /back: todos lo pueden usar siempre (aunque no tengan permiso para comandos): volver a donde moriste
+        if (d[0] === 'back') { doBack(); return; }
+        // 👑 el anfitrión y Crystal: sin restricciones (también lo que el anfitrión manda hacer a otro jugador: opt.forced)
+        const boss = !!opt.forced || mpHost() || isAdminMe();
         // 🎮 en una partida, por defecto SOLO el anfitrión puede usar comandos (él lo puede permitir en su menú de pausa)
-        if (mpGuest() && !(window.mbwMpPlay && window.mbwMpPlay.guestCmds)) { say('[INFO] ' + tr('mpplay_cmds_host', 'Only the host can use commands in this game.')); return; }
+        if (!boss && mpGuest() && !(window.mbwMpPlay && window.mbwMpPlay.guestCmds)) { say('[INFO] ' + tr('mpplay_cmds_host', 'Only the host can use commands in this game.')); return; }
         // (el anfitrión de una partida siempre puede usar comandos, aunque el mundo los tenga apagados)
-        if (!cheatsOn() && !mpHost()) { say('[INFO] ' + tr('play_cheats_off', 'Commands are disabled in this world. Turn on "Commands" in World Settings (the game would not run them either).')); return; }
+        if (!boss && !cheatsOn()) { say('[INFO] ' + tr('play_cheats_off', 'Commands are disabled in this world. Turn on "Commands" in World Settings (the game would not run them either).')); return; }
         const fb = gameRule('sendcommandfeedback') !== false;
         // (en una partida, lo que dice un comando también les sale a los demás, como en el juego: "[Ana: ...]")
         const info = (t) => { if (!fb) return; say('[INFO] ' + t); if (S.mp) mpSend({ tipo: 'juego_sys', autor: myNameNet(), k: 'cmd', t: String(t).slice(0, 200) }); };
+        // 👑 comandos sobre OTRO jugador: /tp @Ana x y · /tp @Ana @me · /tp @a @me · /heal @Ana · /kill @Ana · /gamemode creative @Ana · /give @Ana item · /clear @Ana
+        if (!opt.forced && onOthers(c, d, boss)) return;
         switch (d[0]) {
             case 'spectate': {
                 // 👁 /spectate @jugador: tu cámara sigue a otro jugador (te pone en modo espectador). /spectate solo: dejar de seguir. Shift también.
@@ -2653,7 +2737,7 @@
             case 'weather': { const v = d[1] === 'set' ? d[2] : d[1]; const n = (v === 'clear' || v === '0') ? 0 : (v === 'rain' || v === '1') ? 1 : (v === 'thunder' || v === '2') ? 2 : -1; if (n < 0) { say('[INFO] weather <get|set <clear|rain|thunder>>'); return; } w.raining = n; if (typeof setWeatherEffect === 'function') { try { setWeatherEffect(['clear', 'rain', 'thunder'][n]); } catch (e) { /* nada */ } } info('Weather set to ' + ['clear', 'rain', 'thunder'][n] + '.'); return; }
             case 'difficulty': { if (['peaceful', 'easy', 'normal', 'hard'].indexOf(d[1]) < 0) { say('[INFO] difficulty peaceful|easy|normal|hard'); return; } w.difficulty = d[1]; info('Difficulty set to ' + d[1] + '.'); return; }
             case 'xp': { let v = d[1] === 'add' ? d[2] : d[1]; if (v == null) { say('[INFO] xp [add] value[L]'); return; } v = /l$/.test(v) ? 100 * parseFloat(v) : parseFloat(v); if (isNaN(v)) { say('[INFO] xp [add] value[L]'); return; } w.experience = Math.max(0, Math.min(1e6, Math.floor((d[1] === 'add' ? (w.experience || 0) : 0) + v))); info('experience set to ' + w.experience + '.'); return; }
-            case 'help': say('[INFO] tp give clear setblock fill clone summon kill heal gamemode gamerule home explode say time weather difficulty xp'); return;
+            case 'help': say('[INFO] tp give clear setblock fill clone summon kill heal gamemode gamerule home explode say time weather difficulty xp back'); if (S.mp && boss) say('[INFO] ' + tr('play_cmd_others_help', 'On other players: /tp @name x y · /tp @name @me · /tp @a @me · /heal @name · /kill @name · /gamemode creative @name · /give @name item · /clear @name')); return;
             default: say('[INFO] Command not recognised: ' + d[0]);
         }
     }
@@ -4506,6 +4590,7 @@
                 if (!isEmpty(it)) {
                     const c = document.createElement('canvas'); c.width = c.height = 16;
                     c.getContext('2d').drawImage(iconFor(String(it[0]), it[3] || {}), 0, 0);
+                    if (window.mbwDrawDurBar && Number(it[2]) > 0) window.mbwDrawDurBar(c.getContext('2d'), 16, it[2], String(it[0]));   // 🔧 cuánto le queda a la herramienta
                     s.appendChild(c);
                     if (it[1] > 1) { const n = document.createElement('b'); n.textContent = it[1]; s.appendChild(n); }
                     s.title = String(it[0]);
@@ -4534,7 +4619,7 @@
         kill: ['', 'Die'], heal: ['', 'Full health'], gamemode: ['survival|creative|adventure|spectator', 'Change game mode'],
         gamerule: ['rule true|false', 'Change a game rule'], home: ['[set]', 'Go to (or set) the spawn point'], explode: ['size [~]x [~]y', 'Explosion'],
         say: ['message', 'Write in the chat'], time: ['get|set <t|day|night>', 'Time of day'], weather: ['get|set <clear|rain|thunder>', 'Weather'],
-        difficulty: ['peaceful|easy|normal|hard', 'Difficulty'], xp: ['[add] value[L]', 'Experience (L = levels)'], help: ['', 'List of commands'], cls: ['', 'Clear the chat'],
+        difficulty: ['peaceful|easy|normal|hard', 'Difficulty'], xp: ['[add] value[L]', 'Experience (L = levels)'], help: ['', 'List of commands'], cls: ['', 'Clear the chat'], back: ['', 'Go back to where you died'],
         kick: ['@player', 'Kick a player (host)'], ban: ['@player', 'Ban a player from this world (host)'], unban: ['player', 'Let a banned player join again (host)'],
         banlist: ['', 'Who is banned (host)'], mute: ['@player', 'Mute a player in the chat (host)'], unmute: ['@player', 'Unmute a player (host)']
     };
@@ -4589,6 +4674,7 @@
     function playerTags() { const R = (S.mp && window.mbwMpPlay) ? window.mbwMpPlay.remotes || {} : {}; return Object.keys(R).filter(function (k) { return R[k] && R[k].name; }).map(function (k) { return '@' + R[k].name; }); }
     function quickCmds() {
         const l = ['/gamemode survival', '/gamemode creative', '/gamemode adventure', '/gamemode spectator', '/tp '];
+        if (S.deathPos) l.unshift('/back');                                  // ↩ (después de morir)
         // 🎮 en una partida: /tp @nombre y /spectate @nombre de cada jugador
         playerTags().forEach(function (t) { l.push('/tp ' + t); });
         const sc = mbwom.currentScene || 1;
@@ -4745,6 +4831,7 @@
             try { runCommand('/tp ' + r.tx + ' ' + (-r.ty)); } catch (e) { /* nada */ }
         },
         marks: function () { return window.mbwChatMarks ? window.mbwChatMarks() : []; },
+        back: function () { return !!S.deathPos; },                          // ↩ botón /back arriba de todo (después de morir)
         tpMark: function (b) {
             chat.close(); say('> /tp ' + b.x + ' ' + b.y + '  (⭐ ' + b.name + ')');
             try {
@@ -5359,6 +5446,20 @@
         floatButton();
         // 🎮 Etapa 2 (scripts/mp-play.js)
         window.mbwPlay.net = {
+            // 👑 el anfitrión (o Crystal) usó un comando sobre mí
+            cmd: function (d) {
+                const M = window.mbwMpPlay;
+                if (!S.playing || !d || !M || d.peerId === (M.myId && M.myId())) return false;
+                const ok = (d.peerId && d.peerId === M.leaderPeer) || isAdminUid(d.uid);
+                if (!ok) return false;
+                const c = String(d.c || '').slice(0, 200);
+                if (!/^\/(tp|heal|kill|give|clear|gamemode)(\s|$)/.test(c)) return false;
+                const s = Number(d.s) || 0;
+                if (s && s !== (mbwom.currentScene || 1) && !changeDim(s, 'cmd')) return false;
+                say('[INFO] 👑 ' + tr('play_cmd_by', '{name} used {cmd} on you.').replace('{name}', String(d.autor || 'Host')).replace('{cmd}', c.split(' ')[0]));
+                runCommand(c, { forced: true }); hud.dirty = true;
+                return true;
+            },
             hurtMe: function (amount, cause) { if (S.playing) ouch(1, Number(amount) || 0, String(cause || 'attack')); },
             hitMob: function (id, dmg, kx, ky, by, loot) {
                 const m = mbwom.mobs[id]; if (!S.playing || !m || m.dead > 0) return;

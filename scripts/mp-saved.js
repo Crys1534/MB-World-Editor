@@ -36,6 +36,7 @@
     function myName() { return localStorage.getItem('mbw_username') || 'Player'; }
     function admins() { return ADMINS.concat(Array.isArray(window.MBW_SAVED_ADMINS) ? window.MBW_SAVED_ADMINS : []); }
     function isAdmin() { return admins().indexOf(myUid()) >= 0; }
+    function isAdminUid(u) { return !!u && admins().indexOf(String(u)) >= 0; }
     const okSlot = (k) => SLOTS.indexOf(String(k)) >= 0;
     const esc = (v) => String(v == null ? '' : v).replace(/[&<>"'`]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' }[c]));
     function toast(title, body) {
@@ -359,5 +360,5 @@
         return lab;
     }
 
-    window.mbwSavedServers = { watch: watch, html: html, bind: bind, open: openSaved, save: saveNow, remove: removeSaved, setPermanent: setPermanent, checkboxRow: checkboxRow, isAdmin: isAdmin, state: st, pack: pack, unpack: unpack, list: () => saved, used: used, SLOTS: SLOTS };
+    window.mbwSavedServers = { watch: watch, html: html, bind: bind, open: openSaved, save: saveNow, remove: removeSaved, setPermanent: setPermanent, checkboxRow: checkboxRow, isAdmin: isAdmin, isAdminUid: isAdminUid, state: st, pack: pack, unpack: unpack, list: () => saved, used: used, SLOTS: SLOTS };
 })();

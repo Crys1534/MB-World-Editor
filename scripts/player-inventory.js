@@ -62,6 +62,7 @@
   if (m) return TOOL_DUR[m[1]];
   m = ARMOR_RE.exec(id);
   if (m) return ARMOR_DUR[m[1]][ARMOR_IDX[m[2]]];
+  try { const B = window.MB_PLAY_DATA && window.MB_PLAY_DATA.blocks[id]; if (B && B.life > 0 && id !== 'bl') return Number(B.life); } catch (e) { /* nada */ }   // (arco, tijeras, mechero, caña…)
   return 0;
  }
  window.itemMaxDurability = maxDurability;

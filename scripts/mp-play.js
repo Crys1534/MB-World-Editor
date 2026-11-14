@@ -396,6 +396,7 @@
         if (t === 'juego_tomado') { if (d.peerId !== myPeer()) N.dropTaken(d); return; }
         // pegarse entre jugadores / muertes
         if (t === 'juego_pvp') { if (d.a === myPeer()) N.pvp(d.dmg, d.kx, d.autor); return; }
+        if (t === 'juego_cmd') { if (d.a === myPeer() && N.cmd) N.cmd(d); return; }   // 👑 el anfitrión (o Crystal) usó un comando sobre mí
         if (t === 'juego_muerte') {
             if (d.peerId === myPeer()) return;
             const msg = d.por ? tr('mpplay_death_by', '{name} was defeated by {by}').replace('{name}', String(d.autor || 'Player')).replace('{by}', String(d.por))

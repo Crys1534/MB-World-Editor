@@ -66,6 +66,7 @@
             const p = path.join('/');
             if (path.length) col.appendChild(btn('‹ ' + tr('qc_back', 'Back'), '', function () { path.pop(); render(); }, { cls: 'qc-back' }));
             if (!p) {
+                if (ctx.back && ctx.back()) col.appendChild(btn('💀 ' + tr('qc_back_death', 'Back to where I died'), '/back', run('/back'), { cls: 'qc-death' }));
                 col.appendChild(btn(tr('qc_tp', 'Teleport'), '/tp', go('tp'), { more: true }));
                 col.appendChild(btn(tr('qc_gamemode', 'Game mode'), '/gamemode', go('gamemode'), { more: true }));
                 col.appendChild(btn(tr('qc_weather', 'Weather'), '/weather', go('weather'), { more: true }));
