@@ -6,7 +6,7 @@
 //  · Cuando ya no queda nadie, el servidor sigue en la lista de servidores y cualquiera que pueda entrar
 //    ("Quién puede entrar", baneados) lo ABRE y pasa a ser el anfitrión. Si el anfitrión se va y quedan jugadores,
 //    otro sigue de anfitrión (y sigue guardando).
-//  · Mientras está abierto, se guarda en Firebase 15 s después de abrirlo, cada 2 minutos (si cambió) y al salir.
+//  · Mientras está abierto, se guarda en Firebase 15 s después de abrirlo, cada minuto (si cambió) y al salir.
 //    Jugando (Modo Jugar) se guarda lo que pasó jugando (menos en una prueba 🧪). Solo se guarda UNA copia por lugar.
 //  · Su creador lo puede quitar (🗑 en la lista o quitando la casilla) y el lugar queda libre. Crystal (ADMINS) puede
 //    quitar cualquiera.
@@ -23,7 +23,7 @@
     // las cuentas de Crystal (Web, APK, Local/Admin, PC, Tablet): pueden quitar cualquier servidor permanente
     const ADMINS = ['usr_7tsrn0vvl', 'usr_4dc3r36gm', 'usr_e6hrzt2ju', 'usr_1ryd13wnc', 'usr_l7jbkwc50'];
     const CHUNK = 512 * 1024;
-    const EVERY = 2 * 60 * 1000;           // guardar como mucho cada 2 minutos
+    const EVERY = 60 * 1000;               // guardar cada minuto (si algo cambió)
     const FIRST = 15 * 1000;               // primer guardado: 15 s después de abrirlo
     const LOCK_MS = 90 * 1000;
     const CLAIM_MS = 3 * 60 * 1000;        // un lugar apartado que nunca llegó a guardarse se vuelve a liberar
@@ -355,7 +355,7 @@
         const sp = document.createElement('span');
         const free = 9 - used().length;
         sp.textContent = '💾 ' + (mySlot() ? tr('ss_official_on', 'Permanent server (saved online)') : tr('ss_official_free', 'Make it permanent ({n} of 9 places free)', { n: Math.max(0, free) }));
-        lab.title = tr('ss_official_tip', 'Saved online every 2 minutes and when the host leaves. When nobody is playing, anyone who can join can open it again from the server list and be the host.');
+        lab.title = tr('ss_official_tip', 'Saved online every minute and when the host leaves. When nobody is playing, anyone who can join can open it again from the server list and be the host.');
         lab.appendChild(c); lab.appendChild(sp);
         return lab;
     }

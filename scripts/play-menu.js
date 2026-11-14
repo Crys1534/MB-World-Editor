@@ -32,11 +32,15 @@
         b.title = online ? (ping ? ping + ' ms' : tr('pm_ping_good', 'Good connection')) : tr('pm_offline', 'Offline');
         return b;
     }
+    // (solo el tiempo: "12 minutos", "3 horas", "2 días")
     function ago(t) {
         if (!t) return '';
-        try { if (typeof window.formatTimeAgo === 'function') return window.formatTimeAgo(t); } catch (e) { /* nada */ }
-        const m = Math.round((Date.now() - t) / 60000);
-        return m < 1 ? tr('pm_just_now', 'just now') : m < 60 ? m + ' min' : Math.round(m / 60) + ' h';
+        const m = Math.max(0, Math.floor((Date.now() - t) / 60000)), h = Math.floor(m / 60), d = Math.floor(h / 24);
+        const f = function (n, one, many, fb1, fbn) { return n === 1 ? tr(one, fb1) : tr(many, fbn).replace('{n}', n); };
+        if (m < 1) return tr('pm_just_now', 'just now');
+        if (m < 60) return f(m, 'pm_t_min1', 'pm_t_min', '1 minute', '{n} minutes');
+        if (h < 24) return f(h, 'pm_t_h1', 'pm_t_h', '1 hour', '{n} hours');
+        return f(d, 'pm_t_d1', 'pm_t_d', '1 day', '{n} days');
     }
     function playerRows(box, withLast) {
         box.textContent = '';
@@ -76,13 +80,15 @@
         root.textContent = '';
         const box = el('div', 'pm-box');
         const left = el('div', 'pm-left'), right = el('div', 'pm-right');
-        box.appendChild(left); box.appendChild(right);
+        box.appendChild(left);
+        // 🧑 la skin, grande, en su propia columna (solo en la pantalla principal del menú)
+        if (p === 'main') { const mid = el('div', 'pm-mid'); mid.appendChild(skinRow()); box.appendChild(mid); box.classList.add('pm-3col'); }
+        box.appendChild(right);
         root.appendChild(box);
         if (p === 'main') {
             left.appendChild(el('h2', 'pm-title', hostOfRoom() ? tr('pm_title_host', 'Game menu (host)') : tr('pm_title', 'Game menu')));
             left.appendChild(btn(tr('pm_back', 'Back to Game'), 'pm-primary', close));
             left.appendChild(btn(tr('pm_options', 'Options'), '', function () { show('options'); }));
-            left.appendChild(skinRow());
             if (window.mbwAch) left.appendChild(btn('🏆 ' + tr('pm_ach', 'Achievements'), '', function () { show('ach'); }));
             if (hostOfRoom()) left.appendChild(btn(tr('pm_server', 'Server settings'), '', function () { show('server'); }));
             const guest = M() && M().on && M().role === 'guest';
@@ -142,9 +148,11 @@
     }
     // 🧑 Skin: se elige de la galería de skins (la ven todos; se recuerda en este navegador para todos los mundos)
     function skinRow() {
-        const r = el('div', 'pm-skin');
+        const r = el('div', 'pm-skin pm-skin-big');
+        r.appendChild(el('div', 'pm-skin-name', String(localStorage.getItem('mbw_username') || 'Player')));
         const cur = (P() && P().skin) ? P().skin() : '';
         const pv = el('canvas', 'pm-skin-pv'); pv.width = 16; pv.height = 22;
+        const btns = el('div', 'pm-skin-btns');
         const drawPv = function () {
             const cx = pv.getContext('2d'); cx.clearRect(0, 0, 16, 22); cx.imageSmoothingEnabled = false;
             const id = (P() && P().skin) ? P().skin() : '';
@@ -155,7 +163,8 @@
         };
         drawPv();
         r.appendChild(pv);
-        r.appendChild(btn('🧑 ' + tr('pm_skin', 'Skin'), 'pm-skin-btn', function () {
+        r.appendChild(btns);
+        btns.appendChild(btn('🧑 ' + tr('pm_skin', 'Skin'), 'pm-skin-btn', function () {
             if (typeof window.openSkinGallery !== 'function') return;
             window.openSkinGallery({ pick: function (id) {
                 if (P() && P().setSkin) P().setSkin(id);
@@ -164,7 +173,7 @@
             } });
             const m = document.getElementById('sg-modal'); if (m) m.style.zIndex = '100080';   // (encima del menú)
         }));
-        if (cur) r.appendChild(btn('↺ ' + tr('pm_skin_default', 'Default'), 'pm-skin-def', function () { if (P() && P().setSkin) P().setSkin(''); show(page); }));
+        if (cur) btns.appendChild(btn('↺ ' + tr('pm_skin_default', 'Default'), 'pm-skin-def', function () { if (P() && P().setSkin) P().setSkin(''); show(page); }));
         r.title = tr('pm_skin_tip', 'Choose a skin from the skin gallery. Everyone in the game sees it, in every world.');
         return r;
     }

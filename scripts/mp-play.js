@@ -581,6 +581,7 @@
                     drawMobArmorOverlay(c2, mob, -pw / 2, -ph, pw, ph);
                 } catch (e) { /* nada */ }
             }
+            if (!r.iv && r.it && window.mbwPlay && window.mbwPlay.drawHeld) { try { window.mbwPlay.drawHeld(c2, r.it, fi, pw, ph); } catch (e) { /* nada */ } }   // 🪓 lo que trae en la mano
             if (r.h) { c2.globalCompositeOperation = 'source-atop'; c2.fillStyle = 'rgba(255,0,0,0.35)'; c2.fillRect(-pw / 2, -ph, pw, ph); }
             c2.restore();
             if (r.iv) { c2.restore(); return; }                                // (invisible: sin nombre)

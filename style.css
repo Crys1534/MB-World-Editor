@@ -3419,6 +3419,15 @@ body.is-touch #mbw-play-hud .ph-gear { opacity: .45; }
 .pm-skin .pm-btn { flex: 1 1 auto; width: auto; }
 .pm-skin .pm-skin-def { flex: 0 0 auto; font-size: 14px; padding-left: 10px; padding-right: 10px; }
 .pm-skin-pv { width: 32px; height: 44px; image-rendering: pixelated; background: rgba(0,0,0,.35); border: 2px solid #000; flex: 0 0 auto; }
+.pm-box.pm-3col { width: min(960px, calc(100vw - 32px)); }
+.pm-mid { flex: 0 0 170px; display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+.pm-skin.pm-skin-big { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px; background: rgba(0,0,0,.35); border: 2px solid rgba(0,0,0,.6); }
+.pm-skin-big .pm-skin-name { color: #fff; text-align: center; font-weight: bold; font-size: 16px; text-shadow: 2px 2px 0 #000; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pm-skin-big .pm-skin-pv { width: 128px; height: 176px; align-self: center; background: radial-gradient(circle at 50% 40%, rgba(255,255,255,.14), rgba(0,0,0,.25)); border: 0; }
+.pm-skin-btns { display: flex; flex-direction: column; gap: 6px; }
+.pm-skin-big .pm-btn, .pm-skin-big .pm-skin-def { width: 100%; flex: 0 0 auto; }
+@media (max-height: 480px) { .pm-skin-big .pm-skin-pv { width: 80px; height: 110px; } .pm-mid { flex-basis: 130px; } }
+@media (max-width: 640px) { .pm-mid { flex: 0 0 auto; } .pm-skin.pm-skin-big { flex-direction: row; align-items: center; } .pm-skin-big .pm-skin-pv { width: 64px; height: 88px; } .pm-skin-btns { flex: 1 1 auto; } .pm-skin-big .pm-skin-name { display: none; } }
 .pm-btn { display: block; width: 100%; padding: 12px; font-size: 17px; font-weight: 700; color: #fff; background: #6f6f6f; border: 2px solid #000; box-shadow: inset 2px 2px 0 rgba(255,255,255,.35), inset -2px -2px 0 rgba(0,0,0,.35); cursor: pointer; text-shadow: 1px 1px 0 #222; }
 .pm-btn:hover, .pm-btn:focus-visible { background: #7e8fb8; outline: none; }
 .pm-btn.pm-primary { background: #4c7f3a; } .pm-btn.pm-primary:hover { background: #5c9a47; }
@@ -3536,7 +3545,9 @@ body.mbw-playing.is-touch #chat-heads { bottom: 250px; }          /* (en el celu
 body.mbw-playing.is-touch #mini-chat { bottom: 250px; }
 /* el chat / consola del modo jugar con la letra RainyHearts */
 #mbw-play-hud .ph-chat-log, #mbw-play-hud .ph-chat-in, #mbw-play-hud .ph-sug, #mbw-play-hud .ph-sug * { font-family: 'RainyHearts', 'Pixeltype', 'Segoe UI', monospace; }
-#mbw-play-hud .ph-chat-log { font-size: 16px; line-height: 1.15; }
+#mbw-play-hud .ph-chat-log { font-size: 20px; line-height: 1.15; }
+body.is-touch #mbw-play-hud .ph-chat-log { font-size: 18px; }
+#mbw-play-hud .ph-chat-log b.ph-name { font-weight: bold; text-shadow: 1px 1px 0 #000, 1px 0 0 currentColor; }
 
 /* 🛠 crafteo del modo jugar (2×2 en el inventario, 3×3 en la mesa de crafteo) */
 .pinv-craft { display: flex; align-items: center; justify-content: center; gap: 18px; }

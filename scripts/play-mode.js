@@ -552,6 +552,19 @@
     }
     window.mbwPlay.armorPoints = function () { return armorPoints(W()); };
     function sneakOrUse() { return S.p.sneaking || S.useTimer > -1; }
+    // 🛡 Game.damageArmor: se gasta (con "irrompible" no; con Unbreaking menos) y si llega a su vida, se rompe
+    function damageArmor(p, a) {
+        const w = W(), ar = w.armors[p];
+        if (w.gamemode == 1 || !ar || !ar[0] || ar[0] === 'air') return;
+        const ex = ar[2] || {}, life = bd(String(ar[0]), 'life');
+        if (ex.unbreakable != null || life == null) return;
+        const P = ex.unbreaking1 != null ? 2 / 3 : ex.unbreaking2 != null ? 1 / 2 : ex.unbreaking3 != null ? 1 / 3 : ex.unbreaking4 != null ? 1 / 4 : 1;
+        if (P < 1 && Math.random() >= P) return;
+        ar[1] = (Number(ar[1]) || 0) + Math.round(a);
+        if (Number(ar[1]) >= Number(life)) { w.armors[p] = ['air', 0, {}]; flashMsg('💥 ' + tr('play_armor_broke', 'Your armor broke!')); }
+        hud.dirty = true;
+        try { if (typeof window.playerInvRefresh === 'function' && document.getElementById('inventory-modal') && document.getElementById('inventory-modal').style.display === 'block') window.playerInvRefresh(); } catch (e) { /* nada */ }
+    }
     function ouch(b, a, c) {
         const w = W();
         if (w.dead > 0 || w.gamemode == 1 || w.gamemode == 3) return;
@@ -565,16 +578,18 @@
                 const id = String(ar[0]);
                 let B = 1;
                 if (c === 'anvil' && p === 0) {
+                    damageArmor(p, Math.ceil(a / 2));
+                    if (!w.armors[p] || w.armors[p][0] === 'air') continue;
                     a *= id.substr(0, 7) === 'Leather' ? .8 : id.substr(0, 4) === 'Gold' ? .6 : id.substr(0, 4) === 'Iron' ? .4 : id.substr(0, 7) === 'Diamond' ? .3 : id.substr(0, 6) === 'Dragon' ? .2 : 1;
                     continue;
                 }
                 const life = bd(id, 'life');
+                const ex = ar[2] || {}, k = ex.protection1 != null ? .02 : ex.protection2 != null ? .035 : ex.protection3 != null ? .05 : ex.protection4 != null ? .065 : 0;
                 if (life != null && (Number(ar[1]) || 0) <= life) {
-                    B = id.substr(0, 7) === 'Leather' ? .72 - Math.random() * .08 : id.substr(0, 4) === 'Gold' ? .6 - Math.random() * .16 : id.substr(0, 4) === 'Iron' ? .48 - Math.random() * .2 : id.substr(0, 7) === 'Diamond' ? .4 - Math.random() * .28 : id.substr(0, 6) === 'Dragon' ? .36 - Math.random() * .32 : 1;
+                    B = id.substr(0, 7) === 'Leather' ? .72 - Math.random() * (.08 + 4 * k) : id.substr(0, 4) === 'Gold' ? .6 - Math.random() * (.16 + 4 * k) : id.substr(0, 4) === 'Iron' ? .48 - Math.random() * (.2 + 4 * k) : id.substr(0, 7) === 'Diamond' ? .4 - Math.random() * (.28 + 4 * k) : id.substr(0, 6) === 'Dragon' ? .36 - Math.random() * (.32 + 4 * k) : 1;
                     if (id.substr(0, 6) === 'Dragon' && (c === 'fire' || c === 'lightning' || c === 'lava')) B *= Math.pow(Math.random(), 3);
-                    ar[1] = (Number(ar[1]) || 0) + a * (1 - B) * .75;             // la armadura se gasta
-                    if (ar[1] >= life && bd(id, 'tool') == 1) w.armors[p] = ['air', 0, {}];
                 }
+                damageArmor(p, a * (1 - B) * .75);                           // la armadura se gasta (Game.damageArmor)
                 d -= .25 * (1 - B);
             }
             a *= Math.max(0, d);
@@ -2164,6 +2179,17 @@
     }
     // 🚪 Puertas y trampillas de madera (Block_Door.toggle / Block_TrapDoor.useEvent) y 🎵 bloque musical (Block_Note.useEvent2):
     // la puerta tiene 2 partes (1 = abajo, 2 = arriba abiertas; 3 = abajo, 4 = arriba cerradas). Las de hierro no se abren a mano.
+    // 🚪 abrir / cerrar una puerta (las dos partes). Con la mano: madera y abedul; con redstone (placas, palancas…): también la de hierro
+    function doorToggle(x, y) {
+        const m = /^(dr|bdr|idr)([1-4])$/.exec(fg(x, y)); if (!m) return false;
+        const b = m[1], n = +m[2];
+        const low = (n === 1 || n === 3) ? y : y - 1;
+        const open = n === 1 || n === 2;
+        const s0 = st(x, low), s1 = st(x, low + 1);
+        setBlock(x, low, b + (open ? '3' : '1'), s0); setBlock(x, low + 1, b + (open ? '4' : '2'), s1);
+        sndAt(open ? 'doorclose' : 'dooropen', x + .5, -(y + .5));
+        return true;
+    }
     function useBlock(x, y) {
         const t = fg(x, y);
         if (t === 'bed1' || t === 'bed2') return useBed(x, y, t);          // 🛏 dormir
@@ -2179,16 +2205,7 @@
             hud.dirty = true;
             return true;
         }
-        let m = /^(dr|bdr)([1-4])$/.exec(t);
-        if (m) {
-            const b = m[1], n = +m[2];
-            const low = (n === 1 || n === 3) ? y : y - 1;
-            const open = n === 1 || n === 2;
-            const s0 = st(x, low), s1 = st(x, low + 1);
-            setBlock(x, low, b + (open ? '3' : '1'), s0); setBlock(x, low + 1, b + (open ? '4' : '2'), s1);
-            sndAt(open ? 'doorclose' : 'dooropen', x + .5, -(y + .5));
-            return true;
-        }
+        if (/^(dr|bdr)([1-4])$/.test(t)) return doorToggle(x, y);         // (la de hierro solo con redstone, como en el juego)
         // 🚧 puerta de cerca (de madera o del Nether): abrir (se puede pasar) / cerrar. Abierta = states true (Game: 1 == states)
         if (t === 'fncg' || t === 'nfncg') {
             const open = st(x, y) == 1;
@@ -2253,8 +2270,11 @@
         return best;
     }
     // 🎮 pegarle a otro jugador: el golpe (con la fuerza de lo que tengo en la mano, como a un mob) y un empujón le llegan a él
+    const PVP_COOLDOWN = 1500;                                           // ⏱ entre un golpe y otro a un jugador (ms)
     function attackPlayer(peerId) {
         const w = W(), r = window.mbwMpPlay.remotes[peerId]; if (!r) return;
+        if (Date.now() - (S.pvpAt || 0) < PVP_COOLDOWN) return;
+        S.pvpAt = Date.now();
         let b = 0, kb = 0, dmg;
         const hs = bd(selType(), 'hitStrength');
         if (hs == null) { if (w.ySpeed < -1) { ++b; kb += 3; } dmg = Math.max(1, 1 + b); }
@@ -2495,10 +2515,29 @@
     window.mbwPlay.changeDim = changeDim;
     window.mbwPlay.usePortal = usePortal;
     // ↩ /back: al lugar donde moriste (si caíste al vacío, al suelo más cercano de ahí)
+    //   Se espera 3 segundos antes de ir. Solo 1 vez cada hora (en una partida), menos el anfitrión (y Crystal).
+    const TP_WAIT = 3000, BACK_EVERY = 60 * 60 * 1000, BACK_KEY = 'mbw_back_at';
+    function backFree() { return !S.mp || mpHost() || isAdminMe(); }
     function doBack() {
         const w = W(), b = S.deathPos;
         if (!b) { say('[INFO] ' + tr('play_back_none', 'You have not died yet: /back takes you to the place where you died.')); return; }
         if (w.dead > 0) { say('[INFO] ' + tr('play_back_dead', 'Respawn first, then type /back.')); return; }
+        if (S.backWait) { say('[INFO] ' + tr('play_back_already', 'Wait, you are already going back...')); return; }
+        let last = 0; try { last = Number(localStorage.getItem(BACK_KEY)) || 0; } catch (e) { /* nada */ }
+        if (!backFree() && Date.now() - last < BACK_EVERY) {
+            const m = Math.ceil((BACK_EVERY - (Date.now() - last)) / 60000);
+            say('[INFO] ' + tr('play_back_cool', 'You can only use /back once every hour. Try again in {n} min.').replace('{n}', m)); return;
+        }
+        say('[INFO] ' + tr('play_back_wait', 'Teleporting you back to where you died in 3 seconds...'));
+        S.backWait = setTimeout(function () {
+            S.backWait = 0;
+            if (!S.playing || W().dead > 0) return;
+            if (!backFree()) { try { localStorage.setItem(BACK_KEY, String(Date.now())); } catch (e) { /* nada */ } }
+            backNow(b);
+        }, TP_WAIT);
+    }
+    function backNow(b) {
+        const w = W();
         if (b.s !== (mbwom.currentScene || 1) && !changeDim(b.s, 'cmd')) { say('[INFO] ' + tr('play_back_dim', 'You cannot go back to that dimension right now.')); return; }
         let x = b.x, y = b.y;
         if (b.v || -y < 1) { const p = safeSpot(x, -2); x = p.x; y = p.y; }
@@ -2518,6 +2557,19 @@
         if (want === 'a' || want === 'all' || want === 'everyone') return [{ me: true, name: myNameNet() }].concat(live.map(function (k) { return { id: k, name: R[k].name, r: R[k] }; }));
         return null;
     }
+    // ⏱ "Teletransportándote con @Ana..." y a los 3 segundos se va (a donde esté Ana EN ESE MOMENTO)
+    function tpToPlayerSoon(name, cmd, s) {
+        say('[INFO] ' + tr('play_tp_wait', 'Teleporting you to @{name}... in 3 seconds!').replace('{name}', name));
+        clearTimeout(S.tpWait);
+        S.tpWait = setTimeout(function () {
+            S.tpWait = 0;
+            if (!S.playing || W().dead > 0) return;
+            const f = findRemote(name);
+            if (f) { cmd = '/tp ' + Number(f.r.tx) + ' ' + (-Number(f.r.ty)); s = Number(f.r.s) || 1; }
+            if (s && s !== (mbwom.currentScene || 1) && !changeDim(s, 'cmd')) return;
+            runCommand(cmd, { forced: true }); hud.dirty = true;
+        }, TP_WAIT);
+    }
     function onOthers(c, d, boss) {
         const at = OTHERS[d[0]]; if (!at || !S.mp) return false;
         const raw = c.split(/\s+/), tag = raw[at];
@@ -2527,7 +2579,7 @@
         if (!T) { say('[INFO] ' + tr('mpplay_tp_noone', 'There is no player called "{name}" in this game.').replace('{name}', tag.slice(1))); return true; }
         if (!boss && T.some(function (t) { return !t.me; })) { say('[INFO] ' + tr('play_cmd_others_host', 'Only the host can use commands on other players.')); return true; }
         const w = W(), sc = mbwom.currentScene || 1;
-        let cmd = '', s = 0;
+        let cmd = '', s = 0, dn = '';
         if (d[0] === 'tp') {
             if (d[2] === 'dimension' || d[2] === 'dim') cmd = '/tp dimension ' + (d[3] || '');
             else if (raw[2] && raw[2][0] === '@') {
@@ -2536,6 +2588,7 @@
                 const t = D2[0];
                 if (t.me) { cmd = '/tp ' + Number(w.worldX) + ' ' + (-Number(w.worldY)); s = sc; }
                 else { cmd = '/tp ' + Number(t.r.tx) + ' ' + (-Number(t.r.ty)); s = Number(t.r.s) || 1; }
+                dn = t.name;                                                  // (⏱ con otro jugador: aviso y 3 segundos de espera)
             } else {
                 if (raw[2] == null || raw[3] == null) { say('[INFO] tp @player x y  ·  tp @player @player'); return true; }
                 if (/~/.test(raw[2] + raw[3])) cmd = '/tp ' + raw[2] + ' ' + raw[3];   // (~ = desde donde está ese jugador)
@@ -2549,9 +2602,10 @@
         else cmd = '/' + d[0] + (raw.length > 2 ? ' ' + raw.slice(2).join(' ') : '');
         T.forEach(function (t) {
             if (t.me) {
+                if (dn) { if (dn !== myNameNet()) tpToPlayerSoon(dn, cmd, s); return; }
                 if (s && s !== (mbwom.currentScene || 1) && !changeDim(s, 'cmd')) return;
                 runCommand(cmd, { forced: true });
-            } else mpSend({ tipo: 'juego_cmd', a: t.id, c: cmd, s: s, uid: myUidNet(), autor: myNameNet() });
+            } else mpSend({ tipo: 'juego_cmd', a: t.id, c: cmd, s: s, dn: dn, uid: myUidNet(), autor: myNameNet() });
         });
         const others = T.filter(function (t) { return !t.me; }).map(function (t) { return t.name; });
         if (others.length) say('[INFO] 👑 ' + tr('play_cmd_sent', '{cmd} → {names}').replace('{cmd}', cmd).replace('{names}', others.join(', ')));
@@ -4210,7 +4264,7 @@
             if (t === 'light') { const cur = mbwom.getBlockState(x, y) || {}, was = Array.isArray(cur.hasSignal) && Number(cur.hasSignal[0]) > 0; if (was !== on) { const ns = JSON.parse(JSON.stringify(cur)); ns.type = 'light'; ns.hasSignal = on ? [15] : undefined; mbwom.setBlockState(x, y, ns); if (typeof window.renderBlock === 'function') window.renderBlock(x, y); } return; }
             if (t === 'railp' || t === 'raila') { const was = !!(mbwom.hasSignal && mbwom.hasSignal[key(x, y)]); if (was !== on) { if (!mbwom.hasSignal || typeof mbwom.hasSignal !== 'object') { mbwom.hasSignal = {}; mbwom.world['hasSignal' + (mbwom.currentScene || 1)] = mbwom.hasSignal; } if (on) mbwom.hasSignal[key(x, y)] = [15]; else delete mbwom.hasSignal[key(x, y)]; } return; }   // 🚃 rieles con energía
             if (prev === on || (prev === undefined && !on)) return;          // (solo cuando cambia)
-            if (dm) { const cur = DOOR_RE.exec(fg(x, y)); if (cur) { const isOpen = cur[2] === '1'; if (isOpen !== on) { useBlock(x, y); if (on && nearMe(x + .5, -y, 10)) ach(32); } } return; }
+            if (dm) { const cur = DOOR_RE.exec(fg(x, y)); if (cur) { const isOpen = cur[2] === '1'; if (isOpen !== on) { doorToggle(x, y); if (on && nearMe(x + .5, -y, 10)) ach(32); } } return; }
             if (t === 'td1' || t === 'td2') { if ((t === 'td1') !== on) useBlock(x, y); return; }
             if (t === 'fncg' || t === 'nfncg') { if ((st(x, y) == 1) !== on) useBlock(x, y); return; }
             if (t === 'piston' || t === 'spiston' || t === 'piston1' || t === 'spiston1') { pistonSet(x, y, on); return; }
@@ -4805,9 +4859,10 @@
             this.last = key; this.dirty = false;
             const log = this.el.querySelector('.ph-chat-log');
             log.innerHTML = '';
+            const names = chatNames();
             lines.forEach(function (l) {
                 const d = document.createElement('div');
-                d.textContent = l.t;
+                paintNames(d, l.t, names);
                 if (!chat.open && now - l.at > 9000) d.className = 'fade';
                 if (/^> /.test(l.t)) d.classList.add('me');
                 log.appendChild(d);
@@ -4815,6 +4870,36 @@
         }
     };
     window.mbwPlay.chat = chat;
+    // 🎨 los nombres de los jugadores en el chat: en negritas y cada uno con su color (siempre el mismo para el mismo nombre)
+    const NAME_COLORS = ['#55ffff', '#ffff55', '#ff9de2', '#7dff7d', '#ffb347', '#9fb4ff', '#ff7b7b', '#d6a6ff'];
+    function nameColor(n) { let h = 0; const s = String(n).toLowerCase(); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return NAME_COLORS[h % NAME_COLORS.length]; }
+    function chatNames() {
+        const L = [myNameNet()];
+        const R = (S.mp && window.mbwMpPlay) ? window.mbwMpPlay.remotes || {} : {};
+        Object.keys(R).forEach(function (k) { if (R[k] && R[k].name) L.push(String(R[k].name)); });
+        if (window.mbwMpPlay && window.mbwMpPlay.hostName) L.push(String(window.mbwMpPlay.hostName));
+        return L.filter(function (n, i) { return n && n.length > 1 && L.indexOf(n) === i; }).sort(function (a, b) { return b.length - a.length; });
+    }
+    function paintNames(el, text, names) {
+        text = String(text);
+        // (también el que habla en "<Ana> hola" o "[Ana: ...]", aunque ya no esté en la partida)
+        const m = /^<([^>]{1,40})> /.exec(text) || /^\[([^\]:]{1,40})[:\]]/.exec(text);
+        const list = names.slice(); if (m && m[1] !== 'INFO' && m[1] !== 'SAY' && list.indexOf(m[1]) < 0) list.unshift(m[1]);
+        if (!list.length) { el.textContent = text; return; }
+        const esc = function (q) { return q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); };
+        const re = new RegExp('(^|[^\\w])(@?)(' + list.map(esc).join('|') + ')(?![\\w])', 'g');
+        let last = 0, r;
+        while ((r = re.exec(text))) {
+            const at = r.index + r[1].length;
+            if (at > last) el.appendChild(document.createTextNode(text.slice(last, at)));
+            const b = document.createElement('b'); b.className = 'ph-name'; b.textContent = r[2] + r[3]; b.style.color = nameColor(r[3]);
+            el.appendChild(b);
+            last = at + r[2].length + r[3].length;
+            re.lastIndex = last;
+        }
+        if (last < text.length) el.appendChild(document.createTextNode(text.slice(last)));
+    }
+    window.mbwPlay.paintNames = paintNames;
     // lo que hacen los botones grandes del chat (scripts/world-chat.js)
     const quickCtx = {
         run: function (c) { chat.close(); say('> ' + c); try { runCommand(c); } catch (e) { say('[INFO] Error: ' + e.message); } hud.dirty = true; },
@@ -5365,6 +5450,31 @@
         if (id) skinSheet(id);                                         // (que empiece a bajarse)
         hud.dirty = true; if (typeof worldDirty !== 'undefined') worldDirty = true;
     };
+    // 🪓 lo que traigo en la mano, dibujado EN la mano del Player (y se mueve con la animación de picar).
+    //   Se dibuja con el Player mirando a la izquierda (como el dibujo); si mira a la derecha, el que llama ya volteó todo.
+    //   Mano (centro, en píxeles del cuadro de 16×22) para cada uno de los 17 cuadros, y cuánto se gira la herramienta al picar.
+    const HAND = [[4, 15], [4, 14], [4, 14], [4, 14], [4, 15], [4, 15], [4, 16], [4, 16], [3, 14], [1, 8], [2, 7], [1, 8], [1, 14], [2, 15], [3, 16], [7, 13], [7, 12]];
+    const SWING = { 9: .75, 10: 1, 11: .6, 12: -.45, 13: -.85 };
+    const TOOL_HELD = /(Sword|Pickaxe|Axe|Shovel|Hoe|Shears?)$|^(bow|fr|FishingRod|fas|stick|bone|blaze|cos|coas)$/;
+    function drawHeld(c2, id, f, pw, ph) {
+        id = String(id || '');
+        if (!id || id === 'air' || id === 'bl') return;                    // (el globo se dibuja aparte)
+        if (/(Cap|Shirt|Pants|Shoes)$/.test(id)) return;
+        const hp = HAND[f] || HAND[0], u = pw / 16;
+        const hx = -pw / 2 + hp[0] * u, hy = -ph + hp[1] * (ph / 22);
+        const im = iconFor(id, {});
+        const tool = TOOL_HELD.test(id) || (bd(id, 'tool') == 1 && bd(id, 'placeable') != 1);
+        const block = !tool && bd(id, 'placeable') == 1;
+        const sz = (tool ? 8 : block ? 5 : 6.5) * u;
+        c2.save();
+        c2.translate(hx, hy);
+        c2.rotate(SWING[f] || 0);
+        c2.imageSmoothingEnabled = false;
+        if (tool) { c2.scale(-1, 1); c2.drawImage(im, -sz * .22, -sz * .78, sz, sz); }   // (el mango en la mano y la punta hacia adelante y arriba)
+        else c2.drawImage(im, -sz * .6, -sz * .55, sz, sz);
+        c2.restore();
+    }
+    window.mbwPlay.drawHeld = drawHeld;
     function drawFrank() {
         if (!(frank.complete && frank.naturalWidth >= 272)) return false;
         const w = W();
@@ -5391,6 +5501,7 @@
             const pArmor = window.mbwPlayerArmorMob && window.mbwPlayerArmorMob();
             if (pArmor && typeof drawMobArmorOverlay === 'function') drawMobArmorOverlay(c2, pArmor, -pw / 2, -ph, pw, ph);
         } catch (e) { /* nada */ }
+        if (!S.sleep && !effLv('invisibility')) { try { drawHeld(c2, selType(), fr.f, pw, ph); } catch (e) { /* nada */ } }
         c2.restore();
         if (S.swing > 0) S.swing--;
         return true;
@@ -5455,6 +5566,7 @@
                 const c = String(d.c || '').slice(0, 200);
                 if (!/^\/(tp|heal|kill|give|clear|gamemode)(\s|$)/.test(c)) return false;
                 const s = Number(d.s) || 0;
+                if (d.dn && /^\/tp /.test(c)) { tpToPlayerSoon(String(d.dn).slice(0, 40), c, s); return true; }   // ⏱ con otro jugador: en 3 segundos
                 if (s && s !== (mbwom.currentScene || 1) && !changeDim(s, 'cmd')) return false;
                 say('[INFO] 👑 ' + tr('play_cmd_by', '{name} used {cmd} on you.').replace('{name}', String(d.autor || 'Host')).replace('{cmd}', c.split(' ')[0]));
                 runCommand(c, { forced: true }); hud.dirty = true;
@@ -5544,6 +5656,9 @@
             // otro jugador me pegó
             pvp: function (dmg, kx, name) {
                 const w = W(); if (!S.playing || w.dead > 0 || w.gamemode == 1 || w.gamemode == 3) return;
+                S.pvpGot = S.pvpGot || {}; const nk = String(name || 'Player');      // (también aquí: no más de 1 golpe cada 1.5 s del mismo jugador)
+                if (Date.now() - (S.pvpGot[nk] || 0) < PVP_COOLDOWN - 150) return;
+                S.pvpGot[nk] = Date.now();
                 S.lastPvp = { name: String(name || 'Player'), t: Date.now() };
                 ouch(1, Math.max(0, Number(dmg) || 0), 'attack');
                 w.xSpeed = (Number(w.xSpeed) || 0) - (Number(kx) || 0);      // (en el juego, xSpeed positivo mueve al Player a la IZQUIERDA)
