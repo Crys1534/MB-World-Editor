@@ -601,7 +601,7 @@
     const key2 = (n) => !!S.keys[n];
     // ⚙ Opciones del Modo Jugar (menú de pausa > Options; se recuerdan en este navegador). scripts/play-menu.js las cambia.
     const OPT_KEY = 'mbw_play_opts';
-    const OPT_DEF = { autoJump: true, res: 'default', particles: 'all', anims: true, effects: true, transitions: true, coords: false };
+    const OPT_DEF = { autoJump: true, res: 'default', particles: 'all', anims: true, effects: true, transitions: true, coords: false, loupe: true };
     const OPTS = (function () { let o = {}; try { o = JSON.parse(localStorage.getItem(OPT_KEY) || '{}') || {}; } catch (e) { o = {}; } return Object.assign({}, OPT_DEF, o); })();
     const RES = { default: null, '4:3': { w: 20, h: 15 }, '16:9': { w: 27, h: 15 } };   // cuántos bloques se ven (ancho x alto)
     function applyOpts() {
@@ -4412,7 +4412,69 @@
         camFollow(.25);
         if (typeof worldDirty !== 'undefined') worldDirty = true;
         hud.update();
+        loupe.update();
     }
+
+    // ------------------------------------------------------------------ 🔍 lupa (celular): el dedo tapa el bloque que tocas
+    //   Mientras el dedo está sobre el mapa, arriba sale una burbuja redonda con lo que hay debajo, en grande (×2.2),
+    //   y el bloque elegido marcado (blanco = lo alcanzas · rojo = está lejos). Se apaga en Pausa > Opciones.
+    const loupe = {
+        el: null, cx: null, on: false,
+        D: 132, Z: 2.2,
+        down: function (e) { if (OPTS.loupe === false) return; S.touchAt = { id: e.pointerId, t: performance.now() }; },
+        up: function (e) { if (S.touchAt && (!e || e.pointerId === S.touchAt.id)) S.touchAt = null; this.hide(); },
+        hide: function () { if (this.el && this.on) { this.el.style.display = 'none'; this.on = false; } },
+        make: function () {
+            if (this.el) return;
+            const c = document.createElement('canvas');
+            c.id = 'ph-loupe';
+            const dpr = Math.min(3, window.devicePixelRatio || 1);
+            c.width = c.height = Math.round(this.D * dpr);
+            document.body.appendChild(c);
+            this.el = c; this.cx = c.getContext('2d');
+        },
+        update: function () {
+            const t = S.touchAt;
+            if (!t || OPTS.loupe === false || !S.playing || S.paused || performance.now() - t.t < 70) { this.hide(); return; }
+            const cv = document.getElementById('canvas'); if (!cv) return;
+            this.make();
+            const r = cv.getBoundingClientRect(), fx = S.mouse.x, fy = S.mouse.y;
+            if (fx < r.left || fx > r.right || fy < r.top || fy > r.bottom) { this.hide(); return; }
+            const D = this.D, Z = this.Z, c = this.el, x = this.cx, k = c.width / D;
+            // dónde va: arriba del dedo; si no cabe, a un lado
+            let lx = fx - D / 2, ly = fy - D - 46;
+            if (ly < 6) { ly = Math.max(6, fy - D / 2); lx = fx + 56 + D <= window.innerWidth - 6 ? fx + 56 : fx - 56 - D; }
+            lx = Math.max(6, Math.min(window.innerWidth - D - 6, lx));
+            c.style.left = Math.round(lx) + 'px'; c.style.top = Math.round(ly) + 'px';
+            if (!this.on) { c.style.display = 'block'; this.on = true; }
+            // lo que hay debajo del dedo (píxeles del lienzo del juego)
+            const sx = cv.width / r.width, sy = cv.height / r.height;
+            const half = D / Z / 2;
+            x.setTransform(1, 0, 0, 1, 0, 0);
+            x.clearRect(0, 0, c.width, c.height);
+            x.save();
+            x.beginPath(); x.arc(c.width / 2, c.height / 2, c.width / 2, 0, Math.PI * 2); x.clip();
+            x.fillStyle = '#000'; x.fillRect(0, 0, c.width, c.height);
+            x.imageSmoothingEnabled = false;
+            try { x.drawImage(cv, (fx - r.left - half) * sx, (fy - r.top - half) * sy, half * 2 * sx, half * 2 * sy, 0, 0, c.width, c.height); } catch (e) { /* nada */ }
+            // el bloque elegido
+            const mw = mouseWorld(), bx = Math.floor(mw.x), by = Math.floor(mw.y);
+            const a = window.mbwPlay.toClient(bx, by + 1), b = window.mbwPlay.toClient(bx + 1, by);
+            const map = function (px, py) { return { x: (px - (fx - half)) * Z * k, y: (py - (fy - half)) * Z * k }; };
+            const p0 = map(a.x, a.y), p1 = map(b.x, b.y);
+            const far = blockDist(bx, by) > REACH;
+            x.lineWidth = 2.5 * k;
+            x.strokeStyle = 'rgba(0,0,0,.65)'; x.strokeRect(p0.x - 1.5 * k, p0.y - 1.5 * k, p1.x - p0.x + 3 * k, p1.y - p0.y + 3 * k);
+            x.strokeStyle = far ? '#ff5555' : '#ffffff'; x.strokeRect(p0.x, p0.y, p1.x - p0.x, p1.y - p0.y);
+            // la punta del dedo
+            x.fillStyle = 'rgba(255,255,255,.9)'; x.beginPath(); x.arc(c.width / 2, c.height / 2, 2.2 * k, 0, Math.PI * 2); x.fill();
+            x.restore();
+            // el borde
+            x.lineWidth = 3 * k; x.strokeStyle = 'rgba(255,255,255,.85)';
+            x.beginPath(); x.arc(c.width / 2, c.height / 2, c.width / 2 - 1.5 * k, 0, Math.PI * 2); x.stroke();
+        }
+    };
+    window.mbwPlay.loupe = loupe;
 
     // ------------------------------------------------------------------ dibujar (encima del dibujo del editor)
     function iconFor(id, extras) {
@@ -5123,10 +5185,12 @@
                 if (L && now - L.t < 380 && L.x === bx && L.y === by && BOX[fg(bx, by)] && blockDist(bx, by) <= REACH + 1) { S.lastTap = null; openBox(bx, by); return; }
             }
             if (right) { S.mouse.right = true; S.mouse.rightEdge = true; } else { S.mouse.left = true; S.mouse.leftEdge = true; }
+            if (e.pointerType === 'touch') loupe.down(e);                    // 🔍
             S.placeDelay = 99;
             try { cv.setPointerCapture && cv.setPointerCapture(e.pointerId); } catch (er) { /* nada */ }
         } else if (e.type === 'pointerup' || e.type === 'pointercancel') {
             S.mouse.left = false; S.mouse.right = false;
+            loupe.up(e);
             if (e.pointerType === 'touch') S.mouse.inside = false;
         }
     }
@@ -5303,6 +5367,7 @@
     window.mbwPlay.RES = RES;
     function stopPlay(opts) {
         if (!S.playing) return;
+        S.touchAt = null; loupe.hide();
         // ¿lo que pasó jugando se queda? Sí (todo se guarda), menos para un invitado de una partida: su copia vuelve a como estaba
         // y el anfitrión le manda el mundo nuevo
         const keep = (opts && opts.keep != null) ? !!opts.keep : !S.test;

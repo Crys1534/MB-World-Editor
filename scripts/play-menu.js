@@ -204,6 +204,7 @@
         const set = function (k) { return function (v) { if (P() && P().setOpt) P().setOpt(k, v); }; };
         f.appendChild(row(tr('pm_autojump', 'Auto-jump (1 block)'), check(o.autoJump, set('autoJump')), tr('pm_autojump_tip', 'Walking into a 1-block step jumps by itself, like in Minecraft')));
         f.appendChild(row(tr('pm_coords', 'Show coordinates'), check(o.coords, set('coords'))));
+        if (document.body.classList.contains('is-touch')) f.appendChild(row('🔍 ' + tr('pm_loupe', 'Magnifier when you touch the map'), check(o.loupe !== false, set('loupe')), tr('pm_loupe_tip', 'Shows in big what is under your finger, so you can see which block you mine, place or hit')));
         f.appendChild(row(tr('pm_res', 'Screen size (blocks you see)'), select([['default', tr('pm_res_default', 'Game (18 × 14)')], ['4:3', '4:3 (20 × 15)'], ['16:9', '16:9 (27 × 15)']], o.res || 'default', set('res'))));
         f.appendChild(row(tr('pm_particles', 'Particles'), select([['all', tr('pm_all', 'All')], ['some', tr('pm_some', 'Some')], ['none', tr('pm_none', 'None')]], o.particles || 'all', set('particles'))));
         f.appendChild(row(tr('pm_anims', 'Block animations'), check(o.anims !== false, set('anims'))));

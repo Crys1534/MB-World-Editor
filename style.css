@@ -3942,3 +3942,6 @@ body.mbw-playing #sm-banner { display: none !important; }
 #full-dm-messages > .dc-seen-by { margin: -2px 16px 6px 0; }
 .mc-row .dc-seen-by { align-self: stretch; width: 100%; margin: 2px 2px 0 0; }
 .mc-sys .dc-seen-by { justify-content: center; margin-top: 2px; }
+
+/* 🔍 lupa del Modo Jugar en celular (scripts/play-mode.js → loupe) */
+#ph-loupe { position: fixed; display: none; width: 132px; height: 132px; border-radius: 50%; pointer-events: none; z-index: 9600; box-shadow: 0 6px 18px rgba(0,0,0,.55); image-rendering: pixelated; }
