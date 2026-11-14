@@ -2002,6 +2002,7 @@
         const px = (cx - r.left) * (cv.width / r.width), py = cv.height - (cy - r.top) * (cv.height / r.height);
         return { x: camera.x + px / tileSize, y: camera.y + py / tileSize };   // y hacia ARRIBA (como el editor)
     }
+    window.mbwPlay.mouseWorld = function () { return mouseWorld(); };   // (lo usan las pruebas)
     function blockDist(bx, by) { const w = W(); return Math.hypot(Math.floor(w.worldX) - bx, Math.floor(-w.worldY) - (by - 1)); }
     function mobUnderMouse(mw) {
         const w = W();
@@ -2370,6 +2371,7 @@
             S.mine = null;
             return;
         }
+        if (S.path && pathStep(w)) return;                                 // ⛏〰 (trazo del celular)
         if (!left) { S.mine = null; return; }
         if (leftFresh) { const v = vehicleUnderMouse(mw); if (v && (!S.ride || S.ride.id !== v.id)) { breakVehicle(v); S.mine = null; S.swing = 15; return; } }   // 🛶🚃 romper
         if (S.placeDelay < 6) return;
@@ -2380,20 +2382,75 @@
         if (mid) { attackMob(mid); buzz(15); S.swing = 15; S.placeDelay = 0; S.mine = null; return; }
         const pid = playerUnderMouse(mw);                              // 🎮 otro jugador
         if (pid) { attackPlayer(pid); buzz(15); S.swing = 15; S.placeDelay = 0; S.mine = null; return; }
-        const bx = Math.floor(mw.x), by = Math.floor(mw.y);
+        mineTick(w, Math.floor(mw.x), Math.floor(mw.y));
+    }
+    // ⛏ picar el bloque (bx, by) un paso (sirve para el dedo / mouse y para el trazo de abajo). true = se rompió
+    function mineTick(w, bx, by) {
         const t = fg(bx, by);
-        if (t === 'air' || bd(t, 'liquid') == 1 || (t === 'br' && w.gamemode != 1) || blockDist(bx, by) > REACH + 1) { S.mine = null; return; }
+        if (t === 'air' || bd(t, 'liquid') == 1 || (t === 'br' && w.gamemode != 1) || blockDist(bx, by) > REACH + 1) { S.mine = null; return false; }
         if (!S.mine || S.mine.x !== bx || S.mine.y !== by || S.mine.t !== t) {
             const n = w.gamemode == 1 ? 0 : miningTime(t);
-            if (n < 0) { S.mine = null; return; }
+            if (n < 0) { S.mine = null; return false; }
             S.mine = { x: bx, y: by, t: t, left: n, total: Math.max(1, n) };
             if (t === 'note' && n > 0) playNote(bx, by);                // (al pegarle suena la nota, sin cambiarla)
         }
         if (S.mine.left > 0 && (S.mine.total - S.mine.left) % 26 === 0) blockSnd(t, 'mine', bx, by);   // 🔊 picando: cada medio segundo
-        if (S.mine.left <= 0) { mineBlock(bx, by); buzz(22); S.mine = null; S.placeDelay = w.gamemode == 1 ? 0 : 6; return; }
+        if (S.mine.left <= 0) { mineBlock(bx, by); buzz(22); S.mine = null; S.placeDelay = w.gamemode == 1 ? 0 : 6; return true; }
         if (S.mine.left % 13 === 0) buzz(6);                         // (picando: golpecitos suaves)
         S.mine.left--;
+        return false;
     }
+
+    // ------------------------------------------------------------------ ⛏〰 trazo para picar (solo en la app de Android, con pico / hacha / pala)
+    //   Como en Terraria: arrastras el dedo por los bloques y se van marcando en ese orden (rectas o curvas, sin huecos);
+    //   el Player los pica uno tras otro, aunque ya hayas levantado el dedo. Tocar otra vez empieza un trazo nuevo.
+    const PATH_TOOL = /(Pickaxe|Axe|Shovel)$/;
+    const PATH_MAX = 96;
+    function pathOn() { return document.documentElement.classList.contains('is-app') && PATH_TOOL.test(selType()) && S.touchMode !== 'place'; }
+    function pathAdd(bx, by) {
+        const P = S.path; if (!P) return;
+        const last = P.cells[P.cells.length - 1] || P.lastCell;
+        const put = function (x, y) {
+            const k = x + ',' + y; if (P.seen.has(k) || P.cells.length >= PATH_MAX) return;
+            P.seen.add(k); P.cells.push({ x: x, y: y });
+        };
+        if (!last) { put(bx, by); P.lastCell = { x: bx, y: by }; return; }
+        // (línea entre el bloque de antes y este: si el dedo va rápido no quedan huecos)
+        let x0 = P.lastCell.x, y0 = P.lastCell.y; const dx = Math.abs(bx - x0), dy = Math.abs(by - y0), sx = x0 < bx ? 1 : -1, sy = y0 < by ? 1 : -1;
+        let err = dx - dy, guard = 0;
+        while (guard++ < 200) {
+            put(x0, y0);
+            if (x0 === bx && y0 === by) break;
+            const e2 = 2 * err;
+            if (e2 > -dy) { err -= dy; x0 += sx; }
+            else if (e2 < dx) { err += dx; y0 += sy; }                       // (de a un paso: sin saltos en diagonal)
+        }
+        P.lastCell = { x: bx, y: by };
+    }
+    function pathStart() {
+        const mw = mouseWorld();
+        if (mobUnderMouse(mw) || playerUnderMouse(mw)) { S.path = null; return; }   // (tocar un mob: se le pega, como siempre)
+        S.path = { cells: [], seen: new Set(), drawing: true, lastCell: null };
+        pathAdd(Math.floor(mw.x), Math.floor(mw.y));
+    }
+    function pathMove() { if (S.path && S.path.drawing) { const mw = mouseWorld(); pathAdd(Math.floor(mw.x), Math.floor(mw.y)); } }
+    // un paso: se pica el primer bloque del trazo que se alcance (los que ya son aire se quitan)
+    function pathStep(w) {
+        const P = S.path;
+        if (!P || !pathOn()) { S.path = null; return false; }
+        P.cells = P.cells.filter(function (c) {
+            const t = fg(c.x, c.y);
+            return !(t === 'air' || bd(t, 'liquid') == 1 || (t === 'br' && w.gamemode != 1) || (w.gamemode != 1 && miningTime(t) < 0));
+        });
+        if (!P.cells.length) { if (!P.drawing) S.path = null; S.mine = null; return true; }
+        const c = P.cells.find(function (q) { return blockDist(q.x, q.y) <= REACH + 1; });
+        if (!c) { S.mine = null; return true; }                              // (lejos: se espera a que el Player se acerque)
+        if (S.placeDelay < 6) return true;
+        S.swing = Math.max(S.swing || 0, 2);
+        if (mineTick(w, c.x, c.y)) P.cells.splice(P.cells.indexOf(c), 1);
+        return true;
+    }
+    window.mbwPlay.path = function () { return S.path ? { cells: S.path.cells.slice(), all: Array.from(S.path.seen), drawing: S.path.drawing } : null; };   // (pruebas)
 
 
     // ------------------------------------------------------------------ Command Book (Game.interpretCommand)
@@ -4531,6 +4588,18 @@
         if (S.emote) { const b0 = mobBounds(PLAYER_ID), p0 = toScreen(W().worldX, b0.t); if (!drawEmote(c2, S.emote, p0.x, p0.y)) S.emote = null; }
         drawBobber(c2);
         drawBars(c2);
+        if (S.path && S.path.cells.length) {                    // ⛏〰 los bloques del trazo (en orden)
+            c2.save();
+            c2.lineWidth = Math.max(1.5, tileSize / 10);
+            S.path.cells.forEach(function (q, i) {
+                const p = toScreen(q.x, -q.y - 1), far = blockDist(q.x, q.y) > REACH + 1;
+                c2.fillStyle = far ? 'rgba(255,90,90,.16)' : 'rgba(255,230,90,' + (i === 0 ? .30 : .18) + ')';
+                c2.strokeStyle = far ? 'rgba(255,90,90,.7)' : 'rgba(255,230,90,.85)';
+                c2.fillRect(p.x, p.y, tileSize, tileSize);
+                c2.strokeRect(p.x + 1, p.y + 1, tileSize - 2, tileSize - 2);
+            });
+            c2.restore();
+        }
         if (S.mine && S.mine.total > 1) {                       // grietas del bloque que se pica
             const k = 1 - S.mine.left / S.mine.total;
             const p = toScreen(S.mine.x, -S.mine.y);
@@ -5079,17 +5148,15 @@
     };
     window.mbwPlay.emoteUi = emo;
     // 🕹️ Joystick (celular): un círculo; el punto del centro se arrastra con el dedo.
-    // A los lados = caminar; hasta la orilla = correr; arriba = saltar (o subir volando); abajo = agacharse (o bajar volando).
+    // Solo izquierda y derecha: a los lados = caminar; hasta la orilla = correr. (Saltar / bajar: los botones ⇧ y ⇩.)
     function joystick(base) {
         if (!base) return;
         const knob = base.querySelector('.ph-knob');
         let id = null, edge = 0;
-        const set = function (dx, dy) {
-            const d = Math.hypot(dx, dy), m = Math.min(1, d);
-            const nx = d > 0 ? dx / d * m : 0, ny = d > 0 ? dy / d * m : 0;
-            knob.style.transform = 'translate(' + (nx * 38) + 'px,' + (ny * 38) + 'px)';
+        const set = function (dx) {
+            const nx = Math.max(-1, Math.min(1, dx));
+            knob.style.transform = 'translateX(' + (nx * 46) + 'px)';
             S.keys.left = nx < -0.3; S.keys.right = nx > 0.3;
-            S.keys.up = ny < -0.6; S.keys.down = ny > 0.65;
             const run = Math.abs(nx) > 0.88 ? (nx > 0 ? 1 : -1) : 0;
             if (run !== edge) {                                           // llegar a la orilla = empezar a correr (como el doble toque)
                 const w = W();
@@ -5101,7 +5168,7 @@
         const at = function (e) { const r = base.getBoundingClientRect(); return { dx: (e.clientX - (r.left + r.width / 2)) / (r.width / 2), dy: (e.clientY - (r.top + r.height / 2)) / (r.height / 2) }; };
         base.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); id = e.pointerId; try { base.setPointerCapture(id); } catch (er) { /* nada */ } const p = at(e); set(p.dx, p.dy); base.classList.add('on'); });
         base.addEventListener('pointermove', function (e) { if (e.pointerId !== id) return; e.preventDefault(); e.stopPropagation(); const p = at(e); set(p.dx, p.dy); });
-        const end = function (e) { if (e.pointerId !== id) return; e.preventDefault(); e.stopPropagation(); id = null; edge = 0; set(0, 0); S.keys.left = S.keys.right = S.keys.up = S.keys.down = false; base.classList.remove('on', 'run'); };
+        const end = function (e) { if (e.pointerId !== id) return; e.preventDefault(); e.stopPropagation(); id = null; edge = 0; set(0, 0); S.keys.left = S.keys.right = false; base.classList.remove('on', 'run'); };
         base.addEventListener('pointerup', end); base.addEventListener('pointercancel', end);
         S.joyReset = function () { id = null; edge = 0; knob.style.transform = ''; base.classList.remove('on', 'run'); };
     }
@@ -5167,6 +5234,7 @@
             S.mouse.x = e.clientX; S.mouse.y = e.clientY;
             const r = cv.getBoundingClientRect();
             S.mouse.inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+            if (e.pointerType === 'touch' && S.path && S.path.drawing) pathMove();
             if (onCanvas(e)) e.stopImmediatePropagation();
             return;
         }
@@ -5186,11 +5254,13 @@
             }
             if (right) { S.mouse.right = true; S.mouse.rightEdge = true; } else { S.mouse.left = true; S.mouse.leftEdge = true; }
             if (e.pointerType === 'touch') loupe.down(e);                    // 🔍
+            if (e.pointerType === 'touch' && !right && pathOn()) pathStart(); else S.path = null;   // ⛏〰
             S.placeDelay = 99;
             try { cv.setPointerCapture && cv.setPointerCapture(e.pointerId); } catch (er) { /* nada */ }
         } else if (e.type === 'pointerup' || e.type === 'pointercancel') {
             S.mouse.left = false; S.mouse.right = false;
             loupe.up(e);
+            if (S.path) S.path.drawing = false;
             if (e.pointerType === 'touch') S.mouse.inside = false;
         }
     }
