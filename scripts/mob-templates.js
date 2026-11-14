@@ -1245,6 +1245,40 @@ window.mbwFixMob = function (mob) {
     if (mob.charged === undefined || mob.charged === null) { mob.charged = false; changed = true; }
     return changed;
 };
+// ==============================================================
+// 🎮 MOB LISTO PARA EL JUEGO REAL (al guardar el archivo .mbw)
+// Los mobs que nacen en el Modo Jugar del editor (de noche, con un huevo, con /summon) traían solo lo que usa el editor:
+// les faltaban datos que el juego SIEMPRE tiene (keys, effects, handItems, inventory, armor...) y llevaban cosas solo del
+// editor (__id, mbweSp, el objetivo "__player__"). El juego se cerraba al abrir el mundo. Aquí, en la COPIA que va al
+// archivo: se completa lo que falta con la plantilla del juego (nunca se cambia un dato que ya está bien), se quitan las
+// cosas del editor y los objetivos que ya no existen (los mobs se renombran mob1, mob2... al guardar) quedan en null.
+// ==============================================================
+const EDITOR_MOB_KEYS = ['__id', 'mbweSp'];
+const MOB_REF_KEYS = ['target', 'focus', 'riding', 'riddenBy', 'leash'];
+window.mbwGameSafeMob = function (m, scene) {
+    if (!m || typeof m !== 'object') return m;
+    const base = window.getMobTemplate('zombie') || {};
+    const tpl = window.getMobTemplate(m.variant === 'mooshroom' ? 'mooshroom' : m.type) || {};
+    const fill = function (src) {
+        for (const k in src) {
+            if (k === 'type' || k === 'x' || k === 'y' || k === 'id' || k === 'name' && m.type === 'spawnskin') continue;
+            const v = m[k];
+            const bad = v === undefined || (typeof src[k] === 'number' && (typeof v !== 'number' || !isFinite(v)))
+                || (src[k] !== null && typeof src[k] === 'object' && (v === null || typeof v !== 'object'))
+                || (typeof src[k] === 'boolean' && typeof v !== 'boolean' && v !== null);
+            if (bad) m[k] = (src[k] !== null && typeof src[k] === 'object') ? JSON.parse(JSON.stringify(src[k])) : (typeof src[k] === 'boolean' && v !== undefined ? !!v : src[k]);
+        }
+    };
+    fill(base); fill(tpl);
+    EDITOR_MOB_KEYS.forEach(function (k) { delete m[k]; });
+    // (a quién sigue / ataca: el jugador del juego es "char"; los demás nombres ya no existen en el archivo)
+    MOB_REF_KEYS.forEach(function (k) { if (m[k] !== null && m[k] !== undefined && m[k] !== 'char') m[k] = null; });
+    if (m.lastDamageID === '__player__') m.lastDamageID = 'char';
+    if (typeof m.eating === 'number') m.eating = !!m.eating;
+    if (!isFinite(Number(m.health))) m.health = Number(tpl.health || base.health) || 10;
+    if (scene) m.scene = scene;
+    return m;
+};
 // Lo mismo para todos los mobs de un mundo (mobs1, mobs2, mobs3). Devuelve cuántos mobs se arreglaron.
 window.mbwFixWorldMobs = function (world) {
     let n = 0;

@@ -20,7 +20,7 @@
     const BLOCK_DATA = ['states', 'chests', 'toSmelt', 'water', 'wheat', 'toBrew', 'signs', 'hasSignal', 'toGrow'];
     const CROPS = ['wseed', 'pseed', 'seed', 'carrot', 'potato', 'nw', 'bseed'];
     const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
-    const SAFE = { ver: 1, sceneNum: 1, variantId: 1, alias: 1, nullData: 1, orphan: 1, ftFalse: 1, chestPad: 1, chestBadSlot: 1, invPad: 1, stack: 1, rules: 1, crop: 1, achieve: 1, signType: 1, numbers: 1 };
+    const SAFE = { ver: 1, sceneNum: 1, variantId: 1, alias: 1, nullData: 1, orphan: 1, ftFalse: 1, dmgFloat: 1, orbsType: 1, chestPad: 1, chestBadSlot: 1, invPad: 1, stack: 1, rules: 1, crop: 1, achieve: 1, signType: 1, numbers: 1 };
 
     function known(id) { return typeof id === 'string' && G().has(id); }
     // "dt_1" -> { base: 'dt', v: 1 }
@@ -150,8 +150,11 @@
                 if (!Array.isArray(it) || isEmptyItem(it)) continue;
                 if (!known(it[0]) && !ALIAS[it[0]]) { if (add('unknownItem', 'warn', 'armor: ' + it[0], true)) ar[i] = ['air', 0, {}]; }
                 else if (ALIAS[it[0]]) { if (add('alias', 'warn', it[0] + ' → ' + ALIAS[it[0]], true)) it[0] = ALIAS[it[0]]; }
+                if (typeof it[1] === 'number' && it[1] !== Math.floor(it[1])) { if (add('dmgFloat', 'warn', 'armor: ' + it[0] + ' ' + it[1], true)) it[1] = Math.round(it[1]); }
             }
         }
+        // ---- bolitas de experiencia: el juego las guarda como { }, no como lista
+        [1, 2, 3].forEach(function (s) { if (Array.isArray(world['xpOrbs' + s])) { if (add('orbsType', 'warn', 'xpOrbs' + s, true)) world['xpOrbs' + s] = {}; } });
 
         // ---- reglas del juego: verdadero / falso
         if (world.gameRules !== undefined && world.gameRules !== null && !isObj(world.gameRules)) { if (add('rules', 'error', typeof world.gameRules, true)) world.gameRules = {}; }
@@ -185,6 +188,7 @@
             const n = Number(it[1]);
             const max = g.flag(id, 'unstackable') ? 1 : g.maxStack;
             if (n > max || n !== Math.floor(n)) { if (add('stack', 'warn', label + ': ' + id + ' × ' + it[1], true)) it[1] = Math.max(1, Math.min(max, Math.floor(n) || 1)); }
+            if (typeof it[2] === 'number' && it[2] !== Math.floor(it[2])) { if (add('dmgFloat', 'warn', label + ': ' + id + ' ' + it[2], true)) it[2] = Math.round(it[2]); }   // (desgaste con decimales)
         }
 
         const order = { error: 0, warn: 1, info: 2 };
@@ -204,6 +208,8 @@
         badColumn: ['val_bad_column', 'Broken columns of blocks.'],
         orphan: ['val_orphan', 'Leftover data of blocks that are not there any more (chests, signs, variants...).'],
         nullData: ['val_null_data', 'Empty block data (it came from an old multiplayer bug).'],
+        dmgFloat: ['val_dmg_float', 'Tools or armor with a broken wear number (with decimals).'],
+        orbsType: ['val_orbs_type', 'Experience orbs saved in the wrong shape (a list instead of { }).'],
         ftFalse: ['val_ft_false', '"First time" marks that say "no" (they are the same as having nothing: they only make the file heavier).'],
         chestPad: ['val_chest_pad', 'Chests with fewer than 27 slots.'],
         chestBadSlot: ['val_chest_bad', 'Broken chest slots.'],

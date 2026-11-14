@@ -434,6 +434,7 @@ prepareData: function(opts) {
         let internalId = "mob" + globalMobCount[s];
         m.id = internalId; 
         if (typeof window.mbwFixMob === 'function') window.mbwFixMob(m);   // un creeper sin "fuse" explota al instante en el juego real
+        if (typeof window.mbwGameSafeMob === 'function') window.mbwGameSafeMob(m, s);   // 🎮 los mobs del Modo Jugar: con todos los datos que el juego necesita
         m.x = isNaN(Number(m.x)) ? 0 : Number(m.x);
         m.y = isNaN(Number(m.y)) ? 0 : Number(m.y);
         
