@@ -230,7 +230,7 @@
                             ${desc}
                         </div>
                     </div>
-                    <div class="ss-right"><span class="ss-max">0/${Number(s.max) | 0}</span>${canRemove(s) ? `<button type="button" class="ss-del" data-ss="${k}" title="${esc(tr('ss_delete', 'Remove'))}">🗑</button>` : ''}<button type="button" class="ss-open" data-ss="${k}">${esc(tr('ss_open', 'OPEN'))}</button></div>
+                    <div class="ss-right"><span class="ss-max">0/${Number(s.max) | 0}</span>${isAdmin() ? `<button type="button" class="ss-adm ss-dl" data-ss="${k}" title="${esc(tr('ss_dl_tip', 'Download the world of this server (.mbw)'))}">⬇</button><button type="button" class="ss-adm ss-rep" data-ss="${k}" title="${esc(tr('ss_rep_tip', 'Replace the world of this server with a .mbw file (only Crystal)'))}">📤</button>` : ''}${canRemove(s) ? `<button type="button" class="ss-del" data-ss="${k}" title="${esc(tr('ss_delete', 'Remove'))}">🗑</button>` : ''}<button type="button" class="ss-open" data-ss="${k}">${esc(tr('ss_open', 'OPEN'))}</button></div>
                 </div>`;
         });
         const head = `<div class="ss-head">💾 ${esc(tr('ss_title9', 'Permanent servers ({n} of 9 places used): open one to be the host', { n: used().length }))}</div>`;
@@ -239,6 +239,8 @@
     function bind(root) {
         if (!root) return;
         root.querySelectorAll('.ss-open').forEach(b => b.addEventListener('click', () => openSaved(b.getAttribute('data-ss'))));
+        root.querySelectorAll('.ss-dl').forEach(b => b.addEventListener('click', () => downloadSaved(b.getAttribute('data-ss'))));
+        root.querySelectorAll('.ss-rep').forEach(b => b.addEventListener('click', () => pickReplace(b.getAttribute('data-ss'))));
         root.querySelectorAll('.ss-del').forEach(b => b.addEventListener('click', () => {
             const k = b.getAttribute('data-ss'), s = saved && saved[k];
             if (!canRemove(s)) return;
@@ -251,6 +253,69 @@
         if (saved && saved[k] && !canRemove(saved[k])) return Promise.resolve();
         if (window.mpSlot === k) { window.mpSlot = null; window.mpSlotOwner = null; stamp(null); try { if (window.myRoomRef) window.myRoomRef.update({ slot: null }); } catch (e) { /* nada */ } }
         return Promise.all([D.ref(DATA + '/' + k).remove(), D.ref(META + '/' + k).remove()]).catch(e => console.warn('💾 delete', e));
+    }
+
+    // ------------------------------------------------------------------ 🛠 solo Crystal: bajar o REEMPLAZAR el mundo de un servidor permanente
+    //  (para arreglar uno que se reemplazó por error: subes tu .mbw bueno y queda como el mundo del servidor; dueño y ajustes no cambian)
+    async function readSaved(k) {
+        const D = db(); const meta = (await D.ref(META + '/' + k).once('value')).val();
+        if (!meta || !meta.rev) throw new Error('no world');
+        const n = Math.max(1, Number(meta.chunks) || 1);
+        const parts = await Promise.all(Array.from({ length: n }, (_, i) => D.ref(DATA + '/' + k + '/r/' + meta.rev + '/' + i).once('value').then(sn => sn.val())));
+        if (parts.some(p => typeof p !== 'string')) throw new Error('missing pieces');
+        return { meta: meta, json: await unpack(parts.join('')) };
+    }
+    async function downloadSaved(k) {
+        if (!isAdmin() || !okSlot(k) || !db()) return;
+        try {
+            const r = await readSaved(k);
+            const text = (typeof mbwAlgorithm !== 'undefined' && mbwAlgorithm.encode) ? mbwAlgorithm.encode(r.json) : r.json;
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([text], { type: 'application/octet-stream' }));
+            a.download = String(r.meta.mapName || 'World').replace(/[\\/:*?"<>|]/g, '_') + ' (' + k + ').mbw';
+            document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+        } catch (e) { console.warn('💾 download saved', e); alert(tr('ss_dl_fail', 'Could not download the world of this server.')); }
+    }
+    function pickReplace(k) {
+        if (!isAdmin() || !okSlot(k)) return;
+        const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.mbw,application/json,text/plain';
+        inp.addEventListener('change', () => { const f = inp.files && inp.files[0]; if (f) { const rd = new FileReader(); rd.onload = () => replaceSaved(k, String(rd.result || ''), f.name); rd.readAsText(f); } });
+        inp.click();
+    }
+    async function replaceSaved(k, raw, fileName) {
+        const D = db(); if (!D || !isAdmin() || !okSlot(k)) return false;
+        let world;
+        try {
+            const json = /^\s*\{/.test(raw.slice(0, 20)) ? raw : mbwAlgorithm.decode(raw);
+            world = JSON.parse(json);
+            if (!world || typeof world !== 'object' || !Array.isArray(world.scene1)) throw new Error('not a world');
+        } catch (e) { alert(tr('ss_rep_bad', 'That file is not a Mine Blocks world (.mbw).')); return false; }
+        const act = window.__mbwLastServers || {};
+        if (Object.keys(act).some(id => act[id] && act[id].slot === k) || (inMp() && mySlot() === k)) { alert(tr('ss_rep_live', 'This server is open right now. Close it (nobody playing) and try again, or the host would save over it.')); return false; }
+        const s = (saved && saved[k]) || {};
+        if (!confirm(tr('ss_rep_confirm', 'Replace the world of the permanent server "{name}" ({slot}) with the file "{file}"?\n\nThe world that is online now is deleted (download it first with ⬇ if you want to keep it). The owner and the settings stay the same.', { name: s.mapName || 'World', slot: k, file: fileName || '' }))) return false;
+        const me = myUid(), lockRef = D.ref(META + '/' + k + '/lock');
+        const tx = await lockRef.transaction(cur => { if (cur && cur.uid !== me && Date.now() - Number(cur.at || 0) < LOCK_MS) return; return { uid: me, at: Date.now() }; }).catch(() => null);
+        if (!tx || !tx.committed) { alert(tr('ss_busy', 'Someone else is opening this server right now. Try again in a moment.')); return false; }
+        try {
+            world.mbweSlot = k; world.mbweServerMap = true;             // 🛡 la marca de su lugar (y sigue siendo mapa de servidor)
+            const json = JSON.stringify(world), data = await pack(json);
+            const n = Math.ceil(data.length / CHUNK) || 1;
+            const rev = Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36);
+            for (let i = 0; i < n; i++) await D.ref(DATA + '/' + k + '/r/' + rev + '/' + i).set(data.slice(i * CHUNK, (i + 1) * CHUNK));
+            const mref = D.ref(META + '/' + k), old = (await mref.once('value')).val() || {};
+            const meta = Object.assign({}, old, { rev: rev, chunks: n, bytes: data.length, rawBytes: json.length, savedAt: firebase.database.ServerValue.TIMESTAMP, lastHostName: myName().slice(0, 40), replacedBy: myName().slice(0, 40), v: 3 });
+            delete meta.lock;
+            await mref.set(meta);
+            if (old.rev && old.rev !== rev) D.ref(DATA + '/' + k + '/r/' + old.rev).remove().catch(() => {});
+            console.log('🛠 Servidor permanente ' + k + ' reemplazado con ' + fileName + ' (' + (data.length / 1048576).toFixed(2) + ' MB)');
+            toast('🛠 ' + tr('ss_rep_done_title', 'Server world replaced'), tr('ss_rep_done', '"{name}" now has the world of {file}.', { name: s.mapName || 'World', file: fileName || '' }));
+            return true;
+        } catch (e) {
+            console.warn('🛠 replace saved', e);
+            alert(tr('ss_rep_fail', 'Could not replace the world of this server.'));
+            return false;
+        } finally { lockRef.remove().catch(() => {}); }
     }
 
     // (el servidor de antes, en "mbweCrystal", pasa al primer lugar libre)
@@ -387,5 +452,5 @@
         return lab;
     }
 
-    window.mbwSavedServers = { ready: function () { return saved !== null && saved !== undefined; }, get: function (k) { return saved ? saved[k] || null : null; }, slots: SLOTS, watch: watch, html: html, bind: bind, open: openSaved, save: saveNow, remove: removeSaved, setPermanent: setPermanent, checkboxRow: checkboxRow, isAdmin: isAdmin, isAdminUid: isAdminUid, state: st, pack: pack, unpack: unpack, list: () => saved, used: used, SLOTS: SLOTS };
+    window.mbwSavedServers = { replace: replaceSaved, download: downloadSaved, ready: function () { return saved !== null && saved !== undefined; }, get: function (k) { return saved ? saved[k] || null : null; }, slots: SLOTS, watch: watch, html: html, bind: bind, open: openSaved, save: saveNow, remove: removeSaved, setPermanent: setPermanent, checkboxRow: checkboxRow, isAdmin: isAdmin, isAdminUid: isAdminUid, state: st, pack: pack, unpack: unpack, list: () => saved, used: used, SLOTS: SLOTS };
 })();
