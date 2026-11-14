@@ -36,17 +36,21 @@ export default {
     const path = new URL(request.url).pathname;
     if (request.method !== 'GET' || path !== '/ice') return new Response('Not found', { status: 404, headers: c.headers });
     if (!c.ok) return new Response('Forbidden', { status: 403, headers: c.headers });
-    if (!env.TURN_KEY_ID || !env.TURN_KEY_API_TOKEN) return new Response('TURN key not set up', { status: 500, headers: c.headers });
+    const keyId = String(env.TURN_KEY_ID || '').trim(), token = String(env.TURN_KEY_API_TOKEN || '').trim();   // (sin espacios de más al pegar)
+    if (!keyId || !token) return new Response('TURN key not set up', { status: 500, headers: c.headers });
 
     let res;
     try {
-      res = await fetch('https://rtc.live.cloudflare.com/v1/turn/keys/' + env.TURN_KEY_ID + '/credentials/generate-ice-servers', {
+      res = await fetch('https://rtc.live.cloudflare.com/v1/turn/keys/' + encodeURIComponent(keyId) + '/credentials/generate-ice-servers', {
         method: 'POST',
-        headers: { Authorization: 'Bearer ' + env.TURN_KEY_API_TOKEN, 'Content-Type': 'application/json' },
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
         body: JSON.stringify({ ttl: 86400 }),
       });
     } catch (e) { return new Response('Upstream error', { status: 502, headers: c.headers }); }
-    if (!res.ok) return new Response('Upstream error ' + res.status, { status: 502, headers: c.headers });
+    if (!res.ok) {   // (se dice qué pasó, sin mostrar las llaves: así se sabe cuál dato está mal)
+      let why = ''; try { why = (await res.text()).slice(0, 200); } catch (e) { /* nada */ }
+      return new Response('Upstream error ' + res.status + ' ' + why + ' (TURN_KEY_ID: ' + keyId.length + ' characters)', { status: 502, headers: c.headers });
+    }
     const data = await res.json();
     // (el puerto 53 lo bloquean los navegadores: se quita para que no haga esperar)
     const list = [].concat(data.iceServers || []).map(s => ({ ...s, urls: [].concat(s.urls || []).filter(u => !/:53(\?|$)/.test(u)) })).filter(s => s.urls.length);
