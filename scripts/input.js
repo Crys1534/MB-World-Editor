@@ -414,11 +414,11 @@ function renderChestOrOvenUI(blockState, gridContainer) {
                 if (isEnchanted) {
                     slot.classList.add('enchanted-slot');
                     slot.title = ""; 
-                    let itemNameStr = String(itemID).replace(/([A-Z])/g, ' $1').trim();
+                    let itemNameStr = window.mbwItemLabel ? window.mbwItemLabel(itemID, enchantments) : String(itemID);
                     let enchantTooltipHTML = typeof formatEnchantments === 'function' ? formatEnchantments(enchantments) : "";
                     slot.dataset.enchantTooltip = `<strong>${itemNameStr}</strong>${enchantTooltipHTML}`;
                 } else {
-                    slot.title = String(itemID).replace(/([A-Z])/g, ' $1').trim();
+                    slot.title = window.mbwItemLabel ? window.mbwItemLabel(itemID, enchantments) : String(itemID);   // 🏷
                 }
 
                 if (itemCount > 1) {
@@ -483,11 +483,11 @@ function renderChestOrOvenUI(blockState, gridContainer) {
                 if (isEnchanted) {
                     slot.classList.add('enchanted-slot');
                     slot.title = ""; 
-                    let itemNameStr = String(itemID).replace(/([A-Z])/g, ' $1').trim();
+                    let itemNameStr = window.mbwItemLabel ? window.mbwItemLabel(itemID, enchantments) : String(itemID);
                     let enchantTooltipHTML = typeof formatEnchantments === 'function' ? formatEnchantments(enchantments) : "";
                     slot.dataset.enchantTooltip = `<strong>${itemNameStr}</strong>${enchantTooltipHTML}`;
                 } else {
-                    slot.title = String(itemID).replace(/([A-Z])/g, ' $1').trim();
+                    slot.title = window.mbwItemLabel ? window.mbwItemLabel(itemID, enchantments) : String(itemID);   // 🏷
                 }
 
                 if (itemCount > 1) {

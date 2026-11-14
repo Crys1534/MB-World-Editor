@@ -3563,7 +3563,7 @@ body.is-touch #mbw-play-hud .ph-chat-log { font-size: 22px; }
 .pinv-craft-out { outline: 2px solid rgba(255, 215, 0, .55); outline-offset: 1px; }
 
 /* 🖱 arrastrar para repartir: las casillas por las que pasa */
-.pinv-slot.pinv-drag { background: #b8d7ff !important; }
+.pinv-slot.pinv-drag { box-shadow: inset 0 0 0 2px #6fb2ff; }   /* ✋ (repartiendo: las cosas ya se ven puestas) */
 body.pinv-holding .pinv-slot { touch-action: none; }
 /* 📖 material que falta (recetario): en rojo */
 .pinv-slot.pinv-missing { background: #c25454 !important; }
@@ -3575,8 +3575,9 @@ body.pinv-holding .pinv-slot { touch-action: none; }
 .pinv-book-grid { flex: 1; min-height: 0; overflow-y: auto; display: grid; grid-template-columns: repeat(3, var(--ps, 48px)); gap: 0; align-content: start; -webkit-overflow-scrolling: touch; }
 .pinv-book .pinv-slot { width: var(--ps, 48px); height: var(--ps, 48px); background: #8b8b8b; border: 3px solid; border-color: #6e6e6e #b2b2b2 #b2b2b2 #6e6e6e; }
 .pinv-book .pinv-slot canvas { width: calc(var(--ps, 48px) * .72); height: calc(var(--ps, 48px) * .72); }
-.pinv-book .pinv-book-no { background: #a8a8a8; }
-.pinv-book .pinv-book-no canvas { opacity: .45; }
+/* 📖 lo que no se puede hacer (faltan materiales): en rojo, como en el libro de recetas de Minecraft */
+.pinv-book .pinv-book-no { background: #c25454 !important; box-shadow: inset 2px 2px 0 #e07a7a, inset -2px -2px 0 #8a2e2e; }
+.pinv-book .pinv-book-no canvas { opacity: 1; }
 .pinv-book-empty { grid-column: 1 / -1; font-size: 13px; color: #666; padding: 6px 2px; }
 body.pinv-book-open #inventory-modal .inv-main-columns { flex-direction: row; }
 
@@ -3950,3 +3951,6 @@ body.mbw-playing #sm-banner { display: none !important; }
 
 /* 🔍 lupa del Modo Jugar en celular (scripts/play-mode.js → loupe) */
 #ph-loupe { position: fixed; display: none; width: 132px; height: 132px; border-radius: 50%; pointer-events: none; z-index: 9600; box-shadow: 0 6px 18px rgba(0,0,0,.55); image-rendering: pixelated; }
+
+/* 🗑 en el Modo Jugar en supervivencia no hay bote de basura (como en el juego) */
+body.mbw-playing.play-survival #pinv-trash { display: none !important; }

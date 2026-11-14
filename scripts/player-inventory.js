@@ -312,6 +312,7 @@
  function prettyName(it) {
   const n = it.extras && it.extras.nameChange;
   if (typeof n === 'string' && n.trim()) return n;
+  if (window.mbwItemLabel) return window.mbwItemLabel(it.id, { type: variantOf(it) });   // 🏷 "cs" → "Cobblestone"
   let name = String(it.id).replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2');
   const v = variantOf(it);
   if (v && it.id !== 'potion') name += ' (' + v + ')';
@@ -364,7 +365,43 @@
   }
  }
 
- let shiftSweep = null;
+ let shiftSweep = null, lastTap = null, hoverAddr = null;
+ // 👆👆 juntar en esta casilla todas las cosas iguales (inventario y cofre), hasta llenar el montón
+ const GATHER_KINDS = { i: 1, c: 1 };
+ function gatherInto(addr) {
+  if (!GATHER_KINDS[addr.k] || heldItem) return false;
+  let cur = getSlot(addr); if (!cur || cur.missing) return false;
+  const max = maxStack(cur); if (cur.qty >= max) return false;
+  const from = [];
+  for (let i = 0; i < TOTAL; i++) from.push({ k: 'i', i: i });
+  if (st.chest) for (let i = 0; i < boxSlots(); i++) from.push({ k: 'c', i: i });
+  let moved = 0;
+  from.forEach((a) => {
+   if (cur.qty >= max || (a.k === addr.k && a.i === addr.i)) return;
+   const it = getSlot(a); if (!it || it.missing || !same(it, cur)) return;
+   const n = Math.min(it.qty, max - cur.qty);
+   cur = copy(cur, cur.qty + n); moved += n;
+   setSlot(a, it.qty - n > 0 ? copy(it, it.qty - n) : null);
+  });
+  if (!moved) return false;
+  setSlot(addr, cur);
+  renderAll();
+  return true;
+ }
+ window.playerInvGather = gatherInto;                                // (pruebas)
+ // 🔢 con el mouse encima de una casilla, las teclas 1-9 la cambian con ese lugar de la hotbar (como en Minecraft)
+ const SWAP_KINDS = { i: 1, c: 1, k: 1 };
+ function swapWithHotbar(addr, n) {
+  if (!addr || !SWAP_KINDS[addr.k] || heldItem) return false;
+  const hb = { k: 'i', i: n };
+  if (addr.k === 'i' && addr.i === n) return true;
+  const a = getSlot(addr), b = getSlot(hb);
+  if (a && a.missing) return false;
+  setSlot(addr, b); setSlot(hb, a);
+  renderAll();
+  return true;
+ }
+ window.playerInvSwapHot = swapWithHotbar;                            // (pruebas)
  window.addEventListener('pointerup', () => { shiftSweep = null; }, true);
  window.addEventListener('pointercancel', () => { shiftSweep = null; }, true);
  function slotEl(addr, ghostPart) {
@@ -372,7 +409,14 @@
   const d = document.createElement('div');
   d.className = 'pinv-slot';
   d.__addr = addr;
-  d.onclick = (e) => { if (dragEat(e)) return; onSlot(addr, e, false); };
+  d.onclick = (e) => {
+   if (dragEat(e)) return;
+   onSlot(addr, e, false);
+   // 👆👆 doble clic / doble toque: se juntan aquí las cosas iguales que están en otras casillas
+   const now = performance.now(), key = addr.k + addr.i;
+   if (lastTap && lastTap.key === key && now - lastTap.t < 400) { lastTap = null; gatherInto(addr); } else lastTap = { key: key, t: now };
+  };
+  d.addEventListener('pointerenter', () => { hoverAddr = d; });
   d.oncontextmenu = (e) => { e.preventDefault(); ctxFired = true; if (dragEat(e)) return; onSlot(addr, e, true); };
   d.addEventListener('pointerdown', (e) => dragStart(addr, d, e));
   // ⇧ Shift + clic izquierdo sostenido: al pasar por otras casillas también se mueven de golpe (vaciar un cofre rápido)
@@ -870,7 +914,8 @@
   if (!heldItem || !DRAG_KINDS[addr.k] || !st.open) return;
   const held = fromHeld(heldItem); if (!held) return;
   ctxFired = false;
-  drag = { btn: e.pointerType === 'touch' ? 0 : e.button, touch: e.pointerType === 'touch', slots: [addr], els: [el], id: e.pointerId };
+  drag = { btn: e.pointerType === 'touch' ? 0 : e.button, touch: e.pointerType === 'touch', slots: [addr], els: [el], id: e.pointerId,
+   held0: held, heldObj: heldItem, count0: heldItem.count, orig: [{ a: addr, it: getSlot(addr) }] };
   el.classList.add('pinv-drag');
   window.addEventListener('pointermove', dragMove, true);
   window.addEventListener('pointerup', dragEnd, true);
@@ -881,11 +926,38 @@
   const s = slotAt(e.clientX, e.clientY); if (!s) return;
   const a = s.__addr;
   if (!DRAG_KINDS[a.k] || drag.slots.some((q) => q.k === a.k && q.i === a.i)) return;
-  const held = fromHeld(heldItem), cur = getSlot(a);
+  const held = drag.held0, cur = getSlot(a);
   if (!held || (cur && (!same(cur, held) || cur.qty >= maxStack(held)))) return;       // (otra cosa o ya está llena)
-  if (drag.btn === 2 ? drag.slots.length >= held.qty : drag.slots.length >= held.qty) return;   // (ya no alcanza para más casillas)
+  if (drag.slots.length >= held.qty) return;                          // (ya no alcanza para más casillas)
   drag.slots.push(a); drag.els.push(s); s.classList.add('pinv-drag');
+  drag.orig.push({ a: a, it: cur });
+  if (drag.btn !== 2) dragLive(drag);                                 // ✋ se ve al momento cómo queda repartido
   if (drag.touch) e.preventDefault();
+ }
+ // ✋ repartir EN VIVO (clic izquierdo / dedo): las cosas ya se ponen en las casillas mientras arrastras (no solo se pintan de azul)
+ function dragLive(d) {
+  d.orig.forEach((o) => setSlot(o.a, o.it));                          // (se vuelve a como estaba y se reparte otra vez entre todas)
+  heldItem = d.heldObj; heldItem.count = d.count0;
+  if (d.slots.length >= 2) {
+   const held = d.held0;
+   let left = d.count0;
+   const per = Math.max(1, Math.floor(left / d.slots.length));
+   d.slots.forEach((a) => {
+    if (left <= 0) return;
+    const cur = getSlot(a), room = cur ? maxStack(held) - cur.qty : maxStack(held);
+    const n = Math.min(per, left, room); if (n <= 0) return;
+    setSlot(a, cur ? copy(cur, cur.qty + n) : copy(held, n));
+    left -= n;
+   });
+   if (left > 0) heldItem.count = left; else heldItem = null;
+   d.live = true;
+  }
+  refreshCursor();
+  renderAll();
+  // (las casillas se volvieron a dibujar: se marcan otra vez)
+  const marks = new Set(d.slots.map((q) => q.k + q.i));
+  d.els = [...document.querySelectorAll('#inventory-modal .pinv-slot')].filter((el) => el.__addr && marks.has(el.__addr.k + el.__addr.i));
+  d.els.forEach((el) => el.classList.add('pinv-drag'));
  }
  function dragOff() {
   window.removeEventListener('pointermove', dragMove, true);
@@ -893,11 +965,15 @@
   window.removeEventListener('pointercancel', dragCancel, true);
   if (drag) drag.els.forEach((el) => el.classList.remove('pinv-drag'));
  }
- function dragCancel() { dragOff(); drag = null; }
+ function dragCancel() {
+  const d = drag; dragOff(); drag = null;
+  if (d && d.live) { d.orig.forEach((o) => setSlot(o.a, o.it)); heldItem = d.heldObj; heldItem.count = d.count0; refreshCursor(); renderAll(); }   // (se deshace)
+ }
  function dragEnd(e) {
   if (!drag || e.pointerId !== drag.id) return;
   const d = drag; dragOff(); drag = null;
   if (d.slots.length < 2) return;                                     // una sola casilla: es un clic normal
+  if (d.live) { eatUntil = performance.now() + 350; refreshCursor(); renderAll(); return; }   // (ya quedó repartido en vivo)
   const held = fromHeld(heldItem); if (!held) return;
   let left = held.qty;
   const one = d.btn === 2;
@@ -1020,7 +1096,7 @@
    const d = document.createElement('div');
    d.className = 'pinv-slot pinv-book-it' + (x.ok ? '' : ' pinv-book-no');
    const c = document.createElement('canvas'); c.width = c.height = 48;
-   paintId(c, x.r.id, undefined, 48, x.r.extras, 0); d.appendChild(c);
+   paintId(c, x.r.id, variantOf({ extras: x.r.extras }), 48, x.r.extras, 0); d.appendChild(c);   // (con su color: lana, vidrio, camas...)
    if (x.r.qty > 1) { const k = document.createElement('span'); k.className = 'pinv-count'; k.textContent = x.r.qty; d.appendChild(k); }
    d.title = x.name;
    d.onclick = () => window.playerInvBookFill(x.r.n);
@@ -1689,6 +1765,7 @@
   if (!m) return;
   e.stopImmediatePropagation();
   e.preventDefault();
+  if (hoverAddr && hoverAddr.isConnected && hoverAddr.matches(':hover') && swapWithHotbar(hoverAddr.__addr, Number(m[1]) - 1)) return;   // 🔢 (mouse encima de una casilla)
   select(Number(m[1]) - 1);
  }, true);
 

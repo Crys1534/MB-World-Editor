@@ -2209,6 +2209,13 @@ window.drawItemIcon = function (ctx, ro, itemId, extras, dx, dy, dw, dh) {
     }
     const spriteKey = window.mobHeadSpriteKey(itemId, extras);      // cabeza de zombie / skeleton / creeper / enderdragon
     if (spriteKey && window.texturesMap && window.texturesMap[spriteKey]) ro = window.texturesMap[spriteKey];
+    // 🛏 una cama como objeto (inventario, cofres, hotbar...): su dibujo de objeto, no el del bloque
+    if (/^bed[12]?$/.test(String(itemId)) && window.texturesMap) {
+        const TM = window.texturesMap;
+        let c = extras && typeof extras === 'object' && typeof extras.type === 'string' ? extras.type : '';
+        if (!TM['bedi_' + c]) { c = 'red'; for (const k in TM) { const m = /^bed[12]_(\w+)$/.exec(k); if (m && TM[k] === ro) { c = m[1]; break; } } }
+        if (TM['bedi_' + c]) ro = TM['bedi_' + c];
+    }
     if (ro) {
         if (ro.w === 32) ctx.drawImage(window.images.blocks, ro.x, ro.y, 32, 16, dx, dy + dh / 4, dw, dh / 2);   // dibujos anchos (vagoneta, balsa): las dos mitades, a lo ancho de la casilla
         else if (!(window.mbwAnimIcon && window.mbwAnimIcon(ctx, ro, dx, dy, dw, dh))) ctx.drawImage(window.images.blocks, ro.x, ro.y, 16, 16, dx, dy, dw, dh);   // (lana arcoíris, magma, fuego: ícono animado)

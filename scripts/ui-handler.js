@@ -396,6 +396,8 @@ window.mbwInvGroupOf = function (id) {
     if (m) return 'crop:' + m[1];
     m = /^(carrot|potato)_\d+$/.exec(id);
     if (m) return 'crop:' + m[1];
+    m = /^(fice|brew|cauldron|cmp)(_\d+)?$/.exec(id);              // 🧊 hielo escarchado, ⚗ soporte de pociones, caldero, composter (sus etapas)
+    if (m) return m[1];
     return null;
 };
 function populateInventory() {
@@ -558,7 +560,7 @@ function populateInventory() {
             }
 
             // 2. Buscamos si tiene nombre personalizado guardado en el NBT
-            let itemNameStr = (enchantments && enchantments.name) ? enchantments.name : String(itemID).replace(/([A-Z])/g, ' $1').trim();
+            let itemNameStr = (enchantments && enchantments.name) ? enchantments.name : window.mbwItemLabel(itemID, enchantments);
 
             if (isEnchanted) {
                 item.classList.add('enchanted-slot');
@@ -630,7 +632,7 @@ function populateInventory() {
         const inGroup = grp && gCount[grp] >= 2;
         const isHead = inGroup && gFirst[grp] === blockType;
         const baseBg = (inGroup && !isHead) ? '#6E7A86' : '#8B8B8B';   // (los de dentro del acordeón, un poco azulados)
-        item.title = blockType; 
+        item.title = window.mbwItemLabel(blockType);   // 🏷 (el nombre, no el código)
         item.dataset.search = mbwItemSearchText(blockType);   // la búsqueda usa el nombre ("golden carrot") y también el código ("gcarrot")
         
         item.onclick = () => {
@@ -720,6 +722,19 @@ function mbwItemNameOf(code) {
     const base = String(code).split('_')[0];
     return mbwItemNameMap[code] || mbwItemNameMap[base] || '';
 }
+// 🏷 el nombre que se ve en los tooltips (solo se ve así: el código sigue igual): "cs" → "Cobblestone", "cloth" naranja → "Wool (orange)"
+window.mbwItemNameOf = mbwItemNameOf;
+window.mbwItemLabel = function (code, extras) {
+    code = String(code == null ? '' : code);
+    const n = mbwItemNameOf(code);
+    let name = n || code.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2');
+    if (!n) return name;
+    const parts = code.split('_'), base = parts[0];
+    let v = extras && typeof extras === 'object' && typeof extras.type === 'string' ? extras.type : '';
+    if (!v && parts.length > 1 && isNaN(Number(parts[1]))) v = parts.slice(1).join(' ');
+    if (v && base !== 'potion' && base !== 'splash' && base !== 'mh') name += ' (' + v + ')';
+    return name;
+};
 function mbwItemSearchText(code) {
     const name = mbwItemNameOf(code);
     return name ? name + ' ' + code : String(code);

@@ -338,9 +338,18 @@
         const po = bd(t, 'placeOn');
         return !Array.isArray(po) || matchPlaceOn(x, y, po);
     }
+    // 🔥 antorchas: necesitan algo sólido donde están pegadas (abajo; o la pared, si están en la pared). Si no, se caen
+    const TORCH_STICK = { th: 1, rstorch: 1, ortorch: 1 };
+    function torchSupported(x, y) {
+        const s1 = Number(st(x, y)), solid = function (q) { return q !== 'air' && bd(q, 'walkThroughBlock') == null && bd(q, 'liquid') == null; };
+        if (s1 === 2) return solid(fg(x - 1, y));
+        if (s1 === 3) return solid(fg(x + 1, y));
+        return solid(fg(x, y - 1));
+    }
     function checkSand(x, y) {
         const t = fg(x, y);
         if (PLANTS[t]) { if (!plantSupported(x, y, t)) mineBlock(x, y, true); return; }
+        if (TORCH_STICK[t]) { if (!torchSupported(x, y)) mineBlock(x, y, true); return; }
         if (bd(t, 'falls') != 1) return;
         const below = fg(x, y - 1);
         if (below === 'la' || below === 'ad') { setBlock(x, y, null); return; }
@@ -2219,7 +2228,7 @@
             return true;
         }
         // 🔘 botón: da señal 1 segundo
-        if (t === 'button') { S.btn = S.btn || new Map(); S.btn.set(x + ',' + y, S.tick + FPS); sndAt('on', x + .5, -(y + .5)); return true; }
+        if (t === 'button') { S.btn = S.btn || new Map(); S.btn.set(x + ',' + y, S.tick + 2 * FPS); sndAt('on', x + .5, -(y + .5)); return true; }   // (2 segundos)
         // 🕹 palanca: prender / apagar (states2 = 1 encendida)
         if (t === 'lever') {
             const cur = mbwom.getBlockState(x, y), on = Number(cur.states2) === 1;
@@ -2371,7 +2380,6 @@
             S.mine = null;
             return;
         }
-        if (S.path && pathStep(w)) return;                                 // ⛏〰 (trazo del celular)
         if (!left) { S.mine = null; return; }
         if (leftFresh) { const v = vehicleUnderMouse(mw); if (v && (!S.ride || S.ride.id !== v.id)) { breakVehicle(v); S.mine = null; S.swing = 15; return; } }   // 🛶🚃 romper
         if (S.placeDelay < 6) return;
@@ -2382,6 +2390,11 @@
         if (mid) { attackMob(mid); buzz(15); S.swing = 15; S.placeDelay = 0; S.mine = null; return; }
         const pid = playerUnderMouse(mw);                              // 🎮 otro jugador
         if (pid) { attackPlayer(pid); buzz(15); S.swing = 15; S.placeDelay = 0; S.mine = null; return; }
+        // ⛏🎯 (app de Android + herramienta: el bloque más cercano hacia donde apunta el dedo)
+        const sm = smartOn() ? smartTarget(w, mw) : null;
+        S.smart = sm;
+        if (sm) { mineTick(w, sm.x, sm.y); return; }
+        if (smartOn()) { S.mine = null; return; }                           // (no hay nada que picar en esa dirección)
         mineTick(w, Math.floor(mw.x), Math.floor(mw.y));
     }
     // ⛏ picar el bloque (bx, by) un paso (sirve para el dedo / mouse y para el trazo de abajo). true = se rompió
@@ -2401,56 +2414,31 @@
         return false;
     }
 
-    // ------------------------------------------------------------------ ⛏〰 trazo para picar (solo en la app de Android, con pico / hacha / pala)
-    //   Como en Terraria: arrastras el dedo por los bloques y se van marcando en ese orden (rectas o curvas, sin huecos);
-    //   el Player los pica uno tras otro, aunque ya hayas levantado el dedo. Tocar otra vez empieza un trazo nuevo.
-    const PATH_TOOL = /(Pickaxe|Axe|Shovel)$/;
-    const PATH_MAX = 96;
-    function pathOn() { return document.documentElement.classList.contains('is-app') && PATH_TOOL.test(selType()) && S.touchMode !== 'place'; }
-    function pathAdd(bx, by) {
-        const P = S.path; if (!P) return;
-        const last = P.cells[P.cells.length - 1] || P.lastCell;
-        const put = function (x, y) {
-            const k = x + ',' + y; if (P.seen.has(k) || P.cells.length >= PATH_MAX) return;
-            P.seen.add(k); P.cells.push({ x: x, y: y });
-        };
-        if (!last) { put(bx, by); P.lastCell = { x: bx, y: by }; return; }
-        // (línea entre el bloque de antes y este: si el dedo va rápido no quedan huecos)
-        let x0 = P.lastCell.x, y0 = P.lastCell.y; const dx = Math.abs(bx - x0), dy = Math.abs(by - y0), sx = x0 < bx ? 1 : -1, sy = y0 < by ? 1 : -1;
-        let err = dx - dy, guard = 0;
-        while (guard++ < 200) {
-            put(x0, y0);
-            if (x0 === bx && y0 === by) break;
-            const e2 = 2 * err;
-            if (e2 > -dy) { err -= dy; x0 += sx; }
-            else if (e2 < dx) { err += dx; y0 += sy; }                       // (de a un paso: sin saltos en diagonal)
+    // ------------------------------------------------------------------ ⛏🎯 cursor inteligente (solo en la app de Android, con herramientas)
+    //   Como en Terraria: con pico, pala, hacha o espada, aunque el dedo apunte más lejos, se pica el bloque MÁS CERCANO
+    //   en esa dirección (en línea recta desde el Player hacia el dedo). Así se hacen túneles rectos o en curva moviendo el dedo.
+    const SMART_TOOL = /(Pickaxe|Axe|Shovel|Sword)$/;
+    function smartOn() { return document.documentElement.classList.contains('is-app') && S.touchHeld === true && SMART_TOOL.test(selType()) && S.touchMode !== 'place'; }
+    function smartTarget(w, mw) {
+        const px = Number(w.worldX), py = -Number(w.worldY) + 1.2;            // (desde el pecho del Player)
+        const dx = mw.x - px, dy = mw.y - py, len = Math.hypot(dx, dy);
+        if (len < 0.01) return null;
+        const ux = dx / len, uy = dy / len, max = Math.min(len, REACH + 1.5);
+        let lx = null, ly = null;
+        for (let d = 0.3; d <= max; d += 0.08) {
+            const bx = Math.floor(px + ux * d), by = Math.floor(py + uy * d);
+            if (bx === lx && by === ly) continue; lx = bx; ly = by;
+            if (blockDist(bx, by) > REACH + 1) break;
+            const t = fg(bx, by);
+            if (t === 'air' || bd(t, 'liquid') == 1) continue;
+            if (bd(t, 'walkThroughBlockHit') == 1 && bd(t, 'solid') != 1 && d < max - 0.6) continue;   // (pasto, flores, antorchas: solo si es justo donde apuntas)
+            if (t === 'br' && w.gamemode != 1) return null;
+            if (w.gamemode != 1 && miningTime(t) < 0) return null;
+            return { x: bx, y: by };
         }
-        P.lastCell = { x: bx, y: by };
+        return null;
     }
-    function pathStart() {
-        const mw = mouseWorld();
-        if (mobUnderMouse(mw) || playerUnderMouse(mw)) { S.path = null; return; }   // (tocar un mob: se le pega, como siempre)
-        S.path = { cells: [], seen: new Set(), drawing: true, lastCell: null };
-        pathAdd(Math.floor(mw.x), Math.floor(mw.y));
-    }
-    function pathMove() { if (S.path && S.path.drawing) { const mw = mouseWorld(); pathAdd(Math.floor(mw.x), Math.floor(mw.y)); } }
-    // un paso: se pica el primer bloque del trazo que se alcance (los que ya son aire se quitan)
-    function pathStep(w) {
-        const P = S.path;
-        if (!P || !pathOn()) { S.path = null; return false; }
-        P.cells = P.cells.filter(function (c) {
-            const t = fg(c.x, c.y);
-            return !(t === 'air' || bd(t, 'liquid') == 1 || (t === 'br' && w.gamemode != 1) || (w.gamemode != 1 && miningTime(t) < 0));
-        });
-        if (!P.cells.length) { if (!P.drawing) S.path = null; S.mine = null; return true; }
-        const c = P.cells.find(function (q) { return blockDist(q.x, q.y) <= REACH + 1; });
-        if (!c) { S.mine = null; return true; }                              // (lejos: se espera a que el Player se acerque)
-        if (S.placeDelay < 6) return true;
-        S.swing = Math.max(S.swing || 0, 2);
-        if (mineTick(w, c.x, c.y)) P.cells.splice(P.cells.indexOf(c), 1);
-        return true;
-    }
-    window.mbwPlay.path = function () { return S.path ? { cells: S.path.cells.slice(), all: Array.from(S.path.seen), drawing: S.path.drawing } : null; };   // (pruebas)
+    window.mbwPlay.smartTarget = function () { return S.smart ? { x: S.smart.x, y: S.smart.y } : null; };   // (pruebas)
 
 
     // ------------------------------------------------------------------ Command Book (Game.interpretCommand)
@@ -4247,7 +4235,7 @@
         if (t === 'lever') return Number((mbwom.getBlockState(x, y) || {}).states2) === 1;
         if (t === 'rstorch') return true;
         if (t === 'button') return (S.btn && S.btn.get(rsKey(x, y)) > S.tick);
-        if (t === 'pp' || t === 'wpp') return S.plates && S.plates.has(rsKey(x, y));
+        if (t === 'pp' || t === 'wpp') return !!(S.plates && S.plates.has(rsKey(x, y))) || !!(S.plateHold && S.plateHold.get(rsKey(x, y)) > S.tick);   // (al bajarse, 2 s más)
         return false;
     }
     function rsSolid(t) { return !!t && t !== 'air' && bd(t, 'walkThroughBlock') != 1 && bd(t, 'liquid') == null; }
@@ -4262,6 +4250,10 @@
         if (mpHost()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (r) feet(r.tx, r.ty); } }
         for (const id in mbwom.mobs) { const m = mbwom.mobs[id]; if (m && !(m.dead > 0)) feet(m.x, m.y); }
         S.drops.forEach(function (d) { feet(d.x, d.y - .05); });     // (también los objetos tirados aprietan la placa)
+        // ⏱ la placa sigue apretada 2 segundos después de bajarse (así la puerta queda abierta 2 s y luego se cierra sola)
+        S.plateHold = S.plateHold || new Map();
+        S.plates.forEach(function (k) { const c = k.split(','), t = fg(+c[0], +c[1]); if (t === 'pp' || t === 'wpp') S.plateHold.set(k, S.tick + 2 * FPS); });
+        if (S.plateHold.size > 200) S.plateHold.forEach(function (v, k) { if (v <= S.tick) S.plateHold.delete(k); });
         // la zona: alrededor de cada jugador
         const centers = [[Math.floor(w.worldX), Math.floor(-w.worldY)]];
         if (mpHost()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (r) centers.push([Math.floor(r.tx), Math.floor(-r.ty)]); } }
@@ -4515,7 +4507,7 @@
             x.imageSmoothingEnabled = false;
             try { x.drawImage(cv, (fx - r.left - half) * sx, (fy - r.top - half) * sy, half * 2 * sx, half * 2 * sy, 0, 0, c.width, c.height); } catch (e) { /* nada */ }
             // el bloque elegido
-            const mw = mouseWorld(), bx = Math.floor(mw.x), by = Math.floor(mw.y);
+            const mw = mouseWorld(), bx = S.smart ? S.smart.x : Math.floor(mw.x), by = S.smart ? S.smart.y : Math.floor(mw.y);   // (⛏🎯 el que de verdad se pica)
             const a = window.mbwPlay.toClient(bx, by + 1), b = window.mbwPlay.toClient(bx + 1, by);
             const map = function (px, py) { return { x: (px - (fx - half)) * Z * k, y: (py - (fy - half)) * Z * k }; };
             const p0 = map(a.x, a.y), p1 = map(b.x, b.y);
@@ -4588,16 +4580,11 @@
         if (S.emote) { const b0 = mobBounds(PLAYER_ID), p0 = toScreen(W().worldX, b0.t); if (!drawEmote(c2, S.emote, p0.x, p0.y)) S.emote = null; }
         drawBobber(c2);
         drawBars(c2);
-        if (S.path && S.path.cells.length) {                    // ⛏〰 los bloques del trazo (en orden)
-            c2.save();
-            c2.lineWidth = Math.max(1.5, tileSize / 10);
-            S.path.cells.forEach(function (q, i) {
-                const p = toScreen(q.x, -q.y - 1), far = blockDist(q.x, q.y) > REACH + 1;
-                c2.fillStyle = far ? 'rgba(255,90,90,.16)' : 'rgba(255,230,90,' + (i === 0 ? .30 : .18) + ')';
-                c2.strokeStyle = far ? 'rgba(255,90,90,.7)' : 'rgba(255,230,90,.85)';
-                c2.fillRect(p.x, p.y, tileSize, tileSize);
-                c2.strokeRect(p.x + 1, p.y + 1, tileSize - 2, tileSize - 2);
-            });
+        if (S.smart && S.mouse.left) {                         // ⛏🎯 el bloque que se está picando con el cursor inteligente
+            const p = toScreen(S.smart.x, -S.smart.y - 1);
+            c2.save(); c2.lineWidth = Math.max(2, tileSize / 9);
+            c2.strokeStyle = 'rgba(0,0,0,.6)'; c2.strokeRect(p.x - 1, p.y - 1, tileSize + 2, tileSize + 2);
+            c2.strokeStyle = 'rgba(255,230,90,.95)'; c2.strokeRect(p.x + 1, p.y + 1, tileSize - 2, tileSize - 2);
             c2.restore();
         }
         if (S.mine && S.mine.total > 1) {                       // grietas del bloque que se pica
@@ -5234,7 +5221,6 @@
             S.mouse.x = e.clientX; S.mouse.y = e.clientY;
             const r = cv.getBoundingClientRect();
             S.mouse.inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
-            if (e.pointerType === 'touch' && S.path && S.path.drawing) pathMove();
             if (onCanvas(e)) e.stopImmediatePropagation();
             return;
         }
@@ -5254,13 +5240,13 @@
             }
             if (right) { S.mouse.right = true; S.mouse.rightEdge = true; } else { S.mouse.left = true; S.mouse.leftEdge = true; }
             if (e.pointerType === 'touch') loupe.down(e);                    // 🔍
-            if (e.pointerType === 'touch' && !right && pathOn()) pathStart(); else S.path = null;   // ⛏〰
+            S.touchHeld = e.pointerType === 'touch';                         // ⛏🎯
             S.placeDelay = 99;
             try { cv.setPointerCapture && cv.setPointerCapture(e.pointerId); } catch (er) { /* nada */ }
         } else if (e.type === 'pointerup' || e.type === 'pointercancel') {
             S.mouse.left = false; S.mouse.right = false;
             loupe.up(e);
-            if (S.path) S.path.drawing = false;
+            S.touchHeld = false; S.smart = null;
             if (e.pointerType === 'touch') S.mouse.inside = false;
         }
     }
