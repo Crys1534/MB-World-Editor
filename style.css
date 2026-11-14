@@ -3517,6 +3517,8 @@ body.is-touch #mbw-play-hud .ph-area .ph-gear { width: 48px; height: 48px; font-
 #mbw-play-hud .ph-coords { position: absolute; top: 68px; left: 12px; color: #fff; font: 700 14px/1.3 'Segoe UI', Arial, sans-serif; text-shadow: 0 1px 2px #000, 0 0 2px #000; display: none; }
 #mbw-play-hud .ph-effects { position: absolute; top: 90px; left: 12px; display: flex; flex-direction: column; gap: 3px; }
 #mbw-play-hud .ph-effects span { background: rgba(0,0,0,.45); color: #fff; font: 600 12px/1 'Segoe UI', Arial, sans-serif; padding: 4px 7px; border-radius: 6px; width: max-content; }
+#mbw-play-hud .ph-effects span { display: flex; align-items: center; gap: 6px; }
+#mbw-play-hud .ph-effects img { width: 20px; height: 20px; image-rendering: pixelated; flex: none; }
 #mbw-play-hud .ph-portal { position: absolute; inset: 0; pointer-events: none; opacity: 0; }
 
 /* 👥 menú del anfitrión: expulsar / invitar sin salir del Modo Jugar */

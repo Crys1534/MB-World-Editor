@@ -398,8 +398,15 @@ window.mbwInvGroupOf = function (id) {
     if (m) return 'crop:' + m[1];
     m = /^(fice|brew|cauldron|cmp)(_\d+)?$/.exec(id);              // 🧊 hielo escarchado, ⚗ soporte de pociones, caldero, composter (sus etapas)
     if (m) return m[1];
+    if (/^(bd)?cloth(_[a-z]+)?$/.test(id)) return 'wool';           // 🧶 lana de colores (y su versión de fondo)
+    if (/^(bd)?carpet(_[a-z]+)?$/.test(id)) return 'carpet';         // 🟫 alfombras
+    if (/^(bd)?gs(_[a-z]+)?$/.test(id)) return 'glass';              // 🪟 vidrio y vidrio de colores (y su versión de fondo)
+    m = /^(wr|la|ad)(_\d+n?)?$/.exec(id);                           // 💧 agua, 🔥 lava, 🧪 ácido (sus niveles)
+    if (m) return m[1] === 'wr' ? 'water' : m[1] === 'la' ? 'lava' : 'acid';
     return null;
 };
+// (el que se ve por fuera del acordeón; si no está, el primero)
+window.mbwInvGroupHead = { wool: 'cloth_white', carpet: 'carpet_white', glass: 'gs', water: 'wr', lava: 'la', acid: 'ad' };
 function populateInventory() {
     const grid = document.getElementById('inventory-grid');
     grid.innerHTML = '';
@@ -623,6 +630,16 @@ function populateInventory() {
     const groupOf = window.mbwInvGroupOf;
     const gCount = {}, gFirst = {};
     if (!invSearchAll) blocksToShow.forEach(id => { const g = groupOf(id); if (g) { gCount[g] = (gCount[g] || 0) + 1; if (!(g in gFirst)) gFirst[g] = id; } });
+    if (!invSearchAll) {
+        // el cuadro de fuera es el "normal" (agua quieta, lana blanca...) y todos los del grupo van seguidos detrás de él
+        const H = window.mbwInvGroupHead || {};
+        Object.keys(gFirst).forEach(g => { if (H[g] && blocksToShow.includes(H[g])) gFirst[g] = H[g]; });
+        const members = {};
+        blocksToShow.forEach(id => { const g = groupOf(id); if (g && gCount[g] >= 2 && gFirst[g] !== id) (members[g] = members[g] || []).push(id); });
+        const out = [];
+        blocksToShow.forEach(id => { const g = groupOf(id); if (g && gCount[g] >= 2) { if (gFirst[g] === id) { out.push(id); out.push(...members[g]); } } else out.push(id); });
+        blocksToShow = out;
+    }
     blocksToShow = blocksToShow.filter(id => { const g = invSearchAll ? null : groupOf(id); return !g || gCount[g] < 2 || gFirst[g] === id || mbwInvOpenGroups.has(g); });
 
     blocksToShow.forEach(blockType => {

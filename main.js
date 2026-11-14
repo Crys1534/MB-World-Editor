@@ -464,6 +464,9 @@ function paintWorldBackground(tctx, tw, th) {
         cS = mbwom.currentScene || 1; 
     }
 
+    // ☀️🌙✨ el sol, la luna y las estrellas (detrás de las colinas), según la hora del mundo
+    if (cS === 1 && window.showDimBackgrounds) paintSkyBodies(tctx, tw, th);
+
     // ✨ 2. Dibujamos el fondo correcto con Zoom dinámico
     if (window.showDimBackgrounds) {
         const escalaZoom = currentZoom / 100;
@@ -514,6 +517,43 @@ function paintWorldBackground(tctx, tw, th) {
         }
     }
 
+}
+
+// ☀️🌙✨ Como Mine Blocks (Game.updateCelestialBodies): la hora (world.tim, 0 a 99; de 50 en adelante es de noche) mueve el sol y la
+// luna por un arco grande (radio 241, centro a 310 px de arriba) y las estrellas giran y se ven de noche. Medidas del juego para una
+// pantalla de 600 px de alto (aquí se agrandan o achican según el alto del lienzo). Imágenes: assets/UI/sun.png, moon.png y stars.png.
+const SKY_IMG = {};
+['sun', 'moon', 'stars'].forEach(function (n) { const i = new Image(); i.onload = () => { worldDirty = true; }; i.src = 'assets/UI/' + n + '.png'; SKY_IMG[n] = i; });
+window.mbwSkyTime = function () {
+    const w = (typeof mbwom !== 'undefined' && mbwom.world) ? mbwom.world : {};
+    let b = (Number(w.tim) || 0) / 100;
+    if (window.mbwPlaying && window.mbwPlay && typeof window.mbwPlay.dayFrac === 'function') b += window.mbwPlay.dayFrac() / 100;   // (jugando: va avanzando poco a poco)
+    return b;
+};
+function paintSkyBodies(tctx, tw, th) {
+    const ok = (i) => i && i.complete && i.naturalWidth > 0;
+    const b = window.mbwSkyTime(), k = th / 600;
+    tctx.save();
+    tctx.imageSmoothingEnabled = false;
+    const st = SKY_IMG.stars, sa = Math.max(0, Math.min(1, 5 - Math.abs((b - .7) / .04)));
+    if (ok(st) && sa > 0) {                                                   // ✨ las estrellas: solo de noche, girando
+        const size = Math.max(st.naturalWidth * 2.1978 * k, Math.hypot(tw, th) * 1.05);
+        tctx.save();
+        tctx.globalAlpha = sa;
+        tctx.translate(tw / 2, th / 2 - 30 * k);
+        tctx.rotate(Math.PI / 2 - Math.PI / 2 * ((b - .5) / .4));
+        tctx.drawImage(st, -size / 2, -size / 2, size, size);
+        tctx.restore();
+    }
+    [['sun', .2544], ['moon', .7514]].forEach(function (q) {               // ☀️ / 🌙 por el arco
+        const im = SKY_IMG[q[0]];
+        if (!ok(im)) return;
+        const a = (1.5 + (b + q[1]) % 1 * -2.193) * Math.PI, sz = im.naturalHeight * 3.375 * k;
+        const x = 241 * k * Math.cos(a) + tw / 2, y = -241 * k * Math.sin(a) + 310 * k;
+        if (y - sz / 2 > th) return;
+        tctx.drawImage(im, Math.round(x - sz / 2), Math.round(y - sz / 2), Math.round(sz), Math.round(sz));
+    });
+    tctx.restore();
 }
 
 function renderWorldToBuffer() {
@@ -797,6 +837,8 @@ function getMobDrawInfo(mob, noFetch) {
     // unidad), así que su tamaño en bloques = píxeles del dibujo × escala / 30. Aquí: [ancho, alto] del dibujo y esa escala.
     const GS = MOB_GAME_SCALE[t === 'cow' && mob.variant === 'mooshroom' ? 'mushroom' : t === 'cow' && mob.variant === 'cowctus' ? 'cowctus' : (t === 'wolf' && mob.tamed === true ? 'dog' : t)];
     if (GS) { w = GS[0] * GS[2] / 30; h = GS[1] * GS[2] / 30; }
+    const AS = window.mbwMobAnimSize ? window.mbwMobAnimSize(mob) : null;   // 🐺 mobs animados (scripts/mob-anim.js): el tamaño de su tira
+    if (AS) { w = AS[0]; h = AS[1]; }
 
     let img = null;
     let isCustomSkin = false;
@@ -1082,6 +1124,7 @@ function drawMobs() {
                     sourceHeight = 22;
                 }
 
+                if (!(window.mbwMobAnimDraw && window.mbwMobAnimDraw(ctx, key, mob, -(mobWidth / 2), -mobHeight, mobWidth, mobHeight)))   // 🐺 animado
                 ctx.drawImage(
                     mobImg, 
                     sourceX, sourceY, sourceWidth, sourceHeight,

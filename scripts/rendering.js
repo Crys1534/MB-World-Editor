@@ -100,7 +100,7 @@ function getTexture(block, variant) {
 // ==========================================
 window.MBW_ANIM_DEFAULTS = {
     magma: { frames: [[0, 181], [1, 181], [2, 181], [3, 181]], ms: 300 },
-    fire: { frames: [[0, 182], [0, 182, 'flip']], ms: 180, alpha: 0.75 },        // (en el mundo el fuego se ve al 75%)
+    fire: { frames: [[0, 182], [1, 182], [2, 182], [3, 182]], ms: 120, alpha: 0.75 },   // (los 4 dibujos de assets/UI/289-295; en el mundo el fuego se ve al 75%)
     cloth_rainbow: { frames: null, ms: 1000, blend: true },                         // frames null = las 12 lanas de colores (ver ORDER abajo)
     bdcloth_rainbow: { frames: null, ms: 1000, blend: true },
     carpet_rainbow: { frames: null, ms: 1000, blend: true }

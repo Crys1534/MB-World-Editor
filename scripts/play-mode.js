@@ -321,6 +321,7 @@
         return null;
     }
     window.mbwPlay.mineBlock = function (x, y) { mineBlock(x, y); };   // (lo usan las pruebas)
+    window.mbwPlay.mobMoving = function (id) { if (!S.playing) return null; const d = S.tmp.get(id); return d && d.keys ? !!(d.keys.left || d.keys.right) : null; };   // 🐺 (scripts/mob-anim.js: para animar al caminar)
     window.mbwPlay.placeAt = function (x, y) { return placeBlock({ x: x + .5, y: y + .5 }); };   // (lo usan las pruebas)
     window.mbwPlay.dropStuck = function (i) { const d = S.drops[i]; return d ? dropStuck(d) : null; };
     function tickDrops() {
@@ -895,6 +896,8 @@
     // nivel de un efecto que tengo puesto (0 = no lo tengo)
     function effLv(type) { const E = W().effects; const e = E && E[type]; return (e && e.duration > 0) ? (e.level || 1) : 0; }
     window.mbwPlay.effect = effLv;
+    // 🧪 el dibujo de cada efecto (assets/UI)
+    const EFFECT_ICONS = { speed: 1987, slowness: 1989, poison: 1991, regeneration: 1993, strength: 1995, weakness: 1997, fireresistance: 1999, waterbreathing: 2001, jumpboost: 2003, invisibility: 2005, nightvision: 2007 };
     const EFFECT_NAMES = { speed: 'Speed', slowness: 'Slowness', jumpboost: 'Jump Boost', fireresistance: 'Fire Resistance', waterbreathing: 'Water Breathing', nightvision: 'Night Vision', invisibility: 'Invisibility', strength: 'Strength', weakness: 'Weakness', poison: 'Poison', regeneration: 'Regeneration', hunger: 'Hunger' };
     // 🧪 tomar una poción (Game.useItem con "potion"): sus efectos y queda la botella vacía
     function potionOf(it) { const ex = it && it[3] && typeof it[3] === 'object' ? it[3] : {}; return { type: String(ex.type || 'empty'), splash: String(ex.category || '').toLowerCase() === 'splash', custom: Array.isArray(ex.effects) ? ex.effects : null }; }
@@ -3112,6 +3115,7 @@
         return Math.max(0, Math.min(.75, a));
     }
     window.mbwPlay.nightAlpha = nightAlpha;
+    window.mbwPlay.dayFrac = function () { return gameRule('dodaylightcycle') === false ? 0 : (S.tick % DAY_TICKS) / DAY_TICKS; };   // ☀️ (lo que va de la hora actual: main.js mueve el sol)
     window.mbwPlay.setTime = function (t) { W().tim = Math.max(0, Math.min(99, Math.floor(Number(t) || 0))); };
 
     // ---------------------------------------------------------------- 🛏 dormir
@@ -4885,8 +4889,13 @@
             if (OPTS.coords) { const t = 'X: ' + Math.floor(Number(w.worldX)) + '   Y: ' + Math.floor(-Number(w.worldY)); if (co.textContent !== t) co.textContent = t; }
             // efectos que tengo puestos (pociones, comida...) con el tiempo que les queda
             const ef = ar.querySelector('.ph-effects'), E = w.effects || {};
-            const et = Object.keys(E).filter(function (q) { return E[q] && E[q].duration > 0 && EFFECT_NAMES[q]; }).map(function (q) { const e = E[q], sec = Math.max(0, e.duration | 0); return EFFECT_NAMES[q] + (e.level > 1 ? ' ' + ['', 'I', 'II', 'III', 'IV'][Math.min(4, e.level)] : '') + '  ' + Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); }).join('|');
-            if (et !== this.effKey) { this.effKey = et; ef.textContent = ''; et.split('|').forEach(function (q) { if (!q) return; const sp = document.createElement('span'); sp.textContent = q; ef.appendChild(sp); }); }
+            const et = Object.keys(E).filter(function (q) { return E[q] && E[q].duration > 0 && EFFECT_NAMES[q]; }).map(function (q) { const e = E[q], sec = Math.max(0, e.duration | 0); return q + '~' + EFFECT_NAMES[q] + (e.level > 1 ? ' ' + ['', 'I', 'II', 'III', 'IV'][Math.min(4, e.level)] : '') + '  ' + Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); }).join('|');
+            if (et !== this.effKey) { this.effKey = et; ef.textContent = ''; et.split('|').forEach(function (q) {
+                if (!q) return;
+                const sp = document.createElement('span'), k = q.slice(0, q.indexOf('~'));
+                if (EFFECT_ICONS[k]) { const im = document.createElement('img'); im.src = 'assets/UI/' + EFFECT_ICONS[k] + '.png'; im.alt = ''; sp.appendChild(im); }   // 🧪 su dibujo
+                sp.appendChild(document.createTextNode(q.slice(q.indexOf('~') + 1))); ef.appendChild(sp);
+            }); }
             ef.style.top = OPTS.coords ? '90px' : '68px';
             // 🌀 parado en un portal: la pantalla se pone morada poco a poco (4 segundos)
             const pt = ar.querySelector('.ph-portal'), pk = Math.min(1, (S.portalT || 0) / (4 * FPS));
