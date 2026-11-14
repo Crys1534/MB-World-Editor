@@ -2198,6 +2198,19 @@
             if (!o) return false;
             s1 = o[2];
         }
+        // 🧱 losas: pegada ABAJO de un bloque = mitad de arriba (2); encima de un bloque = mitad de abajo (1).
+        //    🪜 escaleras: miran al jugador (el escalón bajo hacia donde está) y, pegadas a un techo o muy arriba de él, al revés.
+        if (bd(id, 'halfBlock') == 1 || bd(id, 'stairBlock') == 1) {
+            const sol = function (x, y) { const t = fg(x, y); return t !== 'air' && bd(t, 'walkThroughBlock') == null && bd(t, 'liquid') == null; };
+            const below = sol(bx, by - 1), above = sol(bx, by + 1);
+            if (bd(id, 'halfBlock') == 1) s1 = (!below && (above || mw.y - by > .5)) ? 2 : 1;   // (de lado, sin nada arriba ni abajo: la mitad donde tocaste)
+            else {
+                const px = Number(w.worldX), eye = -Number(w.worldY) + 1.6;                  // (los ojos del jugador)
+                const rightOfMe = bx + .5 >= px;                                             // (a mi derecha: el escalón sube hacia la derecha)
+                const upside = !below && (above || by + .5 > eye);                           // (pegada a un techo, o de lado más arriba de mis ojos: al revés)
+                s1 = rightOfMe ? (upside ? 3 : 1) : (upside ? 4 : 2);
+            }
+        }
         // 🛏 cama: 2 bloques (bed1 aquí, bed2 a la derecha), los dos con el color; 🚪 puertas: 2 bloques (abajo y arriba). Como Game.placeBlock
         if (id === 'bed') {
             const r = fg(bx + 1, by);

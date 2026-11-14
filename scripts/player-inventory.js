@@ -402,6 +402,10 @@
   return true;
  }
  window.playerInvSwapHot = swapWithHotbar;                            // (pruebas)
+ // (al apretar: Shift + clic o mantener el dedo ya mueven la casilla; el clic / menú que llegan al soltar se ignoran)
+ let pressDone = false, pressCtx = false, hold = null;
+ function holdCancel() { if (hold) { clearTimeout(hold.t); hold.off(); hold = null; } }
+ function pressMovable(a) { const it = getSlot(a); return !!(it && !it.missing && a.k !== 'o' && a.k !== 'w' && a.k !== 'a'); }
  window.addEventListener('pointerup', () => { shiftSweep = null; }, true);
  window.addEventListener('pointercancel', () => { shiftSweep = null; }, true);
  function slotEl(addr, ghostPart) {
@@ -411,16 +415,42 @@
   d.__addr = addr;
   d.onclick = (e) => {
    if (dragEat(e)) return;
+   if (pressDone) { pressDone = false; return; }                     // (ya se movió al apretar: el clic de soltar no hace nada)
    onSlot(addr, e, false);
    // 👆👆 doble clic / doble toque: se juntan aquí las cosas iguales que están en otras casillas
    const now = performance.now(), key = addr.k + addr.i;
    if (lastTap && lastTap.key === key && now - lastTap.t < 400) { lastTap = null; gatherInto(addr); } else lastTap = { key: key, t: now };
   };
   d.addEventListener('pointerenter', () => { hoverAddr = d; });
-  d.oncontextmenu = (e) => { e.preventDefault(); ctxFired = true; if (dragEat(e)) return; onSlot(addr, e, true); };
+  d.oncontextmenu = (e) => { e.preventDefault(); if (hold && hold.fire) { hold.fire(true); return; } if (pressCtx) { pressCtx = false; return; } ctxFired = true; if (dragEat(e)) return; onSlot(addr, e, true); };
   d.addEventListener('pointerdown', (e) => dragStart(addr, d, e));
   // ⇧ Shift + clic izquierdo sostenido: al pasar por otras casillas también se mueven de golpe (vaciar un cofre rápido)
-  d.addEventListener('pointerdown', (e) => { if (e.shiftKey && e.button === 0 && !heldItem) { shiftSweep = { done: new Set([addr.k + addr.i]), origin: addr, originMoved: false }; } });
+  d.addEventListener('pointerdown', (e) => {
+   pressDone = false; pressCtx = false; holdCancel();
+   if (drag) return;                                                  // (con algo en la mano: eso lo maneja el arrastre / la mesa)
+   if (e.shiftKey && e.button === 0 && !heldItem) {
+    shiftSweep = { done: new Set([addr.k + addr.i]), origin: addr, originMoved: false };
+    // ⇧ Shift + clic: se mueve YA al apretar (no al soltar)
+    if (pressMovable(addr)) { shiftSweep.originMoved = true; pressDone = true; onSlot(addr, { shiftKey: true, currentTarget: d, target: d }, false); }
+    return;
+   }
+   // 📱 mantener el dedo en una casilla con la mesa de crafteo abierta = como Shift + clic (se pone en la cuadrícula / vuelve al inventario)
+   if (e.pointerType === 'touch' && !heldItem && st.craft && st.craft.table && (addr.k === 'i' || addr.k === 'k') && pressMovable(addr)) {
+    const x0 = e.clientX, y0 = e.clientY, pid = e.pointerId;
+    const mv = (ev) => { if (ev.pointerId === pid && Math.hypot(ev.clientX - x0, ev.clientY - y0) > 12) holdCancel(); };
+    const up = (ev) => { if (ev.pointerId === pid) holdCancel(); };
+    window.addEventListener('pointermove', mv, true); window.addEventListener('pointerup', up, true); window.addEventListener('pointercancel', up, true);
+    const fire = (fromMenu) => {
+     const h = hold; if (!h) return; clearTimeout(h.t); h.off(); hold = null;
+     if (heldItem || !pressMovable(addr)) return;
+     pressDone = true; pressCtx = !fromMenu;                          // (si el menú del celular ya llegó, no vendrá otro)
+     try { if (navigator.vibrate) navigator.vibrate(15); } catch (er) { /* nada */ }
+     onSlot(addr, { shiftKey: true, currentTarget: d, target: d }, false);
+    };
+    hold = { fire: fire, off: () => { window.removeEventListener('pointermove', mv, true); window.removeEventListener('pointerup', up, true); window.removeEventListener('pointercancel', up, true); },
+     t: setTimeout(() => fire(false), 380) };
+   }
+  });
   d.addEventListener('pointerenter', (e) => {
    if (!shiftSweep || !(e.buttons & 1) || !e.shiftKey || heldItem) return;
    const k = addr.k + addr.i; if (shiftSweep.done.has(k)) return;
