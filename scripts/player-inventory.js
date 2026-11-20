@@ -220,6 +220,7 @@
   if (a.k === 'o') { const o = craftOut(); return o ? readItem(o, false) : null; }  // 🛠 lo que sale (no se puede poner nada)
   if (a.k === 'v') return st.anvil ? (st.anvil.a[a.i] || null) : null;            // ⚒ yunque: las 2 casillas
   if (a.k === 'w') { const r = anvilCompute(); return r.out; }                       // ⚒ lo que sale del yunque
+  if (a.k === 'e') return st.ench ? (st.ench.it || null) : null;                      // ✨ mesa de encantamientos: su casilla
   return readItem(slotArr(a), a.k === 'a');
  }
  function craftOut() {
@@ -238,6 +239,7 @@
   }
   if (a.k === 'v') { if (st.anvil) { st.anvil.a[a.i] = it ? copy(it, it.qty) : null; } return; }
   if (a.k === 'w') return;
+  if (a.k === 'e') { if (st.ench) { st.ench.it = it ? copy(it, it.qty) : null; enchSlotChanged(); } return; }
   if (a.k === 'f' && isBrew()) { const f = brewData(true); if (f) brewPut(f, a.i, itemToArr(it, false, brewGet(f, a.i))); return; }
   if (a.k === 'f') {
    const f = furnaceData(true);
@@ -558,6 +560,7 @@
   }
   renderCraft();
   renderAnvil();
+  renderEnch();
   renderFuelPalette();
   renderSkin();
   placeTrash();
@@ -790,6 +793,11 @@
    const left = insertRange(it, 0, TOTAL - 1);
    if (left > 0) setSlot(addr, copy(it, left));
    renderAll();
+   return;
+  }
+  if (st.ench) {                                                     // ✨ del inventario a la mesa de encantamientos
+   if (st.ench.it || !enchOk(it)) return;
+   setSlot(addr, null); setSlot({ k: 'e', i: 0 }, it);
    return;
   }
   if (st.anvil) {                                                    // ⚒ del inventario al yunque (primero la casilla de la izquierda)
@@ -1153,7 +1161,7 @@
  function renderSkin() {
   const top = document.querySelector('#inventory-modal .pinv-top'); if (!top) return;
   let c = $('pinv-skin');
-  const on = !!(st.open && !st.chest && !st.furnace && !st.anvil);
+  const on = !!(st.open && !st.chest && !st.furnace && !st.anvil && !st.ench);
   if (!on) { if (c) c.style.display = 'none'; return; }
   if (!c) { c = document.createElement('canvas'); c.id = 'pinv-skin'; c.className = 'pinv-skin'; c.width = 160; c.height = 220; }
   const armorBox = $('pinv-armor'); const after = armorBox && armorBox.parentNode;
@@ -1263,14 +1271,14 @@
   const panel = $('player-inv-panel');
   if (panel) panel.style.display = 'block';
   const top = m.querySelector('.pinv-top');                       // armadura + papelera: no se muestran al editar un cofre
-  if (top) top.style.display = (st.chest || st.furnace || st.anvil) ? 'none' : '';   // (la mesa de crafteo sí: armadura, skin y el 3×3, como el inventario)
+  if (top) top.style.display = (st.chest || st.furnace || st.anvil || st.ench) ? 'none' : '';   // (la mesa de crafteo sí: armadura, skin y el 3×3, como el inventario)
   // ▶ Modo Jugar: se ve como el inventario del juego (blanco, letra de píxeles); la armadura en columna, la skin y a la derecha
   // el crafteo 2×2; sin papelera (en el juego no hay)
   const game = !!window.mbwPlaying;
   m.classList.toggle('pinv-game', game);
   m.classList.add('pinv-mb');
   setViewVars();                                        // 🎒 como el inventario de Mine Blocks (gris, casillas juntas)
-  m.classList.toggle('pinv-mb-plain', !st.chest && !st.furnace && !st.anvil);   // (el inventario solo o la mesa de crafteo: sin título)   // (el inventario solo: sin título)
+  m.classList.toggle('pinv-mb-plain', !st.chest && !st.furnace && !st.anvil && !st.ench);   // (el inventario solo o la mesa de crafteo: sin título)   // (el inventario solo: sin título)
   const cbox = $('pinv-craft-box'), ppanel = $('player-inv-panel'), trashEl = $('pinv-trash');
   if (cbox && top && ppanel) {
    if (st.craft) { if (cbox.parentNode !== top) top.appendChild(cbox); }
@@ -1278,7 +1286,7 @@
   }
   { const home = top && top.querySelector('.pinv-trash-home'); if (home) home.style.display = 'none'; }
   m.classList.toggle('pinv-exp', !!st.expanded);                     // 🧰 con el inventario creativo al lado
-  m.classList.toggle('pinv-table', !!(st.craft && st.craft.table && !st.chest && !st.furnace && !st.anvil));   // 🛠 mesa: la fila de arriba es más ancha (3×3)
+  m.classList.toggle('pinv-table', !!(st.craft && st.craft.table && !st.chest && !st.furnace && !st.anvil && !st.ench));   // 🛠 mesa: la fila de arriba es más ancha (3×3)
   document.body.classList.toggle('pinv-craft-open', !!st.craft);
   const search = $('inventory-search');
   if (search) search.style.display = st.expanded ? '' : 'none';
@@ -1292,6 +1300,7 @@
   const flbl = document.querySelector('#pinv-furnace-box > .pinv-label'); if (flbl) flbl.textContent = st.furnace && isBrew() ? tr('pinv_brew_title', 'Brewing Stand') : tr('pinv_furnace_label', 'Furnace');
   if (title && st.furnace) title.innerText = (isBrew() ? tr('pinv_brew_title', 'Brewing Stand') : tr('pinv_furnace_title', 'Furnace')) + '  (X: ' + st.furnace.x + ', Y: ' + st.furnace.y + ')';
   else if (title && st.anvil) title.innerText = tr('pinv_anvil_title', 'Anvil - Repair & Rename');
+  else if (title && st.ench) title.innerText = tr('play_enchant_title', 'Enchantment Table');
   else if (title && st.craft && st.craft.table) title.innerText = tr('pinv_craft_table', 'Crafting Table');
   else if (title) title.innerText = st.chest ? (boxTitle() + '  (X: ' + st.chest.x + ', Y: ' + st.chest.y + ')') : tr('pinv_title', 'Player Inventory');
   const lbl = $('pinv-chest-label');
@@ -1319,6 +1328,7 @@
   const bk = $('pinv-book'); if (bk) { bk.style.display = 'none'; const q = bk.querySelector('.pinv-book-q'); if (q) q.value = ''; }
   const ccb = $('pinv-craft-box'); if (ccb) ccb.style.display = 'none';
   const avb = $('pinv-anvil-box'); if (avb) avb.style.display = 'none';
+  const enb = $('pinv-ench-box'); if (enb) enb.style.display = 'none';
   const panel = $('player-inv-panel');
   if (panel) panel.style.display = 'none';
   const search = $('inventory-search');
@@ -1408,6 +1418,7 @@
   giveBackCursor();
   returnCraft();
   returnAnvil();
+  returnEnch();
   commitChest();
   commitFurnace();
   resetLayout();
@@ -1434,7 +1445,7 @@
    if (wasMine) return;
   }
   if (!world()) { alert(tr('pinv_no_world', 'Open or create a world first')); return; }
-  st.chest = null; st.anvil = null;
+  st.chest = null; st.anvil = null; st.ench = null;
   st.furnace = null;
   st.craft = { size: 2, grid: [null, null, null, null], table: null };   // crafteo 2×2 (en el editor también, como en el juego)
   st.bookOpen = undefined;
@@ -1459,7 +1470,7 @@
   if (!bs || bs.type !== 'chest') return false;
   if (!world()) return false;
   if (m.style.display === 'block') toggleInventory();            // cierra lo que esté abierto (guarda lo del cofre anterior si lo había)
-  st.furnace = null; st.craft = null; st.anvil = null;
+  st.furnace = null; st.craft = null; st.anvil = null; st.ench = null;
   st.chest = { x: x, y: y, key: 'blockX' + x + 'Y' + y, before: null };
   chestList();                                                    // completa los 27 espacios si faltaban
   st.chest.before = JSON.parse(JSON.stringify(mbwom.getBlockState(x, y)));
@@ -1484,7 +1495,7 @@
   if (!bs || bs.type !== 'oven') return false;
   if (!world()) return false;
   if (m.style.display === 'block') toggleInventory();
-  st.chest = null; st.craft = null; st.anvil = null;
+  st.chest = null; st.craft = null; st.anvil = null; st.ench = null;
   st.furnace = { x: x, y: y, key: 'blockX' + x + 'Y' + y, before: null };
   st.furnace.before = JSON.parse(JSON.stringify(mbwom.getBlockState(x, y)));
   furnaceData(true);                                              // completa los 3 espacios si faltaban (si queda vacío no se guarda)
@@ -1508,7 +1519,7 @@
   try { bs = mbwom.getBlockState(x, y); } catch (e) { bs = null; }
   if (!bs || bs.type !== 'brew' || !world()) return false;
   if (m.style.display === 'block') toggleInventory();
-  st.chest = null; st.craft = null; st.anvil = null;
+  st.chest = null; st.craft = null; st.anvil = null; st.ench = null;
   st.furnace = { x: x, y: y, key: 'blockX' + x + 'Y' + y, before: JSON.parse(JSON.stringify(bs)), kind: 'brew' };
   brewData(true);
   st.open = true; st.expanded = false; heldItem = null;
@@ -1666,7 +1677,7 @@
   const m = $('inventory-modal');
   if (!m || typeof toggleInventory !== 'function' || !world()) return false;
   if (m.style.display === 'block') toggleInventory();
-  st.chest = null; st.furnace = null; st.craft = null;
+  st.chest = null; st.furnace = null; st.craft = null; st.ench = null;
   st.anvil = { x: Math.floor(Number(x)), y: Math.floor(Number(y)), a: [null, null], name: '', lastKey: '' };
   st.open = true; st.expanded = false; heldItem = null;
   refreshCursor();
@@ -1675,6 +1686,99 @@
   renderAll();
   return true;
  };
+ // =====================================================================
+ // ✨ MESA DE ENCANTAMIENTOS (Inventory.arrange / buyEnchant de Mine Blocks 2.0.0), dentro del inventario como el juego:
+ //   pones el objeto en su casilla (arrastrando, clic o Shift + clic), salen 3 opciones con su costo en niveles (más libreros
+ //   cerca = opciones más caras y mejores), pagas (100 de experiencia por nivel; en creativo gratis) y el objeto se encanta EN la
+ //   casilla. Poción → Bottle o' Enchanting (10 niveles). Libro → libro encantado. Al cerrar, lo que quedó vuelve a tu inventario.
+ // =====================================================================
+ function EN() { return window.mbwPlay && window.mbwPlay.enchant; }
+ function enchOk(it) { const E = EN(); return !!(it && E && E.canEnchant && E.canEnchant([it.id, it.qty, it.dmg || 0, it.extras || {}])); }
+ function enchSlotChanged() {
+  const E = st.ench; if (!E) return;
+  const k = E.it ? normKey(E.it) + '|' + E.it.qty : '';
+  if (k === E.key) return;
+  E.key = k; E.opts = [];
+  if (E.it && enchOk(E.it) && EN()) E.opts = EN().arrange(E.books, E.it.id === 'potion');
+ }
+ function enchLevels() { const w = world(); return Math.floor((Number(w && w.experience) || 0) / 100); }
+ function renderEnch() {
+  let box = $('pinv-ench-box');
+  const panel = $('player-inv-panel'); if (!panel) return;
+  if (!st.ench) { if (box) box.style.display = 'none'; return; }
+  if (!box) {
+   box = document.createElement('div'); box.id = 'pinv-ench-box'; box.className = 'pinv-chest-box pinv-ench-box';
+   box.innerHTML = '<div class="pinv-label pinv-ench-t"></div><div class="pinv-ench-row"><div class="pinv-ench-left"></div><div class="pinv-ench-opts"></div></div><div class="pinv-ench-info"></div>';
+  }
+  if (box.parentNode !== panel || box.nextSibling !== panel.querySelector('.pinv-top')) panel.insertBefore(box, panel.querySelector('.pinv-top'));
+  box.style.display = '';
+  const E = st.ench, w = world(), lv = enchLevels(), crea = w && Number(w.gamemode) === 1;
+  box.querySelector('.pinv-ench-t').textContent = tr('play_enchant_title', 'Enchantment Table');
+  const left = box.querySelector('.pinv-ench-left'); left.innerHTML = '';
+  const sl = slotEl({ k: 'e', i: 0 }); sl.classList.add('pinv-ench-slot'); left.appendChild(sl);
+  const opts = box.querySelector('.pinv-ench-opts'); opts.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+   const o = E.opts[i];
+   const b = document.createElement('button'); b.type = 'button';
+   if (!o) { b.className = 'pinv-ench-opt empty'; b.disabled = true; opts.appendChild(b); continue; }
+   const can = crea || lv >= o.lvl;
+   b.className = 'pinv-ench-opt' + (can ? '' : ' no');
+   const wd = document.createElement('span'); wd.className = 'pinv-ench-words'; wd.textContent = o.text; b.appendChild(wd);
+   const c = document.createElement('span'); c.className = 'pinv-ench-lvl'; c.textContent = String(o.lvl); b.appendChild(c);
+   b.title = can ? tr('play_enchant_cost', 'Costs {n} levels').replace('{n}', o.lvl) : tr('play_enchant_need', 'You need {n} levels').replace('{n}', o.lvl);
+   if (can) b.addEventListener('click', (ev) => { ev.stopPropagation(); buyEnch(i); }); else b.disabled = true;
+   opts.appendChild(b);
+  }
+  const info = box.querySelector('.pinv-ench-info');
+  info.textContent = (E.done ? E.done + ' · ' : '') + tr('play_enchant_levels', 'Your levels: {n}').replace('{n}', crea ? '∞' : lv) + ' · 📚 ' + tr('play_enchant_books', 'Bookshelves: {n}').replace('{n}', E.books)
+   + (E.it ? '' : ' · ' + tr('play_enchant_pick2', 'Put an item in the slot'));
+ }
+ function buyEnch(i) {
+  const E = st.ench; if (!E || !E.it) return;
+  const o = E.opts[i], w = ensure(); if (!o || !w) return;
+  const crea = Number(w.gamemode) === 1, lv = enchLevels();
+  if (!crea && lv < o.lvl) return;
+  const API = EN(); if (!API || !enchOk(E.it)) return;
+  let t = copy(E.it, 1), rest = E.it.qty > 1 ? copy(E.it, E.it.qty - 1) : null;   // (de una pila se encanta solo uno)
+  if (t.id === 'potion') {
+   if (!crea) w.experience = Math.floor(Math.max(0, (Number(w.experience) || 0) - 1000));
+   t = Object.assign(t, { id: 'boe', extras: {} });
+   E.done = '✨ ' + (typeof window.mbwItemLabel === 'function' ? window.mbwItemLabel('boe') : 'Bottle o\' Enchanting');
+  } else {
+   const type = API.typeOf(t.id);
+   if (t.id === 'book') t.id = 'ebook';
+   if (!crea) w.experience = Math.floor(Math.max(0, (Number(w.experience) || 0) - 100 * o.lvl));
+   const got = API.roll(type, o.lvl);
+   t.extras = Object.assign({}, t.extras || {});
+   Object.keys(got).forEach((k) => { t.extras[k] = 'enchant'; });
+   E.done = '✨ ' + Object.keys(got).map((k) => API.label(k)).join(', ');
+   if (API.ach) API.ach(45);
+  }
+  E.it = t; E.key = normKey(t) + '|1'; E.opts = [];
+  if (rest) { const left = insertRange(rest, 0, TOTAL - 1); if (left > 0 && window.mbwPlay && typeof window.mbwPlay.dropItem === 'function') window.mbwPlay.dropItem(rest.id, left, rest.dmg || 0, rest.extras || {}); }
+  if (API.sound) API.sound();
+  renderAll();
+ }
+ function returnEnch() {
+  if (!st.ench) return;
+  const E = st.ench; st.ench = null;
+  if (E.it) { const left = insertRange(E.it, 0, TOTAL - 1); if (left > 0 && window.mbwPlay && typeof window.mbwPlay.dropItem === 'function') window.mbwPlay.dropItem(E.it.id, left, E.it.dmg || 0, E.it.extras || {}); }
+ }
+ window.openEnchantTable = function (x, y) {
+  const m = $('inventory-modal');
+  if (!m || typeof toggleInventory !== 'function' || !world() || !EN()) return false;
+  if (m.style.display === 'block') toggleInventory();
+  st.chest = null; st.furnace = null; st.craft = null; st.anvil = null;
+  st.ench = { x: Math.floor(Number(x)), y: Math.floor(Number(y)), it: null, opts: [], key: '', done: '', books: EN().books ? EN().books(x, y) : 0 };
+  st.open = true; st.expanded = false; heldItem = null;
+  refreshCursor();
+  m.style.display = 'block';
+  layout();
+  renderAll();
+  return true;
+ };
+ window.playerInvEnch = function () { const E = st.ench; return E ? { it: E.it ? [E.it.id, E.it.qty, E.it.dmg, E.it.extras] : null, opts: E.opts.slice(), done: E.done, books: E.books } : null; };
+ window.playerInvEnchBuy = function (i) { buyEnch(i); };
  window.playerInvAnvil = function () { if (!st.anvil) return null; const r = anvilCompute(); return { a: st.anvil.a.map((it) => it ? [it.id, it.qty, it.dmg, it.extras] : null), out: r.out ? [r.out.id, r.out.qty, r.out.dmg, r.out.extras] : null, cost: r.cost, can: r.can, text: r.text }; };   // (lo usan las pruebas)
  window.playerInvAnvilSet = function (i, arr) { if (!st.anvil) return; st.anvil.a[i] = arr ? readItem(arr, false) : null; renderAll(); };
  window.playerInvAnvilName = function (t) { if (!st.anvil) return; st.anvil.name = String(t); const i = document.querySelector('.pinv-anvil-name'); if (i) i.value = st.anvil.name; renderAnvilRow(); };
@@ -1702,7 +1806,7 @@
   const m = $('inventory-modal');
   if (!m || typeof toggleInventory !== 'function' || !world()) return false;
   if (m.style.display === 'block') toggleInventory();
-  st.furnace = null; st.craft = null; st.anvil = null;
+  st.furnace = null; st.craft = null; st.anvil = null; st.ench = null;
   st.chest = { x: Math.floor(Number(x)), y: Math.floor(Number(y)), key: 'ender', before: null, kind: 'ender' };
   chestList();
   st.open = true; st.expanded = false; heldItem = null;
@@ -1724,7 +1828,7 @@
   if (!bs || (bs.type !== 'dispense' && bs.type !== 'dropper')) return false;
   if (!world()) return false;
   if (m.style.display === 'block') toggleInventory();
-  st.furnace = null; st.craft = null; st.anvil = null;
+  st.furnace = null; st.craft = null; st.anvil = null; st.ench = null;
   st.chest = { x: x, y: y, key: 'blockX' + x + 'Y' + y, before: null, kind: 'disp', type: bs.type };
   st.chest.before = JSON.parse(JSON.stringify(mbwom.getBlockState(x, y)));
   chestList();                                                    // completa los 9 espacios si faltaban

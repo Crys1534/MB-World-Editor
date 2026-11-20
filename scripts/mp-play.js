@@ -615,12 +615,13 @@
             const sk = r.sk && window.mbwPlaySkinSheet ? window.mbwPlaySkinSheet(r.sk) : null, sheet = sk || frank;   // (su skin, si eligió una)
             const nf = Math.max(1, Math.floor((sheet.naturalWidth || sheet.width) / 16)), fi = Math.max(0, Math.min(16, r.f));
             if (r.iv) c2.globalAlpha = 0.18;                                // (invisible: apenas se ve)
-            c2.drawImage(sheet, (fi < nf ? fi : 0) * 16, 0, 16, 22, -pw / 2, -ph, pw, ph);
+            const ff = fi < nf ? fi : 0;
+            if (window.mbwPlay && window.mbwPlay.frameOf) c2.drawImage(window.mbwPlay.frameOf(sheet, ff), 0, 0, 16, 22, -pw / 2, -ph, pw, ph); else c2.drawImage(sheet, ff * 16, 0, 16, 22, -pw / 2, -ph, pw, ph);
             // 🛡 su armadura (la misma que se dibuja en mi Player)
             if (r.ar && !r.iv && typeof drawMobArmorOverlay === 'function') {
                 try {
                     const mob = { armor: r.ar.map(function (q) { if (!q) return ['air', 0, 0, {}]; const ex = {}; if (q[1] != null) { ex.type = q[1]; ex.color = q[1]; } return { id: q[0], extras: ex }; }) };
-                    drawMobArmorOverlay(c2, mob, -pw / 2, -ph, pw, ph);
+                    drawMobArmorOverlay(c2, mob, -pw / 2, -ph, pw, ph, (fi >= 1 && fi <= 3) ? 1 : 0);
                 } catch (e) { /* nada */ }
             }
             if (!r.iv && r.it && window.mbwPlay && window.mbwPlay.drawHeld) { try { window.mbwPlay.drawHeld(c2, r.it, fi, pw, ph); } catch (e) { /* nada */ } }   // 🪓 lo que trae en la mano

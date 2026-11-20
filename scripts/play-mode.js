@@ -328,6 +328,7 @@
     }
     window.mbwPlay.mineBlock = function (x, y) { mineBlock(x, y); };   // (lo usan las pruebas)
     window.mbwPlay.mobMoving = function (id) { if (!S.playing) return null; const d = S.tmp.get(id); return d && d.keys ? !!(d.keys.left || d.keys.right) : null; };   // 🐺 (scripts/mob-anim.js: para animar al caminar)
+    window.mbwPlay.mine = function (x, y) { mineBlock(x, y); };   // (pruebas)
     window.mbwPlay.placeAt = function (x, y) { return placeBlock({ x: x + .5, y: y + .5 }); };   // (lo usan las pruebas)
     window.mbwPlay.dropStuck = function (i) { const d = S.drops[i]; return d ? dropStuck(d) : null; };
     function tickDrops() {
@@ -2121,6 +2122,8 @@
         const tool = selType();
         if (dw && !dw[tool]) return;                               // hace falta la herramienta correcta para que suelte algo
         if (t === 'lgr') { grassDrops(x, y, tool); return; }        // 🌱 la hierba alta suelta semillas (Game.mineBlock)
+        // 🪟 el vidrio suelta 1 o 2 pedazos (Glass Shard; con fortuna hasta 4), como Game.mineBlock. Con toque de seda, el vidrio.
+        if ((t === 'gs' || t === 'bdgs') && heldEnch().silkTouch == null) { addDrop('gss', x + .5, -y - .5, Math.min(4, (2 * Math.random() | 0) + 1 + (Math.random() * fortuneLv() | 0)) | 0, 0, {}); return; }
         let drop = bd(t, 'dropDifferent');
         if (drop === 'na') drop = null; else if (drop == null) drop = t;
         if (t === 'lv' || t.substr(0, 2) === 'lv') {                // hojas: a veces un brote; 🍎 las que tienen fruta sueltan su fruta
@@ -2419,7 +2422,10 @@
         S.mouse.rightEdge = false; S.mouse.leftEdge = false;
         if (tickDraw(right, rightFresh, mw)) { S.mine = null; return; }    // 🏹 tensando / soltando el arco
         if (right) {
-            if (selType() === 'cbook') { if (rightFresh) useCommandBook(); S.mine = null; return; }      // (una vez por clic)
+            if (selType() === 'cbook') { if (rightFresh) useCommandBook(); S.mine = null; return; }
+            // 🧪 Bottle o' Enchanting (como el juego, Game.js): clic derecho = suelta 10 niveles de experiencia un poco adelante (hacia
+            //    donde apuntas); fuera de creativo se gasta y te queda la botella vacía
+            if (selType() === 'boe') { if (rightFresh) useXpBottle(); S.mine = null; return; }      // (una vez por clic)
             const bx = Math.floor(mw.x), by = Math.floor(mw.y);
             if (rightFresh && BOX[fg(bx, by)] && blockDist(bx, by) <= REACH + 1) { openBox(bx, by); return; }   // clic derecho en un cofre / horno: se abre
             if (rightFresh && !S.ride) { const v = vehicleUnderMouse(mw); if (v && Math.hypot(vPos(v.kind, v.d).x - W().worldX, vPos(v.kind, v.d).y - W().worldY) < 4 && mount(v.kind, v.id)) { S.mine = null; return; } }   // 🛶🚃 subirse
@@ -2472,6 +2478,19 @@
     //   Como en Terraria: con pico, pala, hacha o espada, aunque el dedo apunte más lejos, se pica el bloque MÁS CERCANO
     //   en esa dirección (en línea recta desde el Player hacia el dedo). Así se hacen túneles rectos o en curva moviendo el dedo.
     const SMART_TOOL = /(Pickaxe|Axe|Shovel|Sword)$/;
+    // 📱 al cambiar lo que tienes en la mano: herramienta (pico, hacha, pala, espada, azada, tijeras) = modo MINAR;
+    //    un bloque (también losas y escaleras) = modo CONSTRUIR. Lo demás no cambia el modo. (Se puede seguir cambiando a mano.)
+    const MINE_TOOL = /(Pickaxe|Axe|Shovel|Sword|Hoe)$/;
+    function autoTouchMode() {
+        const id = selType(), sig = selIndex() + ':' + id;
+        if (sig === S.selSig) return;
+        S.selSig = sig;
+        if (!document.body.classList.contains('is-touch') || !id) return;
+        let m = null;
+        if (MINE_TOOL.test(id) || id === 'Shear') m = 'mine';
+        else if (bd(id, 'placeable') == 1 && id !== 'air') m = 'place';
+        if (m && m !== S.touchMode) { S.touchMode = m; hud.dirty = true; }
+    }
     function smartOn() { return document.documentElement.classList.contains('is-app') && S.touchHeld === true && SMART_TOOL.test(selType()) && S.touchMode !== 'place'; }
     function smartTarget(w, mw) {
         const px = Number(w.worldX), py = -Number(w.worldY) + 1.2;            // (desde el pecho del Player)
@@ -2910,6 +2929,13 @@
         }
         return true;
     }
+    function useXpBottle() {
+        const w = W();
+        if (w.gamemode != 1) { reduceSelected(1); addDrop('potion', w.worldX, w.worldY, 1, 0, { type: 'empty' }); }
+        const ang = aimFrom(mouseWorld());
+        dropXP(w.worldX + 60 * Math.cos(ang) / 30, w.worldY - 1 + 60 * Math.sin(ang) / 30, 1000);
+        snd('throwsfx'); S.swing = 15; hud.dirty = true;
+    }
     window.mbwPlayCommand = runCommand;
     window.mbwPlay.useCommandBook = useCommandBook;
 
@@ -2927,7 +2953,7 @@
         if (t === 'chest' && typeof window.openChestEditor === 'function') ok = window.openChestEditor(x, y);
         else if (t === 'oven' && typeof window.openFurnaceEditor === 'function') ok = window.openFurnaceEditor(x, y);
         else if ((t === 'dispense' || t === 'dropper') && typeof window.openDispenserEditor === 'function') ok = window.openDispenserEditor(x, y);
-        else if (t === 'enchant') ok = openEnchant(x, y);
+        else if (t === 'enchant') ok = typeof window.openEnchantTable === 'function' ? window.openEnchantTable(x, y) : openEnchant(x, y);   // ✨ (como el juego: dentro del inventario)
         else if (t === 'craft' && typeof window.openCraftingTable === 'function') ok = window.openCraftingTable(x, y);   // 🛠 mesa de crafteo: 3×3
         else if (t === 'brew' && typeof window.openBrewingStand === 'function') ok = window.openBrewingStand(x, y);   // 🧪 soporte de pociones
         else if (t === 'anvil' && typeof window.openAnvil === 'function') ok = window.openAnvil(x, y);                 // ⚒ yunque
@@ -3096,7 +3122,10 @@
         try { if (typeof window.playerInvRefresh === 'function') window.playerInvRefresh(); } catch (e) { /* nada */ }
         drawEnchant();
     }
-    window.mbwPlay.enchant = { open: openEnchant, close: closeEnchant, roll: enchRoll, arrange: enchArrange, state: function () { return S.ench; } };
+    window.mbwPlay.enchant = { open: openEnchant, close: closeEnchant, roll: enchRoll, arrange: enchArrange, state: function () { return S.ench; },
+        // (la mesa nueva, dentro del inventario: scripts/player-inventory.js openEnchantTable)
+        canEnchant: function (it) { return enchantable(it); }, typeOf: enchTypeOf, label: enchLabel, books: bookshelvesNear,
+        ach: function (n) { ach(n); }, sound: function () { sndAt('levelup'); hud.dirty = true; } };
 
     // =====================================================================
     // 🌙 DÍA Y NOCHE · 🛏 CAMAS · 🌾 CULTIVOS · 🔥 MECHERO Y FUEGO · 🎣 PESCA · 🧪 SOPORTE DE POCIONES · 🐄 CRÍAS Y LECHE · 🛶 BALSAS · 🚃 VAGONETAS
@@ -3923,6 +3952,7 @@
     function step() {
         S.tick++;
         const w = W();
+        autoTouchMode();
         intervals();
         deathCheck();
         if (modalOpen()) { S.keys = {}; S.mouse.left = S.mouse.right = S.mouse.leftEdge = S.mouse.rightEdge = false; S.mine = null; }
@@ -3983,6 +4013,7 @@
         if (S.tick % 10 === 0) tickAmbience();
         if (S.tick % 10 === 5) tickSpawners();
         if (S.tick % 4 === 2) tickRedstone();
+        if (S.tick % 3 === 1) tickPlateLook();
         if (S.tick % 5 === 3) tickLeaves();
         tickParticles();
         if (S.portalGo) { const k = S.portalGo; S.portalGo = 0; usePortal(k); }
@@ -4288,6 +4319,22 @@
     const DIRV = { 1: [0, 1], 2: [1, 0], 3: [0, -1], 4: [-1, 0] };
     const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
     function rsKey(x, y) { return x + ',' + y; }
+    // 🟫 las placas de presión se ven APLASTADAS mientras alguien (o un mob, o un objeto) está encima — solo el dibujo (main.js renderBlock)
+    function tickPlateLook() {
+        if (!mbwom.scene) return;
+        const now = new Set(), w = W();
+        const feet = function (x, y) { const bx = Math.floor(x), by = Math.floor(-y + .1), t = fg(bx, by); if (t === 'pp' || t === 'wpp') now.add(rsKey(bx, by)); };
+        if (!(w.dead > 0) && w.gamemode != 3) feet(w.worldX, w.worldY);
+        if (S.mp && window.mbwMpPlay) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (r) feet(r.tx, r.ty); } }
+        for (const id in mbwom.mobs) { const m = mbwom.mobs[id]; if (m && !(m.dead > 0)) feet(m.x, m.y); }
+        S.drops.forEach(function (d) { feet(d.x, d.y - .05); });
+        const old = S.platesVis || new Set();
+        S.platesVis = now;
+        const redo = function (k) { const c = k.split(','); if (typeof window.renderBlock === 'function') window.renderBlock(+c[0], +c[1]); };
+        now.forEach(function (k) { if (!old.has(k)) redo(k); });
+        old.forEach(function (k) { if (!now.has(k)) redo(k); });
+    }
+    window.mbwPlatePressed = function (x, y) { return !!(S.playing && S.platesVis && S.platesVis.has(rsKey(x, y))); };
     function rsSource(x, y, t) {
         if (t === 'lever') return Number((mbwom.getBlockState(x, y) || {}).states2) === 1;
         if (t === 'rstorch') return true;
@@ -4899,7 +4946,8 @@
                 '<div class="ph-iname"></div>' +
                 '<div class="ph-hotbar"></div>' +
                 '<div class="ph-sign"><div class="ph-sign-t"></div></div>' +
-                '<button type="button" class="ph-inv">🎒</button>' +
+                '<button type="button" class="ph-inv ph-side"><canvas width="16" height="16"></canvas><b>E</b></button>' +
+                '<button type="button" class="ph-cmds ph-side"><img src="assets/chat.png" alt=""></button>' +
                 '<div class="ph-open" style="display:none"></div>' +
                 '<div class="ph-joy"><div class="ph-knob"></div></div>' +
                 '<div class="ph-pad2"><button type="button" data-k="down" class="ph-sneak">⇩</button><button type="button" data-k="up" class="ph-jump">⇧</button><button type="button" class="ph-mode">⛏</button></div>';
@@ -4922,6 +4970,9 @@
                 b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('pointerleave', off);
             });
             el.querySelector('.ph-inv').addEventListener('click', function (e) { e.stopPropagation(); toggleInv(); });
+            // 💬 a la izquierda de la barra: el chat / consola (con el botón de la lista de comandos) · a la derecha: 🧰 el inventario (E)
+            el.querySelector('.ph-cmds').addEventListener('click', function (e) { e.stopPropagation(); if (chat.open) chat.close(); else chat.show(''); });
+            try { const cv = el.querySelector('.ph-inv canvas'), ic = iconFor('chest', {}); if (cv && ic) { const x = cv.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(ic, 0, 0, 16, 16); } } catch (er) { /* nada */ }
             chat.build(el);
             emo.build(el);
             el.querySelector('.ph-chat-btn').addEventListener('click', function (e) { e.stopPropagation(); if (chat.open) chat.close(); else chat.show(''); });
@@ -5055,6 +5106,7 @@
             ob.style.display = S.box ? '' : 'none';
             if (S.box) ob.textContent = boxLabel(S.box.t);
             this.el.querySelector('.ph-inv').title = tr('play_inv', 'Inventory (E)');
+            this.el.querySelector('.ph-cmds').title = tr('play_chat_tip', 'Chat / commands (T)');
             this.el.querySelector('.ph-mode').textContent = S.touchMode === 'mine' ? '⛏' : '🧱';
             this.el.querySelector('.ph-mode').title = S.touchMode === 'mine' ? tr('play_mode_mine', 'Tap = break / hit') : tr('play_mode_place', 'Tap = place / use');
         },
@@ -5503,7 +5555,7 @@
             S.mouse.x = e.clientX; S.mouse.y = e.clientY; S.mouse.inside = true;
             if (e.pointerType === 'touch' && overMe()) { emo.until = performance.now() + 4500; return; }   // 😀 tocar a mi personaje: el botón de emotes
             // (en el celular, tocar con un Command Book en la mano lo usa, sin importar si está en ⛏ o 🧱)
-            const right = e.button === 2 || (e.pointerType === 'touch' && (S.touchMode === 'place' || selType() === 'cbook'));
+            const right = e.button === 2 || (e.pointerType === 'touch' && (S.touchMode === 'place' || selType() === 'cbook' || selType() === 'boe'));
             // dos toques / dos clics rápidos sobre un cofre o un horno: se abre
             if (!right || e.pointerType === 'touch') {
                 const mw = mouseWorld(), bx = Math.floor(mw.x), by = Math.floor(mw.y), now = performance.now();
@@ -5856,7 +5908,7 @@
         c2.clearRect(0, 0, cv.width, cv.height);
         c2.imageSmoothingEnabled = false;
         const k = Math.min(cv.width / 16, cv.height / 22), pw = 16 * k, ph = 22 * k, x = (cv.width - pw) / 2, y = cv.height - ph;
-        c2.drawImage(sheet, 0, 0, 16, 22, x, y, pw, ph);
+        c2.drawImage(frameOf(sheet, 0), 0, 0, 16, 22, x, y, pw, ph);
         try { const pa = window.mbwPlayerArmorMob && window.mbwPlayerArmorMob(); if (pa && typeof drawMobArmorOverlay === 'function') drawMobArmorOverlay(c2, pa, x, y, pw, ph); } catch (e) { /* nada */ }
         return true;
     };
@@ -5893,6 +5945,20 @@
         c2.restore();
     }
     window.mbwPlay.drawHeld = drawHeld;
+    // ✂ cada cuadro de la tira (16×22) se recorta a un lienzo propio y se dibuja desde ahí: así, al agrandarlo, el navegador
+    //    no mezcla la fila de abajo de la tira (la tira tiene 2 filas: salía una rayita horizontal en los pies o la cabeza)
+    const frameCuts = new Map();
+    function frameOf(sheet, fi) {
+        let m = frameCuts.get(sheet); if (!m) { m = {}; frameCuts.set(sheet, m); }
+        if (m[fi]) return m[fi];
+        const c = document.createElement('canvas'); c.width = 16; c.height = 22;
+        const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+        try { g.drawImage(sheet, fi * 16, 0, 16, 22, 0, 0, 16, 22); } catch (e) { return sheet; }
+        if ((sheet.complete !== false) && (sheet.naturalWidth || sheet.width)) m[fi] = c;
+        return c;
+    }
+    window.mbwPlay.frameOf = frameOf;
+    const BOB = { 1: 1, 2: 1, 3: 1 };                                   // (los 3 cuadros de caminar en que el cuerpo sube 1 pixel)
     function drawFrank() {
         if (!(frank.complete && frank.naturalWidth >= 272)) return false;
         const w = W();
@@ -5907,17 +5973,17 @@
         S.frankAnim = fr.a; S.frankF = fr.f;          // (el cuadro también se manda a los demás en multijugador)
         c2.save();
         c2.imageSmoothingEnabled = false;
-        c2.translate(sx, sy);
+        c2.translate(Math.round(sx), Math.round(sy));
         if (S.sleep) { c2.translate(ph / 2, -pw / 2 + tileSize * .12); c2.rotate(-Math.PI / 2); }   // 🛏 acostado (la cabeza hacia la cabecera)
         else if (S.p && S.p.xScale < 0) c2.scale(-1, 1);
         if (S.p && S.p.hurt > 0) c2.globalAlpha = 0.85;
         const sk = skinSheet(S.skin), sheet = sk || frank;
         const nf = Math.max(1, Math.floor((sheet.naturalWidth || sheet.width) / 16)), fi = fr.f < nf ? fr.f : 0;
-        c2.drawImage(sheet, fi * 16, 0, 16, 22, -pw / 2, -ph, pw, ph);
+        c2.drawImage(frameOf(sheet, fi), 0, 0, 16, 22, -pw / 2, -ph, pw, ph);   // (el cuadro ya recortado: sin la rayita de la fila de abajo)
         c2.globalAlpha = 1;
         try {
             const pArmor = window.mbwPlayerArmorMob && window.mbwPlayerArmorMob();
-            if (pArmor && typeof drawMobArmorOverlay === 'function') drawMobArmorOverlay(c2, pArmor, -pw / 2, -ph, pw, ph);
+            if (pArmor && typeof drawMobArmorOverlay === 'function') drawMobArmorOverlay(c2, pArmor, -pw / 2, -ph, pw, ph, BOB[fi] ? 1 : 0);
         } catch (e) { /* nada */ }
         if (!S.sleep && !effLv('invisibility')) { try { drawHeld(c2, selType(), fr.f, pw, ph); } catch (e) { /* nada */ } }
         c2.restore();

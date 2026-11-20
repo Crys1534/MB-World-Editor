@@ -5,8 +5,10 @@ ctx.imageSmoothingEnabled = false;
 
 // --- OPTIMIZACIÓN: Buffer Fuera de Pantalla ---
 const offscreenCanvas = document.createElement('canvas');
-const offscreenCtx = offscreenCanvas.getContext('2d', { alpha: false });
+const offscreenCtx = offscreenCanvas.getContext('2d');   // (con transparencia: el fondo va en su propio lienzo, así las nubes pasan entre el fondo y los bloques)
 offscreenCtx.imageSmoothingEnabled = false;
+const nsBgCanvas = document.createElement('canvas');      // el fondo (cielo, sol, luna, colinas) sin desplazamiento fluido
+const nsBgCtx = nsBgCanvas.getContext('2d', { alpha: false });
 
 // Lienzos del desplazamiento fluido (se crean solo cuando se activa; ver más abajo)
 let bgCanvas = null, bgCtx = null, blocksCanvas = null, blocksCtx = null;
@@ -89,6 +91,7 @@ function resizeCanvas() {
     offscreenCanvas.width = canvas.width;
     offscreenCanvas.height = canvas.height;
     offscreenCtx.imageSmoothingEnabled = false;
+    nsBgCanvas.width = canvas.width; nsBgCanvas.height = canvas.height; nsBgCtx.imageSmoothingEnabled = false;
     
     ctx.imageSmoothingEnabled = false; 
     updateGridDimensions();
@@ -425,6 +428,20 @@ function initializeWorldCacheAsync(onProgress) {
     });
 }
 
+// 🟫 placa de presión apretada (Modo Jugar): el mismo dibujo, aplastado a la mitad de alto contra el piso (solo se ve así)
+const squishCache = new Map();
+function squishedPlate(tex) {
+    if (!tex || tex.img || !window.images.blocks || !window.images.blocks.complete) return tex;
+    const k = tex.x + ',' + tex.y;
+    let c = squishCache.get(k);
+    if (!c) {
+        c = document.createElement('canvas'); c.width = 16; c.height = 16;
+        const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+        g.drawImage(window.images.blocks, tex.x, tex.y, 16, 16, 0, 8, 16, 8);
+        squishCache.set(k, c);
+    }
+    return { img: c, x: tex.x, y: tex.y };
+}
 function renderBlock(x, y) {
     if (!worldCache[x]) worldCache[x] = [];
     let states = mbwom.getBlockState(x, y);
@@ -434,6 +451,7 @@ function renderBlock(x, y) {
     } else if (states.type != null) {
         worldCache[x][y] = window.rainbowAnim.map(getBlockObject(states));
         if (states.type === 'fnc') worldCache[x][y] = window.fenceVisual.pick(mbwom.scene, x, y, worldCache[x][y]);
+        if ((states.type === 'pp' || states.type === 'wpp') && window.mbwPlatePressed && window.mbwPlatePressed(x, y)) worldCache[x][y] = squishedPlate(worldCache[x][y]);   // 🟫 apretada
     } else {
         delete worldCache[x][y];
     }
@@ -558,7 +576,9 @@ function paintSkyBodies(tctx, tw, th) {
 
 function renderWorldToBuffer() {
     if (lazyCache) window.mbwLazyCols(camera.x - 20, camera.x + grid.width + 20);   // 🧩 (mundo enorme: lo que se ve tiene que estar armado)
-    paintWorldBackground(offscreenCtx, offscreenCanvas.width, offscreenCanvas.height);
+    if (nsBgCanvas.width !== offscreenCanvas.width || nsBgCanvas.height !== offscreenCanvas.height) { nsBgCanvas.width = offscreenCanvas.width; nsBgCanvas.height = offscreenCanvas.height; nsBgCtx.imageSmoothingEnabled = false; }
+    paintWorldBackground(nsBgCtx, nsBgCanvas.width, nsBgCanvas.height);
+    offscreenCtx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
 
     // 🧩 ▶ Modo Jugar: el mundo se pega por trozos ya dibujados (scripts/chunk-render.js); si no se puede, bloque por bloque
     const byChunks = window.mbwChunks && window.mbwChunks.draw(offscreenCtx, Math.floor(camera.x), Math.floor(camera.y), grid.width, grid.height, canvas.height);
@@ -769,6 +789,7 @@ function drawWorldSmooth() {
     sx = Math.max(0, Math.min(sx, blocksCanvas.width - W));
     sy = Math.max(0, Math.min(sy, blocksCanvas.height - H));
     ctx.drawImage(bgCanvas, 0, 0);
+    drawCloudsBehind();
     ctx.drawImage(blocksCanvas, sx, sy, W, H, 0, 0, W, H);
 }
 
@@ -789,8 +810,12 @@ function drawWorld() {
         worldDirty = false;
     }
     
+    ctx.drawImage(nsBgCanvas, 0, 0);
+    drawCloudsBehind();
     ctx.drawImage(offscreenCanvas, 0, 0);
 }
+// ☁ las nubes van ENTRE el fondo y los bloques (pasan por detrás de los bloques y de los mobs)
+function drawCloudsBehind() { if (window.mbwClouds) { try { window.mbwClouds.draw(ctx); } catch (e) { /* las nubes nunca rompen el dibujo */ } } }
 
 function getBlockCache(x, y) {
     if (worldCache[x]) return worldCache[x][y];
@@ -1021,7 +1046,8 @@ function getMobArmorGlint(key, src, sw, sh, phase) {
 }
 
 // Dibuja las piezas encima del mob. (x, y, w, h) = el mismo rectángulo donde se dibujó su skin; el contexto ya viene girado si el mob mira a la izquierda.
-function drawMobArmorOverlay(c, mob, x, y, w, h) {
+// lift (opcional): cuántos píxeles del dibujo se suben el casco y el peto (el Player jugando, en los 3 cuadros en que el cuerpo sube al caminar)
+function drawMobArmorOverlay(c, mob, x, y, w, h, lift) {
     const items = getMobArmorItems(mob);
     if (!items.length) return;
     const f = MOB_ARMOR_FRAME;
@@ -1034,10 +1060,11 @@ function drawMobArmorOverlay(c, mob, x, y, w, h) {
             const tc = getTintedMobArmor(p.id, rgb, img);
             if (tc) { src = tc; sx = 0; sy = 0; tag = p.id + '|' + rgb.join(','); }
         }
-        c.drawImage(src, sx, sy, sw, sh, x, y, w, h);
+        const ly = (lift && /(Cap|Shirt)$/.test(p.id)) ? y - lift * h / f.h : y;   // (🪖 casco y peto un pixel más arriba)
+        c.drawImage(src, sx, sy, sw, sh, x, ly, w, h);
         if (mobArmorIsEnchanted(p.extras)) {
             const phase = Math.floor(Date.now() / MOB_GLINT_MS) % MOB_GLINT_STEPS;
-            c.drawImage(getMobArmorGlint(tag, src, sw, sh, phase), 0, 0, sw, sh, x, y, w, h);   // (el brillo se recorta con la misma pieza)
+            c.drawImage(getMobArmorGlint(tag, src, sw, sh, phase), 0, 0, sw, sh, x, ly, w, h);   // (el brillo se recorta con la misma pieza)
         }
     });
 }
@@ -1733,7 +1760,6 @@ function mainLoop(ts) {
     }
     
     drawWorld();
-    if (window.mbwClouds) { try { window.mbwClouds.draw(ctx); } catch (e) { /* las nubes nunca rompen el dibujo */ } }   // ☁ scripts/clouds.js
     // scripts/world-extras.js: texto de letreros y vagonetas / balsas van debajo de los mobs; marcadores y fantasma de vagoneta encima
     if (window.mbwExtras) { try { window.mbwExtras.beforeMobs(); } catch (e) { if (!window.mbwExtrasErr) { window.mbwExtrasErr = true; console.error('world-extras:', e); } } }
     if (typeof drawMobs === 'function') drawMobs(); 

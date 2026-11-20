@@ -4069,3 +4069,34 @@ body.mp-compact .srv-desc { font-size: 14px; }
 .ph-mk-arrows { margin-left: auto; margin-right: 6px; background: rgba(255,255,255,.08); color: #ddd; border: 1px solid rgba(255,255,255,.25); border-radius: 6px; padding: 2px 8px; font-size: 12px; cursor: pointer; }
 .ph-mk-arrows.is-on { color: #ffd54a; border-color: rgba(255,213,74,.6); }
 .ph-mk-sub { margin-top: 8px; font-size: 13px; opacity: .9; }
+
+/* ✨ mesa de encantamientos (dentro del inventario, como el juego) */
+.pinv-ench-box { display: flex; flex-direction: column; gap: 6px; }
+.pinv-ench-t { display: none; }
+.pinv-ench-row { display: flex; gap: 12px; align-items: center; }
+.pinv-ench-left { display: flex; align-items: center; justify-content: center; padding: 6px 14px; }
+.pinv-ench-slot { outline: 2px solid rgba(160, 90, 255, .55); }
+.pinv-ench-opts { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pinv-ench-opt { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 30px; padding: 3px 10px; background: #8a7ab8; border: 2px solid #4e3f7a; border-radius: 2px; color: #2c2346; font: italic 14px/1.1 Georgia, serif; cursor: pointer; text-align: left; }
+.pinv-ench-opt:hover { background: #a08fd6; }
+.pinv-ench-opt.no { background: #6d6d6d; border-color: #444; color: #bbb; cursor: not-allowed; }
+.pinv-ench-opt.empty { background: #5a5a5a; border-color: #3b3b3b; cursor: default; }
+.pinv-ench-words { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pinv-ench-lvl { font: bold 16px Arial, sans-serif; color: #7CFC00; text-shadow: 1px 1px 0 #1a3d00; font-style: normal; }
+.pinv-ench-opt.no .pinv-ench-lvl { color: #ff6b6b; text-shadow: 1px 1px 0 #3d0000; }
+.pinv-ench-info { font-size: 13px; color: #333; }
+
+/* 🎯 la casilla elegida de la barra: mucho más notoria (borde blanco grueso, brillo y un poco más grande) */
+#mbw-play-hud .ph-slot { transition: transform .08s; }
+#mbw-play-hud .ph-slot.sel { border: 3px solid #fff; box-shadow: 0 0 0 2px #000, 0 0 12px 3px rgba(255,255,255,.8); background: rgba(255,255,255,.22); transform: scale(1.14); z-index: 2; }
+/* 💬 / 🧰 a los lados de la barra (como Mine Blocks): medio transparentes; al pasar el mouse, completos */
+#mbw-play-hud .ph-side { position: absolute; bottom: 10px; width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center; background: #8b8b8b; border: 2px solid #373737; box-shadow: inset 2px 2px 0 #c6c6c6, inset -2px -2px 0 #555; border-radius: 3px; opacity: .5; cursor: pointer; transition: opacity .12s; pointer-events: auto; }
+#mbw-play-hud .ph-side:hover, #mbw-play-hud .ph-side:active { opacity: 1; }
+#mbw-play-hud .ph-inv.ph-side { left: calc(50% + 208px); font-size: 0; }
+#mbw-play-hud .ph-cmds.ph-side { left: auto; right: calc(50% + 208px); }
+#mbw-play-hud .ph-side canvas { width: 30px; height: 30px; image-rendering: pixelated; }
+#mbw-play-hud .ph-side img { width: 28px; height: 24px; image-rendering: pixelated; }
+#mbw-play-hud .ph-inv.ph-side b { position: absolute; right: 1px; bottom: -1px; color: #fff; font: bold 13px Arial, sans-serif; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; }
+body.is-touch #mbw-play-hud .ph-side { width: 38px; height: 38px; bottom: 6px; }
+body.is-touch #mbw-play-hud .ph-inv.ph-side { left: calc(50% + 178px); }
+body.is-touch #mbw-play-hud .ph-cmds.ph-side { right: calc(50% + 178px); }
