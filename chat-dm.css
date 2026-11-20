@@ -1094,3 +1094,93 @@ body.theme-win7 {
 .dc-ask-row button { padding: 7px 14px; border-radius: 8px; border: 0; cursor: pointer; font: inherit; }
 .dc-ask-no { background: transparent; color: var(--dc-text-muted); }
 .dc-ask-ok { background: var(--dc-brand); color: #fff; }
+
+/* ===== 📌 Barra de mensajes fijados (arriba de la conversación) ===== */
+.dc-pinned-bar {
+    flex: none; display: flex; align-items: center; gap: 10px;
+    padding: 6px 10px 6px 14px; cursor: pointer; z-index: 1;
+    background: var(--dc-bg-secondary);
+    border-bottom: 1px solid var(--dc-divider);
+    border-left: 3px solid var(--dc-brand);
+}
+.dc-pinned-bar[hidden] { display: none; }
+.dc-pinned-bar:hover { background: var(--dc-bg-item-hover); }
+.dc-pinned-ico svg { width: 18px; height: 18px; fill: var(--dc-brand-fg); display: block; transform: rotate(35deg); }
+.dc-pinned-body { flex: 1; min-width: 0; }
+.dc-pinned-title { font-size: 12px; font-weight: 700; color: var(--dc-brand-fg); }
+.dc-pinned-text { font-size: 13px; color: var(--dc-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dc-pinned-all {
+    flex: none; width: 30px; height: 30px; border-radius: 6px; border: 0; cursor: pointer;
+    background: transparent; color: var(--dc-icon); font-size: 16px;
+}
+.dc-pinned-all:hover { background: var(--dc-bg-item-active); color: var(--dc-text-strong); }
+
+/* el nombre del grupo en la cabecera se puede tocar */
+.dc-chat-header #full-chat-header-name, .dc-chat-header .dc-header-avatar { cursor: default; }
+#full-chat-active.is-group .dc-chat-header #full-chat-header-name,
+#full-chat-active.is-group .dc-chat-header .dc-header-avatar { cursor: pointer; }
+#full-chat-active.is-group .dc-chat-header #full-chat-header-name:hover { text-decoration: underline; }
+
+/* ===== 👥 Detalles del grupo (como en WhatsApp) ===== */
+.dc-gd {
+    position: absolute; inset: 0; z-index: 20;
+    display: flex; flex-direction: column;
+    background: var(--dc-bg-secondary);
+    animation: dcGdIn .16s ease-out;
+}
+@keyframes dcGdIn { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.dc-gd-top {
+    flex: none; height: 48px; display: flex; align-items: center; gap: 10px; padding: 0 12px;
+    background: var(--dc-bg-primary); box-shadow: 0 1px 0 var(--dc-divider);
+}
+.dc-gd-back {
+    width: 34px; height: 34px; border-radius: 50%; border: 0; cursor: pointer;
+    background: transparent; color: var(--dc-text-strong); font-size: 20px; line-height: 1;
+}
+.dc-gd-back:hover { background: var(--dc-bg-item-hover); }
+.dc-gd-top-title { font-size: 16px; font-weight: 600; color: var(--dc-text-strong); }
+.dc-gd-scroll { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 24px; }
+.dc-gd-hero {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 26px 16px 20px; background: var(--dc-bg-primary); margin-bottom: 8px;
+}
+.dc-gd-pic {
+    position: relative; width: 132px; height: 132px; border-radius: 50%; padding: 0; border: 0;
+    cursor: pointer; background: var(--dc-bg-tertiary); overflow: hidden;
+}
+.dc-gd-pic img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; display: block; }
+.dc-gd-pic-edit {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 30px; background: rgba(0, 0, 0, .45); opacity: 0; transition: opacity .15s;
+}
+.dc-gd-pic:hover .dc-gd-pic-edit, .dc-gd-pic:focus-visible .dc-gd-pic-edit { opacity: 1; }
+.dc-gd-name { margin: 8px 0 0; font-size: 22px; font-weight: 700; color: var(--dc-text-strong); text-align: center; word-break: break-word; }
+.dc-gd-sub { font-size: 14px; color: var(--dc-text-muted); }
+.dc-gd-row, .dc-gd-danger {
+    width: 100%; display: flex; align-items: center; gap: 14px; padding: 13px 20px;
+    border: 0; background: var(--dc-bg-primary); color: var(--dc-text); font-size: 15px; text-align: left; cursor: pointer;
+}
+.dc-gd-row:hover, .dc-gd-danger:hover { background: var(--dc-bg-msg-hover); }
+.dc-gd-row-ico svg { width: 20px; height: 20px; fill: currentColor; display: block; }
+.dc-gd-row-label { flex: 1; }
+.dc-gd-row-count { color: var(--dc-text-muted); font-size: 14px; }
+.dc-gd-sec {
+    margin-top: 8px; padding: 14px 20px 6px; background: var(--dc-bg-primary);
+    font-size: 13px; font-weight: 700; color: var(--dc-text-muted); text-transform: uppercase; letter-spacing: .04em;
+}
+.dc-gd-members { background: var(--dc-bg-primary); padding-bottom: 6px; }
+.dc-gd-member {
+    width: 100%; display: flex; align-items: center; gap: 12px; padding: 8px 20px;
+    border: 0; background: transparent; color: var(--dc-text); font-size: 15px; text-align: left;
+}
+.dc-gd-member.is-link { cursor: pointer; }
+.dc-gd-member.is-link:hover { background: var(--dc-bg-msg-hover); }
+.dc-gd-member .dc-chat-avatar { position: relative; flex: none; }
+.dc-gd-member-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.dc-gd-badge {
+    flex: none; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+    color: var(--dc-green-fg); border: 1px solid color-mix(in srgb, var(--dc-green) 60%, transparent);
+}
+.dc-gd-actions { margin-top: 8px; background: var(--dc-bg-primary); }
+.dc-gd-danger { color: var(--dc-red-fg); font-weight: 600; }
+.dc-gd-danger[hidden] { display: none; }

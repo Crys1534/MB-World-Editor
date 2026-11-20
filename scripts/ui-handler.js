@@ -398,6 +398,7 @@ window.mbwInvGroupOf = function (id) {
     if (m) return 'crop:' + m[1];
     m = /^(fice|brew|cauldron|cmp)(_\d+)?$/.exec(id);              // 🧊 hielo escarchado, ⚗ soporte de pociones, caldero, composter (sus etapas)
     if (m) return m[1];
+    if (/^(pk(_\d+)?|jl)$/.test(id)) return 'pumpkin';                 // 🎃 calabazas (todas sus caras) y la lámpara
     if (/^(bd)?cloth(_[a-z]+)?$/.test(id)) return 'wool';           // 🧶 lana de colores (y su versión de fondo)
     if (/^(bd)?carpet(_[a-z]+)?$/.test(id)) return 'carpet';         // 🟫 alfombras
     if (/^(bd)?gs(_[a-z]+)?$/.test(id)) return 'glass';              // 🪟 vidrio y vidrio de colores (y su versión de fondo)
@@ -406,7 +407,7 @@ window.mbwInvGroupOf = function (id) {
     return null;
 };
 // (el que se ve por fuera del acordeón; si no está, el primero)
-window.mbwInvGroupHead = { wool: 'cloth_white', carpet: 'carpet_white', glass: 'gs', water: 'wr', lava: 'la', acid: 'ad' };
+window.mbwInvGroupHead = { pumpkin: 'pk', wool: 'cloth_white', carpet: 'carpet_white', glass: 'gs', water: 'wr', lava: 'la', acid: 'ad' };
 function populateInventory() {
     const grid = document.getElementById('inventory-grid');
     grid.innerHTML = '';
@@ -428,7 +429,33 @@ function populateInventory() {
     // --- LÓGICA ESPECIAL: PESTAÑA LIBROS ENCANTADOS (LIMPIA) ---
     // ========================================================
     if (activeInventoryTab === 'EnchantedBooks') {
-        Object.keys(enchantTranslations).forEach(enchantKey => grid.appendChild(makeEnchantedBookTile(enchantKey)));
+        // 📚 acordeón por encantamiento: Sharpness I-V juntos, Unbreaking I-III juntos... (por fuera, el nivel más bajo)
+        const fam = (k) => String(k).replace(/\d+$/, '');
+        const keys = Object.keys(enchantTranslations), cnt = {};
+        keys.forEach(k => { cnt[fam(k)] = (cnt[fam(k)] || 0) + 1; });
+        const seenF = {};
+        keys.forEach(enchantKey => {
+            const f = fam(enchantKey), grp = 'ebook:' + f, head = !seenF[f];
+            seenF[f] = true;
+            const searching = !!((document.getElementById('inventory-search') || {}).value);
+            if (cnt[f] > 1 && !head && !mbwInvOpenGroups.has(grp) && !searching) return;
+            const tile = makeEnchantedBookTile(enchantKey);
+            if (cnt[f] > 1) {
+                tile.classList.add(head ? 'inv-acc-head' : 'inv-acc-child');
+                if (head) {
+                    const open = mbwInvOpenGroups.has(grp);
+                    const tg = document.createElement('button'); tg.type = 'button';
+                    tg.className = 'inv-acc-toggle' + (open ? ' open' : '');
+                    tg.textContent = open ? '◂' : '▸ ' + cnt[f];
+                    tg.title = open ? 'Hide levels' : 'Show levels';
+                    tg.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); if (mbwInvOpenGroups.has(grp)) mbwInvOpenGroups.delete(grp); else mbwInvOpenGroups.add(grp); populateInventory(); });
+                    ['pointerdown', 'mousedown', 'touchstart'].forEach(n => tg.addEventListener(n, (e) => e.stopPropagation(), { passive: true }));
+                    tile.style.position = 'relative';
+                    tile.appendChild(tg);
+                }
+            }
+            grid.appendChild(tile);
+        });
         const si = document.getElementById('inventory-search');
         if (si && si.value) filterInventory(si.value);
         return; 

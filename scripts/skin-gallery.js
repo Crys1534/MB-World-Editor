@@ -166,8 +166,17 @@
     // ------------------------------------------------------------------ listas con páginas (flechas a los lados, como la web)
     // Cada lista (Destacadas / Nuevas / Mejores / resultados de búsqueda) guarda lo que ya bajó y en qué página está; las flechas
     // CAMBIAN la página que se ve (no se agregan skins hacia abajo). Si la página siguiente aún no se ha pedido, se pide al servidor.
-    const ROW = 4;                                                       // tarjetas por fila en la pantalla de inicio (la web muestra 4 por página)
-    const GRID_COLS = 4, GRID_ROWS = 2, PER_GRID = GRID_COLS * GRID_ROWS; // búsqueda, "In this world" y Favorites
+    // 🎛 DISEÑOS de la ventana (botones arriba a la derecha; se guarda en el navegador: mbw_skin_layout)
+    //   · compact: cuadrícula apretada (6 por fila, 3 filas) con la vista previa a la derecha
+    //   · big:     tarjetas grandes (4 por fila, 2 filas) con la vista previa a la derecha
+    //   · wall:    muro sin panel lateral (8 por fila, 3 filas): la skin elegida sale en una barra abajo
+    //   En todos, la tarjeta muestra SOLO la skin: el nombre y el creador salen al pasar el mouse (y en la vista previa).
+    const LAYOUTS = { compact: { cols: 6, rows: 3 }, big: { cols: 4, rows: 2 }, wall: { cols: 8, rows: 3 } };
+    function layName() { const v = lsGet('mbw_skin_layout', 'compact'); return LAYOUTS[v] ? v : 'compact'; }
+    function layCols() { const c = LAYOUTS[layName()].cols; return document.body && document.body.classList.contains('is-phone') ? Math.min(c, layName() === 'wall' ? 5 : 4) : c; }
+    function ROWN() { return layCols(); }                                 // tarjetas por fila en la pantalla de inicio
+    function GCOLS() { return layCols(); }                                // búsqueda, "In this world" y Favorites
+    function PERG() { return layCols() * LAYOUTS[layName()].rows; }
     function newList() { return { items: [], page: 1, hasMore: true, loading: false, err: '', loaded: false, off: false, view: 0 }; }
     // Pide páginas al servidor hasta tener al menos "need" skins (o hasta que ya no haya más). false = llegó tarde (otra búsqueda la reemplazó).
     async function fillList(L, fetcher, need, token, filterFn, maxPages) {
@@ -230,9 +239,9 @@
         renderResults();
         try {
             const target = h.view + (dir ? 1 : 0);
-            const ok = await enqueue(h, function () { return fillList(h, homeFetcher(k, h), (target + 1) * ROW, token); });
+            const ok = await enqueue(h, function () { return fillList(h, homeFetcher(k, h), (target + 1) * ROWN(), token); });
             if (!ok) return;
-            if (h.items.length > target * ROW) h.view = target;
+            if (h.items.length > target * ROWN()) h.view = target;
         } catch (e) {
             if (token !== st.token) return;
             h.err = (e && e.detail) || 'net'; if (!h.items.length) h.hasMore = false;   // con skins ya mostradas, "Retry" vuelve a pedir la página que falló
@@ -246,12 +255,12 @@
             return list;
         };
     }
-    function homePrefetch(k) { const h = st.home && st.home[k]; if (h && !h.off && !h.err) prefetchList(h, homeFetcher(k, h), (h.view + 2) * ROW, null, 3); }
+    function homePrefetch(k) { const h = st.home && st.home[k]; if (h && !h.off && !h.err) prefetchList(h, homeFetcher(k, h), (h.view + 2) * ROWN(), null, 3); }
     function homeGo(k, dir) {
         const h = st.home && st.home[k];
         if (!h || h.loading) return;
         if (dir < 0) { if (h.view > 0) { h.view--; renderResults(); } return; }
-        if (h.items.length > (h.view + 1) * ROW) { h.view++; renderResults(); homePrefetch(k); return; }
+        if (h.items.length > (h.view + 1) * ROWN()) { h.view++; renderResults(); homePrefetch(k); return; }
         if (h.hasMore) { h.err = ''; homeLoad(k, 1); }
     }
     async function homeStart() {
@@ -334,7 +343,7 @@
                 return;
             }
             box.appendChild(buildSection({
-                title: tr(def[1], def[2]), items: h.items, view: h.view, per: ROW, cols: ROW, hasMore: h.hasMore, list: h, liveLen: function () { return h.items.length; }, loading: h.loading, err: h.err,
+                title: tr(def[1], def[2]), items: h.items, view: h.view, per: ROWN(), cols: ROWN(), hasMore: h.hasMore, list: h, liveLen: function () { return h.items.length; }, loading: h.loading, err: h.err,
                 onPrev: function () { homeGo(k, -1); }, onNext: function () { homeGo(k, 1); }, onRetry: function () { homeGo(k, 1); }
             }));
         });
@@ -515,7 +524,36 @@
             b.onclick = function () { setTab(o[0]); };
             tabs.appendChild(b);
         });
+        // 🎛 los 3 diseños
+        const lw = document.createElement('div'); lw.className = 'sg-lays';
+        [['compact', '▦', tr('sg_lay_compact', 'Compact grid')], ['big', '▣', tr('sg_lay_big', 'Big cards')], ['wall', '▤', tr('sg_lay_wall', 'Wall (no side panel)')]].forEach(function (o) {
+            const b = document.createElement('button');
+            b.type = 'button'; b.className = 'sg-lay' + (layName() === o[0] ? ' on' : ''); b.dataset.lay = o[0]; b.textContent = o[1]; b.title = o[2]; b.setAttribute('aria-label', o[2]);
+            b.onclick = function () { setLayout(o[0]); };
+            lw.appendChild(b);
+        });
+        tabs.appendChild(lw);
+        applyLayoutClass();
     }
+    function applyLayoutClass() {
+        const w = document.querySelector('#' + MODAL_ID + ' .sg-window');
+        if (!w) return;
+        Object.keys(LAYOUTS).forEach(function (k) { w.classList.toggle('sg-lay-' + k, layName() === k); });
+    }
+    // Cambiar de diseño: cada lista vuelve a su primera página (cambia cuántas caben) y se piden las que falten
+    function setLayout(name) {
+        if (!LAYOUTS[name]) return;
+        lsSet('mbw_skin_layout', name);
+        Array.prototype.forEach.call(document.querySelectorAll('#sg-tabs .sg-lay'), function (b) { b.classList.toggle('on', b.dataset.lay === name); });
+        applyLayoutClass();
+        st.lview = {};
+        if (st.home) SECTIONS.forEach(function (d) { const h = st.home[d[0]]; if (h) h.view = 0; });
+        if (st.srch) st.srch.view = 0;
+        renderResults();
+        if (homeMode() && st.home) SECTIONS.forEach(function (d) { const h = st.home[d[0]]; if (h && !h.off && !h.err && !h.loading && h.hasMore && h.items.length < ROWN()) homeLoad(d[0], 0); else homePrefetch(d[0]); });
+        else if (st.tab === 'web' && st.srch && !st.srch.loading && st.srch.hasMore && st.srch.items.length < PERG()) searchLoad(0);
+    }
+    window.mbwSkinLayout = function (name) { if (name) setLayout(name); return layName(); };
 
     function setTab(t) { st.tab = TABS.indexOf(t) >= 0 ? t : 'web'; texts(); reload(); }
 
@@ -558,9 +596,9 @@
         try {
             const extra = idCardFor(L.items) ? 1 : 0;
             const target = L.view + (dir ? 1 : 0);
-            const ok = await enqueue(L, function () { return fillList(L, searchFetcher(), (target + 1) * PER_GRID - extra, token, st.filter !== 'all' ? matches : null, 8); });
+            const ok = await enqueue(L, function () { return fillList(L, searchFetcher(), (target + 1) * PERG() - extra, token, st.filter !== 'all' ? matches : null, 8); });
             if (!ok) return;
-            if (L.items.length + extra > target * PER_GRID) L.view = target;
+            if (L.items.length + extra > target * PERG()) L.view = target;
         } catch (e) {
             if (token !== st.token) return;
             L.err = (e && e.detail) || 'net';
@@ -573,14 +611,14 @@
     function searchPrefetch() {
         const L = st.srch;
         if (!L || L.err) return;
-        prefetchList(L, searchFetcher(), (L.view + 5) * PER_GRID, st.filter !== 'all' ? matches : null, 10);
+        prefetchList(L, searchFetcher(), (L.view + 5) * PERG(), st.filter !== 'all' ? matches : null, 10);
     }
     function searchGo(dir) {
         const L = st.srch;
         if (!L || L.loading) return;
         const extra = idCardFor(L.items) ? 1 : 0;
         if (dir < 0) { if (L.view > 0) { L.view--; renderResults(); } return; }
-        if (L.items.length + extra > (L.view + 1) * PER_GRID) { L.view++; renderResults(); searchPrefetch(); return; }
+        if (L.items.length + extra > (L.view + 1) * PERG()) { L.view++; renderResults(); searchPrefetch(); return; }
         if (L.hasMore) { L.err = ''; searchLoad(1); }
     }
     function localGo(dir) {
@@ -611,12 +649,13 @@
         stage.appendChild(fav);
         d.appendChild(stage);
         const info = document.createElement('div');
-        info.className = 'sg-info';
+        info.className = 'sg-info';                                  // (solo se ve al pasar el mouse)
         const nm = document.createElement('div'); nm.className = 'sg-name'; nm.textContent = item.name || tr('sg_unnamed', 'Skin');
         nm.title = item.name || '';
         const au = document.createElement('div'); au.className = 'sg-author'; au.textContent = item.author ? tr('sg_by', 'by {name}').replace('{name}', item.author) : '';
         info.appendChild(nm); info.appendChild(au);
-        d.appendChild(info);
+        stage.appendChild(info);
+        d.setAttribute('aria-label', (item.name || tr('sg_unnamed', 'Skin')) + (item.author ? ' — ' + tr('sg_by', 'by {name}').replace('{name}', item.author) : ''));
         d.onclick = function () { select(item); };
         d.ondblclick = function () { primary(item); };
         paintThumb(cv, item.id);
@@ -684,7 +723,7 @@
             const items = (idc ? [idc] : []).concat(L.items);
             if (items.length || L.loading) {
                 box.appendChild(buildSection({
-                    items: items, view: L.view, per: PER_GRID, cols: GRID_COLS, hasMore: L.hasMore, list: L, liveLen: function () { return L.items.length + (idCardFor(L.items) ? 1 : 0); }, loading: L.loading, showPage: true,
+                    items: items, view: L.view, per: PERG(), cols: GCOLS(), hasMore: L.hasMore, list: L, liveLen: function () { return L.items.length + (idCardFor(L.items) ? 1 : 0); }, loading: L.loading, showPage: true,
                     onPrev: function () { searchGo(-1); }, onNext: function () { searchGo(1); }
                 }));
             }
@@ -702,12 +741,12 @@
             let list = localList();
             const idc = idCardFor(list);
             if (idc) list = [idc].concat(list);
-            const pages = Math.max(1, Math.ceil(list.length / PER_GRID));
+            const pages = Math.max(1, Math.ceil(list.length / PERG()));
             const view = Math.min(st.lview[st.tab] || 0, pages - 1);
             st.lview[st.tab] = view;
             if (list.length) {
                 box.appendChild(buildSection({
-                    items: list, view: view, per: PER_GRID, cols: GRID_COLS, hasMore: false, loading: false,
+                    items: list, view: view, per: PERG(), cols: GCOLS(), hasMore: false, loading: false,
                     onPrev: function () { localGo(-1); }, onNext: function () { localGo(1); }
                 }));
             } else msg = st.tab === 'world' ? tr('sg_empty_world', 'No mob in this world uses a skin yet.') : tr('sg_empty_favs', 'No favorites yet: press ☆ on a skin.');

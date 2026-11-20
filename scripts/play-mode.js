@@ -4971,7 +4971,7 @@
             });
             el.querySelector('.ph-inv').addEventListener('click', function (e) { e.stopPropagation(); toggleInv(); });
             // 💬 a la izquierda de la barra: el chat / consola (con el botón de la lista de comandos) · a la derecha: 🧰 el inventario (E)
-            el.querySelector('.ph-cmds').addEventListener('click', function (e) { e.stopPropagation(); if (chat.open) chat.close(); else chat.show(''); });
+            el.querySelector('.ph-cmds').addEventListener('click', function (e) { e.stopPropagation(); if (chat.open) chat.close(); else chat.show('', true); });   // (este abre con la lista de comandos)
             try { const cv = el.querySelector('.ph-inv canvas'), ic = iconFor('chest', {}); if (cv && ic) { const x = cv.getContext('2d'); x.imageSmoothingEnabled = false; x.drawImage(ic, 0, 0, 16, 16); } } catch (er) { /* nada */ }
             chat.build(el);
             emo.build(el);
@@ -5193,11 +5193,13 @@
         build: function (root) {
             const el = this.el = document.createElement('div');
             el.className = 'ph-chat';
-            el.innerHTML = '<div class="ph-chat-log"></div><div class="ph-chat-sug"></div><form class="ph-chat-form" autocomplete="off"><input class="ph-chat-in" type="text" maxlength="200" spellcheck="false" autocapitalize="off" autocorrect="off" enterkeyhint="send"><button type="submit" class="ph-chat-send">➤</button><button type="button" class="ph-chat-x">✕</button></form>';
+            el.innerHTML = '<div class="ph-chat-log"></div><div class="ph-chat-sug"></div><form class="ph-chat-form" autocomplete="off"><button type="button" class="ph-chat-cmdl">/</button><input class="ph-chat-in" type="text" maxlength="200" spellcheck="false" autocapitalize="off" autocorrect="off" enterkeyhint="send"><button type="submit" class="ph-chat-send">➤</button><button type="button" class="ph-chat-x">✕</button></form>';
             root.appendChild(el);
             const inp = this.input = el.querySelector('.ph-chat-in');
             el.querySelector('.ph-chat-form').addEventListener('submit', function (e) { e.preventDefault(); chat.send(); });
             el.querySelector('.ph-chat-x').addEventListener('click', function (e) { e.stopPropagation(); chat.close(); });
+            // 📜 la lista de comandos (Teleport, Game mode, Weather, Time...) se abre con este botón; al abrir el chat se ve el historial
+            el.querySelector('.ph-chat-cmdl').addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); chat.cmdsOn = !chat.cmdsOn; if (chat.qc) chat.qc.reset(); const bx = el.querySelector('.ph-chat-sug'); if (bx) bx.innerHTML = ''; chat.sug(); });
             inp.addEventListener('input', function () { chat.tabN = 0; chat.tabBase = null; chat.sug(); });
             el.querySelector('.ph-chat-sug').addEventListener('click', function (e) {
                 const q = e.target.closest && e.target.closest('[data-q]');
@@ -5225,8 +5227,9 @@
             this.texts();
         },
         texts: function () { if (!this.input) return; this.input.placeholder = tr('play_chat_ph', 'Type a command (tp, give, gamemode, time...) and press Enter'); },
-        show: function (prefix) {
+        show: function (prefix, cmds) {
             if (!this.el) return;
+            this.cmdsOn = !!cmds;                                     // (los comandos solo si se pidieron: si no, se ve el historial)
             this.open = true; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mine = null;
             if (S.joyReset) S.joyReset();
             this.el.classList.add('open'); this.input.value = prefix || ''; this.hi = -1; this.dirty = true; this.tabBase = null; this.tabN = 0;
@@ -5244,9 +5247,11 @@
             const box = this.el && this.el.querySelector('.ph-chat-sug'); if (!box) return;
             const v = this.open ? this.input.value : '';
             if (!this.open) { box.innerHTML = ''; box.style.display = 'none'; this.cur = null; return; }
+            const cl = this.el.querySelector('.ph-chat-cmdl'); if (cl) { cl.classList.toggle('on', !!this.cmdsOn); cl.title = tr('play_cmd_list', 'Commands list'); }
             if (!v.trim()) {
-                // caja vacía: botones grandes (Teleport ›, Game mode ›, Weather ›, Time ›), como en Minecraft
+                // caja vacía: botones grandes (Teleport ›, Game mode ›, Weather ›, Time ›), como en Minecraft — solo con el botón 📜
                 this.cur = null;
+                if (!this.cmdsOn) { box.innerHTML = ''; box.style.display = 'none'; return; }
                 if (!this.qc && window.mbwQuickCmd) this.qc = window.mbwQuickCmd(box, quickCtx);
                 if (this.qc) { if (!box.querySelector('.qc')) this.qc.render(); box.style.display = 'block'; }
                 return;

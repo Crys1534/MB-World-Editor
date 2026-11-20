@@ -36,6 +36,7 @@ const DM_ICONS = {
     send: '<svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>',
     close: '<svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
     copy: '<svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>',
+    pin: '<svg viewBox="0 0 24 24"><path d="M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z"/></svg>',
     trash: '<svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>',
     archive: '<svg viewBox="0 0 24 24"><path d="M20.54 5.23l-1.39-1.68C18.88 3.21 18.47 3 18 3H6c-.47 0-.88.21-1.16.55L3.46 5.23C3.17 5.57 3 6.02 3 6.5V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.48-.17-.93-.46-1.27zM12 17.5L6.5 12H10v-2h4v2h3.5L12 17.5zM5.12 5l.81-1h12l.94 1H5.12z"/></svg>',
     unarchive: '<svg viewBox="0 0 24 24"><path d="M20.55 5.22l-1.39-1.68C18.88 3.21 18.47 3 18 3H6c-.47 0-.88.21-1.15.55L3.46 5.22C3.17 5.57 3 6.01 3 6.5V19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.49-.17-.93-.45-1.28zM12 9.5l5.5 5.5H14v2h-4v-2H6.5L12 9.5zM5.12 5l.82-1h12l.93 1H5.12z"/></svg>'
@@ -363,6 +364,7 @@ function dmBuildToolbar(key, isMe) {
         });
         add(DM_ICONS.reply, dmT('dm_reply', 'Responder'), () => { const m = dmCur(key); if (m && !m.isDeleted) window.setReply(key, m.senderName, m.text); });
         if (isMe) add(DM_ICONS.edit, dmT('dm_edit', 'Editar'), () => { const m = dmCur(key); if (m && !m.isDeleted) window.startEditMessage(key, m); });
+        if (currentChatId && window.mbwPinToggle) add(DM_ICONS.pin, live.pinned ? dmT('dm_unpin', 'Unpin message') : dmT('dm_pin', 'Pin message'), () => { const m = dmCur(key); if (m && !m.isDeleted) window.mbwPinToggle(currentChatId, key, !m.pinned); });
     }
     add(DM_ICONS.more, dmT('dm_more', 'Más'), (b) => {
         const r = b.getBoundingClientRect();
@@ -527,6 +529,7 @@ function dmAppendEntry(entry) {
 // Cambió un mensaje (editado, borrado, reacción, visto): se vuelve a pintar solo esa fila
 function dmApplyChange(key, msg) {
     dmState.byKey.set(key, msg);
+    dmPinsNote(key, msg);
     const idx = dmState.msgs.findIndex(e => e.key === key);
     if (idx < 0) return;
     dmState.msgs[idx].msg = msg;
@@ -652,7 +655,7 @@ window.dmMarkRead = function(forceUnreadReset) {
 // ------------------------------------------
 function dmSnapToArray(snap) {
     const arr = [];
-    snap.forEach(c => { arr.push({ key: c.key, msg: c.val() || {} }); });   // (sin "return": si no, forEach se detiene)
+    snap.forEach(c => { if (!(dmState.clearedKey && c.key <= dmState.clearedKey)) arr.push({ key: c.key, msg: c.val() || {} }); });   // (🗑 lo de antes de borrar el chat no se ve)   // (sin "return": si no, forEach se detiene)
     return arr;
 }
 
@@ -717,6 +720,7 @@ function dmAttachLive(token) {
     const first = dmState.msgs.length ? dmState.msgs[0].key : null;
     let q = database.ref('private_chats/' + dmState.chatId).orderByKey();
     if (first) q = q.startAt(first);
+    else if (dmState.clearedKey) q = q.startAt(dmState.clearedKey);
     dmState.liveQuery = q;
     dmState.onAdded = q.on('child_added', snap => dmOnAdded(token, snap));
     dmState.onChanged = q.on('child_changed', snap => dmOnChanged(token, snap));
@@ -726,6 +730,8 @@ function dmOnAdded(token, snap) {
     if (token !== dmState.token) return;
     const key = snap.key, msg = snap.val();
     if (!msg) return;
+    if (dmState.clearedKey && key <= dmState.clearedKey) return;
+    dmPinsNote(key, msg);
     if (dmState.byKey.has(key)) {   // ya lo teníamos (carga inicial): solo revisamos si cambió
         if (JSON.stringify(dmState.byKey.get(key)) !== JSON.stringify(msg)) dmApplyChange(key, msg);
         return;
@@ -1141,12 +1147,17 @@ window.showChatHeaderMenu = function(anchor) {
     const r = anchor.getBoundingClientRect();
     dmOpenMenu(r.right - 200, r.bottom + 6, (menu) => {
         if (window.mbwShowPinned) dmMenuItem(menu, '📌 ' + dmT('dm_pinned', 'Pinned messages'), null, () => window.mbwShowPinned(currentChatId, anchor, (k) => dmJumpTo(k)));
+        if (window.mbwIsGroup && window.mbwIsGroup(partner.uid)) dmMenuItem(menu, '👥 ' + dmT('grp_info', 'Group info'), null, () => window.dmOpenGroupDetail(partner.uid));
         if (window.mbwIsGroup && window.mbwIsGroup(partner.uid) && window.mbwGroupPickPfp) dmMenuItem(menu, '🖼 ' + dmT('grp_change_pfp', 'Change group picture'), null, () => window.mbwGroupPickPfp(partner.uid));
         const muted = window.isChatMuted(partner.uid);
         dmMenuItem(menu, muted ? dmT('dm_unmute', 'Activar notificaciones') : dmT('dm_mute', 'Silenciar chat'), muted ? DM_ICONS.bell : DM_ICONS.bellOff, () => window.toggleChatMute(partner.uid));
         const archived = window.isChatArchived(partner.uid);
         dmMenuItem(menu, archived ? dmT('dm_unarchive', 'Desarchivar chat') : dmT('dm_archive', 'Archivar chat'), archived ? DM_ICONS.unarchive : DM_ICONS.archive, () => window.toggleChatArchive(partner.uid));
-        if (window.mbwIsGroup && window.mbwIsGroup(partner.uid)) return;            // (un grupo: sin amigos / bloquear)
+        dmMenuItem(menu, dmT('dm_delete_chat', 'Delete chat'), DM_ICONS.trash, () => window.dmDeleteChat(partner.uid, partner.name), true);
+        if (window.mbwIsGroup && window.mbwIsGroup(partner.uid)) {                 // (un grupo: sin amigos / bloquear)
+            dmMenuItem(menu, '🚪 ' + dmT('grp_leave', 'Leave group'), null, () => window.dmLeaveGroup(partner.uid, partner.name), true);
+            return;
+        }
         menu.appendChild(dmEl('div', 'dc-menu-sep'));
         if (misAmigosConfirmados.includes(partner.uid)) {
             dmMenuItem(menu, '❌ ' + dmT('dm_remove_friend', 'Eliminar amigo'), null, () => window.removeFriend(partner.uid, partner.name), true);
@@ -1418,6 +1429,8 @@ function dmBuildChatRow(chat, activeUid, viewingNow) {
             const archived = window.isChatArchived(chat.uid);
             dmMenuItem(menu, archived ? dmT('dm_unarchive', 'Desarchivar chat') : dmT('dm_archive', 'Archivar chat'), archived ? DM_ICONS.unarchive : DM_ICONS.archive, () => window.toggleChatArchive(chat.uid));
             dmMenuItem(menu, muted ? dmT('dm_unmute', 'Activar notificaciones') : dmT('dm_mute', 'Silenciar chat'), muted ? DM_ICONS.bell : DM_ICONS.bellOff, () => window.toggleChatMute(chat.uid));
+            menu.appendChild(dmEl('div', 'dc-menu-sep'));
+            dmMenuItem(menu, dmT('dm_delete_chat', 'Delete chat'), DM_ICONS.trash, () => window.dmDeleteChat(chat.uid, chat.name), true);
         });
     });
 
@@ -1516,6 +1529,8 @@ window.renderChatList = function(container) {
                     const info = window.resolveChatInfo(uid, rec, friends[uid]);
                     return { uid, ...rec, name: info.name, pfp: info.pfp, isOnline: info.online, isFriend: (uid in friends) };
                 })
+                // 🗑 un chat borrado no sale hasta que llegue un mensaje nuevo
+                .filter(c => !(c.cleared && !(Number(c.timestamp) > Number(c.clearedAt || 0))))
                 // Un registro vacío (sin mensajes, sin ser amigo, sin nombre conocido) no aporta nada
                 .filter(c => c.isGroup || c.lastMsg || c.isFriend || window.isRealName(c.name))
                 .sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0));
@@ -1582,7 +1597,7 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp) {
     const placeholder = $dm('full-chat-placeholder');
     const activeChat = $dm('full-chat-active');
     if (placeholder) placeholder.style.display = 'none';
-    if (activeChat) activeChat.style.display = 'flex';
+    if (activeChat) { activeChat.style.display = 'flex'; activeChat.classList.toggle('is-group', isGroup); }
 
     // Borrador: el texto a medias se queda con SU chat
     const input = $dm('full-dm-input');
@@ -1602,13 +1617,16 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp) {
     dmState.rows.clear();
     dmState.hasMore = false;
     dmState.firstUnreadKey = null;
+    dmState.clearedKey = null;
+    dmPinsReset(newChatId, token);
+    dmGroupDetailClose();
 
     if (changed && input) { input.value = dmDrafts[newChatId] || ''; dmAutoResize(input); dmUpdateSendBtn(); }
 
     // Cabecera
     const headerName = $dm('full-chat-header-name');
     const headerPfp = $dm('full-chat-header-pfp');
-    if (headerName) headerName.textContent = otherName;
+    if (headerName) { headerName.textContent = otherName; headerName.title = isGroup ? dmT('grp_info', 'Group info') : ''; }
     if (headerPfp) { headerPfp.onerror = () => { headerPfp.onerror = null; headerPfp.src = MP_DEFAULT_PFP; }; headerPfp.src = dmSafePfp(otherPfp); }
     const st = $dm('chat-header-status-text');
     if (st) { st.textContent = dmT('dm_loading', 'Cargando…'); st.classList.remove('is-online'); }
@@ -1652,7 +1670,7 @@ window.openPrivateChat = function(otherUid, otherName, otherPfp) {
     // Cuántos mensajes sin leer hay (para mostrar todos los nuevos aunque sean más de 6)
     const myChatRef = database.ref('user_chats/' + myUID + '/' + otherUid);
     myChatRef.once('value').then(
-        snap => { if (token === dmState.token) dmLoadInitial(token, snap.exists() ? Number(snap.val().unreadCount) || 0 : 0); },
+        snap => { if (token !== dmState.token) return; const v = snap.exists() ? (snap.val() || {}) : {}; dmState.clearedKey = v.clearedKey ? String(v.clearedKey) : null; dmLoadInitial(token, Number(v.unreadCount) || 0); },
         () => { if (token === dmState.token) dmLoadInitial(token, 0); }
     );
 
@@ -1881,3 +1899,225 @@ document.addEventListener('click', (e) => {
     e.stopPropagation();
     if (window.mbwGroupPickPfp) window.mbwGroupPickPfp(currentChatPartner.uid);
 }, true);
+
+// ==========================================
+// 📌 BARRA DE MENSAJES FIJADOS (arriba de la conversación, como en WhatsApp)
+// Clic en la barra: te lleva al mensaje fijado (y la próxima vez al siguiente). "☰": la lista de todos.
+// ==========================================
+const dmPins = { chatId: null, map: new Map(), idx: 0 };
+function dmPinsReset(chatId, token) {
+    dmPins.chatId = chatId; dmPins.map = new Map(); dmPins.idx = 0;
+    dmPinsPaint();
+    if (!chatId || !window.mbwPinnedList) return;
+    window.mbwPinnedList(chatId).then(items => {
+        if (token !== dmState.token || dmPins.chatId !== chatId) return;
+        items.forEach(it => { if (!(dmState.clearedKey && it.key <= dmState.clearedKey)) dmPins.map.set(it.key, it.msg); });
+        dmPinsPaint();
+    }).catch(() => { /* nada */ });
+}
+function dmPinsNote(key, msg) {
+    if (!dmPins.chatId || dmPins.chatId !== dmState.chatId) return;
+    const had = dmPins.map.has(key), on = !!(msg && msg.pinned && !msg.isDeleted);
+    if (on) dmPins.map.set(key, msg); else if (had) dmPins.map.delete(key); else return;
+    if (on && !had) dmPins.idx = 0;
+    dmPinsPaint();
+}
+function dmPinsList() {
+    return Array.from(dmPins.map, ([key, msg]) => ({ key, msg })).sort((a, b) => (Number(b.msg.pinnedAt) || 0) - (Number(a.msg.pinnedAt) || 0));
+}
+function dmPinsPaint() {
+    const chat = $dm('full-chat-active');
+    if (!chat) return;
+    let bar = $dm('dc-pinned-bar');
+    const list = dmPinsList();
+    if (!list.length) { if (bar) bar.hidden = true; return; }
+    if (!bar) {
+        bar = dmEl('div', 'dc-pinned-bar'); bar.id = 'dc-pinned-bar';
+        const ico = document.createElement('span'); ico.className = 'dc-pinned-ico'; ico.innerHTML = DM_ICONS.pin; bar.appendChild(ico);
+        const body = dmEl('div', 'dc-pinned-body');
+        body.appendChild(dmEl('div', 'dc-pinned-title'));
+        body.appendChild(dmEl('div', 'dc-pinned-text'));
+        bar.appendChild(body);
+        const all = dmEl('button', 'dc-pinned-all', '☰'); all.type = 'button';
+        all.addEventListener('click', (e) => { e.stopPropagation(); if (window.mbwShowPinned && currentChatId) window.mbwShowPinned(currentChatId, all, (k) => dmJumpToLoad(k)); });
+        bar.appendChild(all);
+        bar.addEventListener('click', () => {
+            const l = dmPinsList(); if (!l.length) return;
+            const it = l[dmPins.idx % l.length];
+            dmJumpToLoad(it.key);
+            dmPins.idx = (dmPins.idx + 1) % l.length;
+            dmPinsPaint();
+        });
+        const head = chat.querySelector('.dc-chat-header');
+        if (head && head.nextSibling) chat.insertBefore(bar, head.nextSibling); else chat.appendChild(bar);
+    }
+    bar.hidden = false;
+    const it = list[dmPins.idx % list.length];
+    bar.querySelector('.dc-pinned-all').title = dmT('dm_pinned', 'Pinned messages');
+    bar.querySelector('.dc-pinned-title').textContent = dmT('dm_pinned', 'Pinned messages') + (list.length > 1 ? ' · ' + ((dmPins.idx % list.length) + 1) + '/' + list.length : '');
+    const m = it.msg || {};
+    const txt = m.system && window.mbwSystemText ? window.mbwSystemText(m) : String(m.text || '');
+    bar.querySelector('.dc-pinned-text').textContent = (m.senderName && !m.system ? m.senderName + ': ' : '') + txt.replace(/\s+/g, ' ').slice(0, 160);
+}
+// Ir a un mensaje aunque todavía no esté cargado (carga los anteriores hasta encontrarlo)
+function dmJumpToLoad(key) {
+    const token = dmState.token;
+    let tries = 0;
+    const step = () => {
+        if (token !== dmState.token) return;
+        const row = dmState.rows.get(key);
+        if (row && row.isConnected) { dmJumpTo(key); return; }
+        if (++tries > 60 || (!dmState.hasMore && !dmState.loadingOlder)) return;
+        if (!dmState.loadingOlder) dmLoadOlder();
+        setTimeout(step, 250);
+    };
+    step();
+}
+
+// ==========================================
+// 🗑 BORRAR UN CHAT (solo para ti): sale de tu lista y sus mensajes de antes ya no se te muestran.
+// La otra persona (o el grupo) sigue viendo todo. Si llega un mensaje nuevo, el chat vuelve a aparecer, ya vacío.
+// ==========================================
+function dmCloseOpenChat() {
+    window.closeDmListeners();
+    if (typeof resetChatComposer === 'function') resetChatComposer();
+    currentChatPartner = null;
+    currentChatId = null;
+    dmState.chatId = null;
+    dmPinsReset(null);
+    dmGroupDetailClose();
+    const placeholder = $dm('full-chat-placeholder'), activeChat = $dm('full-chat-active');
+    if (activeChat) activeChat.style.display = 'none';
+    if (placeholder) placeholder.style.display = '';
+}
+window.dmDeleteChat = async function(uid, name) {
+    const myUID = dmMyUid();
+    if (!myUID || !uid) return false;
+    if (!confirm(dmT('dm_delete_chat_confirm', 'Delete the chat with "{name}"? Its messages are removed only for you.').replace('{name}', name || '?'))) return false;
+    const isGroup = !!(window.mbwIsGroup && window.mbwIsGroup(uid));
+    const chatId = isGroup ? uid : dmChatIdOf(myUID, uid);
+    try {
+        const last = await database.ref('private_chats/' + chatId).orderByKey().limitToLast(1).once('value');
+        let lastKey = '';
+        last.forEach(c => { lastKey = c.key; });
+        const recSnap = await database.ref('user_chats/' + myUID + '/' + uid).once('value');
+        const rec = recSnap.val() || {};
+        await database.ref('user_chats/' + myUID + '/' + uid).update({ cleared: true, clearedAt: Number(rec.timestamp) || 0, clearedKey: lastKey || null, lastMsg: '', unreadCount: 0 });
+    } catch (e) {
+        console.warn('delete chat', e);
+        if (typeof window.mpToast === 'function') window.mpToast('🗑', dmT('dm_delete_chat_fail', 'The chat could not be deleted.'));
+        return false;
+    }
+    if (currentChatPartner && currentChatPartner.uid === uid) dmCloseOpenChat();
+    const list = $dm('full-chat-list-container');
+    if (list) window.renderChatList(list);
+    if (typeof window.mpToast === 'function') window.mpToast('🗑 ' + dmT('dm_chat_deleted', 'Chat deleted'), name || '');
+    return true;
+};
+window.dmLeaveGroup = async function(gid, name) {
+    if (!window.mbwGroupLeave) return false;
+    if (!confirm(dmT('grp_leave_confirm', 'Leave the group "{name}"? You will stop receiving its messages.').replace('{name}', name || '?'))) return false;
+    const ok = await window.mbwGroupLeave(gid);
+    if (!ok) return false;
+    if (currentChatPartner && currentChatPartner.uid === gid) dmCloseOpenChat();
+    const list = $dm('full-chat-list-container');
+    if (list) window.renderChatList(list);
+    if (typeof window.mpToast === 'function') window.mpToast('🚪 ' + dmT('grp_left_toast', 'You left the group'), name || '');
+    return true;
+};
+
+// ==========================================
+// 👥 DETALLES DEL GRUPO (clic en el nombre del grupo): foto, nombre, miembros, salir del grupo
+// ==========================================
+function dmGroupDetailClose() { const g = $dm('dc-group-detail'); if (g) g.remove(); }
+window.dmOpenGroupDetail = function(gid) {
+    const chat = $dm('full-chat-active');
+    if (!chat || !window.mbwIsGroup || !window.mbwIsGroup(gid)) return;
+    dmGroupDetailClose();
+    const myUID = dmMyUid();
+    const panel = dmEl('div', 'dc-gd'); panel.id = 'dc-group-detail';
+    const top = dmEl('div', 'dc-gd-top');
+    const back = dmEl('button', 'dc-gd-back', '←'); back.type = 'button'; back.title = dmT('dm_back', 'Back');
+    back.addEventListener('click', dmGroupDetailClose);
+    top.appendChild(back);
+    top.appendChild(dmEl('div', 'dc-gd-top-title', dmT('grp_info', 'Group info')));
+    panel.appendChild(top);
+
+    const scroll = dmEl('div', 'dc-gd-scroll');
+    const hero = dmEl('div', 'dc-gd-hero');
+    const pic = dmEl('button', 'dc-gd-pic'); pic.type = 'button'; pic.title = dmT('grp_change_pfp', 'Change group picture');
+    const img = document.createElement('img'); img.alt = ''; img.src = dmSafePfp((currentChatPartner && currentChatPartner.pfp) || window.mbwGroupPfp);
+    img.onerror = () => { img.onerror = null; img.src = window.mbwGroupPfp || MP_DEFAULT_PFP; };
+    pic.appendChild(img);
+    pic.appendChild(dmEl('span', 'dc-gd-pic-edit', '🖼'));
+    pic.addEventListener('click', () => { if (window.mbwGroupPickPfp) window.mbwGroupPickPfp(gid); });
+    hero.appendChild(pic);
+    const nm = dmEl('h2', 'dc-gd-name', (currentChatPartner && currentChatPartner.name) || dmT('grp_world', 'World group'));
+    hero.appendChild(nm);
+    const sub = dmEl('div', 'dc-gd-sub', dmT('dm_loading', 'Cargando…'));
+    hero.appendChild(sub);
+    scroll.appendChild(hero);
+
+    const pins = dmEl('button', 'dc-gd-row dc-gd-pins'); pins.type = 'button';
+    const pi = document.createElement('span'); pi.className = 'dc-gd-row-ico'; pi.innerHTML = DM_ICONS.pin; pins.appendChild(pi);
+    pins.appendChild(dmEl('span', 'dc-gd-row-label', dmT('dm_pinned', 'Pinned messages')));
+    pins.appendChild(dmEl('span', 'dc-gd-row-count', String(dmPins.map.size)));
+    pins.addEventListener('click', () => { if (window.mbwShowPinned) window.mbwShowPinned(gid, pins, (k) => { dmGroupDetailClose(); dmJumpToLoad(k); }); });
+    scroll.appendChild(pins);
+
+    const memHead = dmEl('div', 'dc-gd-sec', '');
+    scroll.appendChild(memHead);
+    const memList = dmEl('div', 'dc-gd-members');
+    scroll.appendChild(memList);
+
+    const actions = dmEl('div', 'dc-gd-actions');
+    const leave = dmEl('button', 'dc-gd-danger'); leave.type = 'button';
+    leave.appendChild(dmEl('span', null, '🚪')); leave.appendChild(dmEl('span', null, dmT('grp_leave', 'Leave group')));
+    leave.addEventListener('click', () => window.dmLeaveGroup(gid, nm.textContent));
+    const del = dmEl('button', 'dc-gd-danger'); del.type = 'button';
+    const di = document.createElement('span'); di.className = 'dc-gd-row-ico'; di.innerHTML = DM_ICONS.trash; del.appendChild(di);
+    del.appendChild(dmEl('span', null, dmT('dm_delete_chat', 'Delete chat')));
+    del.addEventListener('click', () => window.dmDeleteChat(gid, nm.textContent));
+    actions.appendChild(leave); actions.appendChild(del);
+    scroll.appendChild(actions);
+    panel.appendChild(scroll);
+    chat.appendChild(panel);
+
+    // Fotos de los miembros: la de quien está en línea / es tu amigo, o la última con la que escribió en el grupo
+    const pfpBy = {};
+    dmState.msgs.forEach(e => { if (e.msg && e.msg.sender && e.msg.senderPfp) pfpBy[e.msg.sender] = e.msg.senderPfp; });
+    const info = window.mbwGroupInfo ? window.mbwGroupInfo(gid) : Promise.resolve(null);
+    info.then(g => {
+        if (!panel.isConnected) return;
+        g = g || {};
+        if (g.name) nm.textContent = g.name;
+        if (window.mbwGroupPfpOk && window.mbwGroupPfpOk(g.pfp)) img.src = g.pfp;
+        const mem = g.members || {};
+        const uids = Object.keys(mem).sort((a, b) => (a === myUID ? -1 : b === myUID ? 1 : (a === g.owner ? -1 : b === g.owner ? 1 : String(mem[a]).localeCompare(String(mem[b])))));
+        const n = uids.length;
+        sub.textContent = dmT('grp_group', 'Group') + ' · ' + n + ' ' + (n === 1 ? dmT('dm_member', 'member') : dmT('dm_members', 'members'));
+        memHead.textContent = n + ' ' + (n === 1 ? dmT('dm_member', 'member') : dmT('dm_members', 'members'));
+        memList.textContent = '';
+        uids.forEach(u => {
+            const isMe = u === myUID;
+            const r = window.resolveChatInfo ? window.resolveChatInfo(u, { name: mem[u], pfp: pfpBy[u] }) : { name: mem[u], pfp: pfpBy[u], online: false };
+            const row = dmEl(isMe ? 'div' : 'button', 'dc-gd-member' + (isMe ? '' : ' is-link'));
+            if (!isMe) { row.type = 'button'; row.title = dmT('grp_msg_member', 'Send a private message'); }
+            const av = dmEl('div', 'dc-chat-avatar');
+            av.appendChild(dmAvatar(isMe ? localStorage.getItem('mbw_profile_pic') : r.pfp, 'dc-avatar-sm'));
+            av.appendChild(dmEl('span', 'dc-status-dot' + (r.online || isMe ? ' is-online' : '')));
+            row.appendChild(av);
+            row.appendChild(dmEl('span', 'dc-gd-member-name', isMe ? dmT('grp_you', 'You') : (window.isRealName && window.isRealName(r.name) ? r.name : String(mem[u] || '?'))));
+            if (u === g.owner) row.appendChild(dmEl('span', 'dc-gd-badge', dmT('grp_creator', 'Creator')));
+            if (!isMe) row.addEventListener('click', () => { dmGroupDetailClose(); window.openPrivateChat(u, String(mem[u] || ''), r.pfp); });
+            memList.appendChild(row);
+        });
+        if (!mem[myUID]) leave.hidden = true;
+    }).catch(() => { sub.textContent = ''; });
+};
+// Clic en el nombre (o la foto) de la cabecera de un grupo → los detalles
+document.addEventListener('click', (e) => {
+    const t = e.target;
+    if (!t || !t.closest || !t.closest('#full-chat-active .dc-chat-header') || !t.closest('#full-chat-header-name, .dc-header-avatar')) return;
+    if (dmIsGroupChat()) window.dmOpenGroupDetail(currentChatPartner.uid);
+});

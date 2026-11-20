@@ -89,6 +89,7 @@
             case 'created': return '📅 ' + T('grp_created', 'Group of the world "{world}" created on {date}', { world: dd.world || '?', date: when(msg.timestamp) });
             case 'joined': return '→ ' + T('grp_joined', '{name} joined the world', { name: dd.name || '?' });
             case 'left': return '← ' + T('grp_left', '{name} disconnected from the world', { name: dd.name || '?' });
+            case 'leftgrp': return '🚪 ' + T('grp_left_group', '{name} left the group', { name: dd.name || '?' });
             case 'pfp': return '🖼 ' + T('grp_pfp_changed', '{name} changed the group picture', { name: dd.name || '?' });
             case 'last': return '🔚 ' + T('grp_last', '{name} was the last one to disconnect: they have the most recent version of the world', { name: dd.name || '?' });
             default: return String(msg && msg.text || '');
@@ -130,14 +131,19 @@
         ensureWorldGroup().then(function (gid) {
             if (!gid) return;
             const d = db();
-            return d.ref(window.mbwGroupRef(gid) + '/members/' + uid).once('value').then(function (s) {
+            return d.ref(window.mbwGroupRef(gid) + '/left/' + uid).once('value').then(function (l) {
+                if (l.exists()) return 'left';                     // 🚪 salió del grupo: no se le vuelve a meter
+                return d.ref(window.mbwGroupRef(gid) + '/members/' + uid).once('value');
+            }).then(function (s) {
+                if (s === 'left') return 'left';
                 const isNew = !s.exists();
                 return d.ref(window.mbwGroupRef(gid) + '/members/' + uid).set(String(name || 'Player')).then(function () {
                     delete memberCache[gid];
                     if (isNew) systemMsg(gid, 'joined', { name: String(name || 'Player') }, String(name || 'Player') + ' joined');
                     else return groupInfo(gid).then(function (g) { d.ref('user_chats/' + uid + '/' + gid).update({ isGroup: true, name: (g && g.name) || 'Group', pfp: GROUP_PFP }); });
                 });
-            }).then(function () {
+            }).then(function (r) {
+                if (r === 'left') return;
                 pinBubble(gid);
                 if (typeof enviarMensajeEnRed === 'function') { try { enviarMensajeEnRed({ tipo: 'grupo_mundo', gid: gid }); } catch (e) { /* nada */ } }
             });
@@ -177,8 +183,10 @@
     };
     // 🫧 la burbuja fija del grupo del mundo (mientras estás en la sala)
     let pinnedGid = null;
+    function leftGroups() { try { const m = JSON.parse(localStorage.getItem('mbw_left_groups') || '{}'); return m && typeof m === 'object' ? m : {}; } catch (e) { return {}; } }
+    window.mbwGroupLeftLocally = function (gid) { return !!leftGroups()[gid]; };
     function pinBubble(gid) {
-        if (!window.mbwChatHead || !gid) return;
+        if (!window.mbwChatHead || !gid || leftGroups()[gid]) return;
         pinnedGid = gid;
         groupInfo(gid).then(function (g) { window.mbwChatHead.pin(gid, (g && g.name) || T('grp_world', 'World group'), okPfp(g && g.pfp) ? g.pfp : GROUP_PFP, true); });
     }
@@ -188,6 +196,22 @@
     window.mbwWorldGroupId = function () { return pinnedGid; };
     // al salir de la sala, la burbuja fija se quita
     setInterval(function () { try { if (pinnedGid && !(typeof isMultiplayer !== 'undefined' && isMultiplayer)) unpinBubble(); } catch (e) { /* nada */ } }, 2000);
+
+    // 🚪 salir de un grupo: ya no eres miembro, no te llegan sus mensajes y el chat sale de tu lista.
+    //    (al volver a entrar al mundo no te vuelven a meter: queda anotado en el grupo, en "left")
+    window.mbwGroupLeave = function (gid) {
+        const d = db(), uid = me(); if (!d || !uid || !window.mbwIsGroup(gid)) return Promise.resolve(false);
+        const base = window.mbwGroupRef(gid);
+        return d.ref(base + '/members/' + uid).remove().then(function () {
+            delete memberCache[gid];
+            return d.ref(base + '/left/' + uid).set(TS()).catch(function () { /* nada */ });
+        }).then(function () {
+            systemMsg(gid, 'leftgrp', { name: myName() }, myName() + ' left');
+            try { const m = leftGroups(); m[gid] = Date.now(); localStorage.setItem('mbw_left_groups', JSON.stringify(m)); } catch (e) { /* nada */ }
+            if (pinnedGid === gid) unpinBubble();
+            return d.ref('user_chats/' + uid + '/' + gid).remove().catch(function () { /* nada */ });
+        }).then(function () { return true; });
+    };
 
     // ------------------------------------------------------------------ 📌 fijar mensajes
     window.mbwPinToggle = function (chatId, key, on) {
