@@ -4028,6 +4028,7 @@ body.is-touch #mbw-play-hud .ph-ptab { top: 66px; font-size: 12px; min-width: 12
 .srv-go-open { background: #e67e22; } .srv-go-open:hover { background: #d35400; }
 .srv-go-joined { background: #3498db; cursor: not-allowed; }
 .srv-go-full { background: #7f8c8d; cursor: not-allowed; }
+.srv-go-closed { background: #5d6d7e; cursor: not-allowed; font-size: 20px; }
 @container (max-width: 340px) { .srv-go { min-width: 0; padding: 7px 12px; } .srv-icon { width: 32px; } }
 @container (max-width: 520px) {
     .srv-card { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "thumb info" "actions actions"; }
@@ -4063,3 +4064,8 @@ body.mp-compact .srv-card { padding: 8px 10px; }
 body.mp-compact .srv-name { font-size: 22px; }
 body.mp-compact .srv-sub { font-size: 15px; }
 body.mp-compact .srv-desc { font-size: 14px; }
+
+/* ⭐ panel de marcadores: botón de flechas y la lista de los demás (anfitrión) */
+.ph-mk-arrows { margin-left: auto; margin-right: 6px; background: rgba(255,255,255,.08); color: #ddd; border: 1px solid rgba(255,255,255,.25); border-radius: 6px; padding: 2px 8px; font-size: 12px; cursor: pointer; }
+.ph-mk-arrows.is-on { color: #ffd54a; border-color: rgba(255,213,74,.6); }
+.ph-mk-sub { margin-top: 8px; font-size: 13px; opacity: .9; }

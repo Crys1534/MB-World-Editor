@@ -303,6 +303,10 @@ prepareData: function(opts) {
         });
     }
 
+    // 🎮 jugando (el guardado en línea de un servidor, cada minuto) NO se copian los cuadros de "World settings" al mundo:
+    //    antes cada minuto se volvía al modo de juego, la vida, la comida, la hora, el clima y las reglas del cuadro
+    //    (por eso el modo creativo pasaba a supervivencia solo). Jugando, lo que vale es lo que pasa en el juego.
+    if (!window.mbwPlaying) {
     const gamemodeEl = document.getElementById("gamemode");
     const cheatsEl = document.getElementById("cheats");
     
@@ -366,6 +370,7 @@ prepareData: function(opts) {
             const index = parseInt(cb.getAttribute('data-index'));
             if (!isNaN(index)) mbwom.setAchievement(cb.checked, index);
         });
+    }
     }
 
     const filenameInput = document.getElementById("filename-display");
@@ -1438,4 +1443,60 @@ window.importBackupFiles = async function(event) {
         event.target.value = "";
         alert(tmsg('msg_import_error', "Ocurrió un error al intentar importar los archivos."));
     }
+};
+
+// 🔁 los cuadros de "World settings" (modo de juego, vida, hora, reglas...) vuelven a mostrar lo que tiene el mundo
+//    (al salir de jugar: si no, el siguiente guardado pondría otra vez lo viejo del cuadro)
+window.mbwFormFromWorld = function () {
+   if (typeof mbwom === 'undefined' || !mbwom.world) return;
+   const gamemodeEl = document.getElementById("gamemode");
+   const cheatsEl = document.getElementById("cheats");
+   
+   if (gamemodeEl) {
+       if (mbwom.world.gamemode !== undefined) gamemodeEl.value = mbwom.world.gamemode;
+       else if (mbwom.world.creative) gamemodeEl.value = "1";
+       else gamemodeEl.value = "0";
+   }
+   if (cheatsEl) cheatsEl.checked = mbwom.world.cheats;
+
+   const diffEl = document.getElementById("gr-difficulty");
+   if (diffEl && mbwom.world.difficulty) {
+       const diffMap = { "peaceful": "0", "easy": "1", "normal": "2", "hard": "3" };
+       diffEl.value = diffMap[mbwom.world.difficulty] || "2";
+   }
+   
+   if (mbwom.world.gameRules) {
+       const keepInvEl = document.getElementById("gr-keepinventory");
+       const daylightEl = document.getElementById("gr-dodaylightcycle");
+       const fireTickEl = document.getElementById("gr-dofiretick");
+       const mobLootEl = document.getElementById("gr-domobloot");
+       const mobGriefingEl = document.getElementById("gr-mobgriefing");
+
+       if (keepInvEl) keepInvEl.checked = mbwom.world.gameRules.keepinventory || false;
+       if (daylightEl) daylightEl.checked = mbwom.world.gameRules.dodaylightcycle !== false;
+       if (fireTickEl) fireTickEl.checked = mbwom.world.gameRules.dofiretick !== false;
+       if (mobLootEl) mobLootEl.checked = mbwom.world.gameRules.domobloot !== false;
+       if (mobGriefingEl) mobGriefingEl.checked = mbwom.world.gameRules.mobgriefing !== false;
+   }
+   {
+       // (reglas que el editor no mostraba: si el mundo no las trae, valen lo mismo que en el juego: sí)
+       const gr = mbwom.world.gameRules || {};
+       const pmEl = document.getElementById("gr-passivemobs"), cfEl = document.getElementById("gr-sendcommandfeedback");
+       if (pmEl) pmEl.checked = gr.passivemobs !== false;
+       if (cfEl) cfEl.checked = gr.sendcommandfeedback !== false;
+   }
+   
+   const healthEl = document.getElementById("player-health");
+   const hungerEl = document.getElementById("player-hunger"); 
+   const xpEl = document.getElementById("player-xp");
+   const timeEl = document.getElementById("gr-time");
+   const weatherEl = document.getElementById("gr-weather");
+   const dayEl = document.getElementById("gr-day"); 
+
+   if (healthEl && mbwom.world.health !== undefined) healthEl.value = mbwom.world.health;
+   if (hungerEl && mbwom.world.food !== undefined) hungerEl.value = mbwom.world.food; 
+   if (xpEl && mbwom.world.experience !== undefined) xpEl.value = Math.floor(mbwom.world.experience / 100);
+   if (timeEl && mbwom.world.tim !== undefined) timeEl.value = mbwom.world.tim;
+   if (weatherEl && mbwom.world.raining !== undefined) weatherEl.value = mbwom.world.raining > 0 ? "rain" : "clear";
+   if (dayEl && mbwom.world.day !== undefined) dayEl.value = mbwom.world.day;
 };

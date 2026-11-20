@@ -94,13 +94,19 @@
     // 🎮 invitado en una partida: lo que pasa SOLO en el mundo (agua que corre, hornos) lo hace el anfitrión y le llega por la red
     const mpGuest = () => !!(S.mp && window.mbwMpPlay && window.mbwMpPlay.role === 'guest');
     const mpHost = () => !!(S.mp && window.mbwMpPlay && window.mbwMpPlay.role === 'host');
+    // 🌍 ¿yo muevo el mundo de esta dimensión? El que lleva la partida, en la suya; en una dimensión donde él NO está (el Nether,
+    //    el End...), el jugador que esté ahí con el número de conexión más chico (scripts/mp-play.js: sceneLead). Antes, si el
+    //    anfitrión no estaba en tu dimensión, ahí todo se quedaba congelado (mobs, agua, lava, fuego, redstone, objetos tirados).
+    const mpLead = () => !!(S.mp && window.mbwMpPlay && window.mbwMpPlay.role === 'guest' && typeof window.mbwMpPlay.sceneLead === 'function' && window.mbwMpPlay.sceneLead());
+    const mpFollow = () => mpGuest() && !mpLead();                   // (solo veo: lo mueve otro)
+    const mpAuth = () => mpHost() || mpLead();                       // (lo muevo yo, y también por los demás jugadores de aquí)
     // 👑 Crystal (los admins de scripts/mp-saved.js): comandos sin restricciones, como el anfitrión
     // 🏠 el anfitrión de la SALA (comandos sin límite). Ojo: la partida la puede llevar otro jugador (el que empezó a jugar): eso es mpHost()
     const roomHost = () => !!(S.mp && typeof isHost !== 'undefined' && isHost);
     const isAdminMe = () => { try { return !!(window.mbwSavedServers && window.mbwSavedServers.isAdmin && window.mbwSavedServers.isAdmin()); } catch (e) { return false; } };
     const isAdminUid = (u) => { try { return !!(window.mbwSavedServers && window.mbwSavedServers.isAdminUid && window.mbwSavedServers.isAdminUid(u)); } catch (e) { return false; } };
     const myUidNet = () => { try { return localStorage.getItem('mbw_uid') || ''; } catch (e) { return ''; } };
-    const mpSend = (d) => { if (!S.mp || typeof window.enviarMensajeEnRed !== 'function') return; if (!d.peerId && window.mbwMpPlay && window.mbwMpPlay.myId) d.peerId = window.mbwMpPlay.myId(); window.enviarMensajeEnRed(d); };
+    const mpSend = (d) => { if (!S.mp || typeof window.enviarMensajeEnRed !== 'function') return; if (!d.peerId && window.mbwMpPlay && window.mbwMpPlay.myId) d.peerId = window.mbwMpPlay.myId(); if (d.s == null && /^juego_(toma|pega|cria|mob_nuevo|domar)$/.test(d.tipo)) d.s = mbwom.currentScene || 1; window.enviarMensajeEnRed(d); };
     // 🎮 Etapa 2: los OTROS jugadores, para los mobs del anfitrión. Su id para los mobs es 'rp:' + su peerId.
     const RP = 'rp:';
     const isRemoteId = (id) => typeof id === 'string' && id.indexOf(RP) === 0;
@@ -117,7 +123,7 @@
     function nearestPl(m) {
         const w = W(); let best = null, bd2 = Infinity;
         if (w.gamemode != 1 && w.gamemode != 3 && !(w.dead > 0) && !effLv('invisibility')) { best = PLAYER_ID; bd2 = Math.pow(w.worldX - m.x, 2) + Math.pow(w.worldY - m.y, 2); }
-        if (mpHost()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (!r || r.gm == 1) continue; const dd = Math.pow(r.tx - m.x, 2) + Math.pow(r.ty - m.y, 2); if (dd < bd2) { bd2 = dd; best = RP + k; } } }
+        if (mpAuth()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (!r || r.gm == 1) continue; const dd = Math.pow(r.tx - m.x, 2) + Math.pow(r.ty - m.y, 2); if (dd < bd2) { bd2 = dd; best = RP + k; } } }
         return best;
     }
     // golpe a otro jugador (lo manda el anfitrión; el otro se lo quita de su vida)
@@ -344,7 +350,7 @@
             if ((!srv && d.age > 300 * FPS) || d.y > 10) { S.drops.splice(i, 1); continue; }   // (fuera de un servidor: 5 minutos, como el juego)
             if (d.age > (d.pd != null ? d.pd : PICKUP_DELAY) && !(w.dead > 0) && w.gamemode != 3 && Math.abs(d.x - w.worldX) < 1.5 && Math.abs(d.y - (w.worldY - 1)) < 1.5) {
                 // 🎮 invitado: se lo pide al anfitrión (si dos lo tocan a la vez, se lo lleva el primero)
-                if (S.mp && d.nid && mpGuest()) { if (!d.pend || S.tick - d.pend > 75) { d.pend = S.tick; mpSend({ tipo: 'juego_toma', nid: d.nid }); } continue; }
+                if (S.mp && d.nid && mpFollow()) { if (!d.pend || S.tick - d.pend > 75) { d.pend = S.tick; mpSend({ tipo: 'juego_toma', nid: d.nid }); } continue; }
                 const n0 = d.n;
                 const left = addToInventory(d.id, d.n, d.dmg, d.ex);
                 if (left <= 0) S.drops.splice(i, 1); else d.n = left;
@@ -509,7 +515,7 @@
     }
     function tickLiquids() {
         if (S.tick % LIQ_EVERY !== 0) return;
-        if (mpGuest()) return;
+        if (mpFollow()) return;
         const w = W(), sc = mbwom.scene; if (!sc) return;
         // alrededor del Player (en multijugador, el anfitrión también alrededor de cada jugador que está en esta dimensión)
         const centers = [Math.floor(w.worldX)];
@@ -539,7 +545,7 @@
         sndAt('boom', b + .5, -(a + .5));
         // 🎮 los demás también la sienten (cada quien se quita su vida; los mobs los lastima el anfitrión)
         if (S.mp && !fromNet) mpSend({ tipo: 'juego_boom', x: b, y: a, c: c, s: mbwom.currentScene || 1 });
-        if (!mpGuest()) for (const id in mbwom.mobs) {
+        if (!mpFollow()) for (const id in mbwom.mobs) {
             const m = mbwom.mobs[id];
             if (!m || !(m.health > 0) || m.dead > 0) continue;
             if (Math.abs(m.x - (b + .5)) < c && Math.abs(-m.y - (a + .5)) < c) hurtMob(id, 4 * Math.max(0, c - Math.hypot(m.x - (b + .5), -m.y - (a + .5))) | 0, 'explosion', byId);
@@ -563,7 +569,7 @@
     function netBoom(b, a, c, by) {
         const w = W();
         sndAt('boom', b + .5, -(a + .5));
-        if (!mpGuest()) for (const id in mbwom.mobs) {
+        if (!mpFollow()) for (const id in mbwom.mobs) {
             const m = mbwom.mobs[id];
             if (!m || !(m.health > 0) || m.dead > 0) continue;
             if (Math.abs(m.x - (b + .5)) < c && Math.abs(-m.y - (a + .5)) < c) hurtMob(id, 4 * Math.max(0, c - Math.hypot(m.x - (b + .5), -m.y - (a + .5))) | 0, 'explosion', by);
@@ -968,7 +974,7 @@
     // gasta (carbón = 80 vueltas, madera = 15...), y cada 10 vueltas con fuego sale 1 objeto (≈ 10 s). La cubeta de lava deja la
     // cubeta vacía. Si la salida está llena (64) o es otra cosa, se detiene. Meter TNT al horno... explota.
     function tickFurnaces() {
-        if (mpGuest()) return;
+        if (mpFollow()) return;
         const T = mbwom.toSmelt;
         if (!T || typeof T !== 'object') return;
         const nil = () => ['air', 0, 0, {}];
@@ -1174,11 +1180,11 @@
         let near = true, busy = false;
         if (isAggro(m)) {
             if (m.target == null) {
-                if (!mpHost()) { if (w.gamemode != 1 && w.gamemode != 3) m.focus = m.target = PLAYER_ID; }
+                if (!mpAuth()) { if (w.gamemode != 1 && w.gamemode != 3) m.focus = m.target = PLAYER_ID; }
                 else { const np = nearestPl(m); if (np) m.focus = m.target = np; }             // 🎮 el jugador más cercano
             } else {
                 // 🎮 si persigue a un jugador y otro le queda mucho más cerca, a veces se cambia (si no está enojado con el primero)
-                if (mpHost() && isPl(m.target) && !(m.aggressiveness > 0) && Math.random() < 1 / FPS) {
+                if (mpAuth() && isPl(m.target) && !(m.aggressiveness > 0) && Math.random() < 1 / FPS) {
                     const np = nearestPl(m), a1 = plPos(m.target), a2 = np && plPos(np);
                     if (np && np !== m.target && a1 && a2 && Math.hypot(a2.x - m.x, a2.y - m.y) + 3 < Math.hypot(a1.x - m.x, a1.y - m.y)) m.target = np;
                 }
@@ -1187,7 +1193,7 @@
         } else {
             if ((m.breedTimer > 0 || m.babyTimer > 0) && breedFocus(id, m)) busy = true;             // 🐣 busca pareja / sigue a sus papás
             else if (a.followItems && a.followItems[selType()] && w.gamemode != 3 && Math.pow(w.worldX - m.x, 2) + Math.pow(w.worldY - m.y, 2) < 49) { m.focus = PLAYER_ID; busy = true; }
-            else if (a.followItems && mpHost()) {                         // 🎮 también siguen a otro jugador con su comida en la mano
+            else if (a.followItems && mpAuth()) {                         // 🎮 también siguen a otro jugador con su comida en la mano
                 const R = window.mbwMpPlay.remotes;
                 for (const k in R) { const r = remoteOf(RP + k); if (r && r.it && a.followItems[r.it] && Math.pow(r.tx - m.x, 2) + Math.pow(r.ty - m.y, 2) < 49) { m.focus = RP + k; busy = true; break; } }
             }
@@ -1273,9 +1279,9 @@
         let ka = KILL_ACH[m.type];
         if (m.type === 'cow' && m.variant) ka = 13;
         if (m.type === 'chicken' && d.onFire > 0) ka = 22;
-        if (ka != null) { if (m.lastDamageID === PLAYER_ID) ach(ka); else if (mpHost() && isRemoteId(m.lastDamageID)) mpSend({ tipo: 'juego_logro_dar', a: m.lastDamageID.slice(RP.length), i: ka }); }
+        if (ka != null) { if (m.lastDamageID === PLAYER_ID) ach(ka); else if (mpAuth() && isRemoteId(m.lastDamageID)) mpSend({ tipo: 'juego_logro_dar', a: m.lastDamageID.slice(RP.length), i: ka }); }
         // 🎮 si lo mató otro jugador, la experiencia le sale a ÉL, en su pantalla (lo que suelta cae al suelo y lo ven todos)
-        const lootTo = (mpHost() && isRemoteId(m.lastDamageID)) ? m.lastDamageID.slice(RP.length) : null;
+        const lootTo = (mpAuth() && isRemoteId(m.lastDamageID)) ? m.lastDamageID.slice(RP.length) : null;
         if (lootTo) S.lootTo = [];
         try { killMobLoot(id, m, a, d, !!lootTo); } finally {
             if (lootTo) { const l = S.lootTo; S.lootTo = null; if (l.length) mpSend({ tipo: 'juego_botin', a: lootTo, l: l }); }
@@ -1386,7 +1392,7 @@
         m.health = maxHealth(m);
         mbwom.mobs[id] = m;
         // 🎮 invitado: el mob lo crea el anfitrión (este de aquí dura un instante, para que el que lo pidió pueda ajustarlo, y se quita)
-        if (mpGuest()) setTimeout(function () { const mm = mbwom.mobs[id]; if (!mm) return; delete mbwom.mobs[id]; S.tmp.delete(id); mpSend({ tipo: 'juego_mob_nuevo', m: JSON.parse(JSON.stringify(mm)) }); }, 0);
+        if (mpFollow()) setTimeout(function () { const mm = mbwom.mobs[id]; if (!mm) return; delete mbwom.mobs[id]; S.tmp.delete(id); mpSend({ tipo: 'juego_mob_nuevo', m: JSON.parse(JSON.stringify(mm)) }); }, 0);
         return id;
     }
     function shootArrow(m, target) {
@@ -1407,7 +1413,7 @@
             const dmg = Math.max(1, Math.round(Math.hypot(r.vx, r.vy) / 4));
             const pb = mobBounds(PLAYER_ID);
             if (r.x > pb.l && r.x < pb.r && r.y > pb.t && r.y < pb.b) { S.hitBy = { m: 'skeleton', t: Date.now() }; ouch(1, dmg, 'arrow'); S.arrows.splice(i, 1); continue; }
-            if (mpHost()) {
+            if (mpAuth()) {
                 const R = window.mbwMpPlay.remotes; let hit = null;
                 for (const k in R) { const b = plBounds(RP + k); if (b && r.x > b.l && r.x < b.r && r.y > b.t && r.y < b.b) { hit = RP + k; break; } }
                 if (hit) { hitRemote(hit, dmg, 'arrow'); S.arrows.splice(i, 1); }
@@ -1466,7 +1472,7 @@
             sndAt('firethrow', o.x, o.y);
             const bx = Math.floor(px), by = Math.floor(-py);
             for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) if ((dx === 0 && dy === 0) || Math.random() < .5) { if (canFireExistAt(bx + dx, by + dy)) putFire(bx + dx, by + dy); }
-            if (mobId && !mpGuest()) { tmpOf(mobId).onFire = 8 * FPS; hurtMob(mobId, 2, 'fire', PLAYER_ID); }
+            if (mobId && !mpFollow()) { tmpOf(mobId).onFire = 8 * FPS; hurtMob(mobId, 2, 'fire', PLAYER_ID); }
         } else if (o.kind === 'pearl') {
             // 🟣 llego a donde cayó (un poquito antes del bloque, para no quedar adentro) y me duele un poco
             let tx = px, ty = py;
@@ -1488,7 +1494,7 @@
         let dmg = shotDmg(o);
         if (o.kind === 'snowball') dmg = (m.type === 'snowgolem') ? 0 : (Math.random() < 1 / 3 || m.type === 'blaze' || m.type === 'enderman') ? 1 : 0;
         const kx = (o.vx > 0 ? 1 : -1) * (5 + 5 * (o.punch || 0)), ky = migSpeed(3 + 5 * (o.punch || 0));
-        if (mpGuest()) { mpSend({ tipo: 'juego_pega', id: id, dmg: dmg, kx: kx, ky: ky, loot: 0 }); if (dmg > 0) mobSnd(m, 'hurt'); }
+        if (mpFollow()) { mpSend({ tipo: 'juego_pega', id: id, dmg: dmg, kx: kx, ky: ky, loot: 0 }); if (dmg > 0) mobSnd(m, 'hurt'); }
         else {
             if (o.kind === 'snowball' && m.type === 'snowgolem') m.health = Math.min((Number(m.health) || 0) + 1, 20);
             else if (dmg > 0) hurtMob(id, dmg, 'projectile', PLAYER_ID);
@@ -1624,7 +1630,7 @@
         const C = endCrystals(); d.beam = null;
         if (C) { let best = 30; Object.keys(C).forEach(function (k) { const q = C[k]; if (!Array.isArray(q)) return; const dd = Math.hypot(c.x - q[0] - .5, c.y + q[1] + .5); if (dd <= best) { best = dd; d.beam = k; } }); }
         if (d.beam && c.flyBob % ((80 / 25 * FPS) | 0) === 0) c.health = Math.min(c.health + 1, DRG_HP);
-        if (mpGuest()) return;
+        if (mpFollow()) return;
         // 🧱 rompe lo que toca (en el End)
         const f = Math.floor(c.x), g = Math.floor(-c.y);
         if ((mbwom.currentScene || 1) === 3 && c.flyBob % 3 === 0) {
@@ -1657,7 +1663,7 @@
                 ouch(1, 5, 'attack'); w.xSpeed = (w.worldX > c.x ? 1 : -1) * migSpeed(14); w.ySpeed = migSpeed(8);
             }
         } else c.attackCooldown--;
-        if (mpHost()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const b = plBounds(RP + k); if (b && !(c['hitR' + k] > 0) && intersects(mobBounds(id), b)) { c['hitR' + k] = 40; hitRemote(RP + k, 5, 'attack'); } if (c['hitR' + k] > 0) c['hitR' + k]--; } }
+        if (mpAuth()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const b = plBounds(RP + k); if (b && !(c['hitR' + k] > 0) && intersects(mobBounds(id), b)) { c['hitR' + k] = 40; hitRemote(RP + k, 5, 'attack'); } if (c['hitR' + k] > 0) c['hitR' + k]--; } }
     }
     function dragonDying(id, c) {
         c.dead++;
@@ -1665,15 +1671,15 @@
         if (c.dead < T) {
             c.y -= c.dead < 300 ? .06 : c.dead < 340 ? .035 : c.dead < 360 ? .012 : 0;
             if (Math.random() < .5) addPart({ x: c.x + (Math.random() - .5) * 6, y: -c.y + (Math.random() - .5) * 4, vx: (Math.random() - .5) * .2, vy: (Math.random() - .5) * .2, life: 26, size: .18, col: Math.random() < .5 ? '#ffe6ff' : '#d58cff', glow: true });
-            if (c.dead % 10 === 0 && !mpGuest()) { addDrop('dscl', c.x + 20 * Math.random() - 10, c.y - 1 + 2 * Math.random(), 1); dropXP(c.x, c.y, 20, 0, true); }
+            if (c.dead % 10 === 0 && !mpFollow()) { addDrop('dscl', c.x + 20 * Math.random() - 10, c.y - 1 + 2 * Math.random(), 1); dropXP(c.x, c.y, 20, 0, true); }
             return;
         }
         // ☠ se acabó
-        if (!mpGuest()) {
+        if (!mpFollow()) {
             if (c.official) {
                 const by = c.lastDamageID;
                 if (by === PLAYER_ID || nearMe(c.x, c.y, 80)) ach(36);
-                if (mpHost() && isRemoteId(by)) mpSend({ tipo: 'juego_logro_dar', a: by.slice(RP.length), i: 36 });
+                if (mpAuth() && isRemoteId(by)) mpSend({ tipo: 'juego_logro_dar', a: by.slice(RP.length), i: 36 });
                 exitPortal();
                 flashMsg('🐉 ' + tr('play_dragon_dead', 'The Ender Dragon was defeated!'));
                 say('[INFO] 🐉 ' + tr('play_dragon_dead', 'The Ender Dragon was defeated!'));
@@ -2010,7 +2016,7 @@
                     if (f.big) explode(f.x, -f.y, 2, f.by); else fireballHit(f, null);
                     S.fballs.splice(i, 1); continue;
                 }
-                if (mpHost()) {
+                if (mpAuth()) {
                     const R = window.mbwMpPlay.remotes; let hit = null;
                     for (const k in R) { const b = plBounds(RP + k); if (b && f.x > b.l && f.x < b.r && f.y > b.t && f.y < b.b) { hit = RP + k; break; } }
                     if (hit) { hitRemote(hit, f.big ? 6 : 5, f.big ? 'explosion' : 'fire'); if (f.big) explode(f.x, -f.y, 2, f.by); S.fballs.splice(i, 1); continue; }
@@ -2346,7 +2352,7 @@
     function attackMob(mid) {
         const w = W(), m = mbwom.mobs[mid];
         if (!m) return;
-        if (mpGuest()) {                                               // 🎮 el mob es del anfitrión: le mando el golpe
+        if (mpFollow()) {                                               // 🎮 el mob es del anfitrión: le mando el golpe
             let b = 0, kb = 0, dmg;
             const hs = bd(selType(), 'hitStrength');
             if (hs == null) { if (w.ySpeed < -1) { ++b; kb += 5; } dmg = Math.max(1, 1 + b); }
@@ -2721,9 +2727,10 @@
         // 👑 el anfitrión y Crystal: sin restricciones (también lo que el anfitrión manda hacer a otro jugador: opt.forced)
         const boss = !!opt.forced || roomHost() || isAdminMe();
         // 🎮 en una partida, por defecto SOLO el anfitrión puede usar comandos (él lo puede permitir en su menú de pausa)
-        if (!boss && S.mp && !(window.mbwMpPlay && (mpHost() ? window.mbwMpPlay.allowCmds() : window.mbwMpPlay.guestCmds))) {   /* (también el invitado que empezó la partida) */ say('[INFO] ' + tr('mpplay_cmds_host', 'Only the host can use commands in this game.')); return; }
+        // 📕 un libro de comandos funciona para TODOS (aunque no tengan permiso de usar comandos): lo decide quien lo hizo
+        if (!boss && !opt.book && S.mp && !(window.mbwMpPlay && (mpHost() ? window.mbwMpPlay.allowCmds() : window.mbwMpPlay.guestCmds))) {   /* (también el invitado que empezó la partida) */ say('[INFO] ' + tr('mpplay_cmds_host', 'Only the host can use commands in this game.')); return; }
         // (el anfitrión de una partida siempre puede usar comandos, aunque el mundo los tenga apagados)
-        if (!boss && !cheatsOn()) { say('[INFO] ' + tr('play_cheats_off', 'Commands are disabled in this world. Turn on "Commands" in World Settings (the game would not run them either).')); return; }
+        if (!boss && !opt.book && !cheatsOn()) { say('[INFO] ' + tr('play_cheats_off', 'Commands are disabled in this world. Turn on "Commands" in World Settings (the game would not run them either).')); return; }
         const fb = gameRule('sendcommandfeedback') !== false;
         // (en una partida, lo que dice un comando también les sale a los demás, como en el juego: "[Ana: ...]")
         const info = (t) => { if (!fb) return; say('[INFO] ' + t); if (S.mp) mpSend({ tipo: 'juego_sys', autor: myNameNet(), k: 'cmd', t: String(t).slice(0, 200) }); };
@@ -2895,7 +2902,7 @@
         if (!it || it[0] !== 'cbook') return false;
         const ex = it[3] || {};
         if (typeof ex.command !== 'string' || !ex.command.trim()) { say('[INFO] This Command Book has no command.'); return true; }
-        try { runCommand(ex.command); } catch (e) { say('[INFO] Error: ' + e.message); }
+        try { runCommand(ex.command, { book: true }); } catch (e) { say('[INFO] Error: ' + e.message); }
         if (ex.uses != null && W().gamemode != 1) {
             if (ex.uses > 0) ex.uses -= 1;
             if (ex.uses === 0) inv()[selIndex()] = empty();
@@ -2904,6 +2911,7 @@
         return true;
     }
     window.mbwPlayCommand = runCommand;
+    window.mbwPlay.useCommandBook = useCommandBook;
 
     // ------------------------------------------------------------------ cofres y hornos (abrir)
     const BOX = { chest: 1, oven: 1, dispense: 1, dropper: 1, enchant: 1, craft: 1, brew: 1, anvil: 1, echest: 1 };
@@ -3160,7 +3168,7 @@
     }
     window.mbwPlay.cropStage = cropStage;
     function tickCrops() {
-        if (mpGuest() || S.tick % DAY_TICKS !== 7) return;
+        if (mpFollow() || S.tick % DAY_TICKS !== 7) return;
         const Wh = mbwom.wheat; if (!Wh || typeof Wh !== 'object') return;
         Object.keys(Wh).forEach(function (k) {
             const m = /^blockX(-?\d+)Y(-?\d+)$/.exec(k); if (!m) return;
@@ -3263,7 +3271,7 @@
     }
     // 🌱 los retoños crecen solos (Game: cada ~6 s, 1 entre 70 cada uno; sobre tierra, con 7 de aire arriba). Solo cerca de los jugadores.
     function tickSaplings() {
-        if (mpGuest() || S.tick % ((156 / 25 * FPS) | 0) !== ((45 / 25 * FPS) | 0)) return;
+        if (mpFollow() || S.tick % ((156 / 25 * FPS) | 0) !== ((45 / 25 * FPS) | 0)) return;
         const xs = (S.simX && S.simX.length) ? S.simX : [W().worldX];
         const seen = new Set();
         xs.forEach(function (px) {
@@ -3319,7 +3327,7 @@
     }
     // cada medio segundo: el fuego sin nada que quemar se apaga; con "dofiretick" quema y se pasa a lo que arde junto a él
     function tickFire() {
-        if (mpGuest()) return;
+        if (mpFollow()) return;
         if (S.tick % 100 === 11) {                                     // (los fuegos que ya había cerca)
             const w = W(), px = Math.floor(w.worldX), py = Math.floor(-w.worldY);
             for (let x = px - 16; x <= px + 16; x++) { const col = mbwom.scene[x]; if (!col) continue; for (let y = Math.max(0, py - 12); y <= py + 12; y++) if (col[y] === 'fire' || fg(x, y) === 'fire') S.fires.add(key(x, y)); }
@@ -3424,7 +3432,7 @@
     }
     // cada ~1 s (con los hornos): con polvo de blaze (20 usos) y un ingrediente que le sirva a alguna botella, en 20 vueltas sale la poción
     function tickBrewing() {
-        if (mpGuest()) return;
+        if (mpFollow()) return;
         const T = mbwom.toBrew; if (!T || typeof T !== 'object') return;
         const nil = () => ['air', 0, 0, {}];
         const emptyIt = (v) => !Array.isArray(v) || !v[0] || v[0] === 'air' || !(Number(v[1]) >= 1);
@@ -3540,13 +3548,13 @@
         }
         if (id === 'bone' && m.type === 'wolf' && !m.tamed) {                         // 🐕 domesticar un lobo con huesos (1 de cada 3)
             reduceSelected(1);
-            if ((3 * Math.random() | 0) === 0) { m.tamed = true; m.tamedBy = 'player'; m.target = null; m.aggressiveness = 0; hearts(m, 6); ach(11); if (mpGuest()) mpSend({ tipo: 'juego_domar', id: mid }); }
+            if ((3 * Math.random() | 0) === 0) { m.tamed = true; m.tamedBy = 'player'; m.target = null; m.aggressiveness = 0; hearts(m, 6); ach(11); if (mpFollow()) mpSend({ tipo: 'juego_domar', id: mid }); }
             else for (let i = 0; i < 4; i++) addPart({ x: m.x + (Math.random() - .5), y: -m.y + 1 + Math.random() * .5, vy: .02, life: 25, size: .1, col: '#777' });
             return true;
         }
         const a = D.mobs[m.type];
         if (a && a.breedItems && a.breedItems[id]) {
-            if (mpGuest()) { if (!(Number(m.babyTimer) > 0) && !canBreed(m)) return false; mpSend({ tipo: 'juego_cria', id: mid, it: id }); hearts(m, 4); reduceSelected(1); return true; }
+            if (mpFollow()) { if (!(Number(m.babyTimer) > 0) && !canBreed(m)) return false; mpSend({ tipo: 'juego_cria', id: mid, it: id }); hearts(m, 4); reduceSelected(1); return true; }
             if (feedMob(mid, id)) { reduceSelected(1); return true; }
         }
         return false;
@@ -3881,7 +3889,7 @@
             b.x += b.vx; b.y += b.vy;
         }
         // 🐔 los mobs con globos suben (más globos, más rápido)
-        if (!mpGuest()) Object.keys(lift).forEach(function (id) { const m = mbwom.mobs[id]; if (!m) return; const sp = migSpeed(Math.min(4, 1.2 * lift[id])); m.speedY = Math.max(Number(m.speedY) || 0, sp); m.y -= m.falling ? sp / 2 / 30 : .3; m.falling = true; });
+        if (!mpFollow()) Object.keys(lift).forEach(function (id) { const m = mbwom.mobs[id]; if (!m) return; const sp = migSpeed(Math.min(4, 1.2 * lift[id])); m.speedY = Math.max(Number(m.speedY) || 0, sp); m.y -= m.falling ? sp / 2 / 30 : .3; m.falling = true; });
     }
     function drawBalloons(c2) {
         const o = bStore(false), w = W();
@@ -3948,7 +3956,7 @@
         const px = w.worldX;
         // 🎮 en multijugador el anfitrión mueve también los mobs que están cerca de los otros jugadores; el invitado no los mueve: le llegan
         const pxs = [px];
-        if (mpHost()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (r) pxs.push(r.tx); } }
+        if (mpAuth()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (r) pxs.push(r.tx); } }
         S.simX = pxs; S.plPos = null;
         tickLiquids();
         tickFalling();
@@ -3960,7 +3968,7 @@
         tickEyes();
         tickBalloons();
         tickFireballs();
-        if (mpGuest()) { if (window.mbwMpPlay.mobLerp) window.mbwMpPlay.mobLerp(); }
+        if (mpFollow()) { if (window.mbwMpPlay.mobLerp) window.mbwMpPlay.mobLerp(); }
         else for (const id in mbwom.mobs) {
             const m = mbwom.mobs[id];
             if (!m || !m.type) continue;
@@ -4178,11 +4186,11 @@
     }
     function allPlPos() {                                                    // dónde están los jugadores (x, y del mundo)
         const w = W(), out = [[Number(w.worldX), Number(w.worldY)]];
-        if (mpHost()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (r) out.push([Number(r.tx), Number(r.ty)]); } }
+        if (mpAuth()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (r) out.push([Number(r.tx), Number(r.ty)]); } }
         return out;
     }
     function tickLeaves() {
-        if (!S.leafQ.size || mpGuest()) return;
+        if (!S.leafQ.size || mpFollow()) return;
         let done = 0;
         for (const [k, at] of S.leafQ) {
             if (at > S.tick) continue;
@@ -4213,9 +4221,9 @@
     }
     window.mbwPlay.leaves = { pending: function () { return S.leafQ ? S.leafQ.size : 0; }, logGone: function (x, y) { leafLogGone(x, y); }, tick: function () { tickLeaves(); } };
     function tickSpawners() {
-        if (mpGuest() || !mbwom.scene) return;
+        if (mpFollow() || !mbwom.scene) return;
         const w = W(), pl = [{ x: Number(w.worldX), y: -Number(w.worldY) }];
-        if (mpHost()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (r) pl.push({ x: Number(r.tx), y: -Number(r.ty) }); } }
+        if (mpAuth()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (r) pl.push({ x: Number(r.tx), y: -Number(r.ty) }); } }
         const seen = new Set(), on = new Set();
         S.spawnT = S.spawnT || new Map();
         pl.forEach(function (p) {
@@ -4290,13 +4298,13 @@
     function rsSolid(t) { return !!t && t !== 'air' && bd(t, 'walkThroughBlock') != 1 && bd(t, 'liquid') == null; }
     function rsConsumer(t) { return t === 'light' || t === 'railp' || t === 'raila' || DOOR_RE.test(t) || t === 'td1' || t === 'td2' || t === 'fncg' || t === 'nfncg' || t === 'dispense' || t === 'dropper' || t === 'piston' || t === 'spiston' || t === 'piston1' || t === 'spiston1' || t === 'TNT' || t === 'note'; }
     function tickRedstone() {
-        if (mpGuest() || !mbwom.scene) return;
+        if (mpFollow() || !mbwom.scene) return;
         const w = W();
         // quién está parado en una placa de presión
         S.plates = new Set();
         const feet = function (x, y) { const k = rsKey(Math.floor(x), Math.floor(-y + .1)); S.plates.add(k); };
         if (!(w.dead > 0) && w.gamemode != 3) feet(w.worldX, w.worldY);
-        if (mpHost()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (r) feet(r.tx, r.ty); } }
+        if (mpAuth()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (r) feet(r.tx, r.ty); } }
         for (const id in mbwom.mobs) { const m = mbwom.mobs[id]; if (m && !(m.dead > 0)) feet(m.x, m.y); }
         S.drops.forEach(function (d) { feet(d.x, d.y - .05); });     // (también los objetos tirados aprietan la placa)
         // ⏱ la placa sigue apretada 2 segundos después de bajarse (así la puerta queda abierta 2 s y luego se cierra sola)
@@ -4305,7 +4313,7 @@
         if (S.plateHold.size > 200) S.plateHold.forEach(function (v, k) { if (v <= S.tick) S.plateHold.delete(k); });
         // la zona: alrededor de cada jugador
         const centers = [[Math.floor(w.worldX), Math.floor(-w.worldY)]];
-        if (mpHost()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (r) centers.push([Math.floor(r.tx), Math.floor(-r.ty)]); } }
+        if (mpAuth()) { const R = window.mbwMpPlay.remotes; for (const k in R) { const r = remoteOf(RP + k); if (r) centers.push([Math.floor(r.tx), Math.floor(-r.ty)]); } }
         const RX = 32, RY = 24, power = new Map(), sources = [], consumers = [], dusts = [];
         const seen = new Set();
         centers.forEach(function (c) {
@@ -4498,20 +4506,48 @@
         camera.x += (tx - camera.x) * k; camera.y += (ty - camera.y) * ky;
         camera._tx = camera.x; camera._ty = camera.y; camera.velX = 0; camera.velY = 0;
     }
+    // ⏱ TODO va a 50 cuadros por segundo: el juego avanza 50 pasos por segundo y la pantalla se vuelve a dibujar SOLO cuando
+    //    hubo un paso nuevo (antes se dibujaba a la velocidad de la pantalla: 60, 90, 120...). La cámara queda SIEMPRE con el
+    //    Player al centro (antes lo alcanzaba poco a poco y se veía desfasada al caminar).
+    //    Con la pestaña escondida (otra ventana encima, celular bloqueado) el navegador deja de dar cuadros: entonces un reloj
+    //    aparte (Web Worker) sigue empujando el juego, para que el mundo no se congele para los demás jugadores.
+    function runSteps(now, draw) {
+        if (!S.last) S.last = now;
+        S.acc += Math.min(1000, now - S.last); S.last = now;
+        if (S.paused && !S.mp) { S.acc = 0; if (draw) { if (typeof worldDirty !== 'undefined') worldDirty = true; hud.update(); } return 0; }   // ⏸ (solo: el mundo se detiene)
+        let n = 0;
+        const max = draw ? 6 : 60;
+        while (S.acc >= 1000 / FPS && n < max) { try { step(); } catch (e) { console.error('play step', e); } S.acc -= 1000 / FPS; n++; }
+        if (n >= max) S.acc = 0;
+        return n;
+    }
     function frame(ts) {
         if (!S.playing) return;
         S.raf = requestAnimationFrame(frame);
-        if (!S.last) S.last = ts;
-        S.acc += Math.min(200, ts - S.last); S.last = ts;
-        if (S.paused && !S.mp) { S.acc = 0; if (typeof worldDirty !== 'undefined') worldDirty = true; hud.update(); return; }   // ⏸ (solo: el mundo se detiene)
-        let n = 0;
-        while (S.acc >= 1000 / FPS && n < 6) { try { step(); } catch (e) { console.error('play step', e); } S.acc -= 1000 / FPS; n++; }
-        if (n >= 6) S.acc = 0;
-        camFollow(.25);
+        const n = runSteps(performance.now(), true);
+        if (!n && !S.forceDraw) return;                               // (sin paso nuevo: no se vuelve a dibujar)
+        S.forceDraw = false;
+        camFollow(1);
         if (typeof worldDirty !== 'undefined') worldDirty = true;
         hud.update();
         loupe.update();
     }
+    let bgClock = null;
+    function bgTick() { if (!S.playing) return; if (document.hidden) runSteps(performance.now(), false); }
+    function startBgClock() {
+        if (bgClock) return;
+        try {
+            const src = 'let t=null;onmessage=function(e){if(e.data==="go"){if(!t)t=setInterval(function(){postMessage(1)},20)}else{clearInterval(t);t=null}}';
+            bgClock = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+            bgClock.onmessage = bgTick;
+        } catch (e) { bgClock = { postMessage: function () {} }; const iv = setInterval(function () { if (!S.playing) return; bgTick(); }, 20); bgClock.__iv = iv; }
+    }
+    document.addEventListener('visibilitychange', function () {
+        if (!S.playing || !S.mp) { if (bgClock) bgClock.postMessage('stop'); return; }
+        startBgClock();
+        bgClock.postMessage(document.hidden ? 'go' : 'stop');
+        if (!document.hidden) { S.last = performance.now(); S.forceDraw = true; }
+    });
 
     // ------------------------------------------------------------------ 🔍 lupa (celular): el dedo tapa el bloque que tocas
     //   Mientras el dedo está sobre el mapa, arriba sale una burbuja redonda con lo que hay debajo, en grande (×2.2),
@@ -4705,7 +4741,10 @@
             const head = document.createElement('div'); head.className = 'ph-mk-head';
             head.textContent = '⭐ ' + tr('play_marks', 'Markers') + ' (' + L.length + '/' + MARKS_MAX + ')';
             const x = document.createElement('button'); x.type = 'button'; x.className = 'ph-mk-x'; x.textContent = '✕'; x.onclick = function () { marks.toggle(false); };
-            head.appendChild(x); box.appendChild(head);
+            const ar = document.createElement('button'); ar.type = 'button'; ar.className = 'ph-mk-arrows' + (marks.arrowsOn() ? ' is-on' : '');
+            ar.textContent = (marks.arrowsOn() ? '➜ ' : '🚫 ') + tr('play_marks_arrows', 'Arrows'); ar.title = tr('play_marks_arrows_tip', 'Show or hide the arrows on the edges of the screen that point to your markers');
+            ar.onclick = function () { marks.setArrows(!marks.arrowsOn()); marks.render(); };
+            head.appendChild(ar); head.appendChild(x); box.appendChild(head);
             const form = document.createElement('form'); form.className = 'ph-mk-add'; form.autocomplete = 'off';
             const inp = document.createElement('input'); inp.type = 'text'; inp.maxLength = 40; inp.placeholder = tr('play_marks_name', 'Name (optional)');
             ['keydown', 'keyup', 'keypress'].forEach(function (n) { inp.addEventListener(n, function (e) { e.stopPropagation(); }); });
@@ -4740,6 +4779,23 @@
                 ul.appendChild(r);
             });
             box.appendChild(ul);
+            // 👑 el anfitrión también ve los de los demás (y puede ir)
+            const O = marks.others();
+            if (O.length) {
+                const h2 = document.createElement('div'); h2.className = 'ph-mk-head ph-mk-sub'; h2.textContent = '👥 ' + tr('play_marks_others', "Other players' markers") + ' (' + O.length + ')'; box.appendChild(h2);
+                const ul2 = document.createElement('div'); ul2.className = 'ph-mk-list';
+                O.forEach(function (b) {
+                    const r = document.createElement('div'); r.className = 'ph-mk-row';
+                    const nm = document.createElement('span'); nm.className = 'ph-mk-name'; nm.textContent = '⭐ ' + b.name; r.appendChild(nm);
+                    const at = document.createElement('span'); at.className = 'ph-mk-at'; at.textContent = b.who + ' · X ' + b.x + ' · Y ' + b.y + (DN[b.dim] || ''); r.appendChild(at);
+                    const d = document.createElement('span'); d.className = 'ph-mk-d'; d.textContent = b.dim === cur ? marks.dist(b) + ' m' : '—'; r.appendChild(d);
+                    const goB = document.createElement('button'); goB.type = 'button'; goB.className = 'ph-mk-go'; goB.textContent = '➜'; goB.title = tr('play_marks_go', 'Go there (3 seconds)');
+                    goB.onclick = function () { marks.toggle(false); marks.go(b); };
+                    r.appendChild(goB);
+                    ul2.appendChild(r);
+                });
+                box.appendChild(ul2);
+            }
         },
         distances: function () {
             const box = hud.el && hud.el.querySelector('.ph-marks'); if (!box) return;
@@ -4747,7 +4803,18 @@
             box.querySelectorAll('.ph-mk-row').forEach(function (r) { const b = L.find(function (q) { return q.id === r.dataset.id; }); const d = r.querySelector('.ph-mk-d'); if (b && d) d.textContent = b.dim === cur ? marks.dist(b) + ' m' : '—'; });
         },
         // ➜ flechitas en la orilla para los marcadores que no se ven
+        arrowsOn: function () { try { return localStorage.getItem('mbw_mark_arrows') !== '0'; } catch (e) { return true; } },
+        setArrows: function (on) { try { localStorage.setItem('mbw_mark_arrows', on ? '1' : '0'); } catch (e) { /* nada */ } },
+        // 👑 (anfitrión) los marcadores que guardaron los demás jugadores (llegan con sus datos: scripts/mp-play.js saveMine)
+        others: function () {
+            const out = [];
+            if (!S.mp || !(typeof isHost !== 'undefined' && isHost)) return out;
+            const P = (W() && W().mbwePlayers) || {}, me = localStorage.getItem('mbw_uid');
+            Object.keys(P).forEach(function (u) { if (u === me || !Array.isArray(P[u].marks)) return; P[u].marks.slice(0, MARKS_MAX).forEach(function (b) { if (b && isFinite(Number(b.x)) && isFinite(Number(b.y))) out.push({ id: 'o' + u + b.id, name: String(b.name || '').slice(0, 40), x: Number(b.x), y: Number(b.y), dim: Number(b.dim) || 1, who: P[u].name || 'Player' }); }); });
+            return out;
+        },
         arrows: function (c2) {
+            if (!this.arrowsOn()) return;                                // (👁 se pueden esconder: en el panel ⭐ y en View > Bookmarks)
             const L = this.list(); if (!L.length) return;
             const cur = mbwom.currentScene || 1;
             const A = window.mbwAspect, f = (A && A.active && A.frame) ? A.frame() : { x: 0, y: 0, w: canvas.width, h: canvas.height };
@@ -5661,9 +5728,11 @@
         S.mp = false; S.openBoxAt = null;
         S.playing = false;
         cancelAnimationFrame(S.raf);
+        try { if (bgClock) bgClock.postMessage('stop'); } catch (e) { /* nada */ }
         if (keep) { try { const cs = syncScene(); mbwom.world.scene = mbwom.world.scene || cs; S.keptAt = Date.now(); if (typeof window.markWorldUnsaved === 'function') window.markWorldUnsaved(); } catch (e) { console.error('play keep', e); } }
         else { try { restoreSnapshot(); } catch (e) { console.error('play restore', e); alert('Error restoring the world: ' + e.message); } }
         try { if (window.mbwAch) window.mbwAch.afterRestore(); } catch (e) { /* nada */ }   // 🏆 los logros no se pierden
+        if (keep) { try { if (typeof window.mbwFormFromWorld === 'function') window.mbwFormFromWorld(); } catch (e) { /* nada */ } }   // 🔁 (World settings muestra lo del juego: modo, vida, hora...)
         S.snapshot = null; S.drops = []; S.falling = []; S.arrows = []; S.shots = []; S.fballs = []; S.eyes = []; S.draw = null; S.orbs = []; S.tmp = new Map(); S.keys = {}; S.mine = null;
         if (window.mbSfx) { window.mbSfx.stopLoops(); window.mbSfx.stopMusic(); }   // 🔊 se apaga la música, la lluvia, bajo el agua...
         try { const gw = document.getElementById('gr-weather'); if (gw && typeof setWeatherEffect === 'function') setWeatherEffect(gw.value); } catch (e) { /* nada */ }   // (el clima vuelve al de World Settings)

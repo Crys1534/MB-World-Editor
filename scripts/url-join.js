@@ -36,7 +36,7 @@
     }
     function decorate(list) {
         if (!list) return;
-        list.querySelectorAll('.ss-open[data-ss]').forEach((o) => {
+        list.querySelectorAll('.ss-open[data-ss], .ss-closed[data-ss]').forEach((o) => {
             if (o.parentNode.querySelector('.uj-link')) return;
             o.parentNode.insertBefore(linkBtn(o.getAttribute('data-ss')), o);
         });
@@ -115,7 +115,7 @@
                 const s = SS.get(want.id);
                 if (!s || !s.rev) { alert(tr('uj_server_gone', 'That permanent server does not exist any more.')); return; }
                 try { if (typeof closeFileMenu === 'function') closeFileMenu(); } catch (e) { /* nada */ }
-                SS.open(want.id).then((ok) => { if (ok === false) alert(tr('uj_fail', 'Could not open the server from the link. Try again from Multiplayer.')); });
+                SS.open(want.id).then((ok) => { if (ok === false && (!SS.canOpen || SS.canOpen(s))) alert(tr('uj_fail', 'Could not open the server from the link. Try again from Multiplayer.')); });   // (si no es suyo, ya avisó que está cerrado)
             };
             wait(0);
         }).catch(() => setTimeout(go, 1000));

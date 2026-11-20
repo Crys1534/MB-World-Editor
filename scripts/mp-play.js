@@ -70,7 +70,27 @@
     };
     window.mbwMpPlay = M;
     M.myId = function () { return myPeer(); };
-    M.mobGone = function (id) { if (M.on && M.role === 'host') send({ tipo: 'juego_mob_fuera', s: curScene(), id: String(id) }); };
+    // 🌍 (invitado) ¿muevo yo el mundo de MI dimensión? Sí, si el que lleva la partida no está en ella y, de los que sí están,
+    //    mi número de conexión es el más chico. (Se calcula una vez cada medio segundo.)
+    let leadMemo = { t: 0, v: false };
+    M.sceneLead = function () {
+        if (!M.on || M.role !== 'guest') return false;
+        const now = Date.now();
+        if (now - leadMemo.t < 500) return leadMemo.v;
+        const sc = curScene(), me = myPeer();
+        let v = false;
+        if (me) {
+            const fresh = function (k) { const r = M.remotes[k]; return r && now - r.t < STALE_MS && Number(r.s) === sc; };
+            const leaderHere = M.leaderPeer && fresh(M.leaderPeer);
+            if (!leaderHere) v = [me].concat(Object.keys(M.remotes).filter(function (k) { return k !== M.leaderPeer && fresh(k); })).sort()[0] === me;
+        }
+        if (v !== leadMemo.v && v) { M.mobFullAt = 0; M.mobSig = new Map(); }   // (al empezar a mover esta dimensión: todo completo a los demás)
+        leadMemo = { t: now, v: v };
+        return v;
+    };
+    const sceneOk = function (d) { return d.s == null || Number(d.s) === curScene(); };
+    const iMove = function (d) { return sceneOk(d) && (M.role === 'host' || M.sceneLead()); };
+    M.mobGone = function (id) { if (M.on && (M.role === 'host' || M.sceneLead())) send({ tipo: 'juego_mob_fuera', s: curScene(), id: String(id) }); };
 
     const inMp = function () { return !!g('isMultiplayer'); };
     const amHost = function () { return !!g('isHost'); };
@@ -176,7 +196,7 @@
         if (Date.now() - M.lastPing > 3000) { M.lastPing = Date.now(); if (M.role === 'guest') send({ tipo: 'juego_ping', peerId: myPeer(), t: Date.now() }); }
         sendMe();
         flush();
-        if (M.role === 'host') sendMobs();
+        if (M.role === 'host' || M.sceneLead()) sendMobs();
         const now = Date.now();
         Object.keys(M.remotes).forEach(function (k) { if (now - M.remotes[k].t > STALE_MS) delete M.remotes[k]; });
     }
@@ -222,7 +242,8 @@
     function myData() {
         const w = mbwom.world || {};
         return { x: Number(w.worldX), y: Number(w.worldY), s: curScene(), inv: JSON.parse(JSON.stringify(w.inventoryList || [])), armors: JSON.parse(JSON.stringify(w.armors || [])),
-            health: Number(w.health), food: Number(w.food), xp: Number(w.experience) || 0, sel: w.selectedInventoryItem | 0, gm: Number(w.gamemode) || 0 };
+            health: Number(w.health), food: Number(w.food), xp: Number(w.experience) || 0, sel: w.selectedInventoryItem | 0, gm: Number(w.gamemode) || 0,
+            marks: (function () { try { return ((window.mbwBookmarks && window.mbwBookmarks.list()) || []).slice(0, 10).map(function (b) { return { id: String(b.id), name: String(b.name || '').slice(0, 40), x: Number(b.x), y: Number(b.y), dim: Number(b.dim) || 1 }; }); } catch (e) { return []; } })() };   // ⭐ (el anfitrión los puede ver)
     }
     M.lastSaveSent = 0; M.lastPing = 0; M.ping = 0;
     M.saveMine = function () {
@@ -398,16 +419,16 @@
         if (t === 'juego_logro') { if (window.mbwAch) window.mbwAch.apply(d.uid, d.n, d.i, d.t); return; }                       // 🏆 otro jugador ganó un logro
         if (t === 'juego_logro_dar') { if (d.a === myPeer() && window.mbwAch) window.mbwAch.unlock(Number(d.i)); return; }         // 🏆 maté un mob del anfitrión
         if (t === 'juego_logros') { if (window.mbwAch) window.mbwAch.merge(d.t); return; }                                        // 🏆 la tabla entera (al entrar)
-        if (t === 'juego_domar') { if (M.role === 'host' && mbwom.mobs && mbwom.mobs[d.id]) { mbwom.mobs[d.id].tamed = true; mbwom.mobs[d.id].tamedBy = 'player'; mbwom.mobs[d.id].target = null; } return; }
+        if (t === 'juego_domar') { if (iMove(d) && mbwom.mobs && mbwom.mobs[d.id]) { mbwom.mobs[d.id].tamed = true; mbwom.mobs[d.id].tamedBy = 'player'; mbwom.mobs[d.id].target = null; } return; }
         if (t === 'juego_tiempo') { try { if (d.tim != null) mbwom.world.tim = Number(d.tim) || 0; } catch (e) { /* nada */ } return; }   // 🛏 alguien durmió: ya es de día
-        if (t === 'juego_cria') { if (M.role === 'host' && window.mbwPlay && window.mbwPlay.feedMob) window.mbwPlay.feedMob(String(d.id), String(d.it)); return; }   // 🐄 un invitado le dio de comer a un mob
+        if (t === 'juego_cria') { if (iMove(d) && window.mbwPlay && window.mbwPlay.feedMob) window.mbwPlay.feedMob(String(d.id), String(d.it)); return; }   // 🐄 un invitado le dio de comer a un mob
         if (t === 'juego_ping') { if (M.role === 'host') sendTo(d.peerId, { tipo: 'juego_pong', t: d.t }); return; }
         if (t === 'juego_pong') { if (M.role === 'guest' && d.t) M.ping = Math.max(0, Date.now() - Number(d.t)); return; }
         const N = window.mbwPlay && window.mbwPlay.net; if (!N) return;
         // objetos en el suelo
         if (t === 'juego_suelta') { if (d.peerId !== myPeer()) N.dropIn(d.d); return; }
         if (t === 'juego_suelos') { (d.l || []).forEach(function (o) { N.dropIn(o); }); return; }
-        if (t === 'juego_toma') { if (M.role === 'host') N.dropGrant(String(d.nid), d.peerId); return; }
+        if (t === 'juego_toma') { if (iMove(d)) N.dropGrant(String(d.nid), d.peerId); return; }
         if (t === 'juego_tomado') { if (d.peerId !== myPeer()) N.dropTaken(d); return; }
         // pegarse entre jugadores / muertes
         if (t === 'juego_pvp') { if (d.a === myPeer()) N.pvp(d.dmg, d.kx, d.autor); return; }
@@ -420,13 +441,13 @@
             return;
         }
         if (t === 'juego_mobs') { applyMobs(d); return; }
-        if (t === 'juego_mob_fuera') { if (M.role === 'guest' && Number(d.s) === curScene() && typeof d.id === 'string' && mbwom.mobs) { delete mbwom.mobs[d.id]; if (M.mobT) M.mobT.delete(d.id); } return; }   // 👻 un mob lejano desapareció
-        if (t === 'juego_mobs_lista') { if (M.role === 'guest' && Number(d.s) === curScene() && Array.isArray(d.ids)) { const keep = new Set(d.ids); Object.keys(mbwom.mobs || {}).forEach(function (id) { if (!keep.has(id)) { delete mbwom.mobs[id]; M.mobT.delete(id); N.forget(id); } }); } return; }
+        if (t === 'juego_mob_fuera') { if (M.role === 'guest' && !M.sceneLead() && Number(d.s) === curScene() && typeof d.id === 'string' && mbwom.mobs) { delete mbwom.mobs[d.id]; if (M.mobT) M.mobT.delete(d.id); } return; }   // 👻 un mob lejano desapareció
+        if (t === 'juego_mobs_lista') { if (M.role === 'guest' && !M.sceneLead() && Number(d.s) === curScene() && Array.isArray(d.ids)) { const keep = new Set(d.ids); Object.keys(mbwom.mobs || {}).forEach(function (id) { if (!keep.has(id)) { delete mbwom.mobs[id]; M.mobT.delete(id); N.forget(id); } }); } return; }
         if (t === 'juego_golpe') { if (d.a === myPeer()) N.hurtMe(d.dmg, d.causa); return; }
         if (t === 'juego_botin') { if (d.a === myPeer()) N.loot(d.l); return; }
-        if (t === 'juego_pega') { if (M.role === 'host' && d.peerId) N.hitMob(String(d.id), d.dmg, d.kx, d.ky, 'rp:' + d.peerId, d.loot); return; }
+        if (t === 'juego_pega') { if (iMove(d) && d.peerId) N.hitMob(String(d.id), d.dmg, d.kx, d.ky, 'rp:' + d.peerId, d.loot); return; }
         if (t === 'juego_boom') { if (Number(d.s) === curScene() && d.peerId !== myPeer()) N.boom(d.x, d.y, d.c, d.peerId ? 'rp:' + d.peerId : null); return; }
-        if (t === 'juego_mob_nuevo') { if (M.role === 'host') N.newMob(d.m); return; }
+        if (t === 'juego_mob_nuevo') { if (iMove(d)) N.newMob(d.m); return; }
     }
 
     // ------------------------------------------------------------------ 🐷 mobs (Etapa 2)
@@ -484,8 +505,13 @@
         seen[meUid] = 1;
         const rh = M.roomHostPeer();                               // (👑 = el anfitrión de la SALA, aunque la partida la lleve otro)
         Object.keys(M.remotes).forEach(function (k) { const r = M.remotes[k]; out.push({ name: r.name, uid: r.uid, online: true, host: rh ? k === rh : (M.role === 'guest' && r.name === M.hostName), ping: r.ping || 0 }); if (r.uid) seen[r.uid] = 1; });
+        // (los que están en la sala pero no jugando: en el editor)
+        (Array.isArray(window.roomPlayers) ? window.roomPlayers : []).forEach(function (p) { if (!p || !p.uid || seen[p.uid]) return; seen[p.uid] = 1; out.push({ name: p.name || p.username || 'Player', uid: p.uid, online: true, editing: true, ping: 0 }); });
         const P = (mbwom.world && mbwom.world.mbwePlayers) || {};
-        Object.keys(P).forEach(function (u) { if (seen[u]) return; out.push({ name: P[u].name || 'Player', uid: u, online: false, last: P[u].last || 0 }); });
+        Object.keys(P).forEach(function (u) { if (seen[u]) return; seen[u] = 1; out.push({ name: P[u].name || 'Player', uid: u, online: false, last: P[u].last || 0 }); });
+        // 👥 servidor permanente: también los de su lista guardada en línea (todos los que alguna vez entraron)
+        const RS = (window.mbwSavedServers && typeof window.mbwSavedServers.roster === 'function') ? window.mbwSavedServers.roster() : {};
+        Object.keys(RS).forEach(function (u) { if (seen[u]) { const o = out.find(function (q) { return q.uid === u && !q.online; }); if (o && (RS[u].last || 0) > (o.last || 0)) o.last = RS[u].last; return; } seen[u] = 1; out.push({ name: RS[u].name || 'Player', uid: u, online: false, last: RS[u].last || 0 }); });
         return out;
     };
     function sendMobListTo(peerId) {
@@ -503,7 +529,7 @@
         m.x = far ? x : cur.x; m.y = far ? y : cur.y;
     }
     function applyMobs(d) {
-        if (M.role !== 'guest' || Number(d.s) !== curScene() || !mbwom.mobs) return;
+        if (M.role !== 'guest' || Number(d.s) !== curScene() || !mbwom.mobs || M.sceneLead()) return;
         const N = window.mbwPlay.net;
         const f = d.f || {};
         Object.keys(f).forEach(function (id) {

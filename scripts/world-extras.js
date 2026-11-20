@@ -265,6 +265,7 @@
                 '<button class="ex-btn ex-del" title="' + esc(tx('ex_bm_delete', 'Delete')) + '">🗑️</button></div>';
         });
         h += '</div><label class="ex-check"><input type="checkbox" id="ex-bm-pins"' + (bmPins ? ' checked' : '') + '> ' + esc(tx('ex_bm_pins', 'Show bookmarks on the map')) + '</label>';
+        h += '<label class="ex-check"><input type="checkbox" id="ex-bm-arrows"' + (lsGet('mbw_mark_arrows', '1') !== '0' ? ' checked' : '') + '> ' + esc(tx('ex_bm_arrows', 'Show the arrows that point to markers (Play mode)')) + '</label>';
         body.innerHTML = h;
         const nameEl = $('ex-bm-name');
         $('ex-bm-pick').onclick = function () { if (!worldReady()) return; startPick(nameEl.value); };
@@ -284,6 +285,7 @@
             inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } });
         });
         $('ex-bm-pins').onchange = function () { bmPins = this.checked; lsSet(BM_PINS_KEY, bmPins ? '1' : '0'); snapshotView(); };
+        $('ex-bm-arrows').onchange = function () { lsSet('mbw_mark_arrows', this.checked ? '1' : '0'); };
     }
     window.openBookmarks = function () { bmRender(); openMod('ex-bookmarks-modal'); };
 

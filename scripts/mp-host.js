@@ -59,7 +59,12 @@
     // =====================================================================
     // el anfitrión se va: avisa a todos que el servidor sigue con otro
     // =====================================================================
+    // 👑 YA NO se hereda: el anfitrión es SOLO quien abrió la sala (en un servidor permanente, su creador). Si se va, la sala
+    //    se cierra para todos (y el servidor permanente queda guardado). Esto devuelve false = "no sigue con otro".
     window.mpHostLeaving = function () {
+        return false;
+    };
+    window.mpHostLeavingOld = function () {
         if (!amHost() || !inMp() || typeof misClientes === 'undefined' || !misClientes.length) return false;
         const cfg = hostCfg();
         cfg.players = players();
@@ -73,7 +78,13 @@
     // =====================================================================
     const TRY_MS = 10000;     // cuánto se espera a cada candidato antes de pasar al siguiente
     window.mpMigrating = null;
+    // 👑 sin herencia: si se pierde al anfitrión (se le fue el internet un momento) se intenta volver a entrar con ÉL mismo;
+    //    si de verdad se fue, la sala se cierra (nadie más toma su lugar)
     window.mpMigrateOnHostLost = function (conn) {
+        if (!inMp() || amHost() || !conn || conn.__kicked || conn.__hostClosed || conn.__byMe) return false;
+        return typeof window.mpTryReconnect === 'function' ? !!window.mpTryReconnect(conn) : false;
+    };
+    window.mpMigrateOnHostLostOld = function (conn) {
         if (window.mpMigrating) return true;   // (un intento de conexión que falló mientras buscamos al nuevo)
         if (!inMp() || amHost() || conn.__kicked || conn.__hostClosed || conn.__byMe) return false;
         const cfg = (conn.__migrate) || window.mpRoomCfg;

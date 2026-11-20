@@ -55,6 +55,7 @@
             if (p.host) r.appendChild(el('span', 'pm-tag', '👑'));
             if (p.me) r.appendChild(el('span', 'pm-tag pm-me', tr('pm_you', 'you')));
             if (!p.online) r.appendChild(el('span', 'pm-last', ago(p.last)));
+            else if (p.editing) r.appendChild(el('span', 'pm-last', '✏️ ' + tr('pm_editing', 'editor')));
             r.appendChild(bars(p.ping || 0, p.online));
             // 🎒 el que lleva la partida puede ver y cambiar el inventario de los demás (scripts/mp-inv.js)
             if (!p.me && p.uid && window.mbwMpInv && window.mbwMpInv.canUse()) r.appendChild(btn('🎒', 'pm-mini pm-inv', function () { window.mbwMpInv.open(p.uid, p.name); }));
@@ -95,6 +96,8 @@
             const test = !!(P() && P().isTest && P().isTest());
             const srv = !test && typeof isMultiplayer !== 'undefined' && isMultiplayer && !!window.mpServerKind;   // 🚪 en un servidor: se sale por completo
             const perm = srv && !!(window.mbwIsPermServerWorld && typeof mbwom !== 'undefined' && window.mbwIsPermServerWorld(mbwom.world));
+            // 🗺 (solo el anfitrión) salir a mirar el mundo en el editor (con zoom, sin editar) sin salir del servidor; Play para volver
+            if (srv && typeof isHost !== 'undefined' && isHost) left.appendChild(btn('🗺 ' + tr('pm_view_editor', 'View the world in the editor'), 'pm-view-ed', function () { closeNow(); if (typeof window.mbwStopPlay === 'function') window.mbwStopPlay({ keep: true }); }));
             left.appendChild(btn(test ? '🧪 ' + tr('pm_quit_test', 'Quit test (nothing is saved)') : srv ? tr('pm_quit_server', 'Save and leave the server') : guest ? tr('pm_quit_guest', 'Save and Quit (leave the game)') : tr('pm_quit', 'Save and Quit'), 'pm-quit', function () { closeNow(); if (P() && P().saveAndQuit) P().saveAndQuit(); }));
             if (srv) left.appendChild(el('p', 'pm-hint', perm ? tr('pm_quit_server_perm_hint', 'You leave the server completely and its tab closes. This permanent server is saved online only (never in My Worlds). The others keep playing.') : tr('pm_quit_server_hint', 'You leave the server completely and its tab closes. Your copy of the world is saved in My Worlds. The others keep playing.')));
             else

@@ -76,7 +76,7 @@
         const off = m.type === 'wolf' && m.tamed === true ? 5 : 0;           // 🐶 el perro usa los cuadros 6 a 11
         if (m.type === 'wolf' && m.sitting && m.tamed) return 6 + off;
         if (!window.mbwPlaying || !walking(key, m)) return 1 + off;
-        const tick = Math.floor(performance.now() / (1000 / 30));
+        const tick = Math.floor(performance.now() / (1000 / 50));             // (el juego corre a 50 cuadros por segundo)
         return d.walk[Math.floor(tick / d.delay) % d.walk.length] + off;
     }
 

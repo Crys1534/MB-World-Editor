@@ -37,6 +37,10 @@
     function admins() { return ADMINS.concat(Array.isArray(window.MBW_SAVED_ADMINS) ? window.MBW_SAVED_ADMINS : []); }
     function isAdmin() { return admins().indexOf(myUid()) >= 0; }
     function isAdminUid(u) { return !!u && admins().indexOf(String(u)) >= 0; }
+    // 👑 ¿puedo ABRIRLO (ser el anfitrión)? Solo su creador. (Las cuentas de Crystal cuentan como una sola persona: si lo creó
+    //    una cuenta de Crystal, cualquier otra de sus cuentas también.) Los demás solo entran cuando su creador lo tiene abierto.
+    //    Así nadie más juega con el Player del mundo (el inventario y la posición del creador).
+    function canOpen(s) { const me = myUid(); return !!s && (s.ownerUid === me || (isAdminUid(s.ownerUid) && isAdmin())); }
     const okSlot = (k) => SLOTS.indexOf(String(k)) >= 0;
     const esc = (v) => String(v == null ? '' : v).replace(/[&<>"'`]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' }[c]));
     function toast(title, body) {
@@ -99,6 +103,29 @@
     }
     // la marca del lugar va en el mundo de la pestaña del servidor
     function stamp(k) { onServerWorld(function () { if (typeof mbwom !== 'undefined' && mbwom.world) { if (k) mbwom.world.mbweSlot = k; else delete mbwom.world.mbweSlot; } }); }
+    // 👥 LISTA DE TODOS LOS QUE ALGUNA VEZ ENTRARON (saved_servers/slotN/roster/{uid} = { name, last }): no depende del mundo,
+    //    así nadie se pierde de la lista del menú de pausa (aunque el mundo se haya reemplazado o lo hayan guardado otros).
+    const rosterLocal = {}, rosterSent = {};
+    function rosterTick() {
+        const k = mySlot(), D = db();
+        if (!k || !D || !inMp() || !amHost()) return;
+        const now = Date.now(), list = [{ uid: myUid(), name: myName() }].concat(Array.isArray(window.roomPlayers) ? window.roomPlayers : []);
+        list.forEach(function (p) {
+            if (!p || !p.uid || !/^[\w-]{3,60}$/.test(String(p.uid))) return;
+            const nm = String(p.name || p.username || 'Player').slice(0, 40);
+            rosterLocal[p.uid] = { name: nm, last: now };
+            const key = k + '|' + p.uid;
+            if (rosterSent[key] && now - rosterSent[key] < 60000) return;      // (una vez por minuto por jugador)
+            rosterSent[key] = now;
+            D.ref(META + '/' + k + '/roster/' + p.uid).set({ name: nm, last: now }).catch(() => {});
+        });
+    }
+    setInterval(function () { try { rosterTick(); } catch (e) { /* nada */ } }, 5000);
+    function rosterNow() {
+        const k = mySlot() || (window.mpRoomCfg && window.mpRoomCfg.slot) || null;
+        if (!okSlot(k)) return {};
+        return Object.assign({}, (saved && saved[k] && saved[k].roster) || {}, k === mySlot() ? rosterLocal : {});
+    }
     window.mbwIsPermServerWorld = function (w) { return !!(w && okSlot(w.mbweSlot)); };
     async function saveNow(why) {
         if (!canSave() || st.busy) return false;
@@ -139,6 +166,7 @@
                 lastHostName: myName().slice(0, 40),
                 mapThumb: (thumb.length < 90000 && /^(assets\/|data:image\/(png|jpeg|webp);base64,)/.test(thumb)) ? thumb : (old.mapThumb || null),
                 bans: bans, rev: rev, chunks: n, bytes: data.length, rawBytes: json.length,
+                roster: Object.assign({}, old.roster || {}, rosterLocal),          // 👥 todos los que alguna vez entraron
                 savedAt: firebase.database.ServerValue.TIMESTAMP, v: 3
             });
             await mref.set(meta);
@@ -231,7 +259,7 @@
                     </div>
                     <div class="srv-actions">
                         <span class="srv-count">👥 0/${Number(s.max) | 0}</span>
-                        ${isAdmin() ? `<button type="button" class="srv-icon ss-adm ss-dl" data-ss="${k}" title="${esc(tr('ss_dl_tip', 'Download the world of this server (.mbw)'))}">⬇</button><button type="button" class="srv-icon ss-adm ss-rep" data-ss="${k}" title="${esc(tr('ss_rep_tip', 'Replace the world of this server with a .mbw file (only Crystal)'))}">📤</button>` : ''}${canRemove(s) ? `<button type="button" class="srv-icon ss-del" data-ss="${k}" title="${esc(tr('ss_delete', 'Remove'))}">🗑</button>` : ''}<button type="button" class="srv-go srv-go-open ss-open" data-ss="${k}">${esc(tr('ss_open', 'OPEN'))}</button>
+                        ${isAdmin() ? `<button type="button" class="srv-icon ss-adm ss-dl" data-ss="${k}" title="${esc(tr('ss_dl_tip', 'Download the world of this server (.mbw)'))}">⬇</button><button type="button" class="srv-icon ss-adm ss-rep" data-ss="${k}" title="${esc(tr('ss_rep_tip', 'Replace the world of this server with a .mbw file (only Crystal)'))}">📤</button>` : ''}${canRemove(s) ? `<button type="button" class="srv-icon ss-del" data-ss="${k}" title="${esc(tr('ss_delete', 'Remove'))}">🗑</button>` : ''}${canOpen(s) ? `<button type="button" class="srv-go srv-go-open ss-open" data-ss="${k}">${esc(tr('ss_open', 'OPEN'))}</button>` : `<button type="button" class="srv-go srv-go-closed ss-closed" data-ss="${k}" disabled title="${esc(tr('ss_owner_only_tip', 'Only its creator can open it'))}">${esc(tr('ss_closed', 'CLOSED'))}</button>`}
                     </div>
                 </div>`;
         });
@@ -354,6 +382,7 @@
         const act = window.__mbwLastServers || {};
         const liveId = Object.keys(act).find(id => act[id] && act[id].slot === k);
         if (liveId) { if (typeof joinMultiplayerSession === 'function') joinMultiplayerSession(liveId); return true; }
+        if (!canOpen(s)) { alert(tr('ss_owner_only', 'This server is closed. Only {name} (its creator) can open it; you can join when they are playing.', { name: s.ownerName || 'its creator' })); return false; }
         if (inMp()) {
             if (!confirm(tr('ss_leave_confirm', 'You are in a server. Leave it to open this one?'))) return false;
             try { window.disconnectFromMultiplayer(true); } catch (e) { /* nada */ }
@@ -454,5 +483,5 @@
         return lab;
     }
 
-    window.mbwSavedServers = { replace: replaceSaved, download: downloadSaved, ready: function () { return saved !== null && saved !== undefined; }, get: function (k) { return saved ? saved[k] || null : null; }, slots: SLOTS, watch: watch, html: html, bind: bind, open: openSaved, save: saveNow, remove: removeSaved, setPermanent: setPermanent, checkboxRow: checkboxRow, isAdmin: isAdmin, isAdminUid: isAdminUid, state: st, pack: pack, unpack: unpack, list: () => saved, used: used, SLOTS: SLOTS };
+    window.mbwSavedServers = { canOpen: canOpen, roster: rosterNow, replace: replaceSaved, download: downloadSaved, ready: function () { return saved !== null && saved !== undefined; }, get: function (k) { return saved ? saved[k] || null : null; }, slots: SLOTS, watch: watch, html: html, bind: bind, open: openSaved, save: saveNow, remove: removeSaved, setPermanent: setPermanent, checkboxRow: checkboxRow, isAdmin: isAdmin, isAdminUid: isAdminUid, state: st, pack: pack, unpack: unpack, list: () => saved, used: used, SLOTS: SLOTS };
 })();

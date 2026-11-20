@@ -164,17 +164,14 @@
     window.mbwWorldGroupLeft = function (uid, name, nobodyLeft) {
         const gid = (typeof mbwom !== 'undefined' && mbwom.world) ? mbwom.world.mbweGroupId : null;
         if (!window.mbwIsGroup(gid)) return;
-        systemMsg(gid, 'left', { name: String(name || 'Player') }, String(name || 'Player') + ' left');
+        // (ya no se escribe en el chat del grupo quién se fue ni quién fue el último: solo se anota en silencio)
         const d = db(); if (d) d.ref(window.mbwGroupRef(gid) + '/lastLeft').set({ uid: uid || '', name: String(name || 'Player'), at: TS() });
-        if (nobodyLeft) systemMsg(gid, 'last', { name: String(name || 'Player') }, String(name || 'Player') + ' was the last one');
     };
     // (anfitrión) cierra la sala: él es el último en irse
     window.mbwWorldGroupClosing = function () {
         const gid = (typeof mbwom !== 'undefined' && mbwom.world) ? mbwom.world.mbweGroupId : null;
         if (!window.mbwIsGroup(gid)) return;
         const n = myName();
-        systemMsg(gid, 'left', { name: n }, n + ' left');
-        systemMsg(gid, 'last', { name: n }, n + ' was the last one');
         const d = db(); if (d) d.ref(window.mbwGroupRef(gid) + '/lastLeft').set({ uid: me() || '', name: n, at: TS() });
         unpinBubble();
     };
