@@ -97,6 +97,7 @@
             left.appendChild(btn(tr('pm_options', 'Options'), '', function () { show('options'); }));
             if (window.mbwAch) left.appendChild(btn('🏆 ' + tr('pm_ach', 'Achievements'), '', function () { show('ach'); }));
             if (hostOfRoom()) left.appendChild(btn(tr('pm_server', 'Server settings'), '', function () { show('server'); }));
+            else if (P() && P().mods) left.appendChild(btn('🧩 ' + tr('pm_mods', 'Mods'), '', function () { show('mods'); }));
             const guest = M() && M().on && M().role === 'guest';
             const test = !!(P() && P().isTest && P().isTest());
             const srv = !test && typeof isMultiplayer !== 'undefined' && isMultiplayer && !!window.mpServerKind;   // 🚪 en un servidor: se sale por completo
@@ -112,6 +113,10 @@
         } else if (p === 'ach') {
             left.appendChild(el('h2', 'pm-title', '🏆 ' + tr('pm_ach', 'Achievements')));
             left.appendChild(achList());
+            left.appendChild(btn('← ' + tr('pm_done', 'Done'), 'pm-primary', function () { show('main'); }));
+        } else if (p === 'mods') {
+            left.appendChild(el('h2', 'pm-title', '🧩 ' + tr('pm_mods', 'Mods')));
+            const wrap = el('div', 'pm-opt mb-win pm-srv'); const body = el('div', 'pm-form pm-oform'); body.appendChild(modsBox()); wrap.appendChild(body); left.appendChild(wrap);
             left.appendChild(btn('← ' + tr('pm_done', 'Done'), 'pm-primary', function () { show('main'); }));
         } else if (p === 'server') {
             left.appendChild(el('h2', 'pm-title', tr('pm_server', 'Server settings')));
@@ -279,7 +284,7 @@
         const wrap = el('div', 'pm-opt mb-win pm-srv');
         const tabs = el('div', 'pm-opt-tabs');
         const body = el('div', 'pm-form pm-oform');
-        [['general', 'pm_tab_general', 'General', 'sign'], ['people', 'pm_tab_people', 'Players', 'feather'], ['rules', 'pm_tab_rules', 'Rules', 'ebook']].forEach(function (t) {
+        [['general', 'pm_tab_general', 'General', 'sign'], ['people', 'pm_tab_people', 'Players', 'feather'], ['rules', 'pm_tab_rules', 'Rules', 'ebook'], ['mods', 'pm_tab_mods', 'Mods', 'IronAxe']].forEach(function (t) {
             const b = btn('', 'pm-opt-tab' + (srvTab === t[0] ? ' on' : ''), function () { srvTab = t[0]; tabs.querySelectorAll('.pm-opt-tab').forEach(function (x) { x.classList.toggle('on', x === b); }); fill(); });
             b.appendChild(ico(t[3])); b.appendChild(el('span', null, tr(t[1], t[2])));
             b.dataset.tab = t[0];
@@ -313,6 +318,8 @@
                 if (sr) { const r = el('div', 'pm-row pm-orow pm-ssrow'); r.appendChild(ico('clock')); r.appendChild(sr); body.appendChild(r); }
             } else if (srvTab === 'people') {
                 body.appendChild(peopleBox());
+            } else if (srvTab === 'mods') {
+                body.appendChild(modsBox());
             } else {
                 // 🎮 con qué modo de juego entran los jugadores NUEVOS (nunca el del anfitrión)
                 if (M() && M().setNewGm) A(['IronPickaxe'], tr('pm_new_gm', 'Game mode for new players'), select([['0', tr('gm_survival', 'Survival')], ['1', tr('gm_creative', 'Creative')], ['2', tr('gm_adventure', 'Adventure')], ['3', tr('gm_spectator', 'Spectator')]], String(M().newGm()), function (v) { M().setNewGm(v); }), tr('pm_new_gm_tip', 'The first time someone joins, they start with an empty inventory, full health and this game mode.'));
@@ -323,6 +330,27 @@
         wrap.appendChild(tabs);
         wrap.appendChild(body);
         return wrap;
+    }
+    // 🧩 MODS: la lista de mods. El anfitrión (o tú, jugando solo) los instala / quita; los demás ven cuáles hay.
+    function modsBox() {
+        const box = el('div', 'pm-mods');
+        const MD = P() && P().mods;
+        if (!MD) return box;
+        const can = MD.canEdit();
+        box.appendChild(el('div', 'pm-mods-note', can ? tr('mods_note_host', 'Install mods in this world. Only you (the host) can install or uninstall them; every player gets their benefits.') : tr('mods_note_guest', 'Mods installed in this world by the host. Everyone gets their benefits.')));
+        MD.list().forEach(function (m) {
+            const r = el('div', 'pm-mod' + (m.on ? ' on' : ''));
+            r.dataset.mod = m.id;
+            r.appendChild(ico(m.icon[0], m.icon[1]));
+            const tx = el('div', 'pm-mod-tx'); tx.appendChild(el('b', null, m.name)); tx.appendChild(el('span', null, m.desc)); r.appendChild(tx);
+            if (can) {
+                const b = btn(m.on ? '✓ ' + tr('mods_installed', 'Installed') : tr('mods_install', 'Install'), 'pm-mini pm-mod-btn' + (m.on ? ' on' : ''), function () { MD.set(m.id, !m.on); show(page); });
+                if (m.on) b.title = tr('mods_uninstall_tip', 'Click to uninstall');
+                r.appendChild(b);
+            } else r.appendChild(el('span', 'pm-mod-st' + (m.on ? ' on' : ''), m.on ? '✓ ' + tr('mods_installed', 'Installed') : tr('mods_off', 'Not installed')));
+            box.appendChild(r);
+        });
+        return box;
     }
     function peopleBox() {
         const box = el('div', 'pm-people');

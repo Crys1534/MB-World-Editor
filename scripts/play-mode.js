@@ -762,7 +762,8 @@
             else if (bd(fg(bx, by), 'walkThroughBlockHit') != null) w.worldY += .5;
             else if (bd(fg(bx, by - 1), 'walkThroughBlockHit') != null) w.worldY += .5;
         } else P.suffocate = 0;
-        const dS = 0;                                              // (encantamiento Depth Strider: no incluido)
+        swimCheck(w, P, bx, by);
+        const dS = S.swimming ? .6 : 0;                            // (encantamiento Depth Strider: no incluido; 🏊 Let's Swimm nada más rápido)
         [1, 2].forEach(function (o) {                             // corriente del agua
             const k = key(bx, by + o);
             if (mbwom.water && mbwom.water[k] && !w.fly) {
@@ -810,7 +811,7 @@
         const head2 = fg(bx, by + 2);
         if (head2 === 'sw' || head2 === 'wr' && (!(mbwom.water && mbwom.water[key(bx, by + 2)]) || getWater(bx, by + 2)[0] >= 9 || getWater(bx, by + 2)[1] >= 9)) {
             P.startUnderwaterTimer = 5;
-            P.airTimer--;
+            P.airTimer -= modOn('swim') ? 2 : 1;                       // (🏊 Let's Swimm: el aire se acaba el doble de rápido)
             if (effLv('waterbreathing')) { P.airTimer = 60; w.air = 11; }        // (poción de respirar bajo el agua)
             if (P.airTimer <= 0) { P.airTimer = 60; if (!(w.air > 0)) ouch(1, 1, 'water'); else w.air--; hud.dirty = true; }
             P.inWater = true;
@@ -1014,7 +1015,7 @@
             const same = () => Array.isArray(into) ? (out[0] === into[0] && out[3] && out[3].type === into[1]) : out[0] === into;
             const canSmelt = into != null && !emptyIt(l.input) && Number(out[1]) < 64 && (emptyIt(out) || same());
             if (l.fuelTimer == 0 && !emptyIt(l.fuel) && canSmelt) {
-                const fv = bd(String(l.fuel[0]), 'fuel');
+                const fv = fuelOf(l.fuel[0]);                           // (🔥 con el mod More Fuel, también lo que es solo de madera)
                 if (fv) {
                     l.fuelTimerTotal = fv; l.fuelTimer = fv;
                     if (l.fuel[1] == 1) { if (l.fuel[0] === 'lbk') l.fuel = ['bk', 1, 0, {}]; else l.fuel = nil(); }
@@ -2166,6 +2167,8 @@
         const bx = Math.floor(mw.x), by = Math.floor(mw.y);
         const it = selItem();
         if (!it) return false;
+        const zr = zoneItemSize(it);                                    // 🛡 bloque de My Zone: se pone en su capa aparte (nunca una barrera de verdad)
+        if (zr) return modOn('myzone') ? placeZone(bx, by, zr) : false;
         let id = String(it[0]);
         // el inventario del editor guarda algunos bloques con su variante ("lant_1", "th_2"...): se pone el bloque normal con esa variante
         let varS1;
@@ -2190,6 +2193,7 @@
         if (id === 'megg' && it[3] && it[3].type) { if (blockDist(bx, by) <= REACH) { spawnMob(String(it[3].type), bx + .5, -by - .01); reduceSelected(1); return true; } return false; }
         // 🪣 cubetas: la vacía recoge una fuente de agua / lava / ácido; la llena la pone
         const BUCKET = { wbk: 'wr', lbk: 'la', abk: 'ad' }, FILL = { wr: 'wbk', la: 'lbk', ad: 'abk' };
+        if ((id === 'bk' || BUCKET[id] || bd(id, 'placeable') == 1) && zoneDeny(bx, by)) return false;   // 🛡 (mod My Zone)
         if (id === 'bk' || BUCKET[id]) {
             if (!S.rightFresh || blockDist(bx, by) > REACH) return false;    // (una vez por clic, como el juego: waitTillRightMouseIsUp)
             if (id === 'bk') {
@@ -2462,7 +2466,7 @@
             if (rightFresh && !S.p.sneaking && blockDist(bx, by) <= REACH + 1 && useBlock(bx, by)) { S.mine = null; S.swing = 15; return; }   // puertas, trampillas, bloque musical, camas
             if (SHOT[selType()]) { startDraw(rightFresh); S.mine = null; return; }      // 🏹 arco, ❄ bola de nieve, shuriken de hueso, lanza
             S.rightFresh = rightFresh;
-            if (S.placeDelay >= 6 && placeBlock(mw)) { S.placeDelay = 0; S.swing = 15; ach(1); const px2 = Math.floor(mw.x), py2 = Math.floor(mw.y); golemCheck(px2, py2); if (CROPS[fg(px2, py2)] && !cropStage(px2, py2)) setCrop(px2, py2, 1); }
+            if (S.placeDelay >= 6 && placeBlock(mw)) { S.placeDelay = 0; S.swing = 15; if (S.zoneAt !== S.tick) ach(1); const px2 = Math.floor(mw.x), py2 = Math.floor(mw.y); golemCheck(px2, py2); if (CROPS[fg(px2, py2)] && !cropStage(px2, py2)) setCrop(px2, py2, 1); }
             S.rightFresh = false;
             S.mine = null;
             return;
@@ -2486,6 +2490,7 @@
     }
     // ⛏ picar el bloque (bx, by) un paso (sirve para el dedo / mouse y para el trazo de abajo). true = se rompió
     function mineTick(w, bx, by) {
+        if (heldZone() && zoneTable()[zoneKey(bx, by)]) { S.mine = null; if (S.mouse.leftEdge || S.rightFresh || !S.zoneRmAt || S.tick - S.zoneRmAt > FPS) { S.zoneRmAt = S.tick; removeZoneAt(bx, by); } return false; }   // 🛡 quitar mi zona
         const t = fg(bx, by);
         const lk = LOCKABLE[t] ? lockAt(bx, by) : null;
         if (lk && !lockMine(lk) && !lockBoss()) {                    // 🔒 no se puede romper lo que protegió otro
@@ -2493,6 +2498,7 @@
             S.mine = null; return false;
         }
         if (t === 'air' || bd(t, 'liquid') == 1 || (t === 'br' && w.gamemode != 1) || blockDist(bx, by) > REACH + 1) { S.mine = null; return false; }
+        if (zoneDeny(bx, by)) { S.mine = null; return false; }        // 🛡 la zona de otro jugador (mod My Zone)
         if (!S.mine || S.mine.x !== bx || S.mine.y !== by || S.mine.t !== t) {
             const n = w.gamemode == 1 ? 0 : miningTime(t);
             if (n < 0) { S.mine = null; return false; }
@@ -2500,7 +2506,7 @@
             if (t === 'note' && n > 0) playNote(bx, by);                // (al pegarle suena la nota, sin cambiarla)
         }
         if (S.mine.left > 0 && (S.mine.total - S.mine.left) % 26 === 0) blockSnd(t, 'mine', bx, by);   // 🔊 picando: cada medio segundo
-        if (S.mine.left <= 0) { mineBlock(bx, by); buzz(22); S.mine = null; S.placeDelay = w.gamemode == 1 ? 0 : 6; return true; }
+        if (S.mine.left <= 0) { const t0 = S.mine.t; mineBlock(bx, by); treecapStart(bx, by, t0); buzz(22); S.mine = null; S.placeDelay = w.gamemode == 1 ? 0 : 6; return true; }
         if (S.mine.left % 13 === 0) buzz(6);                         // (picando: golpecitos suaves)
         S.mine.left--;
         return false;
@@ -2517,6 +2523,7 @@
         const id = selType(), sig = selIndex() + ':' + id;
         if (sig === S.selSig) return;
         S.selSig = sig;
+        hud.dirty = true;                                              // (🍊 Annoying Orangen't: lo que llena la comida de la mano)
         if ((!document.body.classList.contains('is-touch') && !oldStyle()) || !id) return;
         let m = null;
         if (MINE_TOOL.test(id) || id === 'Shear') m = 'mine';
@@ -3034,6 +3041,7 @@
     const lockKey = (x, y, s) => (s || mbwom.currentScene || 1) + '|' + x + '|' + y;
     function lockTable() { const w = W(); if (!w.mbweLocks || typeof w.mbweLocks !== 'object') w.mbweLocks = {}; return w.mbweLocks; }
     function lockAt(x, y) {
+        if (!modOn('privchest')) return null;                         // 🧩 (mod Privated Chest)
         const L = W() && W().mbweLocks;
         if (!L) return null;
         const k = lockKey(x, y), v = L[k];
@@ -3100,6 +3108,7 @@
         btn.classList.toggle('need-sign', !!needSign);
     }
     function lockBtnShow(x, y, t) {
+        if (!modOn('privchest')) { lockBtnHide(); return; }
         lockOpen = { x: x, y: y, t: t };
         const host = document.getElementById('pinv-float') || document.querySelector('#inventory-modal .inv-search-container');   // (🔒 botón flotante, junto a la papelera)
         if (!host) return;
@@ -3117,6 +3126,7 @@
     function lockBtnHide() { const b = document.getElementById('pl-lock-btn'); if (b) b.hidden = true; if (!document.getElementById('pl-lock-pop')) lockOpen = null; }
     function lockPop(x, y, t) {
         lockPopClose();
+        if (!modOn('privchest')) return false;
         lockOpen = { x: x, y: y, t: t };
         const d = document.createElement('div'); d.id = 'pl-lock-pop'; d.className = 'pl-lock-pop';
         const h = document.createElement('div'); h.className = 'pl-lock-pop-t'; h.textContent = lockWhat(t).replace(/^./, (c) => c.toUpperCase()) + ' (X: ' + x + ', Y: ' + y + ')';
@@ -3194,6 +3204,7 @@
         const m = document.getElementById('inventory-modal');
         if (m && m.style.display === 'block' && shown(m)) return true;
         if (S.ench) return true;
+        if (S.zshop) return true;
         const cb = document.getElementById('command-book-modal');
         return !!(cb && cb.style.display && cb.style.display !== 'none' && shown(cb));
     }
@@ -4154,6 +4165,285 @@
         return !!id;
     }
 
+    // ================================================================== 🧩 MODS (4.1 - Mods Update)
+    //  El anfitrión del mapa / servidor (o tú, si juegas solo) instala o quita mods en Pausa > Server settings > Mods (o Pausa > Mods).
+    //  Se guardan en el mundo (mbweMods: { id: true }) y en multijugador valen para todos los jugadores.
+    const MODS = [
+        { id: 'treecap', icon: ['IronAxe'], name: ['mod_treecap', 'Tree Capitator'], desc: ['mod_treecap_d', 'Break one log and the whole trunk of the tree falls by itself, from the bottom up.'] },
+        { id: 'privchest', icon: ['chest'], name: ['mod_privchest', 'Privated Chest'], desc: ['mod_privchest_d', 'Protect chests, furnaces, crafting tables and more with a sign: only you can open them.'] },
+        { id: 'myzone', icon: ['b'], name: ['mod_myzone', 'My Zone'], desc: ['mod_myzone_d', 'A shop to buy protection blocks with XP levels (5x5, 10x10, 20x20). Nobody else can break or place blocks in your zone.'] },
+        { id: 'orange', icon: ['or'], name: ['mod_orange', 'Annoying Orangen\'t'], desc: ['mod_orange_d', 'Your health and hunger bars show exactly how much the food in your hand restores.'] },
+        { id: 'swim', icon: ['potion', { type: 'water' }], name: ['mod_swim', 'Let\'s Swimm'], desc: ['mod_swim_d', 'Swim lying face down and faster in the water. Your air runs out twice as fast.'] },
+        { id: 'morefuel', icon: ['cl'], name: ['mod_morefuel', 'More Fuel'], desc: ['mod_morefuel_d', 'Everything made only of wood, sticks or bamboo burns in the furnace.'] }
+    ];
+    const MOD_IDS = {}; MODS.forEach(function (m) { MOD_IDS[m.id] = 1; });
+    function cleanMods(m) { const o = {}; if (m && typeof m === 'object') Object.keys(m).forEach(function (k) { if (MOD_IDS[k] && m[k]) o[k] = true; }); return o; }
+    function modTable() {
+        const w = W(); if (!w) return {};
+        if (!w.mbweMods || typeof w.mbweMods !== 'object') {
+            w.mbweMods = {};
+            // (mundos de antes: si ya había cofres protegidos, el mod de cofres privados queda instalado)
+            const L = w.mbweLocks; if (L && typeof L === 'object' && Object.keys(L).length) w.mbweMods.privchest = true;
+        }
+        return w.mbweMods;
+    }
+    function modOn(id) { return !!modTable()[id]; }
+    function modBoss() { return !S.mp || roomHost() || isAdminMe(); }       // (👑 solo el anfitrión del mapa / servidor)
+    function modsChanged() {
+        hud.dirty = true;
+        if (!modOn('privchest')) { lockBtnHide(); lockPopClose(); }
+        if (!modOn('myzone')) zoneShopClose();
+        if (!modOn('swim')) S.swimming = false;
+        if (typeof worldDirty !== 'undefined') worldDirty = true;
+    }
+    function setMod(id, on) {
+        if (!MOD_IDS[id] || !modBoss()) return false;
+        const T = modTable();
+        if (on) T[id] = true; else delete T[id];
+        if (S.mp) mpSend({ tipo: 'juego_mods', m: cleanMods(T) });
+        modsChanged();
+        const m = MODS.filter(function (q) { return q.id === id; })[0];
+        if (m && S.mp) mpSend({ tipo: 'juego_sys', autor: myNameNet(), k: 'say', t: (on ? '🧩 ' + tr('mod_installed_msg', 'Mod installed: {name}') : '🧩 ' + tr('mod_removed_msg', 'Mod uninstalled: {name}')).replace('{name}', tr(m.name[0], m.name[1])) });
+        return true;
+    }
+
+    // ------------------------------------------------------------------ 🪓 Tree Capitator
+    //  Al romper un tronco, los troncos del mismo árbol que están arriba (y a los lados, en ramas) se rompen solos, de abajo hacia arriba.
+    function treecapStart(x, y, t) {
+        if (!modOn('treecap') || !LOGS[t]) return;
+        const seen = {}, out = [], q = [[x, y]];
+        seen[x + ',' + y] = 1;
+        while (q.length && out.length < 160) {
+            const p = q.shift();
+            for (let dy = 0; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+                if (!dx && !dy) continue;
+                const nx = p[0] + dx, ny = p[1] + dy, k = nx + ',' + ny;
+                if (seen[k] || Math.abs(nx - x) > 6) continue;
+                seen[k] = 1;
+                if (fg(nx, ny) === t) { out.push([nx, ny]); q.push([nx, ny]); }
+            }
+        }
+        if (!out.length) return;
+        out.sort(function (a, b) { return a[1] - b[1] || Math.abs(a[0] - x) - Math.abs(b[0] - x); });
+        S.treecap = { list: out, t: t, next: 0 };
+    }
+    function tickTreecap() {
+        const T = S.treecap; if (!T) return;
+        if (!modOn('treecap') || W().dead > 0) { S.treecap = null; return; }
+        if (S.tick < T.next) return;
+        T.next = S.tick + Math.max(1, Math.round(FPS / 12));         // (unos 12 troncos por segundo)
+        while (T.list.length) {
+            const p = T.list.shift();
+            if (fg(p[0], p[1]) !== T.t || zoneBlocks(p[0], p[1])) continue;
+            mineBlock(p[0], p[1]);
+            break;
+        }
+        if (!T.list.length) S.treecap = null;
+    }
+
+    // ------------------------------------------------------------------ 🔥 More Fuel
+    //  Lo que se craftea SOLO con madera, tablas, palos o bambú (o con otras cosas así) sirve de combustible.
+    let MOREFUEL = null;
+    function moreFuelTable() {
+        if (MOREFUEL) return MOREFUEL;
+        const R = Array.isArray(window.MB_RECIPES) ? window.MB_RECIPES : [];
+        const val = {}, BASE = { wd: 10, wd1: 10, wp: 10, st: 5, bb: 5, bbb: 20 };
+        Object.keys(BASE).forEach(function (k) { val[k] = Number(bd(k, 'fuel')) || BASE[k]; });
+        for (let pass = 0, changed = true; changed && pass < 12; pass++) {
+            changed = false;
+            R.forEach(function (r) {
+                if (!r || !Array.isArray(r.o) || !Array.isArray(r.i) || !r.i.length) return;
+                if (['relative', 'absolute', 'contains', 'large box'].indexOf(r.t) < 0) return;
+                const o = String(r.o[0]); if (val[o] != null) return;
+                let sum = 0;
+                for (let i = 0; i < r.i.length; i++) {
+                    const e = r.i[i]; const a = val[e.ty] != null ? e.ty : (e.ty2 && val[e.ty2] != null ? e.ty2 : null);
+                    if (!a) return;
+                    sum += val[a];
+                }
+                val[o] = Math.max(5, Math.min(30, Math.round(sum / Math.max(1, Number(r.o[1]) || 1))));
+                changed = true;
+            });
+        }
+        MOREFUEL = val;
+        return val;
+    }
+    function fuelOf(id) {
+        id = String(id || '');
+        const f = Number(bd(id, 'fuel')) || 0; if (f) return f;
+        if (!modOn('morefuel')) return 0;
+        return moreFuelTable()[id] || 0;
+    }
+
+    // ------------------------------------------------------------------ 🍊 Annoying Orangen't: cuánto llena la comida que traes en la mano
+    function foodPreview() {
+        if (!modOn('orange')) return null;
+        const fd = bd(selType(), 'food'); if (!fd) return null;
+        return { f: (Number(fd.hunger) || 0) / 50, h: Number(fd.health) || 0 };
+    }
+
+    // ------------------------------------------------------------------ 🛡 My Zone
+    //  Tienda (botón 🛡 arriba a la derecha): bloques de protección de 5x5, 10x10 y 20x20 por 1, 2 y 3 niveles de experiencia.
+    //  Son la Barrera del juego ("b") con { zone: tamaño } y su nombre. Al ponerla NO se pone un bloque: queda en una capa aparte
+    //  (mbweZones: "dimensión|x|y" → { u: dueño, n: nombre, r: tamaño }) que solo se ve con uno de esos bloques en la mano.
+    //  Dentro de la zona, los demás no pueden romper ni poner bloques. Para quitarla: con el bloque en la mano, pícale al centro.
+    const ZONE_COST = { 5: 1, 10: 2, 20: 3 };
+    const zoneKey = (x, y, s) => (s || mbwom.currentScene || 1) + '|' + x + '|' + y;
+    function zoneTable() { const w = W(); if (!w.mbweZones || typeof w.mbweZones !== 'object') w.mbweZones = {}; return w.mbweZones; }
+    function zoneRect(x, y, r) { const h = Math.floor(r / 2); return { x0: x - h, x1: x - h + r - 1, y0: y - h, y1: y - h + r - 1 }; }
+    function zonesHere() {
+        const Z = W() && W().mbweZones; if (!Z) return [];
+        const sc = String(mbwom.currentScene || 1) + '|', out = [];
+        for (const k in Z) {
+            if (k.indexOf(sc) !== 0 || !Z[k]) continue;
+            const p = k.split('|'), x = Number(p[1]), y = Number(p[2]), r = Number(Z[k].r) || 5;
+            out.push({ k: k, x: x, y: y, v: Z[k], rc: zoneRect(x, y, r) });
+        }
+        return out;
+    }
+    function zoneMine(v) { return !!v && (v.u === lockMeUid() || (isAdminUid(v.u) && isAdminMe())); }
+    function zoneBlocks(x, y) {                                       // (la zona de OTRO que no me deja tocar ese bloque)
+        if (!modOn('myzone') || (S.mp && (roomHost() || isAdminMe()))) return null;
+        const L = zonesHere();
+        for (let i = 0; i < L.length; i++) { const z = L[i], rc = z.rc; if (x >= rc.x0 && x <= rc.x1 && y >= rc.y0 && y <= rc.y1 && !zoneMine(z.v)) return z.v; }
+        return null;
+    }
+    function zoneDeny(x, y) {
+        const v = zoneBlocks(x, y); if (!v) return false;
+        if (!S.zoneWarnAt || S.tick - S.zoneWarnAt > FPS * 1.5) { S.zoneWarnAt = S.tick; flashMsg('🛡 ' + tr('zone_denied', 'This area is protected by {name}.').replace('{name}', String(v.n || 'Player'))); snd('click'); }
+        return true;
+    }
+    function zoneItemSize(it) { return (it && !isEmpty(it) && it[0] === 'b' && it[3] && ZONE_COST[Number(it[3].zone)]) ? Number(it[3].zone) : 0; }
+    function zoneItem(r) { return ['b', 1, 0, { zone: r, nameChange: tr('zone_item', 'My Zone {n}x{n}').replace(/\{n\}/g, r) }]; }
+    function heldZone() { return modOn('myzone') ? zoneItemSize(selItem()) : 0; }
+    function zoneSet(k, v, net) {
+        const Z = zoneTable();
+        if (v) Z[k] = { u: String(v.u || ''), n: String(v.n || 'Player').slice(0, 24), r: Number(v.r) || 5 }; else delete Z[k];
+        if (net !== false && S.mp) { const p = k.split('|'); mpSend({ tipo: 'juego_zona', s: Number(p[0]), x: Number(p[1]), y: Number(p[2]), v: v ? Z[k] : null }); }
+        if (typeof worldDirty !== 'undefined') worldDirty = true;
+    }
+    function placeZone(bx, by, r) {
+        const w = W();
+        if (blockDist(bx, by) > REACH) return false;
+        const k = zoneKey(bx, by), Z = zoneTable();
+        if (Z[k]) return false;
+        const nr = zoneRect(bx, by, r);
+        const clash = zonesHere().filter(function (z) { return !zoneMine(z.v) && !(z.rc.x1 < nr.x0 || z.rc.x0 > nr.x1 || z.rc.y1 < nr.y0 || z.rc.y0 > nr.y1); })[0];
+        if (clash && !(S.mp && (roomHost() || isAdminMe()))) { flashMsg('🛡 ' + tr('zone_clash', 'It overlaps the zone of {name}.').replace('{name}', String(clash.v.n || 'Player'))); snd('click'); return false; }
+        zoneSet(k, { u: lockMeUid(), n: myNameNet(), r: r });
+        S.zoneAt = S.tick;                                              // (no cuenta como "poner un bloque")
+        if (w.gamemode != 1) reduceSelected(1);
+        flashMsg('🛡 ' + tr('zone_placed', 'Your {n}x{n} zone is ready: only you can build here.').replace(/\{n\}/g, r));
+        snd('click'); hud.dirty = true;
+        return true;
+    }
+    function removeZoneAt(bx, by) {                                   // (con un bloque de zona en la mano, picándole al centro)
+        const k = zoneKey(bx, by), v = zoneTable()[k];
+        if (!v) return false;
+        if (!zoneMine(v) && !(S.mp && (roomHost() || isAdminMe()))) {
+            if (!S.zoneWarnAt || S.tick - S.zoneWarnAt > FPS * 1.5) { S.zoneWarnAt = S.tick; flashMsg('🛡 ' + tr('zone_not_yours', 'This zone belongs to {name}.').replace('{name}', String(v.n || 'Player'))); }
+            return true;
+        }
+        zoneSet(k, null);
+        if (W().gamemode != 1) { const it = zoneItem(Number(v.r) || 5); const left = addToInventory(it[0], 1, 0, it[3]); if (left > 0) addDrop(it[0], bx + .5, -(by + .5), left, 0, it[3]); }
+        flashMsg('🛡 ' + tr('zone_removed', 'Zone removed. The block is back in your inventory.'));
+        snd('click'); hud.dirty = true;
+        return true;
+    }
+    function drawZones(c2) {
+        const r0 = heldZone(); if (!r0) return;
+        const ts = tileSize, fs = Math.max(9, Math.round(ts * .34));
+        c2.save();
+        zonesHere().forEach(function (z) {
+            const mine = zoneMine(z.v), rc = z.rc;
+            const a = toScreen(rc.x0, -(rc.y1 + 1)), wpx = (rc.x1 - rc.x0 + 1) * ts, hpx = (rc.y1 - rc.y0 + 1) * ts;
+            if (a.x > canvas.width || a.y > canvas.height || a.x + wpx < 0 || a.y + hpx < 0) return;
+            c2.fillStyle = mine ? 'rgba(90,210,120,.16)' : 'rgba(235,70,60,.16)'; c2.fillRect(a.x, a.y, wpx, hpx);
+            c2.strokeStyle = mine ? 'rgba(110,240,140,.9)' : 'rgba(255,90,80,.9)'; c2.lineWidth = Math.max(2, ts * .08); c2.strokeRect(a.x + 1, a.y + 1, wpx - 2, hpx - 2);
+            const c = toScreen(z.x, -(z.y + 1)); c2.imageSmoothingEnabled = false; c2.drawImage(iconFor('b', {}), c.x, c.y, ts, ts);
+            c2.font = 'bold ' + fs + 'px Pixeltype, monospace'; c2.textAlign = 'center'; c2.textBaseline = 'bottom';
+            const label = String(z.v.n || 'Player') + ' · ' + (Number(z.v.r) || 5) + 'x' + (Number(z.v.r) || 5);
+            const tw = c2.measureText(label).width;
+            c2.fillStyle = 'rgba(0,0,0,.55)'; c2.fillRect(c.x + ts / 2 - tw / 2 - 4, c.y - fs - 6, tw + 8, fs + 4);
+            c2.fillStyle = '#fff'; c2.fillText(label, c.x + ts / 2, c.y - 3);
+        });
+        // dónde quedaría la nueva zona (donde apuntas)
+        if (S.mouse.inside) {
+            const mw = mouseWorld(), bx = Math.floor(mw.x), by = Math.floor(mw.y), rc = zoneRect(bx, by, r0);
+            const a = toScreen(rc.x0, -(rc.y1 + 1));
+            c2.setLineDash([ts * .25, ts * .2]); c2.strokeStyle = blockDist(bx, by) <= REACH ? 'rgba(255,230,90,.95)' : 'rgba(200,200,200,.6)'; c2.lineWidth = Math.max(2, ts * .07);
+            c2.strokeRect(a.x + 1, a.y + 1, r0 * ts - 2, r0 * ts - 2); c2.setLineDash([]);
+        }
+        c2.textAlign = 'start'; c2.textBaseline = 'alphabetic';
+        c2.restore();
+    }
+    // la tienda
+    function zoneShopOpen() {
+        if (!S.playing || !modOn('myzone')) return false;
+        closeModals();
+        S.zshop = true;
+        let el = document.getElementById('play-zone-shop');
+        if (!el) {
+            el = document.createElement('div'); el.id = 'play-zone-shop'; el.className = 'pe-overlay pz-overlay';
+            el.addEventListener('pointerdown', function (e) { e.stopPropagation(); if (e.target === el) zoneShopClose(); });
+            el.addEventListener('click', function (e) { e.stopPropagation(); });
+            document.body.appendChild(el);
+        }
+        el.style.display = 'flex';
+        zoneShopDraw();
+        return true;
+    }
+    function zoneShopClose() { S.zshop = false; const el = document.getElementById('play-zone-shop'); if (el) el.style.display = 'none'; hud.dirty = true; }
+    function zoneShopDraw() {
+        const el = document.getElementById('play-zone-shop'); if (!el || !S.zshop) return;
+        const w = W(), lv = Math.floor((Number(w.experience) || 0) / 100), crea = w.gamemode == 1;
+        const mk = function (tag, cls, txt) { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+        el.textContent = '';
+        const box = mk('div', 'pe-box pz-box'); el.appendChild(box);
+        const head = mk('div', 'pe-head'); head.appendChild(mk('span', 'pe-title', '🛡 ' + tr('zone_shop', 'My Zone · Shop')));
+        const x = mk('button', 'pe-x', '✕'); x.type = 'button'; x.addEventListener('click', zoneShopClose); head.appendChild(x);
+        box.appendChild(head);
+        box.appendChild(mk('p', 'pz-note', tr('zone_shop_note', 'Protection blocks: place one and nobody else can break or place blocks in that area. They are invisible unless you hold one. To take it back, hold one and break the center.')));
+        box.appendChild(mk('div', 'pz-lv', tr('zone_your_lv', 'Your level: {n}').replace('{n}', crea ? '∞' : lv)));
+        [5, 10, 20].forEach(function (r) {
+            const row = mk('div', 'pz-row');
+            const cv = mk('canvas', 'pz-ic'); cv.width = 16; cv.height = 16; const g = cv.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(iconFor('b', {}), 0, 0, 16, 16);
+            row.appendChild(cv);
+            const tx = mk('div', 'pz-tx'); tx.appendChild(mk('b', null, tr('zone_item', 'My Zone {n}x{n}').replace(/\{n\}/g, r))); tx.appendChild(mk('span', null, tr('zone_protects', 'Protects {n}x{n} blocks').replace(/\{n\}/g, r)));
+            row.appendChild(tx);
+            const cost = ZONE_COST[r], can = crea || lv >= cost;
+            const b = mk('button', 'pz-buy' + (can ? '' : ' no'), tr('zone_buy', 'Buy · {n} XP lv').replace('{n}', cost)); b.type = 'button'; b.disabled = !can;
+            b.addEventListener('click', function () { zoneBuy(r); });
+            row.appendChild(b);
+            box.appendChild(row);
+        });
+    }
+    function zoneBuy(r) {
+        const w = W(), cost = ZONE_COST[r]; if (!cost || !modOn('myzone')) return false;
+        const lv = Math.floor((Number(w.experience) || 0) / 100);
+        if (w.gamemode != 1) { if (lv < cost) { flashMsg(tr('zone_need_lv', 'You need {n} XP levels.').replace('{n}', cost)); return false; } w.experience = Math.max(0, (Number(w.experience) || 0) - cost * 100); }
+        const it = zoneItem(r); const left = addToInventory(it[0], 1, 0, it[3]); if (left > 0) addDrop(it[0], w.worldX, w.worldY, left, 0, it[3]);
+        snd('orb1'); hud.dirty = true; invRedraw();
+        flashMsg('🛡 ' + tr('zone_bought', 'You bought a {n}x{n} zone block.').replace(/\{n\}/g, r));
+        zoneShopDraw();
+        return true;
+    }
+
+    // ------------------------------------------------------------------ 🏊 Let's Swimm
+    const isWaterT = (t) => t === 'wr' || t === 'sw';
+    function swimCheck(w, P, bx, by) {
+        const was = !!S.swimming;
+        S.swimming = modOn('swim') && w.gamemode != 3 && !w.fly && !(w.dead > 0) && isWaterT(fg(bx, by + 1)) && (P.keysX || Math.abs(Number(w.xSpeed) || 0) > migSpeed(1.5));
+        if (was !== S.swimming) hud.dirty = true;
+    }
+
+    window.mbwPlay.mods = {
+        list: function () { return MODS.map(function (m) { return { id: m.id, icon: m.icon, name: tr(m.name[0], m.name[1]), desc: tr(m.desc[0], m.desc[1]), on: modOn(m.id) }; }); },
+        on: modOn, set: setMod, canEdit: modBoss,
+        zoneShop: zoneShopOpen, zones: function () { return JSON.parse(JSON.stringify(zoneTable())); }, fuelOf: fuelOf
+    };
+    window.mbwPlay.extraFuel = function (id) { return !!(S.playing && modOn('morefuel') && !bd(String(id), 'fuel') && moreFuelTable()[String(id)]); };
+
     // ------------------------------------------------------------------ paso del juego
     function step() {
         S.tick++;
@@ -4163,6 +4453,7 @@
         deathCheck();
         if (modalOpen()) { S.keys = {}; S.mouse.left = S.mouse.right = S.mouse.leftEdge = S.mouse.rightEdge = false; S.mine = null; }
         if (!(w.dead > 0)) { mineAndPlace(); if (!S.ride && !S.sleep) doPlayerLogic(); }
+        if (S.treecap) tickTreecap();                                 // 🪓 (mod Tree Capitator)
         tickLife();
         if (S.spect) spectFollow();
         if (S.ench && (fg(S.ench.x, S.ench.y) !== 'enchant' || Math.pow(S.ench.x + .5 - w.worldX, 2) + Math.pow(-S.ench.y - .5 - w.worldY, 2) > 36)) closeEnchant();   // (lejos o la rompieron)
@@ -4919,6 +5210,7 @@
         });
         S.arrows.forEach(function (r) { const p = toScreen(r.x, r.y); const a = Math.atan2(r.vy, r.vx); c2.beginPath(); c2.moveTo(p.x, p.y); c2.lineTo(p.x - Math.cos(a) * tileSize * .6, p.y - Math.sin(a) * tileSize * .6); c2.stroke(); });
         drawLocks(c2);
+        drawZones(c2);                                                 // 🛡 (mod My Zone, solo con el bloque en la mano)
         drawParticles(c2);
         drawBalloons(c2);
         if (S.sleep) {                                                    // 💤
@@ -5198,7 +5490,7 @@
             el.innerHTML =
                 // (lo de la cámara: viñeta, ⏸ y 💬, coordenadas, efectos y el morado del portal van DENTRO del recuadro de la cámara)
                 '<div class="ph-area"><div class="ph-vig"></div><div class="ph-portal"></div>' +
-                '<div class="ph-top"><div class="ph-topbtns"><button type="button" class="ph-marks-btn" aria-label="Markers">⭐</button><button type="button" class="ph-gear" aria-label="Menu">⚙</button></div><div class="ph-msg"></div></div>' +
+                '<div class="ph-top"><div class="ph-topbtns"><button type="button" class="ph-zone-btn" aria-label="My Zone" style="display:none"><canvas width="16" height="16"></canvas></button><button type="button" class="ph-marks-btn" aria-label="Markers">⭐</button><button type="button" class="ph-gear" aria-label="Menu">⚙</button></div><div class="ph-msg"></div></div>' +
                 '<div class="ph-marks" style="display:none"></div><div class="ph-ptab" style="display:none"></div>' +
                 '<button type="button" class="ph-chat-btn"><img src="assets/chat.png" alt=""></button><div class="ph-coords"></div><div class="ph-fps"></div><div class="ph-effects"></div></div>' +
                 '<div class="ph-bars"><div class="ph-left"><div class="ph-armor"></div><div class="ph-hearts"></div></div><div class="ph-right"><div class="ph-air"></div><div class="ph-food"></div></div></div>' +
@@ -5220,6 +5512,7 @@
             document.body.appendChild(el);
             el.querySelector('.ph-gear').addEventListener('click', function (e) { e.stopPropagation(); openPause(); });
             el.querySelector('.ph-marks-btn').addEventListener('click', function (e) { e.stopPropagation(); marks.toggle(); });
+            el.querySelector('.ph-zone-btn').addEventListener('click', function (e) { e.stopPropagation(); zoneShopOpen(); });   // 🛡 tienda de My Zone
             ['pointerdown', 'mousedown', 'touchstart', 'click', 'wheel'].forEach(function (n) { el.querySelector('.ph-marks').addEventListener(n, function (e) { e.stopPropagation(); }); });
             joystick(el.querySelector('.ph-joy'));
             el.querySelectorAll('[data-k]').forEach(function (b) {
@@ -5271,6 +5564,8 @@
             // coordenadas (Options > Coordinates)
             const co = ar.querySelector('.ph-coords');
             co.style.display = OPTS.coords ? 'block' : 'none';
+            const zb = ar.querySelector('.ph-zone-btn'), zon = modOn('myzone');   // 🛡 (mod My Zone) el botón de la tienda
+            if (zb && (zb.style.display !== 'none') !== zon) { zb.style.display = zon ? '' : 'none'; if (zon) { const g = zb.querySelector('canvas').getContext('2d'); g.imageSmoothingEnabled = false; g.clearRect(0, 0, 16, 16); g.drawImage(iconFor('b', {}), 0, 0, 16, 16); } zb.title = tr('zone_shop', 'My Zone · Shop'); }
             if (OPTS.coords) { const t = 'X: ' + Math.floor(Number(w.worldX)) + '   Y: ' + Math.floor(-Number(w.worldY)); if (co.textContent !== t) co.textContent = t; }
             // efectos que tengo puestos (pociones, comida...) con el tiempo que les queda
             const ef = ar.querySelector('.ph-effects'), E = w.effects || {};
@@ -5334,9 +5629,13 @@
             // vida (assets/HEALTH.png) a la izquierda y hambre (assets/HUNGER.png) a la derecha, como en Minecraft;
             // las dos barras se vacían de derecha a izquierda
             const icon = function (st) { return '<i class="' + st + '"><u></u></i>'; };
+            // 🍊 (mod Annoying Orangen't) lo que se va a llenar con la comida de la mano parpadea
+            const pv = surv ? foodPreview() : null;
+            const st3 = function (v, i) { return v >= (i + 1) * 2 ? 'f' : v >= i * 2 + 1 ? 'h' : 'e'; };
+            const icon2 = function (now, after) { return now === after ? icon(now) : '<i class="' + after + ' pv"><u></u></i>'; };
             if (surv) {
-                const hp = Math.max(0, w.health | 0);
-                for (let i = 0; i < 10; i++) h += icon(hp >= (i + 1) * 2 ? 'f' : hp === i * 2 + 1 ? 'h' : 'e');
+                const hp = Math.max(0, w.health | 0), hp2 = pv && pv.h ? Math.min(20, hp + pv.h) : hp;
+                for (let i = 0; i < 10; i++) h += icon2(hp >= (i + 1) * 2 ? 'f' : hp === i * 2 + 1 ? 'h' : 'e', st3(hp2, i));
             }
             this.el.querySelector('.ph-hearts').innerHTML = h;
             // 🛡 barra de armadura arriba de los corazones (solo si traes algo que protege), como en Minecraft
@@ -5344,7 +5643,7 @@
             if (surv && ap > 0) for (let i = 0; i < 10; i++) am += icon(ap >= (i + 1) * 2 ? 'f' : ap === i * 2 + 1 ? 'h' : 'e');
             this.el.querySelector('.ph-armor').innerHTML = am;
             let fd = '';
-            if (surv) { const f = Math.max(0, (w.food | 0) / 50); for (let i = 0; i < 10; i++) fd += icon(f >= (i + 1) * 2 ? 'f' : f >= i * 2 + 1 ? 'h' : 'e'); }
+            if (surv) { const f = Math.max(0, (w.food | 0) / 50), f2 = pv && pv.f ? Math.min(20, f + pv.f) : f; for (let i = 0; i < 10; i++) fd += icon2(st3(f, i), st3(f2, i)); }
             this.el.querySelector('.ph-food').innerHTML = fd;
             let ai = '';
             if (surv && w.air < 11) for (let i = 0; i < 10; i++) ai += '<i class="' + (w.air > i ? 'f' : 'e') + '">●</i>';
@@ -5999,6 +6298,7 @@
     }
     function closeModals() {
         if (S.ench) closeEnchant();
+        if (S.zshop) zoneShopClose();
         const m = document.getElementById('inventory-modal');
         if (m && m.style.display === 'block' && typeof toggleInventory === 'function') { try { toggleInventory(); } catch (e) { m.style.display = 'none'; } }
         ['sign-editor-modal', 'command-book-modal'].forEach(function (id) { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
@@ -6233,6 +6533,14 @@
         c2.restore();
     }
     window.mbwPlay.drawHeld = drawHeld;
+    // 🏊 (mod Let's Swimm) el dibujo acostado boca abajo: la cabeza hacia donde nada, a la altura del cuerpo (también los demás jugadores)
+    function swimPose(c2, right, ph) {
+        c2.translate(0, -tileSize * .85);
+        if (right) c2.scale(-1, 1);
+        c2.rotate(-Math.PI / 2);
+        c2.translate(0, ph / 2);
+    }
+    window.mbwPlay.swimPose = swimPose;
     // ✂ cada cuadro de la tira (16×22) se recorta a un lienzo propio y se dibuja desde ahí: así, al agrandarlo, el navegador
     //    no mezcla la fila de abajo de la tira (la tira tiene 2 filas: salía una rayita horizontal en los pies o la cabeza)
     const frameCuts = new Map();
@@ -6263,6 +6571,7 @@
         c2.imageSmoothingEnabled = false;
         c2.translate(Math.round(sx), Math.round(sy));
         if (S.sleep) { c2.translate(ph / 2, -pw / 2 + tileSize * .12); c2.rotate(-Math.PI / 2); }   // 🛏 acostado (la cabeza hacia la cabecera)
+        else if (S.swimming) swimPose(c2, S.p && S.p.xScale < 0, ph);                // 🏊 nadando: acostado boca abajo, la cabeza hacia donde va
         else if (S.p && S.p.xScale < 0) c2.scale(-1, 1);
         if (S.p && S.p.hurt > 0) c2.globalAlpha = 0.85;
         const sk = skinSheet(S.skin), sheet = sk || frank;
@@ -6333,6 +6642,12 @@
             lock: function (d) { if (!d) return; const x = Math.floor(Number(d.x)), y = Math.floor(Number(d.y)); if (!isFinite(x) || !isFinite(y)) return; lockSet(x, y, d.v || null, Number(d.s) || 1, false); },
             locks: function (tb) { if (tb && typeof tb === 'object') { W().mbweLocks = JSON.parse(JSON.stringify(tb)); lockUiRefresh(); } },
             lockTable: function () { return (W() && W().mbweLocks) || {}; },
+            // 🛡 (mod My Zone) otro jugador puso / quitó una zona, o (al entrar tarde) la lista entera
+            zone: function (d) { if (!d) return; const x = Math.floor(Number(d.x)), y = Math.floor(Number(d.y)); if (!isFinite(x) || !isFinite(y)) return; zoneSet(zoneKey(x, y, Number(d.s) || 1), d.v || null, false); hud.dirty = true; },
+            zones: function (tb) { if (tb && typeof tb === 'object') { W().mbweZones = JSON.parse(JSON.stringify(tb)); hud.dirty = true; } },
+            zoneTable: function () { return (W() && W().mbweZones) || {}; },
+            // 🧩 el anfitrión instaló / quitó mods
+            mods: function (m) { if (!W()) return; W().mbweMods = cleanMods(m); modsChanged(); },
             // 👑 el anfitrión (o Crystal) usó un comando sobre mí
             cmd: function (d) {
                 const M = window.mbwMpPlay;

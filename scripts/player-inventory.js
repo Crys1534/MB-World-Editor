@@ -138,7 +138,7 @@
  // El número es cuánto dura cada uno (en "tics" del horno; un objeto se cocina cada 10).
  const FUEL_IDS = ['cl', 'cl2', 'clb', 'wd', 'wp', 'st', 'sl', 'fnc', 'fncg', 'bb', 'bbb', 'hay', 'magma', 'lbk', 'WoodenPickaxe', 'WoodenAxe', 'WoodenShovel', 'WoodenHoe', 'WoodenSword'];
  const F_KEYS = ['input', 'fuel', 'output'];
- const isFuel = (id) => FUEL_IDS.indexOf(String(id)) >= 0;
+ const isFuel = (id) => FUEL_IDS.indexOf(String(id)) >= 0 || !!(window.mbwPlay && typeof window.mbwPlay.extraFuel === 'function' && window.mbwPlay.extraFuel(id));   // (🔥 mod More Fuel)
  window.mbwFurnaceFuelIds = FUEL_IDS;
  const CHEST_SLOTS = 27;
  // Datos del horno que se está editando: mbwom.toSmelt["blockX{x}Y{y}"] = { input, fuel, output, fuelTimer, fuelTimerTotal, smeltTimer }

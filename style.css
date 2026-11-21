@@ -4398,3 +4398,36 @@ body.is-touch.mbw-fps-on #mbw-play-hud .ph-fps { left: auto; right: 12px; top: 6
 
 /* 📍 en pantallas chicas (celular acostado) un poco menos, para no tapar el juego */
 @media (max-height: 480px) { #mbw-play-hud .ph-coords { font-size: 54px; } #mbw-play-hud .ph-fps, body.is-touch.mbw-fps-on #mbw-play-hud .ph-fps { top: 56px; } }
+
+/* 🧩 MODS (4.1): la lista en la ventana gris del juego */
+.pm-mods { display: flex; flex-direction: column; gap: 6px; }
+.pm-mods-note { color: #555; font: 400 21px/1.1 'Pixeltype', sans-serif; padding: 2px 4px 4px; }
+.pm-mod { display: flex; align-items: center; gap: 10px; padding: 6px 8px; background: #b5b5b5; border: 2px solid; border-color: #8b8b8b #fff #fff #8b8b8b; color: #3f3f3f; }
+.pm-mod.on { background: #a9c79c; }
+.pm-mod .pm-ico { width: 32px; height: 32px; }
+.pm-mod-tx { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-family: 'Pixeltype', sans-serif; }
+.pm-mod-tx b { font: 400 25px/1 'Pixeltype', sans-serif; color: #222; }
+.pm-mod-tx span { font: 400 19px/1.05 'Pixeltype', sans-serif; color: #444; }
+#play-menu .pm-srv .pm-mod-btn { flex: 0 0 auto; min-width: 92px; }
+#play-menu .pm-srv .pm-mod-btn.on { background: #5b8a3c; }
+.pm-mod-st { flex: 0 0 auto; font: 400 20px/1 'Pixeltype', sans-serif; color: #666; }
+.pm-mod-st.on { color: #2f6b1f; }
+@media (max-width: 640px), (max-height: 480px) { .pm-mod-tx b { font-size: 19px; } .pm-mod-tx span { font-size: 15px; } .pm-mod .pm-ico { width: 24px; height: 24px; } }
+/* 🍊 Annoying Orangen't: lo que va a llenar la comida parpadea */
+#mbw-play-hud .ph-hearts i.pv, #mbw-play-hud .ph-food i.pv { animation: phPv 1s steps(1) infinite; }
+@keyframes phPv { 0% { opacity: 1; } 50% { opacity: .3; } }
+/* 🛡 My Zone: el botón de la tienda (arriba a la derecha) y la tienda */
+#mbw-play-hud .ph-area .ph-zone-btn { width: 56px; height: 56px; border: none; border-radius: 12px; background: rgba(0,0,0,.35); cursor: pointer; pointer-events: auto; opacity: .6; transition: opacity .15s; display: flex; align-items: center; justify-content: center; }
+#mbw-play-hud .ph-area .ph-zone-btn:hover { opacity: 1; }
+#mbw-play-hud .ph-area .ph-zone-btn canvas { width: 32px; height: 32px; image-rendering: pixelated; }
+body.is-touch #mbw-play-hud .ph-area .ph-zone-btn { width: 48px; height: 48px; }
+.pz-box { font-family: 'Pixeltype', sans-serif; }
+.pz-box .pe-title { font: 400 28px/1 'Pixeltype', sans-serif; }
+.pz-note { margin: 0 0 8px; font: 400 19px/1.1 'Pixeltype', sans-serif; color: #444; }
+.pz-lv { font: 400 22px/1 'Pixeltype', sans-serif; color: #3a7d1a; margin-bottom: 6px; }
+.pz-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; margin-top: 6px; background: #8b8b8b; border: 2px solid; border-color: #373737 #fff #fff #373737; }
+.pz-ic { width: 36px; height: 36px; image-rendering: pixelated; flex: 0 0 auto; }
+.pz-tx { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; color: #fff; text-shadow: 1px 1px 0 #3f3f3f; }
+.pz-tx b { font: 400 24px/1 'Pixeltype', sans-serif; } .pz-tx span { font: 400 18px/1 'Pixeltype', sans-serif; opacity: .9; }
+.pz-buy { flex: 0 0 auto; font: 400 21px/1 'Pixeltype', sans-serif; color: #fff; background: #5b8a3c; border: 2px solid; border-color: #9fd07f #2a4a18 #2a4a18 #9fd07f; padding: 6px 10px; cursor: pointer; text-shadow: 1px 1px 0 #2a4a18; }
+.pz-buy.no { background: #777; border-color: #aaa #444 #444 #aaa; cursor: not-allowed; opacity: .75; }

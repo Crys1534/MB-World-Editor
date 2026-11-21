@@ -101,7 +101,10 @@
     const myName = function () { try { return localStorage.getItem('mbw_username') || 'Player'; } catch (e) { return 'Player'; } };
     const onServerTab = function () { return typeof window.mpOnServerTab !== 'function' || window.mpOnServerTab(); };
     const curScene = function () { return (typeof mbwom !== 'undefined' && (mbwom.currentScene || 1)) || 1; };
-    const send = function (d) { if (typeof window.enviarMensajeEnRed === 'function') window.enviarMensajeEnRed(d); };
+    const send = function (d) { if (d && d.tipo === 'juego_activo') d.mods = curMods(); if (typeof window.enviarMensajeEnRed === 'function') window.enviarMensajeEnRed(d); };
+    // 🧩 los mods instalados en este mundo (los manda el que lleva la partida, para que todos los tengan)
+    const curMods = function () { try { const m = mbwom.world && mbwom.world.mbweMods; return m && typeof m === 'object' ? JSON.parse(JSON.stringify(m)) : {}; } catch (e) { return {}; } };
+    function applyMods(m) { if (!m || typeof m !== 'object' || !mbwom.world) return; if (window.mbwPlay && window.mbwPlay.net && window.mbwPlay.net.mods && playing()) window.mbwPlay.net.mods(m); else { const o = {}; Object.keys(m).forEach(function (k) { if (m[k]) o[k] = true; }); mbwom.world.mbweMods = o; } }
     const flash = function (t) { try { if (window.mbwPlay && window.mbwPlay.flash) window.mbwPlay.flash(t); } catch (e) { /* nada */ } };
     const jsonOf = function (st) { try { return JSON.stringify(st); } catch (e) { return ''; } };
     const playing = function () { return !!(window.mbwPlay && window.mbwPlay.isPlaying()); };
@@ -289,7 +292,7 @@
             gm: Number(w.gamemode) || 0, it: (window.mbwPlay.net ? window.mbwPlay.net.heldId() : ''),
             uid: myUid(), p: M.role === 'host' ? 0 : (M.ping | 0), sel: w.selectedInventoryItem | 0,
             hp: Math.max(0, Math.round(Number(w.health) || 0)), fd: Math.max(0, Math.round(Number(w.food) || 0)), sk: mySkin(),
-            ar: armorOf(w), iv: (window.mbwPlay && window.mbwPlay.effect && window.mbwPlay.effect('invisibility')) ? 1 : 0
+            ar: armorOf(w), iv: (window.mbwPlay && window.mbwPlay.effect && window.mbwPlay.effect('invisibility')) ? 1 : 0, sw: (P && P.swimming) ? 1 : 0
         });
     }
 
@@ -368,6 +371,7 @@
         if (d.para && d.para !== myPeer()) return;                        // (un mensaje para otro jugador)
         if (t === 'juego_inicio' || t === 'juego_activo') {
             if (d.peerId === myPeer() || (M.on && M.role === 'host')) return;
+            if (d.mods && !amHost()) applyMods(d.mods);                    // 🧩 (el anfitrión de la sala es quien manda en los mods)
             // (una conexión nueva con el anfitrión —volví a entrar al servidor— cuenta como partida nueva: entro solo otra vez)
             const conn = typeof miConexionAlHost !== 'undefined' ? miConexionAlHost : null;
             const newConn = !!conn && conn !== M.lastConn; if (newConn) M.lastConn = conn;
@@ -389,6 +393,8 @@
             if (M.on && M.role === 'guest') stopGame(d.test ? tr('mpplay_ended_test', 'The host ended the test. Nothing was saved: the world is back to how it was.') : tr('mpplay_ended2', 'The host ended the game. Everything that happened was saved.'), !d.test);
             return;
         }
+        // 🧩 el anfitrión instaló / quitó un mod
+        if (t === 'juego_mods') { if (d.peerId !== myPeer() && (d.peerId === M.roomHostPeer() || d.peerId === M.leaderPeer)) applyMods(d.m); return; }
         // 🏠 el anfitrión de la sala cambió "los invitados pueden usar comandos" mientras la partida la llevo yo
         if (t === 'juego_permisos') {
             if (M.on && M.role === 'host' && d.peerId && d.peerId === M.roomHostPeer()) { try { mbwom.world.mbweAllowCmds = !!d.cmds; } catch (e) { /* nada */ } send({ tipo: 'juego_activo', autor: myName(), peerId: myPeer(), cmds: !!d.cmds, tim: curTim() }); }
@@ -421,10 +427,12 @@
         if (t === 'juego_inv_pedir' || t === 'juego_inv' || t === 'juego_inv_poner') { if (window.mbwMpInv) window.mbwMpInv.onNet(d); return; }   // 🎒
         if (t === 'juego_candado') { if (d.peerId !== myPeer() && window.mbwPlay.net && window.mbwPlay.net.lock) window.mbwPlay.net.lock(d); return; }   // 🔒
         if (t === 'juego_candados') { if (window.mbwPlay.net && window.mbwPlay.net.locks) window.mbwPlay.net.locks(d.t); return; }
+        if (t === 'juego_zona') { if (d.peerId !== myPeer() && window.mbwPlay.net && window.mbwPlay.net.zone) window.mbwPlay.net.zone(d); return; }   // 🛡
+        if (t === 'juego_zonas') { if (window.mbwPlay.net && window.mbwPlay.net.zones) window.mbwPlay.net.zones(d.t); return; }
         if (t === 'juego_tiro') { if (d.peerId !== myPeer() && window.mbwPlay && window.mbwPlay.net && window.mbwPlay.net.shot) window.mbwPlay.net.shot(d); return; }   // 🏹 lo que tiró otro (solo se ve)
         if (t === 'juego_emote') { const r = M.remotes[d.peerId]; if (r && window.customEmotes && window.customEmotes[d.e]) { r.emote = { e: String(d.e), t: Date.now() }; if (typeof worldDirty !== 'undefined') worldDirty = true; } return; }   // 😀
         if (t === 'juego_bloques' || t === 'juego_cambios') { applyBlocks(Number(d.s) || 1, d.c); return; }
-        if (t === 'juego_pedir' && M.role === 'host') { if (window.mbwAch) { window.mbwAch.apply(d.uid, d.autor, null); sendTo(d.peerId, { tipo: 'juego_logros', t: window.mbwAch.table() }); } sendChangesTo(d.peerId); try { if (window.mbwPlay.net && window.mbwPlay.net.lockTable) sendTo(d.peerId, { tipo: 'juego_candados', t: window.mbwPlay.net.lockTable() }); } catch (e) { /* nada */ } sendMobListTo(d.peerId); sendDropsTo(d.peerId); sendPlayerTo(d.peerId, d.uid, d.autor); return; }
+        if (t === 'juego_pedir' && M.role === 'host') { if (window.mbwAch) { window.mbwAch.apply(d.uid, d.autor, null); sendTo(d.peerId, { tipo: 'juego_logros', t: window.mbwAch.table() }); } sendChangesTo(d.peerId); try { if (window.mbwPlay.net && window.mbwPlay.net.lockTable) sendTo(d.peerId, { tipo: 'juego_candados', t: window.mbwPlay.net.lockTable() }); if (window.mbwPlay.net && window.mbwPlay.net.zoneTable) sendTo(d.peerId, { tipo: 'juego_zonas', t: window.mbwPlay.net.zoneTable() }); sendTo(d.peerId, { tipo: 'juego_mods', m: curMods(), peerId: myPeer() }); } catch (e) { /* nada */ } sendMobListTo(d.peerId); sendDropsTo(d.peerId); sendPlayerTo(d.peerId, d.uid, d.autor); return; }
         if (t === 'juego_tuyo') { if (M.skipMine) M.skipMine = false; else if (M.role === 'guest' && !M.roomHostAtStart && window.mbwPlay.net && window.mbwPlay.net.loadMine) window.mbwPlay.net.loadMine(d.data, d.spawn, d.gm0); M.guestCmds = !!d.cmds; return; }
         if (t === 'juego_logro') { if (window.mbwAch) window.mbwAch.apply(d.uid, d.n, d.i, d.t); return; }                       // 🏆 otro jugador ganó un logro
         if (t === 'juego_logro_dar') { if (d.a === myPeer() && window.mbwAch) window.mbwAch.unlock(Number(d.i)); return; }         // 🏆 maté un mob del anfitrión
@@ -589,7 +597,7 @@
         r.gm = Number(d.gm) || 0; r.it = String(d.it || ''); r.uid = d.uid ? String(d.uid) : r.uid; r.ping = Number(d.p) || 0;
         r.hp = Number(d.hp); r.fd = Number(d.fd); r.sk = /^[0-9]{1,12}$/.test(String(d.sk || '')) ? String(d.sk) : '';
         r.ar = Array.isArray(d.ar) ? d.ar.slice(0, 4).map(function (q) { return Array.isArray(q) && typeof q[0] === 'string' ? [q[0].slice(0, 40), q[1] == null ? null : String(q[1]).slice(0, 40)] : null; }) : null;
-        r.iv = !!d.iv;
+        r.iv = !!d.iv; r.sw = !!d.sw;
         if (r.sel !== (d.sel | 0)) { r.selT = now; r.sel = d.sel | 0; }                  // (cambió de casilla: se muestra arriba de él un ratito)
         if (M.role === 'host' && r.uid && mbwom.world && mbwom.world.mbwePlayers && mbwom.world.mbwePlayers[r.uid]) {   // (dónde está, al momento)
             const rec = mbwom.world.mbwePlayers[r.uid];
@@ -624,7 +632,8 @@
             c2.imageSmoothingEnabled = false;
             c2.translate(sx, sy);
             c2.save();
-            if (r.fl) c2.scale(-1, 1);
+            if (r.sw && window.mbwPlay && window.mbwPlay.swimPose) window.mbwPlay.swimPose(c2, r.fl, ph);   // 🏊 nadando (mod Let's Swimm)
+            else if (r.fl) c2.scale(-1, 1);
             if (r.h) c2.globalAlpha = 0.85;
             const sk = r.sk && window.mbwPlaySkinSheet ? window.mbwPlaySkinSheet(r.sk) : null, sheet = sk || frank;   // (su skin, si eligió una)
             const nf = Math.max(1, Math.floor((sheet.naturalWidth || sheet.width) / 16)), fi = Math.max(0, Math.min(16, r.f));
