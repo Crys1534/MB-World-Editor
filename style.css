@@ -4460,3 +4460,10 @@ body.pinv-dbl #inventory-modal.pinv-mb .inv-modal-window { --s: clamp(18px, min(
 @media (max-height: 520px) {
   body.pinv-dbl.pinv-chest-open #inventory-modal.pinv-mb .inv-modal-window { --s: clamp(16px, min(42px, calc((var(--vw, 100vw) - 64px) / 20.3), calc((var(--vh, 100vh) - 64px) / 7.4)), 42px); }
 }
+/* 🧩 barra de "descarga" al instalar / desinstalar un mod */
+.pm-mod-prog { position: relative; flex: 0 0 auto; width: 150px; height: 30px; background: #373737; border: 2px solid; border-color: #1f1f1f #8b8b8b #8b8b8b #1f1f1f; overflow: hidden; }
+.pm-mod-prog i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: repeating-linear-gradient(135deg, #5b8a3c 0 10px, #6fa24a 10px 20px); background-size: 28px 28px; animation: pmProg .6s linear infinite; }
+.pm-mod-prog.un i { background: repeating-linear-gradient(135deg, #9a4a3a 0 10px, #b45a48 10px 20px); background-size: 28px 28px; }
+.pm-mod-prog span { position: relative; display: block; text-align: center; font: 400 18px/26px 'Pixeltype', sans-serif; color: #fff; text-shadow: 1px 1px 0 #000; white-space: nowrap; }
+@keyframes pmProg { from { background-position: 0 0; } to { background-position: 28px 0; } }
+@media (max-width: 640px), (max-height: 480px) { .pm-mod-prog { width: 118px; } .pm-mod-prog span { font-size: 15px; } }

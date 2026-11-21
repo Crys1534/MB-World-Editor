@@ -332,6 +332,35 @@
         return wrap;
     }
     // 🧩 MODS: la lista de mods. El anfitrión (o tú, jugando solo) los instala / quita; los demás ven cuáles hay.
+    // 🧩 instalar / desinstalar un mod: una barra de "descarga" (de mentiritas) y al llegar a 100% se instala de verdad
+    const MODJOB = {};
+    function modJobStart(id, on) {
+        if (MODJOB[id]) return;
+        const pts = [0], n = 5; let acc = 0;                           // (avanza a tirones: rápido, se atora un poquito, sigue...)
+        for (let i = 0; i < n; i++) { acc += .4 + Math.random(); pts.push(acc); }
+        MODJOB[id] = { on: on, t0: performance.now(), dur: on ? 1700 + Math.random() * 1300 : 800 + Math.random() * 400, pts: pts.map(function (v) { return v / acc; }) };
+        requestAnimationFrame(modJobTick);
+    }
+    function modJobPct(j) {
+        const k = Math.min(1, (performance.now() - j.t0) / j.dur), n = j.pts.length - 1, i = Math.min(n - 1, Math.floor(k * n)), f = k * n - i;
+        const g = f < .65 ? f / .65 : 1;                                 // (cada tramo se queda quieto un ratito al final)
+        return Math.min(100, Math.round((j.pts[i] + (j.pts[i + 1] - j.pts[i]) * g) * 100));
+    }
+    function modJobTick() {
+        let any = false;
+        Object.keys(MODJOB).forEach(function (id) {
+            const j = MODJOB[id], pc = modJobPct(j), done = performance.now() - j.t0 >= j.dur;
+            document.querySelectorAll('.pm-mod-prog[data-job="' + id + '"]').forEach(function (e) {
+                e.querySelector('i').style.width = pc + '%';
+                e.querySelector('span').textContent = (j.on ? tr('mods_installing', 'Installing...') : tr('mods_uninstalling', 'Uninstalling...')) + ' ' + pc + '%';
+            });
+            if (!done) { any = true; return; }
+            delete MODJOB[id];
+            const MD = P() && P().mods; if (MD) MD.set(id, j.on);
+            if (document.querySelector('#play-menu .pm-mods')) show(page);
+        });
+        if (any) requestAnimationFrame(modJobTick);
+    }
     function modsBox() {
         const box = el('div', 'pm-mods');
         const MD = P() && P().mods;
@@ -343,8 +372,13 @@
             r.dataset.mod = m.id;
             r.appendChild(ico(m.icon[0], m.icon[1]));
             const tx = el('div', 'pm-mod-tx'); tx.appendChild(el('b', null, m.name)); tx.appendChild(el('span', null, m.desc)); r.appendChild(tx);
-            if (can) {
-                const b = btn(m.on ? '✓ ' + tr('mods_installed', 'Installed') : tr('mods_install', 'Install'), 'pm-mini pm-mod-btn' + (m.on ? ' on' : ''), function () { MD.set(m.id, !m.on); show(page); });
+            if (can && MODJOB[m.id]) {                                       // (instalándose: la barra)
+                const j = MODJOB[m.id], pc = modJobPct(j), pg = el('div', 'pm-mod-prog' + (j.on ? '' : ' un')); pg.dataset.job = m.id;
+                const fill = el('i'); fill.style.width = pc + '%'; pg.appendChild(fill);
+                pg.appendChild(el('span', null, (j.on ? tr('mods_installing', 'Installing...') : tr('mods_uninstalling', 'Uninstalling...')) + ' ' + pc + '%'));
+                r.appendChild(pg);
+            } else if (can) {
+                const b = btn(m.on ? '✓ ' + tr('mods_installed', 'Installed') : tr('mods_install', 'Install'), 'pm-mini pm-mod-btn' + (m.on ? ' on' : ''), function () { modJobStart(m.id, !m.on); show(page); });
                 if (m.on) b.title = tr('mods_uninstall_tip', 'Click to uninstall');
                 r.appendChild(b);
             } else r.appendChild(el('span', 'pm-mod-st' + (m.on ? ' on' : ''), m.on ? '✓ ' + tr('mods_installed', 'Installed') : tr('mods_off', 'Not installed')));
