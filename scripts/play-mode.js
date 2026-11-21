@@ -2758,7 +2758,10 @@
             } else mpSend({ tipo: 'juego_cmd', a: t.id, c: cmd, s: s, dn: dn, uid: myUidNet(), autor: myNameNet() });
         });
         const others = T.filter(function (t) { return !t.me; }).map(function (t) { return t.name; });
-        if (others.length) say('[INFO] 👑 ' + tr('play_cmd_sent', '{cmd} → {names}').replace('{cmd}', cmd).replace('{names}', others.join(', ')));
+        // (con nombres: "Teleporting Ana to Crystal" en vez de "/tp 120 -40 → Ana")
+        if (others.length && d[0] === 'tp' && dn) say('[INFO] 👑 ' + tr('play_tp_sent_player', 'Teleporting {names} to {target}... in 3 seconds!').replace('{names}', others.join(', ')).replace('{target}', dn));
+        else if (others.length && d[0] === 'tp' && /^\/tp -?[\d.]+ -?[\d.]+$/.test(cmd)) say('[INFO] 👑 ' + tr('play_tp_sent_xy', 'Teleported {names} to {x}, {y}').replace('{names}', others.join(', ')).replace('{x}', cmd.split(' ')[1]).replace('{y}', cmd.split(' ')[2]));
+        else if (others.length) say('[INFO] 👑 ' + tr('play_cmd_sent', '{cmd} → {names}').replace('{cmd}', cmd).replace('{names}', others.join(', ')));
         return true;
     }
     function runCommand(raw, opt) {
@@ -5450,6 +5453,7 @@
         if (S.deathPos) l.unshift('/back');                                  // ↩ (después de morir)
         // 🎮 en una partida: /tp @nombre y /spectate @nombre de cada jugador
         playerTags().forEach(function (t) { l.push('/tp ' + t); });
+        if (roomHost() || isAdminMe()) playerTags().forEach(function (t) { l.push('/tp ' + t + ' @' + myNameNet()); });   // 👑 traerlo hacia mí
         const sc = mbwom.currentScene || 1;
         [1, 2, 3].forEach(function (n) { if (n !== sc && dimReady(n)) l.push('/tp dimension ' + ['', 'overworld', 'nether', 'end'][n]); });
         playerTags().forEach(function (t) { l.push('/spectate ' + t); });
@@ -6408,7 +6412,7 @@
                 if (!(data && typeof data === 'object')) {
                     w.inventoryList = []; for (let i = 0; i < 45; i++) w.inventoryList.push(empty());
                     w.armors = []; for (let i = 0; i < 4; i++) w.armors.push(['air', 0, {}]);
-                    w.health = 20; w.food = 20; w.experience = 0; w.selectedInventoryItem = 0; w.dead = 0;
+                    w.health = 20; w.food = 1000; w.experience = 0; w.selectedInventoryItem = 0; w.dead = 0;   // (🍗 hambre llena: va de 0 a 1000)
                     setGm(g0);
                     w.effects = {};                                         // (sin las pociones del anfitrión)
                 } else if (data.gm == null || data.gm === '' || !isFinite(Number(data.gm))) setGm(g0);   // (datos viejos sin modo: el de los nuevos)

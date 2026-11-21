@@ -83,7 +83,7 @@
         w.armors = d && Array.isArray(d.armors) ? clone(d.armors) : [];
         while (w.armors.length < 4) w.armors.push(['air', 0, {}]);
         w.health = d && Number(d.health) > 0 ? Number(d.health) : 20;
-        w.food = d && isFinite(Number(d.food)) ? Number(d.food) : 20;
+        w.food = d && isFinite(Number(d.food)) ? Number(d.food) : 1000;   // (🍗 nuevo: hambre llena)
         w.experience = d && isFinite(Number(d.xp)) ? Number(d.xp) : 0;
         w.selectedInventoryItem = d && isFinite(Number(d.sel)) ? Number(d.sel) | 0 : 0;
         // (🎮 jugador nuevo, o datos viejos sin modo: el modo de los NUEVOS del servidor — nunca el del creador)

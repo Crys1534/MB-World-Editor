@@ -132,6 +132,14 @@
         if (M.role === 'host') {
             M.session = true; M.changes = new Map(); M.hostName = myName(); M.leaderPeer = myPeer();
             send({ tipo: 'juego_inicio', autor: myName(), peerId: myPeer() });
+            // 🧍 un invitado empezó la partida: el Player del mundo es el del ANFITRIÓN (su hambre, inventario, vida...). Se pone el MÍO
+            //    (lo guardado de mí en este mundo) o, si nunca jugué aquí, uno nuevo en el /home.
+            if (!M.roomHostAtStart && window.mbwPlay.net && window.mbwPlay.net.loadMine) {
+                const P0 = (mbwom.world && mbwom.world.mbwePlayers) || {}, rec = P0[myUid()];
+                const hs = window.mbwPlay.spawnGet ? window.mbwPlay.spawnGet() : null;
+                const sp = hs || { x: Number(mbwom.world.worldX), y: Number(mbwom.world.worldY) };
+                try { window.mbwPlay.net.loadMine(rec && Array.isArray(rec.inv) ? rec : null, sp, newGm()); } catch (e) { /* nada */ }
+            }
             M.alive = setInterval(function () { if (M.on && M.role === 'host') send({ tipo: 'juego_activo', autor: myName(), peerId: myPeer(), cmds: allowCmds(), tim: curTim() }); }, ALIVE_MS);
             flash(tr('mpplay_started', '▶ Game started! Everyone in the room can join'));
         } else {
