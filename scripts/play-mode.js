@@ -5182,8 +5182,7 @@
                 '<div class="ph-area"><div class="ph-vig"></div><div class="ph-portal"></div>' +
                 '<div class="ph-top"><div class="ph-topbtns"><button type="button" class="ph-marks-btn" aria-label="Markers">⭐</button><button type="button" class="ph-gear" aria-label="Menu">⚙</button></div><div class="ph-msg"></div></div>' +
                 '<div class="ph-marks" style="display:none"></div><div class="ph-ptab" style="display:none"></div>' +
-                '<button type="button" class="ph-chat-btn"><img src="assets/chat.png" alt=""></button><div class="ph-coords"></div><div class="ph-effects"></div></div>' +
-                '<div class="ph-fps"></div>' +
+                '<button type="button" class="ph-chat-btn"><img src="assets/chat.png" alt=""></button><div class="ph-coords"></div><div class="ph-fps"></div><div class="ph-effects"></div></div>' +
                 '<div class="ph-bars"><div class="ph-left"><div class="ph-armor"></div><div class="ph-hearts"></div></div><div class="ph-right"><div class="ph-air"></div><div class="ph-food"></div></div></div>' +
                 '<div class="ph-xp"><div class="ph-xp-fill"></div><b class="ph-xp-lv"></b></div>' +
                 '<div class="ph-iname"></div>' +
@@ -5264,7 +5263,11 @@
                 if (EFFECT_ICONS[k]) { const im = document.createElement('img'); im.src = 'assets/UI/' + EFFECT_ICONS[k] + '.png'; im.alt = ''; sp.appendChild(im); }   // 🧪 su dibujo
                 sp.appendChild(document.createTextNode(q.slice(q.indexOf('~') + 1))); ef.appendChild(sp);
             }); }
-            ef.style.top = OPTS.coords ? '36px' : '12px';   // (ya no está el botón 💬 de arriba a la izquierda)
+            // arriba a la izquierda, uno debajo del otro: coordenadas (más grandes) → FPS → efectos
+            const fpsOn = OPTS.fpsShow === true, topC = 10, hC = 34, hF = 30;
+            const fe = this.el.querySelector('.ph-fps');
+            if (fe) fe.style.top = (topC + (OPTS.coords ? hC : 0)) + 'px';
+            ef.style.top = (topC + (OPTS.coords ? hC : 0) + (fpsOn ? hF : 0) + 2) + 'px';
             // 🌀 parado en un portal: la pantalla se pone morada poco a poco (4 segundos)
             const pt = ar.querySelector('.ph-portal'), pk = Math.min(1, (S.portalT || 0) / (4 * FPS));
             const po = (pk * (S.portalKind === 2 ? .7 : .55)).toFixed(2);

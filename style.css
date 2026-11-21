@@ -4370,3 +4370,9 @@ body.is-touch.mbw-fps-on #mbw-play-hud .ph-fps { left: auto; right: 12px; top: 6
     border: solid #6fdc3f; border-width: 0 4px 4px 0; transform: rotate(40deg); filter: drop-shadow(1px 1px 0 #2a5a10); }
 .pm-oform .pm-range { accent-color: #6aa84f; }
 @media (max-width: 640px), (max-height: 480px) { .pm-oform .pm-row { font-size: 18px; } #play-menu .pm-opt-tab { font-size: 18px; } .pm-ico { width: 24px; height: 24px; } }
+
+/* 📍 coordenadas más grandes y 📈 FPS justo debajo (arriba a la izquierda, también en el celular) */
+#mbw-play-hud .ph-coords { top: 10px; left: 12px; font: 400 34px/1 'Pixeltype', 'Segoe UI', Arial, sans-serif; letter-spacing: .5px;
+    text-shadow: 2px 2px 0 #3f3f3f, 0 0 3px #000; }
+#mbw-play-hud .ph-fps, body.is-touch.mbw-fps-on #mbw-play-hud .ph-fps { left: 12px; right: auto; bottom: auto; top: 40px; padding: 1px 6px;
+    font: 400 26px/1.05 'Pixeltype', Consolas, monospace; background: rgba(0,0,0,.45); }
