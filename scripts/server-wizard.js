@@ -347,4 +347,26 @@
     }
     window.serverWizardOnLanguageChanged = function () { if (isVisible()) renderSetup(); else { const v = $('mp-view-create-world'); if (v && v.style.display !== 'none') renderWorlds(); } refreshMain(); };
     setInterval(refreshMain, 2000);
+    // ➕ "Create Server" FLOTANTE abajo a la derecha de la lista de servidores (no encima de la lista "Online")
+    (function () {
+        const place = function () {
+            const v = $('mp-servers-view'), main = $('mp-main-wizard');
+            if (!v || !main) return;
+            const rv = v.getBoundingClientRect(), rm = main.getBoundingClientRect();
+            if (!rv.width || !rm.width) return;
+            v.style.setProperty('--mpw-right', Math.max(0, Math.round(rv.right - rm.right)) + 'px');
+            v.style.setProperty('--mpw-bottom', Math.max(0, Math.round(rv.bottom - rm.bottom)) + 'px');
+        };
+        const start = function () {
+            const v = $('mp-servers-view'), main = $('mp-main-wizard');
+            if (!v || !main || v.dataset.cfBound) return !!v;
+            v.dataset.cfBound = '1';
+            if (typeof ResizeObserver === 'function') { const ro = new ResizeObserver(place); ro.observe(v); ro.observe(main); }
+            window.addEventListener('resize', place);
+            place();
+            return true;
+        };
+        if (!start()) { const iv = setInterval(function () { if (start()) clearInterval(iv); }, 800); }
+        SW.placeCreateBtn = place;
+    })();
 })();

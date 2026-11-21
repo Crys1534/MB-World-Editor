@@ -59,6 +59,9 @@
             r.appendChild(bars(p.ping || 0, p.online));
             // 🎒 el que lleva la partida puede ver y cambiar el inventario de los demás (scripts/mp-inv.js)
             if (!p.me && p.uid && window.mbwMpInv && window.mbwMpInv.canUse()) r.appendChild(btn('🎒', 'pm-mini pm-inv', function () { window.mbwMpInv.open(p.uid, p.name); }));
+            // ⭐ y sus marcadores (aunque no esté conectado)
+            const MK = window.mbwPlay && window.mbwPlay.marks;
+            if (!p.me && p.uid && MK && MK.canSeeOthers && MK.canSeeOthers()) { const mb = btn('⭐', 'pm-mini pm-mk', function () { MK.showOf(p.uid, p.name); }); mb.title = tr('mk_of_btn', 'See their markers'); r.appendChild(mb); }
             box.appendChild(r);
         });
         if (withLast && !off.length && !inRoom()) box.appendChild(el('div', 'pm-pl-note', tr('pm_solo_note', 'Playing on your own. In a multiplayer room, everyone who plays this world shows up here.')));
@@ -211,6 +214,7 @@
         const set = function (k) { return function (v) { if (P() && P().setOpt) P().setOpt(k, v); }; };
         f.appendChild(row(tr('pm_autojump', 'Auto-jump (1 block)'), check(o.autoJump, set('autoJump')), tr('pm_autojump_tip', 'Walking into a 1-block step jumps by itself, like in Minecraft')));
         f.appendChild(row(tr('pm_coords', 'Show coordinates'), check(o.coords, set('coords'))));
+        if (!document.body.classList.contains('is-touch')) f.appendChild(row('⛏ ' + tr('pm_oldstyle', 'Old Style mining'), check(o.oldStyle === true, set('oldStyle')), tr('pm_oldstyle_tip', 'Like on phones: left click breaks OR builds, you choose with the ⛏ / 🧱 button next to the hotbar (or the R key). Right click still places / uses.')));
         if (document.body.classList.contains('is-touch')) f.appendChild(row('🔍 ' + tr('pm_loupe', 'Magnifier when you touch the map'), check(o.loupe !== false, set('loupe')), tr('pm_loupe_tip', 'Shows in big what is under your finger, so you can see which block you mine, place or hit')));
         f.appendChild(row(tr('pm_res', 'Screen size (blocks you see)'), select([['default', tr('pm_res_default', 'Game (18 × 14)')], ['4:3', '4:3 (20 × 15)'], ['16:9', '16:9 (27 × 15)']], o.res || 'default', set('res'))));
         f.appendChild(row(tr('pm_particles', 'Particles'), select([['all', tr('pm_all', 'All')], ['some', tr('pm_some', 'Some')], ['none', tr('pm_none', 'None')]], o.particles || 'all', set('particles'))));

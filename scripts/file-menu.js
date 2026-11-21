@@ -208,9 +208,7 @@ function initBackstageMenu() {
                                     <p style="text-align: center; color: #bdc3c7; font-size: 24px;" data-i18n="mp_searching_worlds">Searching for worlds...</p>
                                 </div>
 
-                                <p class="sw-join-hint" data-i18n="sw_join_hint">To join: pick a public server above, accept an invitation (🔔), or press Join next to a player in the Online list.</p>
                                 <button type="button" id="mp-create-btn" class="sw-create-btn" onclick="mbwServerWizard.openCreate()"><span data-i18n="mp_create_server">Create Server</span></button>
-                                <button type="button" id="mp-nettest-btn" class="nt-open-btn" onclick="mbwNetTest.open()">🩺 <span data-i18n="nt_btn">Test my connection</span></button>
                                 <!-- (sin códigos: estos dos quedan escondidos solo para el código que todavía los usa por dentro) -->
                                 <input type="hidden" id="join-peer-id"><input type="hidden" id="my-peer-id">
                             </div>

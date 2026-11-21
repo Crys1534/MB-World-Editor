@@ -52,6 +52,12 @@
         return isOwner({ ownerUid: o.uid });
     };
 
+    // 👑 ¿soy el CREADOR del servidor permanente en el que estoy? (aunque lo haya abierto otro y yo haya entrado de invitado)
+    window.mbwIsSlotOwner = function () {
+        if (!inMp()) return false;
+        const cfg = amHost() ? { slot: window.mpSlot, slotOwner: window.mpSlotOwner } : (window.mpRoomCfg || {});
+        return !!(cfg.slot && cfg.slotOwner && cfg.slotOwner.uid && isOwner({ ownerUid: cfg.slotOwner.uid }));
+    };
     // ------------------------------------------------------------------ 🧍 jugar con MI jugador en el servidor de otro
     //  Al abrirlo alguien que no es su creador: el Player del mundo (el del creador) se guarda en mbwePlayers[creador] y se pone
     //  el MÍO (o uno nuevo en el /home, con el inventario vacío). Al subir el mundo se hace al revés solo en lo que se sube:
@@ -328,16 +334,14 @@
                     </div>
                     <div class="srv-info">
                         <strong class="srv-name" title="${esc(s.mapName || 'World')}">${esc(s.mapName || 'World')}</strong>
-                        <span class="srv-sub">${esc(tr('ss_by', 'by {name}', { name: s.ownerName || 'Player' }))}</span>
                         ${desc}
                     </div>
                     <div class="srv-actions">
-                        <button type="button" class="srv-go srv-go-open ss-open" data-ss="${k}">${esc(tr('ss_open', 'OPEN'))}</button>
+                        <button type="button" class="srv-go srv-go-open ss-open" data-ss="${k}">JOIN</button>
                     </div>
                 </div>`;
         });
-        const head = `<div class="ss-head">💾 ${esc(tr('ss_title9', 'Permanent servers ({n} of 9 places used): open one to be the host', { n: used().length }))}</div>`;
-        return count ? head + out : '';
+        return count ? out : '';                                    // (sin título: las tarjetas PERMANENTE ya lo dicen)
     }
     function bind(root) {
         if (!root) return;

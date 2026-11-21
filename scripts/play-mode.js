@@ -650,11 +650,15 @@
     const key2 = (n) => !!S.keys[n];
     // ⚙ Opciones del Modo Jugar (menú de pausa > Options; se recuerdan en este navegador). scripts/play-menu.js las cambia.
     const OPT_KEY = 'mbw_play_opts';
-    const OPT_DEF = { autoJump: true, res: 'default', particles: 'all', anims: true, effects: true, transitions: true, coords: false, loupe: true };
+    const OPT_DEF = { autoJump: true, res: 'default', particles: 'all', anims: true, effects: true, transitions: true, coords: false, loupe: true, oldStyle: false };   // (oldStyle: minar como en el celular, en PC)
     const OPTS = (function () { let o = {}; try { o = JSON.parse(localStorage.getItem(OPT_KEY) || '{}') || {}; } catch (e) { o = {}; } return Object.assign({}, OPT_DEF, o); })();
     const RES = { default: null, '4:3': { w: 20, h: 15 }, '16:9': { w: 27, h: 15 } };   // cuántos bloques se ven (ancho x alto)
+    // ⛏ "Old Style" (PC): el clic izquierdo rompe O construye según el botón ⛏ / 🧱 (o la tecla R), como en el celular
+    function oldStyle() { return OPTS.oldStyle === true && !document.body.classList.contains('is-touch'); }
     function applyOpts() {
         document.body.classList.toggle('play-no-trans', OPTS.transitions === false);
+        document.body.classList.toggle('mbw-oldstyle', oldStyle());
+        try { hud.dirty = true; } catch (e) { /* (todavía no hay HUD) */ }
         if (S.playing) {
             const A = window.mbwAspect, r = RES[OPTS.res] || null;
             if (A && A.startView) { const d = r || A.defaults || { w: 18, h: 14 }; A.startView(d.w, d.h); }
@@ -2491,7 +2495,7 @@
         const id = selType(), sig = selIndex() + ':' + id;
         if (sig === S.selSig) return;
         S.selSig = sig;
-        if (!document.body.classList.contains('is-touch') || !id) return;
+        if ((!document.body.classList.contains('is-touch') && !oldStyle()) || !id) return;
         let m = null;
         if (MINE_TOOL.test(id) || id === 'Shear') m = 'mine';
         else if (bd(id, 'placeable') == 1 && id !== 'air') m = 'place';
@@ -5029,7 +5033,7 @@
         // 👑 (anfitrión) los marcadores que guardaron los demás jugadores (llegan con sus datos: scripts/mp-play.js saveMine)
         others: function () {
             const out = [];
-            if (!S.mp || !(typeof isHost !== 'undefined' && isHost)) return out;
+            if (!marks.canSeeOthers()) return out;                    // (👑 en un servidor permanente: solo su creador, aunque haya entrado de invitado)
             const P = (W() && W().mbwePlayers) || {}, me = localStorage.getItem('mbw_uid');
             Object.keys(P).forEach(function (u) { if (u === me || !Array.isArray(P[u].marks)) return; P[u].marks.slice(0, MARKS_MAX).forEach(function (b) { if (b && isFinite(Number(b.x)) && isFinite(Number(b.y))) out.push({ id: 'o' + u + b.id, name: String(b.name || '').slice(0, 40), x: Number(b.x), y: Number(b.y), dim: Number(b.dim) || 1, who: P[u].name || 'Player' }); }); });
             return out;
@@ -5071,6 +5075,40 @@
         }
     };
     window.mbwPlay.marks = marks;
+    // 👑⭐ (anfitrión; en un servidor permanente, su creador) los marcadores de UN jugador, conectado o no: desde la lista
+    //    de jugadores de la pausa (botón ⭐ junto a 🎒). Se guardan con sus datos (mbwePlayers[uid].marks). "Ir" te lleva.
+    marks.ofPlayer = function (uid) {
+        const P = (W() && W().mbwePlayers) || {}, r = P[uid];
+        return (r && Array.isArray(r.marks) ? r.marks : []).filter(function (b) { return b && isFinite(Number(b.x)) && isFinite(Number(b.y)); })
+            .slice(0, MARKS_MAX).map(function (b) { return { id: String(b.id || ''), name: String(b.name || '⭐').slice(0, 40), x: Math.floor(Number(b.x)), y: Math.floor(Number(b.y)), dim: Number(b.dim) || 1 }; });
+    };
+    marks.canSeeOthers = function () { return !!(S.mp && (roomHost() || (typeof window.mbwIsSlotOwner === 'function' && window.mbwIsSlotOwner()))); };
+    marks.showOf = function (uid, name) {
+        let o = document.getElementById('ph-mk-of');
+        if (o) o.remove();
+        o = document.createElement('div'); o.id = 'ph-mk-of'; o.className = 'mk-of-overlay';
+        ['pointerdown', 'keydown', 'keyup', 'wheel'].forEach(function (n) { o.addEventListener(n, function (e) { e.stopPropagation(); if (n === 'keydown' && e.key === 'Escape') o.remove(); }); });
+        o.addEventListener('click', function (e) { if (e.target === o) o.remove(); });
+        const box = document.createElement('div'); box.className = 'mk-of-box';
+        const h = document.createElement('div'); h.className = 'mk-of-title'; h.textContent = '⭐ ' + tr('mk_of_title', 'Markers of {name}').replace('{name}', String(name || 'Player'));
+        const x0 = document.createElement('button'); x0.type = 'button'; x0.className = 'mk-of-x'; x0.textContent = '✕'; x0.onclick = function () { o.remove(); };
+        h.appendChild(x0); box.appendChild(h);
+        const L = marks.ofPlayer(uid);
+        const DIM = { 1: tr('dim_overworld', 'Overworld'), 2: tr('dim_nether', 'Nether'), 3: tr('dim_end', 'The End') };
+        if (!L.length) { const n = document.createElement('div'); n.className = 'mk-of-empty'; n.textContent = tr('mk_of_none', 'This player has no markers yet.'); box.appendChild(n); }
+        L.forEach(function (b) {
+            const r = document.createElement('div'); r.className = 'mk-of-row';
+            const t = document.createElement('div'); t.className = 'mk-of-name'; t.textContent = b.name;
+            const c = document.createElement('div'); c.className = 'mk-of-pos'; c.textContent = 'X: ' + b.x + '  Y: ' + b.y + ' · ' + (DIM[b.dim] || DIM[1]) + (b.dim === (mbwom.currentScene || 1) ? ' · ' + marks.dist(b) + ' m' : '');
+            const info = document.createElement('div'); info.className = 'mk-of-info'; info.appendChild(t); info.appendChild(c);
+            const go = document.createElement('button'); go.type = 'button'; go.className = 'mk-of-go'; go.textContent = '➜ ' + tr('mk_of_go', 'Go');
+            go.onclick = function () { o.remove(); if (window.mbwPlayMenu && window.mbwPlayMenu.close) window.mbwPlayMenu.close(); marks.go(b); };
+            r.appendChild(info); r.appendChild(go); box.appendChild(r);
+        });
+        o.appendChild(box);
+        document.body.appendChild(o);
+        return L.length;
+    };
 
     // ------------------------------------------------------------------ 👥 tabla de jugadores conectados (a la derecha, en partidas)
     //   De más a menos logros. El anfitrión sale en celeste.
@@ -5122,6 +5160,7 @@
                 '<div class="ph-sign"><div class="ph-sign-t"></div></div>' +
                 '<button type="button" class="ph-inv ph-side"><canvas width="16" height="16"></canvas><b>E</b></button>' +
                 '<button type="button" class="ph-cmds ph-side"><img src="assets/chat.png" alt=""></button>' +
+                '<button type="button" class="ph-mode-pc ph-side">⛏</button>' +
                 '<div class="ph-open" style="display:none"></div>' +
                 '<div class="ph-joy"><div class="ph-knob"></div></div>' +
                 '<div class="ph-pad2"><button type="button" data-k="down" class="ph-sneak">⇩</button><button type="button" data-k="up" class="ph-jump">⇧</button><button type="button" class="ph-mode">⛏</button></div>';
@@ -5152,6 +5191,7 @@
             el.querySelector('.ph-chat-btn').addEventListener('click', function (e) { e.stopPropagation(); if (chat.open) chat.close(); else chat.show(''); });
             const mb = el.querySelector('.ph-mode');
             mb.addEventListener('click', function (e) { e.stopPropagation(); S.touchMode = S.touchMode === 'mine' ? 'place' : 'mine'; hud.dirty = true; });
+            el.querySelector('.ph-mode-pc').addEventListener('click', function (e) { e.stopPropagation(); S.touchMode = S.touchMode === 'mine' ? 'place' : 'mine'; hud.dirty = true; });   // (⛏ Old Style, en PC)
             el.querySelector('.ph-hotbar').addEventListener('click', function (e) {
                 const s = e.target.closest('[data-i]'); if (!s) return;
                 e.stopPropagation(); W().selectedInventoryItem = +s.getAttribute('data-i'); hud.dirty = true;
@@ -5283,6 +5323,8 @@
             this.el.querySelector('.ph-cmds').title = tr('play_chat_tip', 'Chat / commands (T)');
             this.el.querySelector('.ph-mode').textContent = S.touchMode === 'mine' ? '⛏' : '🧱';
             this.el.querySelector('.ph-mode').title = S.touchMode === 'mine' ? tr('play_mode_mine', 'Tap = break / hit') : tr('play_mode_place', 'Tap = place / use');
+            const mpc = this.el.querySelector('.ph-mode-pc');
+            if (mpc) { mpc.textContent = S.touchMode === 'mine' ? '⛏' : '🧱'; mpc.title = (S.touchMode === 'mine' ? tr('play_mode_mine_pc', 'Click = break / hit') : tr('play_mode_place_pc', 'Click = place / use')) + ' (R)'; }
         },
         destroy: function () { if (chat.open) chat.close(); chat.el = null; chat.input = null; chat.qc = null; emo.el = null; emo.picking = false; if (this.el) this.el.remove(); this.el = null; }
     };
@@ -5703,6 +5745,7 @@
         }
         const dg = /^Digit([1-9])$/.exec(e.code);
         if (dg) { w.selectedInventoryItem = +dg[1] - 1; hud.dirty = true; }
+        if (e.code === 'KeyR' && oldStyle() && !e.repeat) { S.touchMode = S.touchMode === 'mine' ? 'place' : 'mine'; hud.dirty = true; }   // ⛏ / 🧱 (Old Style)
         if (e.code === 'KeyQ' && !(w.dead > 0)) {                    // tirar el objeto
             const it = selItem();
             if (it) { addDrop(it[0], w.worldX + (S.p.xScale < 0 ? 1.2 : -1.2), w.worldY - 1.2, 1, it[2], it[3]); S.drops[S.drops.length - 1].age = -40; reduceSelected(1); }
@@ -5734,9 +5777,10 @@
             S.mouse.x = e.clientX; S.mouse.y = e.clientY; S.mouse.inside = true;
             if (e.pointerType === 'touch' && overMe()) { emo.until = performance.now() + 4500; return; }   // 😀 tocar a mi personaje: el botón de emotes
             // (en el celular, tocar con un Command Book en la mano lo usa, sin importar si está en ⛏ o 🧱)
-            const right = e.button === 2 || (e.pointerType === 'touch' && (S.touchMode === 'place' || selType() === 'cbook' || selType() === 'boe'));
+            const tapLike = e.pointerType === 'touch' || (oldStyle() && e.button === 0);   // (⛏ Old Style: el clic izquierdo es como tocar)
+            const right = e.button === 2 || (tapLike && (S.touchMode === 'place' || selType() === 'cbook' || selType() === 'boe'));
             // dos toques / dos clics rápidos sobre un cofre o un horno: se abre
-            if (!right || e.pointerType === 'touch') {
+            if (!right || tapLike) {
                 const mw = mouseWorld(), bx = Math.floor(mw.x), by = Math.floor(mw.y), now = performance.now();
                 const L = S.lastTap;
                 S.lastTap = { x: bx, y: by, t: now };

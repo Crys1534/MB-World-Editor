@@ -4252,3 +4252,36 @@ body.mp-compact #mp-view-join > .sw-create-btn, body.mp-compact #mp-view-join > 
 #pinv-float.pinv-float-over { opacity: .96; }
 #pinv-float #pinv-trash .pinv-slot { width: var(--s, 52px); height: var(--s, 52px); }
 #pinv-float .pinv-trash-icon { font-size: calc(var(--s, 52px) * .5); }
+
+/* ===== ➕ "Create Server" flotante (abajo a la derecha de la lista de servidores) ===== */
+#mp-servers-view { position: relative; }
+#mp-view-join > #mp-create-btn, body.mp-compact #mp-view-join > #mp-create-btn {
+    position: absolute; z-index: 30; right: calc(var(--mpw-right, 0px) + 22px); bottom: calc(var(--mpw-bottom, 0px) + 20px);
+    width: auto; max-width: none; margin: 0; padding: 12px 22px; font-size: 28px; border-radius: 30px;
+    box-shadow: 0 4px 0 #1e8449, 0 10px 24px rgba(0,0,0,.5); }
+#mp-view-join > #mp-create-btn::before { content: '＋ '; }
+#mp-view-join > #mp-create-btn:hover { transform: translateY(-2px); }
+#mp-view-join > #mp-create-btn.sw-live::before { content: '⚙ '; }
+#mp-view-join > #mp-create-btn.sw-live { box-shadow: 0 4px 0 #a04000, 0 10px 24px rgba(0,0,0,.5); }
+#public-servers-list { padding-bottom: 76px !important; max-height: calc(100vh - 230px); }
+body.mp-compact #mp-view-join:not([style*="display: none"]) { grid-template-columns: minmax(0, 1fr); grid-template-areas: "title" "list" "hint"; }
+body.is-phone #mp-view-join > #mp-create-btn { font-size: 22px; padding: 10px 16px; right: calc(var(--mpw-right, 0px) + 14px); bottom: calc(var(--mpw-bottom, 0px) + 14px); }
+
+/* ⛏ Old Style (PC): botón ⛏ / 🧱 junto a la hotbar, a la izquierda del chat */
+#mbw-play-hud .ph-mode-pc.ph-side { display: none; left: auto; right: calc(50% + 260px); font-size: 24px; color: #fff; }
+body.mbw-oldstyle:not(.is-touch) #mbw-play-hud .ph-mode-pc.ph-side { display: flex; }
+
+/* ===== ⭐ Marcadores de otro jugador (anfitrión / creador del servidor permanente) ===== */
+.mk-of-overlay { position: fixed; inset: 0; z-index: 100080; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.55); font-family: 'Pixeltype', sans-serif; }
+.mk-of-box { width: min(440px, calc(100vw - 32px)); max-height: calc(100vh - 40px); overflow-y: auto; background: #c6c6c6; color: #222;
+    border: 3px solid #fff; border-right-color: #555; border-bottom-color: #555; box-shadow: 0 12px 30px rgba(0,0,0,.6); padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; }
+.mk-of-title { display: flex; align-items: center; gap: 8px; font-size: 26px; padding-bottom: 4px; border-bottom: 2px solid #8b8b8b; }
+.mk-of-x { margin-left: auto; background: none; border: 0; font-size: 22px; cursor: pointer; color: #333; }
+.mk-of-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; background: #8b8b8b; border: 2px solid #373737; box-shadow: inset 2px 2px 0 #a5a5a5; }
+.mk-of-info { flex: 1; min-width: 0; color: #fff; text-shadow: 1px 1px 0 #3f3f3f; }
+.mk-of-name { font-size: 22px; color: #ffd700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mk-of-pos { font-size: 17px; }
+.mk-of-go { flex: none; font-family: inherit; font-size: 20px; padding: 6px 12px; cursor: pointer; color: #fff; background: #4caf50; border: 2px solid #2e7d32; }
+.mk-of-go:hover { background: #5cc160; }
+.mk-of-empty { font-size: 19px; color: #444; padding: 8px 2px; }
+#play-menu .pm-mini.pm-mk { margin-left: 4px; }
