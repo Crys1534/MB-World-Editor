@@ -4330,3 +4330,26 @@ body.is-touch #mbw-play-hud .ph-joy { width: 164px; height: 92px; border-radius:
 #mbw-play-hud .ph-knob { width: 56px; height: 56px; background: radial-gradient(circle at 38% 32%, #ffffff, #d9d9d9 55%, #a9a9a9); border: 2px solid rgba(255,255,255,.95);
     box-shadow: 0 3px 8px rgba(0,0,0,.5), inset 0 -3px 0 rgba(0,0,0,.18); }
 #mbw-play-hud .ph-joy.run .ph-knob { background: radial-gradient(circle at 38% 32%, #e9fbff, #8fdcff 55%, #4fb6e6); }
+
+/* ===== 🌐 Servidores: la lista usa TODO el espacio (sin el recuadro de antes) ===== */
+#mp-main-wizard { min-height: 0; }
+#mp-view-join:not([style*="display: none"]) { display: flex !important; flex-direction: column; flex: 1 1 auto; min-height: 0; width: 100% !important; max-width: none !important;
+    margin: 0 !important; padding: 18px 20px 0 !important; box-sizing: border-box; }
+#mp-view-join > h2 { flex: none; margin-bottom: 14px !important; }
+#public-servers-list { flex: 1 1 auto; min-height: 0 !important; max-height: none !important; height: auto !important; overflow-y: auto;
+    background: none !important; border: 0 !important; border-radius: 0 !important; padding: 4px 2px 96px !important; margin: 0 !important;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 16px !important; }
+body.mp-compact #mp-view-join:not([style*="display: none"]) { display: flex !important; padding: 6px 8px 0 !important; }
+body.mp-compact #public-servers-list { gap: 10px !important; padding: 2px 0 90px !important; }
+
+/* ✨ sin brillo de encantamiento en los objetos (jugando, Rendimiento) — se queda el borde morado, sin la animación */
+body.mbw-no-glint .enchanted-slot::before { display: none !important; animation: none !important; }
+body.mbw-no-glint .enchanted-slot { box-shadow: none !important; }
+/* 📈 contador de FPS (jugando, Rendimiento) */
+#mbw-play-hud .ph-fps { display: none; position: absolute; left: 12px; bottom: 74px; z-index: 5; padding: 3px 8px; border-radius: 4px; pointer-events: none;
+    background: rgba(0,0,0,.55); color: #7CFC00; font: bold 14px/1.2 Consolas, Menlo, monospace; text-shadow: 1px 1px 0 #000; }
+#mbw-play-hud .ph-fps.low { color: #ff6b5b; }
+body.mbw-fps-on #mbw-play-hud .ph-fps { display: block; }
+body.is-touch.mbw-fps-on #mbw-play-hud .ph-fps { left: auto; right: 12px; top: 64px; bottom: auto; }
+/* (Rendimiento: más opciones → la caja se puede desplazar) */
+.pm-opt > .pm-form { max-height: min(60vh, 520px); overflow-y: auto; }

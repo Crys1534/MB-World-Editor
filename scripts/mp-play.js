@@ -417,7 +417,7 @@
         if (t === 'juego_emote') { const r = M.remotes[d.peerId]; if (r && window.customEmotes && window.customEmotes[d.e]) { r.emote = { e: String(d.e), t: Date.now() }; if (typeof worldDirty !== 'undefined') worldDirty = true; } return; }   // 😀
         if (t === 'juego_bloques' || t === 'juego_cambios') { applyBlocks(Number(d.s) || 1, d.c); return; }
         if (t === 'juego_pedir' && M.role === 'host') { if (window.mbwAch) { window.mbwAch.apply(d.uid, d.autor, null); sendTo(d.peerId, { tipo: 'juego_logros', t: window.mbwAch.table() }); } sendChangesTo(d.peerId); try { if (window.mbwPlay.net && window.mbwPlay.net.lockTable) sendTo(d.peerId, { tipo: 'juego_candados', t: window.mbwPlay.net.lockTable() }); } catch (e) { /* nada */ } sendMobListTo(d.peerId); sendDropsTo(d.peerId); sendPlayerTo(d.peerId, d.uid, d.autor); return; }
-        if (t === 'juego_tuyo') { if (M.skipMine) M.skipMine = false; else if (M.role === 'guest' && !M.roomHostAtStart && window.mbwPlay.net && window.mbwPlay.net.loadMine) window.mbwPlay.net.loadMine(d.data, d.spawn); M.guestCmds = !!d.cmds; return; }
+        if (t === 'juego_tuyo') { if (M.skipMine) M.skipMine = false; else if (M.role === 'guest' && !M.roomHostAtStart && window.mbwPlay.net && window.mbwPlay.net.loadMine) window.mbwPlay.net.loadMine(d.data, d.spawn, d.gm0); M.guestCmds = !!d.cmds; return; }
         if (t === 'juego_logro') { if (window.mbwAch) window.mbwAch.apply(d.uid, d.n, d.i, d.t); return; }                       // 🏆 otro jugador ganó un logro
         if (t === 'juego_logro_dar') { if (d.a === myPeer() && window.mbwAch) window.mbwAch.unlock(Number(d.i)); return; }         // 🏆 maté un mob del anfitrión
         if (t === 'juego_logros') { if (window.mbwAch) window.mbwAch.merge(d.t); return; }                                        // 🏆 la tabla entera (al entrar)
@@ -488,6 +488,10 @@
         const l = N.dropsPack();
         for (let i = 0; i < l.length; i += CHUNK) { try { conn.send({ tipo: 'juego_suelos', l: l.slice(i, i + CHUNK), retransmitido: true }); } catch (e) { /* nada */ } }
     }
+    // 🎮 el modo de juego de los jugadores NUEVOS (Pausa > Servidor). Si no se eligió: supervivencia (nunca el del anfitrión).
+    function newGm() { const v = mbwom.world && mbwom.world.mbweNewGm; return isFinite(Number(v)) && v !== null && v !== '' ? Number(v) | 0 : 0; }
+    M.newGm = newGm;
+    M.setNewGm = function (g) { if (mbwom.world) { mbwom.world.mbweNewGm = Number(g) | 0; if (typeof worldDirty !== 'undefined') worldDirty = true; } };
     function sendPlayerTo(peerId, uid, name) {
         const conn = { open: true, send: function (m) { delete m.retransmitido; sendTo(peerId, m); } };
         if (!mbwom.world) return;
@@ -497,7 +501,7 @@
         // la primera vez aparece en el /home (spawn) del mundo; si no hay, donde está el Player del mundo
         const hs = window.mbwPlay && window.mbwPlay.spawnGet ? window.mbwPlay.spawnGet() : null;
         const sp = hs || { x: Number(mbwom.world.worldX), y: Number(mbwom.world.worldY) };
-        try { conn.send({ tipo: 'juego_tuyo', data: rec && rec.inv ? rec : null, spawn: sp, cmds: allowCmds(), retransmitido: true }); } catch (e) { /* nada */ }
+        try { conn.send({ tipo: 'juego_tuyo', data: rec && rec.inv ? rec : null, spawn: sp, cmds: allowCmds(), gm0: newGm(), retransmitido: true }); } catch (e) { /* nada */ }
     }
     // la lista de jugadores (menú de pausa / Tab): los conectados ahora y los que alguna vez entraron a jugar este mundo
     M.playerList = function () {

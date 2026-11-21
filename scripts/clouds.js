@@ -77,7 +77,7 @@
         if (C.filledFor !== key) { C.filledFor = key; fill(widthBlocks); C.last = now; }
         let frames = (now - (C.last || now)) / 20; C.last = now;
         if (frames > 25) frames = 25;           // (si la pestaña estuvo escondida, no salta todo de golpe)
-        if (frames > 0) step(frames, widthBlocks);
+        if (frames > 0 && !(typeof mbwPlayOpt === 'function' && mbwPlayOpt('clouds') === 'fast')) step(frames, widthBlocks);   // (☁ "rápidas": quietas)
         // altura: arriba del techo del mundo, como el juego (filas a +1, 0 y -1 cuadro de esa altura)
         const baseY = Math.floor(worldTop() + 3.3333333333333335);
         const sz = SIZE * tileSize;

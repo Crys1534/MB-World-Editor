@@ -335,7 +335,7 @@ function makeWorldCacheBuilder() {
                 texture = renderer(mbwom.getBlockState(x, y));   // bloques especiales: el camino de siempre
                 if (renderer === window.renderers.liquid) texture = window.rainbowAnim.map(texture);   // agua / lava / ácido: el dibujo animado
             }
-            out[y] = texture;
+            out[y] = type.charCodeAt(0) === 108 && type.charCodeAt(1) === 118 ? mbwLeafTex(type, texture) : texture;   // ('lv…': 🍃 hojas)
         }
     };
 }
@@ -442,6 +442,30 @@ function squishedPlate(tex) {
     }
     return { img: c, x: tex.x, y: tex.y };
 }
+// 🍃 (jugando, Rendimiento > "Hojas rápidas") las hojas de los árboles se ven OPACAS (con fondo), como "Fast" en Minecraft
+const mbwFastLeafCache = new Map();
+function mbwLeafTex(type, tex) {
+    if (!tex || typeof type !== 'string' || type.slice(0, 2) !== 'lv' || mbwPlayOpt('fastLeaves') !== true) return tex;
+    const blocks = window.images && window.images.blocks;
+    const src = tex.img || blocks;
+    if (!src || (!tex.img && !(blocks.complete && blocks.naturalWidth))) return tex;
+    const key = tex.img ? tex : (tex.x + ',' + tex.y);
+    let hit = mbwFastLeafCache.get(key);
+    if (hit) return hit;
+    const c = document.createElement('canvas'); c.width = 16; c.height = 16;
+    const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+    g.drawImage(src, tex.img ? 0 : tex.x, tex.img ? 0 : tex.y, 16, 16, 0, 0, 16, 16);
+    // el color de fondo: el promedio de la hoja, más oscuro
+    let r = 0, gg = 0, b = 0, n = 0;
+    try { const d = g.getImageData(0, 0, 16, 16).data; for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 40) { r += d[i]; gg += d[i + 1]; b += d[i + 2]; n++; } } catch (e) { /* nada */ }
+    const k = n ? .55 / n : 0;
+    g.globalCompositeOperation = 'destination-over';
+    g.fillStyle = n ? 'rgb(' + Math.round(r * k) + ',' + Math.round(gg * k) + ',' + Math.round(b * k) + ')' : '#1f4a12';
+    g.fillRect(0, 0, 16, 16);
+    hit = { x: 0, y: 0, img: c };
+    mbwFastLeafCache.set(key, hit);
+    return hit;
+}
 function renderBlock(x, y) {
     if (!worldCache[x]) worldCache[x] = [];
     let states = mbwom.getBlockState(x, y);
@@ -449,7 +473,7 @@ function renderBlock(x, y) {
     if (states.type === 'b' && window.mbwPlaying) {
         delete worldCache[x][y];                                   // ▶ Modo Jugar: el Barrier no se ve
     } else if (states.type != null) {
-        worldCache[x][y] = window.rainbowAnim.map(getBlockObject(states));
+        worldCache[x][y] = mbwLeafTex(states.type, window.rainbowAnim.map(getBlockObject(states)));
         if (states.type === 'fnc') worldCache[x][y] = window.fenceVisual.pick(mbwom.scene, x, y, worldCache[x][y]);
         if ((states.type === 'pp' || states.type === 'wpp') && window.mbwPlatePressed && window.mbwPlatePressed(x, y)) worldCache[x][y] = squishedPlate(worldCache[x][y]);   // 🟫 apretada
     } else {
@@ -827,7 +851,7 @@ function drawWorld() {
     ctx.drawImage(offscreenCanvas, 0, 0);
 }
 // ☁ las nubes van ENTRE el fondo y los bloques (pasan por detrás de los bloques y de los mobs)
-function drawCloudsBehind() { if (mbwPlayOpt('clouds') === false) return; if (window.mbwClouds) { try { window.mbwClouds.draw(ctx); } catch (e) { /* las nubes nunca rompen el dibujo */ } } }
+function drawCloudsBehind() { const cl = mbwPlayOpt('clouds'); if (cl === false || cl === 'off') return; if (window.mbwClouds) { try { window.mbwClouds.draw(ctx); } catch (e) { /* las nubes nunca rompen el dibujo */ } } }
 
 function getBlockCache(x, y) {
     if (worldCache[x]) return worldCache[x][y];

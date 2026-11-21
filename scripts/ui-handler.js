@@ -1957,7 +1957,8 @@ function animateWeather() {
         wCtx.lineCap = 'round';
         wCtx.beginPath();
 
-        for (let i = 0; rainHere && i < rainDrops.length; i++) {
+        const rainStep = (typeof mbwPlayOpt === 'function' && mbwPlayOpt('rain') === 'few') ? 3 : 1;   // (🌧 "pocas gotas": una de cada 3)
+        for (let i = 0; rainHere && i < rainDrops.length; i += rainStep) {
             let p = rainDrops[i];
             
             wCtx.lineWidth = p.thickness * zoomScale;

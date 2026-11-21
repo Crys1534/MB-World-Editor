@@ -65,7 +65,7 @@
     const clone = (v) => JSON.parse(JSON.stringify(v == null ? null : v));
     function playerOf(w) {
         return { x: Number(w.worldX), y: Number(w.worldY), s: (typeof mbwom !== 'undefined' && mbwom.currentScene) || 1, inv: clone(w.inventoryList || []), armors: clone(w.armors || []),
-            health: Number(w.health), food: Number(w.food), xp: Number(w.experience) || 0, sel: w.selectedInventoryItem | 0, gm: Number(w.gamemode) || 0 };
+            health: Number(w.health), food: Number(w.food), xp: Number(w.experience) || 0, sel: w.selectedInventoryItem | 0, gm: Number(w.gamemode) || 0, eff: clone(w.effects || {}) };
     }
     function spawnOf(w) {
         const sp = typeof mbwom !== 'undefined' ? mbwom.spawnPoint : null;
@@ -86,7 +86,11 @@
         w.food = d && isFinite(Number(d.food)) ? Number(d.food) : 20;
         w.experience = d && isFinite(Number(d.xp)) ? Number(d.xp) : 0;
         w.selectedInventoryItem = d && isFinite(Number(d.sel)) ? Number(d.sel) | 0 : 0;
-        if (d && d.gm != null && isFinite(Number(d.gm))) w.gamemode = Number(d.gm) | 0;
+        // (🎮 jugador nuevo, o datos viejos sin modo: el modo de los NUEVOS del servidor — nunca el del creador)
+        const g0 = isFinite(Number(w.mbweNewGm)) && w.mbweNewGm !== null && w.mbweNewGm !== '' ? Number(w.mbweNewGm) | 0 : 0;
+        w.gamemode = d && d.gm != null && isFinite(Number(d.gm)) ? Number(d.gm) | 0 : g0;
+        if (!d) w.dead = 0;
+        w.effects = d && d.eff && typeof d.eff === 'object' ? clone(d.eff) : {};   // (🧪 las pociones de cada quien)
         w.fly = Number(w.gamemode) === 3;
         w.xSpeed = 0; w.ySpeed = 0;
     }
@@ -112,7 +116,7 @@
         putPlayer(w, own && Array.isArray(own.inv) ? own : null);
         try { return fn(); } finally {
             w.worldX = live.x; w.worldY = live.y; w.inventoryList = clone(live.inv); w.armors = clone(live.armors); w.health = live.health; w.food = live.food;
-            w.experience = live.xp; w.selectedInventoryItem = live.sel; w.gamemode = live.gm; w.fly = liveFly; w.xSpeed = liveSpd[0]; w.ySpeed = liveSpd[1];
+            w.experience = live.xp; w.selectedInventoryItem = live.sel; w.gamemode = live.gm; w.effects = clone(live.eff || {}); w.fly = liveFly; w.xSpeed = liveSpd[0]; w.ySpeed = liveSpd[1];
         }
     }
     window.mbwSavedAsGuest = function () { return asGuest.owner ? { owner: asGuest.owner, name: asGuest.ownerName } : null; };

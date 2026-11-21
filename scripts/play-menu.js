@@ -236,8 +236,18 @@
                 body.appendChild(row(tr('pm_res', 'Screen size (blocks you see)'), select([['default', tr('pm_res_default', 'Game (18 × 14)')], ['4:3', '4:3 (20 × 15)'], ['16:9', '16:9 (27 × 15)']], o.res || 'default', set('res'))));
                 body.appendChild(row(tr('pm_particles', 'Particles'), select([['all', tr('pm_all', 'All')], ['some', tr('pm_some', 'Some')], ['none', tr('pm_none', 'None')]], o.particles || 'all', set('particles'))));
                 body.appendChild(row(tr('pm_anims', 'Block animations'), check(o.anims !== false, set('anims'))));
-                body.appendChild(row('✨ ' + tr('pm_glint', 'Enchantment glint on armor'), check(o.glint !== false, set('glint'))));
-                body.appendChild(row('☁ ' + tr('pm_clouds', 'Clouds'), check(o.clouds !== false, set('clouds'))));
+                const cl = o.clouds === false || o.clouds === 'off' ? 'off' : o.clouds === 'fast' ? 'fast' : 'fancy';
+                body.appendChild(row('📈 ' + tr('pm_fps_show', 'Show FPS on screen'), check(o.fpsShow === true, set('fpsShow'))));
+                body.appendChild(row('🌑 ' + tr('pm_shadows', 'Shadows (underground darkness)'), select([['soft', tr('pm_sh_soft', 'Soft')], ['simple', tr('pm_sh_simple', 'Simple (no light circles)')], ['off', tr('pm_off', 'Off')]], o.shadows || 'soft', set('shadows')), tr('pm_shadows_tip', 'Simple: the darkness stays, but torches do not light circles around them. Off: no darkness underground (night still gets darker).')));
+                body.appendChild(row('🔆 ' + tr('pm_lighting', 'Lighting'), select([['smooth', tr('pm_light_smooth', 'Smooth gradients')], ['blocky', tr('pm_light_blocky', 'By whole blocks')]], o.lighting || 'smooth', set('lighting'))));
+                body.appendChild(row('🔥 ' + tr('pm_lightq', 'Torch light quality'), select([['high', tr('pm_q_high', 'High')], ['medium', tr('pm_q_medium', 'Medium')], ['low', tr('pm_q_low', 'Low')]], o.lightQ || 'high', set('lightQ')), tr('pm_lightq_tip', 'High: every light. Medium: the 24 closest. Low: the 10 closest and no colored glow (lava, glowstone...).')));
+                body.appendChild(row('☁ ' + tr('pm_clouds', 'Clouds'), select([['fancy', tr('pm_clouds_fancy', 'Fancy (moving)')], ['fast', tr('pm_clouds_fast', 'Fast (still)')], ['off', tr('pm_off', 'Off')]], cl, function (v) { set('clouds')(v === 'fancy' ? true : v === 'off' ? false : 'fast'); })));
+                body.appendChild(row('🌧 ' + tr('pm_rain', 'Rain'), select([['many', tr('pm_rain_many', 'Many drops')], ['few', tr('pm_rain_few', 'Few drops')]], o.rain || 'many', set('rain'))));
+                body.appendChild(row('💧 ' + tr('pm_liq_anim', 'Water and lava animation'), check(o.liqAnim !== false, set('liqAnim'))));
+                body.appendChild(row('🔥 ' + tr('pm_fire_anim', 'Fire animation'), check(o.fireAnim !== false, set('fireAnim'))));
+                body.appendChild(row('🍃 ' + tr('pm_fast_leaves', 'Fast leaves (opaque)'), check(o.fastLeaves === true, set('fastLeaves')), tr('pm_fast_leaves_tip', 'Tree leaves are drawn solid instead of see-through, like "Fast" graphics in Minecraft.')));
+                body.appendChild(row('🫧 ' + tr('pm_bubbles', 'Bubbles under water'), check(o.bubbles !== false, set('bubbles'))));
+                body.appendChild(row('✨ ' + tr('pm_glint2', 'Enchantment glint (armor and items)'), check(o.glint !== false, set('glint'))));
                 body.appendChild(row('🌲 ' + tr('pm_bgmove', 'Moving background trees'), check(o.bgMove !== false, set('bgMove'))));
                 body.appendChild(row(tr('pm_effects', 'Screen effects (damage flash, lightning)'), check(o.effects !== false, set('effects'))));
                 body.appendChild(row(tr('pm_transitions', 'Menu transitions'), check(o.transitions !== false, set('transitions'))));
@@ -273,6 +283,8 @@
         { const sr = window.mbwSavedServers && window.mbwSavedServers.checkboxRow('ss-official pm-ss'); if (sr) f.appendChild(sr); }   // (solo en servidores)
         // 👥 los que están en tu mundo (expulsar) y a quién invitar (amigos primero), sin salir del Modo Jugar
         f.appendChild(peopleBox());
+        // 🎮 con qué modo de juego entran los jugadores NUEVOS (nunca el del anfitrión)
+        if (M() && M().setNewGm) f.appendChild(row(tr('pm_new_gm', 'Game mode for new players'), select([['0', tr('gm_survival', 'Survival')], ['1', tr('gm_creative', 'Creative')], ['2', tr('gm_adventure', 'Adventure')], ['3', tr('gm_spectator', 'Spectator')]], String(M().newGm()), function (v) { M().setNewGm(v); }), tr('pm_new_gm_tip', 'The first time someone joins, they start with an empty inventory, full health and this game mode.')));
         f.appendChild(row(tr('pm_guest_cmds', 'Guests can use commands'), check(M() && M().allowCmds ? M().allowCmds() : false, function (on) { if (M() && M().setAllowCmds) M().setAllowCmds(on); }), tr('pm_guest_cmds_tip', 'By default only the host can use commands (gamemode, tp, give...)')));
         return f;
     }

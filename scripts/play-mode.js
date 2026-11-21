@@ -650,7 +650,8 @@
     const key2 = (n) => !!S.keys[n];
     // ⚙ Opciones del Modo Jugar (menú de pausa > Options; se recuerdan en este navegador). scripts/play-menu.js las cambia.
     const OPT_KEY = 'mbw_play_opts';
-    const OPT_DEF = { autoJump: true, res: 'default', particles: 'all', anims: true, effects: true, transitions: true, coords: false, loupe: true, oldStyle: false, fps: 50, glint: true, clouds: true, bgMove: true };   // (oldStyle: minar como en el celular, en PC · fps: cuántas veces por segundo se dibuja)
+    const OPT_DEF = { autoJump: true, res: 'default', particles: 'all', anims: true, effects: true, transitions: true, coords: false, loupe: true, oldStyle: false, fps: 50, glint: true, clouds: true, bgMove: true,
+        shadows: 'soft', lighting: 'smooth', lightQ: 'high', liqAnim: true, fireAnim: true, fastLeaves: false, rain: 'many', bubbles: true, fpsShow: false };   // (oldStyle: minar como en el celular, en PC · fps: cuántas veces por segundo se dibuja)
     const OPTS = (function () { let o = {}; try { o = JSON.parse(localStorage.getItem(OPT_KEY) || '{}') || {}; } catch (e) { o = {}; } return Object.assign({}, OPT_DEF, o); })();
     window.mbwPlayOpts = OPTS;                                         // (main.js las lee: nubes, brillo, fondo que se mueve)
     const RES = { default: null, '4:3': { w: 20, h: 15 }, '16:9': { w: 27, h: 15 } };   // cuántos bloques se ven (ancho x alto)
@@ -659,6 +660,8 @@
     function applyOpts() {
         document.body.classList.toggle('play-no-trans', OPTS.transitions === false);
         document.body.classList.toggle('mbw-oldstyle', oldStyle());
+        document.body.classList.toggle('mbw-no-glint', S.playing && OPTS.glint === false);     // (✨ también en los objetos del inventario)
+        document.body.classList.toggle('mbw-fps-on', S.playing && OPTS.fpsShow === true);
         try { hud.dirty = true; } catch (e) { /* (todavía no hay HUD) */ }
         if (S.playing) {
             const A = window.mbwAspect, r = RES[OPTS.res] || null;
@@ -667,7 +670,15 @@
             camSnap();
         }
     }
-    function setOpt(k, v) { if (!(k in OPT_DEF)) return; OPTS[k] = v; try { localStorage.setItem(OPT_KEY, JSON.stringify(OPTS)); } catch (e) { /* nada */ } applyOpts(); }
+    function setOpt(k, v) {
+        if (!(k in OPT_DEF)) return;
+        OPTS[k] = v; try { localStorage.setItem(OPT_KEY, JSON.stringify(OPTS)); } catch (e) { /* nada */ }
+        applyOpts();
+        if (!S.playing) return;
+        if (k === 'fastLeaves') { try { if (typeof initializeWorldCache === 'function') initializeWorldCache(); } catch (e) { /* nada */ } }   // (🍃 las hojas se vuelven a dibujar)
+        if ((k === 'shadows' || k === 'lighting' || k === 'lightQ') && window.mbwDarkness && window.mbwDarkness.invalidate) window.mbwDarkness.invalidate();
+        if (typeof worldDirty !== 'undefined') worldDirty = true;
+    }
     // 🦘 salto automático de 1 bloque: caminando contra un escalón de 1 bloque (con lugar arriba), salta solo
     function autoJumpNow(bx, by) {
         const P = S.p;
@@ -4220,7 +4231,7 @@
     function splash(x, y, n) {
         for (let i = 0; i < n; i++) addPart({ x: x + (Math.random() - .5) * .9, y: y, vx: (Math.random() - .5) * .12, vy: .08 + Math.random() * .12, g: .012, life: 28 + (Math.random() * 14 | 0), size: .07 + Math.random() * .05, col: i % 3 ? '#4f8dff' : '#a9d0ff' });
     }
-    function bubble(x, y) { addPart({ kind: 'bubble', x: x + (Math.random() - .5) * .5, y: y, vx: (Math.random() - .5) * .01, vy: .03 + Math.random() * .02, life: 70, size: .08 + Math.random() * .05, col: 'rgba(200,230,255,.9)', ring: true }); }
+    function bubble(x, y) { if (OPTS.bubbles === false) return; addPart({ kind: 'bubble', x: x + (Math.random() - .5) * .5, y: y, vx: (Math.random() - .5) * .01, vy: .03 + Math.random() * .02, life: 70, size: .08 + Math.random() * .05, col: 'rgba(200,230,255,.9)', ring: true }); }
     function emitBlockParts(L) {
         if (typeof camera === 'undefined' || !mbwom.scene) return;
         const x0 = Math.floor(camera.x) - 1, x1 = Math.ceil(camera.x + canvas.width / tileSize) + 1;
@@ -4757,11 +4768,21 @@
         const iv = 1000 / fps;
         if (fps < 50 && !S.forceDraw && now - (S.lastDraw || 0) < iv - 4) return;
         S.lastDraw = fps < 50 ? Math.max((S.lastDraw || 0) + iv, now - iv) : now;   // (en promedio, justo los fps elegidos)
+        if (OPTS.fpsShow === true) fpsCount(now);
         S.forceDraw = false;
         camFollow(1);
         if (typeof worldDirty !== 'undefined') worldDirty = true;
         hud.update();
         loupe.update();
+    }
+    // 📈 contador de FPS en pantalla (Pausa > Opciones > Rendimiento): cuántas veces se dibujó en el último segundo
+    function fpsCount(now) {
+        const F = S.fpsC || (S.fpsC = { n: 0, t0: now });
+        F.n++;
+        if (now - F.t0 < 500) return;
+        const v = Math.round(F.n * 1000 / (now - F.t0)); F.n = 0; F.t0 = now; S.fpsNow = v;
+        const el = hud.el && hud.el.querySelector('.ph-fps');
+        if (el) { el.textContent = v + ' FPS'; el.classList.toggle('low', v < (Number(OPTS.fps) || 50) * .7); }
     }
     let bgClock = null;
     function bgTick() { if (!S.playing) return; if (document.hidden) runSteps(performance.now(), false); }
@@ -5160,6 +5181,7 @@
                 '<div class="ph-top"><div class="ph-topbtns"><button type="button" class="ph-marks-btn" aria-label="Markers">⭐</button><button type="button" class="ph-gear" aria-label="Menu">⚙</button></div><div class="ph-msg"></div></div>' +
                 '<div class="ph-marks" style="display:none"></div><div class="ph-ptab" style="display:none"></div>' +
                 '<button type="button" class="ph-chat-btn"><img src="assets/chat.png" alt=""></button><div class="ph-coords"></div><div class="ph-effects"></div></div>' +
+                '<div class="ph-fps"></div>' +
                 '<div class="ph-bars"><div class="ph-left"><div class="ph-armor"></div><div class="ph-hearts"></div></div><div class="ph-right"><div class="ph-air"></div><div class="ph-food"></div></div></div>' +
                 '<div class="ph-xp"><div class="ph-xp-fill"></div><b class="ph-xp-lv"></b></div>' +
                 '<div class="ph-iname"></div>' +
@@ -5915,7 +5937,7 @@
         document.body.classList.add('mbw-playing');
         // el bloque Barrier no se ve jugando: si el mundo tiene alguno, el dibujo del mundo se rehace sin ellos
         // (y el tronco de árbol "wd1" se ve igual que la madera "wd")
-        try { if ((mbwom.scene || []).some(function (c) { return c && (c.indexOf('b') >= 0 || c.indexOf('wd1') >= 0); }) && typeof initializeWorldCache === 'function') initializeWorldCache(); } catch (e) { /* nada */ }
+        try { if ((mbwom.scene || []).some(function (c) { return c && (c.indexOf('b') >= 0 || c.indexOf('wd1') >= 0 || (OPTS.fastLeaves === true && c.some(function (t) { return typeof t === 'string' && t.slice(0, 2) === 'lv'; }))); }) && typeof initializeWorldCache === 'function') initializeWorldCache(); } catch (e) { /* nada */ }
         window.smoothScroll = true;
         // pantalla completa + solo el mapa (el CSS de body.mbw-playing esconde todo el editor) + la vista del juego (Aspect, medidas de fábrica)
         S.old.fs = !!(document.fullscreenElement || document.webkitFullscreenElement);
@@ -6042,6 +6064,7 @@
             camera.x = S.old.cam.x; camera.y = S.old.cam.y; camera._tx = camera.x; camera._ty = camera.y; camera.velX = 0; camera.velY = 0;
             try { if (S.old.tool && typeof selectTool === 'function') selectTool(S.old.tool); } catch (e) { /* nada */ }
         }
+        document.body.classList.remove('mbw-no-glint', 'mbw-fps-on');
         try { if (typeof initializeWorldCache === 'function') initializeWorldCache(); } catch (e) { /* nada */ }
         try { if (typeof window.playerInvRefresh === 'function') window.playerInvRefresh(); } catch (e) { /* nada */ }
         if (typeof worldDirty !== 'undefined') worldDirty = true;
@@ -6364,8 +6387,20 @@
                 }
             },
             // 💾 (invitado) mis datos guardados en el mundo del anfitrión; la primera vez: aparezco en el /home o el spawn
-            loadMine: function (data, spawn) {
+            loadMine: function (data, spawn, gm0) {
                 const w = W(); if (!S.playing) return;
+                // 🧍 la PRIMERA vez que entro (no hay nada guardado mío): un jugador NUEVO — nada del anfitrión (su inventario,
+                //    armadura, vida, experiencia, modo de juego, efectos...) se queda conmigo. El modo de juego es el que el servidor
+                //    da a los nuevos (Pausa > Servidor; si no dice nada: supervivencia).
+                const g0 = isFinite(Number(gm0)) ? Number(gm0) | 0 : (isFinite(Number(w.mbweNewGm)) ? Number(w.mbweNewGm) | 0 : 0);
+                const setGm = function (g) { w.gamemode = g; w.fly = g === 3; document.body.classList.toggle('play-survival', g != 1); };
+                if (!(data && typeof data === 'object')) {
+                    w.inventoryList = []; for (let i = 0; i < 45; i++) w.inventoryList.push(empty());
+                    w.armors = []; for (let i = 0; i < 4; i++) w.armors.push(['air', 0, {}]);
+                    w.health = 20; w.food = 20; w.experience = 0; w.selectedInventoryItem = 0; w.dead = 0;
+                    setGm(g0);
+                    w.effects = {};                                         // (sin las pociones del anfitrión)
+                } else if (data.gm == null || data.gm === '' || !isFinite(Number(data.gm))) setGm(g0);   // (datos viejos sin modo: el de los nuevos)
                 if (data && typeof data === 'object') {
                     if (isFinite(Number(data.x)) && isFinite(Number(data.y)) && (data.s == null || Number(data.s) === (mbwom.currentScene || 1))) { w.worldX = Number(data.x); w.worldY = Number(data.y); }
                     if (Array.isArray(data.inv)) w.inventoryList = JSON.parse(JSON.stringify(data.inv));

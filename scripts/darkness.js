@@ -206,15 +206,18 @@
     const cacheIds = new WeakMap(); let cacheSeq = 0;
     function cacheId(o) { if (!o) return 0; let id = cacheIds.get(o); if (!id) { id = ++cacheSeq; cacheIds.set(o, id); } return id; }
 
+    // 🎮 (jugando) Pausa > Opciones > Rendimiento: sombras (suaves / simples / no) · luz (suave / por bloques) · calidad de las luces
+    function popt(k) { return typeof mbwPlayOpt === 'function' ? mbwPlayOpt(k) : undefined; }
     function build(X0, Y0, w, h, far) {
         if (!lightOf) lightOf = buildLightMap();
+        const SH = popt('shadows'), LQ = popt('lightQ');
         const A = new Float32Array(w * h);
         const Y1 = Y0 + h - 1;
         const MAP = !!D.map;
         let any = MAP;
         const NIGHT = D.night || 0;
         for (let j = 0; j < h; j++) {                      // fila j de la imagen = Y1 - j en el mundo (arriba en la pantalla = Y más alto)
-            const a = Math.max(D.on ? D.darkAt(Y1 - j) : 0, NIGHT);   // 🌙 de noche (Modo Jugar) todo se oscurece un poco
+            const a = Math.max(D.on && SH !== 'off' ? D.darkAt(Y1 - j) : 0, NIGHT);   // 🌙 de noche (Modo Jugar) todo se oscurece un poco
             if (a > 0) any = true;
             if (a === 0) continue;
             for (let i = 0; i < w; i++) A[j * w + i] = a;
@@ -225,7 +228,7 @@
         const found = [], groups = new Set();
         const xa = Math.max(0, X0 - R), xb = Math.min(wc.length - 1, X0 + w - 1 + R);
         const ya = Math.max(0, Y0 - R), yb = Y1 + R;
-        if (lightOf && lightOf.size) {
+        if (lightOf && lightOf.size && SH !== 'simple') {            // (sombras "simples": sin los círculos de luz de antorchas)
             for (let x = xa; x <= xb; x++) {
                 const col = wc[x];
                 if (!col) continue;
@@ -249,6 +252,14 @@
         if (pt) found.push({ x: pt.x, y: pt.y, kind: 'player' });
         remoteTiles().forEach(function (q) { found.push({ x: q.x, y: q.y, kind: 'player' }); });
         if (!far) { D.lastA = A; D.lastX0 = X0; D.lastY1 = Y1; D.lastW = w; D.lastH = h; }   // (para decir el % de luz bajo el mouse)
+        // calidad de las luces: media = las 24 más cercanas al centro, baja = las 10 más cercanas (y sin brillo de color)
+        const LMAX = LQ === 'low' ? 10 : LQ === 'medium' ? 24 : 0;
+        if (LMAX && found.length > LMAX) {
+            const cx = X0 + w / 2, cy = Y0 + h / 2, d2 = function (q) { return (q.x - cx) * (q.x - cx) + (q.y - cy) * (q.y - cy); };
+            const pl = found.filter(function (q) { return q.kind === 'player'; });
+            const rest = found.filter(function (q) { return q.kind !== 'player'; }).sort(function (p, q) { return d2(p) - d2(q); }).slice(0, Math.max(0, LMAX - pl.length));
+            found.length = 0; pl.concat(rest).forEach(function (q) { found.push(q); });
+        }
         D.stats.lights = found.length;
         // primero las que quitan oscuridad, después las odd torch (su oscuridad gana)
         found.sort((p, q) => (LIGHTS[p.kind].dark ? 1 : 0) - (LIGHTS[q.kind].dark ? 1 : 0));
@@ -269,7 +280,7 @@
                     const k = j * w + i;
                     if (def.dark) { const v = def.dark * s; if (v > A[k]) { A[k] = v; any = true; } }
                     else A[k] = A[k] * (1 - s);
-                    if (def.color && !far) {
+                    if (def.color && !far && LQ !== 'low') {
                         if (!G) G = new Float32Array(w * h * 3);
                         const wgt = s * def.glow * (0.3 + 0.7 * (D.MAX > 0 ? base[k] / D.MAX : 0));
                         G[k * 3] += def.color[0] * wgt; G[k * 3 + 1] += def.color[1] * wgt; G[k * 3 + 2] += def.color[2] * wgt;
@@ -312,11 +323,11 @@
         const top = Math.max(0, Math.floor((firstRow - 1) * ts));        // (las filas de arriba sin oscuridad no se copian)
         if ((MAP || maxA >= 0.004) && bw * bh <= 16000000) {
             if (big.width !== bw || big.height !== bh) { big.width = bw; big.height = bh; } else bctx.clearRect(0, 0, bw, bh);
-            bctx.imageSmoothingEnabled = !MAP;                     // (la vista de luz va en cuadros nítidos)
+            bctx.imageSmoothingEnabled = !MAP && popt('lighting') !== 'blocky';   // (la vista de luz va en cuadros nítidos · 🧱 luz "por bloques")
             bctx.drawImage(mask, 0, 0, w, h, 0, 0, w * ts, h * ts);
             if (glowOk && !MAP) {
                 if (bigGlow.width !== bw || bigGlow.height !== bh) { bigGlow.width = bw; bigGlow.height = bh; }
-                bgctx.imageSmoothingEnabled = true;
+                bgctx.imageSmoothingEnabled = popt('lighting') !== 'blocky';
                 bgctx.drawImage(gmask, 0, 0, w, h, 0, 0, w * ts, h * ts);
             }
         }
@@ -347,7 +358,7 @@
         if (w * h > 1200000) { D.stats.drawn = false; return; }            // zoom tan alejado que no vale la pena
         const pt = playerTile();
         const rk = remoteTiles().map(function (q) { return Math.floor(q.x * 2) + ',' + Math.floor(q.y * 2); }).join(';') + (D.map ? '|' + scene() + '|' + ((mbwom.world && mbwom.world.raining) || 0) : '');
-        const key = [X0, Y0, w, h, ts, D.rev, D.night, D.on ? 1 : 0, D.map ? 'm' : '', cacheId(window.worldCache), pt ? Math.floor(pt.x * 2) + ',' + Math.floor(pt.y * 2) : '-', rk].join('|');
+        const key = [X0, Y0, w, h, ts, D.rev, D.night, D.on ? 1 : 0, D.map ? 'm' : '', cacheId(window.worldCache), pt ? Math.floor(pt.x * 2) + ',' + Math.floor(pt.y * 2) : '-', rk, popt('shadows'), popt('lighting'), popt('lightQ')].join('|');
         const now = performance.now();
         if (key !== maskKey || !maskInfo || now - lastForce > 1500) {
             maskInfo = build(X0, Y0, w, h);
@@ -362,7 +373,7 @@
             const sy = M.top, sh = M.bh - M.top;
             if (sh > 0) c.drawImage(big, 0, sy, M.bw, sh, Math.round(dx), Math.round(dy + sy), M.bw, sh);
         } else {
-            c.imageSmoothingEnabled = !D.map;
+            c.imageSmoothingEnabled = !D.map && popt('lighting') !== 'blocky';
             c.drawImage(mask, 0, 0, M.w, M.h, dx, dy, M.w * ts, M.h * ts);
         }
         // brillo de color (lava, ácido, glowstone, coral lantern): se "suma" a lo que hay debajo

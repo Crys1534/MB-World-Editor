@@ -267,8 +267,10 @@ window.blockAnim = (function () {
     };
     B.ms = function (name) { const c = window.mbwAnimConfig(name); return c ? c.ms : 1000; };
     // Qué cuadro toca ahora (con las animaciones apagadas, siempre el primero)
+    const playOff = function (k) { return typeof mbwPlayOpt === 'function' && mbwPlayOpt(k) === false; };   // (Pausa > Opciones > Rendimiento)
     B.index = function (name, n) {
         if (!window.mbwAnimationsOn || n < 2) return 0;
+        if (name === 'fire' && playOff('fireAnim')) return 0;      // 🔥 fuego quieto
         return Math.floor(performance.now() / B.ms(name)) % n;
     };
     B.tileAt = function (mark, forWorld, x, y) {
@@ -281,8 +283,8 @@ window.blockAnim = (function () {
     B.clock = function () {
         if (!window.mbwAnimationsOn) return 0;
         let k = 0;
-        NAMES.forEach(function (n, i) { k += Math.floor(performance.now() / B.ms(n)) * (i + 1) * 7919; });
-        k += Math.floor(performance.now() / LIQ_MS) * 104729;
+        NAMES.forEach(function (n, i) { if (n === 'fire' && playOff('fireAnim')) return; k += Math.floor(performance.now() / B.ms(n)) * (i + 1) * 7919; });
+        if (!playOff('liqAnim')) k += Math.floor(performance.now() / LIQ_MS) * 104729;
         return k;
     };
 
@@ -319,7 +321,7 @@ window.blockAnim = (function () {
         return (liqTint[lq] = t);
     }
     function liqTile(mark, x, y) {
-        if (!window.mbwAnimationsOn) return mark.tex;
+        if (!window.mbwAnimationsOn || playOff('liqAnim')) return mark.tex;   // 💧 agua y lava quietas
         const spr = window.images && window.images[LIQ_IMG[mark.lq]];
         const blocks = window.images && window.images.blocks;
         if (!spr || !spr.complete || !(spr.naturalWidth >= 64) || !blocks || !blocks.complete || !blocks.naturalWidth) return mark.tex;
