@@ -4376,3 +4376,22 @@ body.is-touch.mbw-fps-on #mbw-play-hud .ph-fps { left: auto; right: 12px; top: 6
     text-shadow: 2px 2px 0 #3f3f3f, 0 0 3px #000; }
 #mbw-play-hud .ph-fps, body.is-touch.mbw-fps-on #mbw-play-hud .ph-fps { left: 12px; right: auto; bottom: auto; top: 40px; padding: 1px 6px;
     font: 400 26px/1.05 'Pixeltype', Consolas, monospace; background: rgba(0,0,0,.45); }
+
+/* 🛠 Server settings: misma ventana gris del juego que Options, con pestañas General / Players / Rules */
+.pm-srv .pm-oform .pm-in { flex: 1 1 230px; min-width: 0; font-family: 'Pixeltype', sans-serif; font-size: 22px; color: #fff; background: #8b8b8b; padding: 4px 8px; border-radius: 0;
+    border: 2px solid; border-color: #373737 #fff #fff #373737; text-shadow: 1px 1px 0 #3f3f3f; outline: none; }
+.pm-srv .pm-oform textarea.pm-in { resize: vertical; min-height: 52px; line-height: 1.05; }
+.pm-srv .pm-oform .pm-in:focus { border-color: #fff #373737 #373737 #fff; background: #9b9b9b; }
+.pm-srv .pm-ssrow .ss-official { flex: 1 1 auto; margin: 0; padding: 4px 6px; border-radius: 0; background: transparent; border: 0; color: #3f3f3f; font-size: 25px; font-family: 'Pixeltype', sans-serif; }
+.pm-srv .pm-ssrow .ss-official input { width: 28px; height: 28px; flex: 0 0 auto; }
+.pm-srv .pm-people { border: 0; max-height: none; overflow: visible; padding: 0; gap: 2px; }
+.pm-srv .pm-sub { color: #3f3f3f; font: 400 25px/1 'Pixeltype', sans-serif; margin: 8px 0 4px; padding-bottom: 3px; border-bottom: 2px solid #8b8b8b; }
+.pm-srv .pm-sub:first-child { margin-top: 2px; }
+.pm-srv .pm-prow { color: #3f3f3f; font: 400 23px/1 'Pixeltype', sans-serif; padding: 4px 6px; background: #b5b5b5; border: 2px solid; border-color: #8b8b8b #fff #fff #8b8b8b; }
+.pm-srv .pm-pl-note { color: #555; font: 400 21px/1.1 'Pixeltype', sans-serif; padding: 2px 6px; }
+#play-menu .pm-srv .pm-mini { font: 400 20px/1 'Pixeltype', sans-serif; padding: 4px 10px; min-height: 0; border-radius: 0; color: #fff; text-shadow: 1px 1px 0 #3f3f3f;
+    background: #8b8b8b; border: 2px solid; border-color: #c6c6c6 #555 #555 #c6c6c6; box-shadow: none; }
+#play-menu .pm-srv .pm-mini:disabled { opacity: .6; }
+#play-menu .pm-srv .pm-kick, #play-menu .pm-srv .pm-ban { background: #a94a3c; }
+#play-menu .pm-srv .pm-unban { background: #5b8a3c; }
+@media (max-width: 640px), (max-height: 480px) { .pm-srv .pm-sub, .pm-srv .pm-prow { font-size: 18px; } .pm-srv .pm-ssrow .ss-official { font-size: 18px; } .pm-srv .pm-oform .pm-in { font-size: 18px; } }

@@ -46,7 +46,9 @@
         box.textContent = '';
         const list = (M() && M().playerList) ? M().playerList() : [{ name: (localStorage.getItem('mbw_username') || 'Player'), online: true, me: true, host: true, ping: 0 }];
         const on = list.filter(function (p) { return p.online; }), off = list.filter(function (p) { return !p.online; }).sort(function (a, b) { return (b.last || 0) - (a.last || 0); });
-        const head = el('div', 'pm-pl-head', tr('pm_players', 'Players') + ' (' + on.length + '/' + (inRoom() ? Math.min(MAX, Number(window.multiplayerPlayerLimit) || MAX) : 1) + ')');
+        // (el límite es de conectados A LA VEZ; la lista muestra a TODOS los que alguna vez jugaron)
+        const lim = inRoom() ? Math.min(MAX, Number(window.multiplayerPlayerLimit) || MAX) : 1;
+        const head = el('div', 'pm-pl-head', tr('pm_players', 'Players') + ' · ' + on.length + '/' + lim + ' ' + tr('pm_online_now', 'online') + (withLast && off.length ? ' · ' + list.length + ' ' + tr('pm_total', 'total') : ''));
         box.appendChild(head);
         on.concat(withLast ? off : []).forEach(function (p) {
             const r = el('div', 'pm-pl-row' + (p.online ? '' : ' off'));
@@ -99,8 +101,6 @@
             const test = !!(P() && P().isTest && P().isTest());
             const srv = !test && typeof isMultiplayer !== 'undefined' && isMultiplayer && !!window.mpServerKind;   // 🚪 en un servidor: se sale por completo
             const perm = srv && !!(window.mbwIsPermServerWorld && typeof mbwom !== 'undefined' && window.mbwIsPermServerWorld(mbwom.world));
-            // 🗺 (solo el anfitrión) salir a mirar el mundo en el editor (con zoom, sin editar) sin salir del servidor; Play para volver
-            if (srv && hostOfRoom()) left.appendChild(btn('🗺 ' + tr('pm_view_editor', 'View the world in the editor'), 'pm-view-ed', function () { closeNow(); if (typeof window.mbwStopPlay === 'function') window.mbwStopPlay({ keep: true }); }));
             left.appendChild(btn(test ? '🧪 ' + tr('pm_quit_test', 'Quit test (nothing is saved)') : srv ? tr('pm_quit_server', 'Save and leave the server') : guest ? tr('pm_quit_guest', 'Save and Quit (leave the game)') : tr('pm_quit', 'Save and Quit'), 'pm-quit', function () { closeNow(); if (P() && P().saveAndQuit) P().saveAndQuit(); }));
             if (srv) left.appendChild(el('p', 'pm-hint', perm ? tr('pm_quit_server_perm_hint', 'You leave the server completely and its tab closes. This permanent server is saved online only (never in My Worlds). The others keep playing.') : tr('pm_quit_server_hint', 'You leave the server completely and its tab closes. Your copy of the world is saved in My Worlds. The others keep playing.')));
             else
@@ -272,35 +272,57 @@
         wrap.appendChild(body);
         return wrap;
     }
+    // 🛠 Ajustes del servidor, con el mismo estilo de ventana del juego que Options y en PESTAÑAS:
+    //    General (nombre, descripción, cuántos a la vez, quién entra, permanente) · Players (quién está, invitar) · Rules (modo de juego y comandos)
+    let srvTab = 'general';
     function serverForm() {
-        const f = el('div', 'pm-form');
-        const ref = window.myRoomRef || null;
-        const nm = el('input', 'pm-in'); nm.type = 'text'; nm.maxLength = 40; nm.value = window.mpSelectedMapName || (document.getElementById('filename-display') || {}).value || '';
-        nm.addEventListener('change', function () { const v = nm.value.trim().slice(0, 40); if (!v) return; window.mpSelectedMapName = v; if (ref) ref.update({ mapName: v }); });
-        f.appendChild(row(tr('pm_world_name', 'World name (server list)'), nm));
-        const ds = el('textarea', 'pm-in pm-desc'); ds.maxLength = 120; ds.rows = 2; ds.value = window.mpRoomDesc || '';
-        ds.addEventListener('change', function () { const v = ds.value.trim().slice(0, 120); window.mpRoomDesc = v; if (ref) ref.update({ desc: v }); });
-        f.appendChild(row(tr('pm_world_desc', 'Description (server list)'), ds));
-        const cur = Math.max(2, Math.min(MAX, Number(window.multiplayerPlayerLimit) || 2));
-        f.appendChild(row(tr('pm_max_players', 'Players at the same time (max 6)'), select([2, 3, 4, 5, 6].map(function (n) { return [n, String(n)]; }), cur, function (v) {
-            const n = Math.max(2, Math.min(MAX, Number(v) || 2));
-            let done = false;
-            try { if (window.mbwServerWizard && window.mbwServerWizard.setPlayers) { window.mbwServerWizard.setPlayers(n); done = true; } } catch (e) { done = false; }
-            if (!done) { window.multiplayerPlayerLimit = n; if (ref) ref.update({ maxPlayers: n }); }
-        })));
-        f.appendChild(row(tr('pm_access', 'Who can join'), select([['public', tr('pm_access_public', 'Everyone')], ['friends_only', tr('pm_access_friends', 'Friends only')], ['private', tr('pm_access_private', 'Only with an invitation')]], window.multiplayerAccess || 'public', function (v) {
-            let done = false;
-            try { if (window.mbwServerWizard && window.mbwServerWizard.setAccess) { window.mbwServerWizard.setAccess(v); done = true; } } catch (e) { done = false; }
-            if (!done) { window.multiplayerAccess = v; if (ref) ref.update({ access: v }); }
-        })));
-        // 💾 guardar el servidor en línea para que se pueda volver a abrir cuando ya no quede nadie (scripts/mp-saved.js)
-        { const sr = window.mbwSavedServers && window.mbwSavedServers.checkboxRow('ss-official pm-ss'); if (sr) f.appendChild(sr); }   // (solo en servidores)
-        // 👥 los que están en tu mundo (expulsar) y a quién invitar (amigos primero), sin salir del Modo Jugar
-        f.appendChild(peopleBox());
-        // 🎮 con qué modo de juego entran los jugadores NUEVOS (nunca el del anfitrión)
-        if (M() && M().setNewGm) f.appendChild(row(tr('pm_new_gm', 'Game mode for new players'), select([['0', tr('gm_survival', 'Survival')], ['1', tr('gm_creative', 'Creative')], ['2', tr('gm_adventure', 'Adventure')], ['3', tr('gm_spectator', 'Spectator')]], String(M().newGm()), function (v) { M().setNewGm(v); }), tr('pm_new_gm_tip', 'The first time someone joins, they start with an empty inventory, full health and this game mode.')));
-        f.appendChild(row(tr('pm_guest_cmds', 'Guests can use commands'), check(M() && M().allowCmds ? M().allowCmds() : false, function (on) { if (M() && M().setAllowCmds) M().setAllowCmds(on); }), tr('pm_guest_cmds_tip', 'By default only the host can use commands (gamemode, tp, give...)')));
-        return f;
+        const wrap = el('div', 'pm-opt mb-win pm-srv');
+        const tabs = el('div', 'pm-opt-tabs');
+        const body = el('div', 'pm-form pm-oform');
+        [['general', 'pm_tab_general', 'General', 'sign'], ['people', 'pm_tab_people', 'Players', 'feather'], ['rules', 'pm_tab_rules', 'Rules', 'ebook']].forEach(function (t) {
+            const b = btn('', 'pm-opt-tab' + (srvTab === t[0] ? ' on' : ''), function () { srvTab = t[0]; tabs.querySelectorAll('.pm-opt-tab').forEach(function (x) { x.classList.toggle('on', x === b); }); fill(); });
+            b.appendChild(ico(t[3])); b.appendChild(el('span', null, tr(t[1], t[2])));
+            b.dataset.tab = t[0];
+            tabs.appendChild(b);
+        });
+        const fill = function () {
+            body.textContent = '';
+            const ref = window.myRoomRef || null;
+            const A = function (icon, label, input, hint) { body.appendChild(orow(icon ? ico(icon[0], icon[1]) : null, label, input, hint)); };
+            if (srvTab === 'general') {
+                const nm = el('input', 'pm-in'); nm.type = 'text'; nm.maxLength = 40; nm.value = window.mpSelectedMapName || (document.getElementById('filename-display') || {}).value || '';
+                nm.addEventListener('change', function () { const v = nm.value.trim().slice(0, 40); if (!v) return; window.mpSelectedMapName = v; if (ref) ref.update({ mapName: v }); });
+                A(['sign'], tr('pm_world_name', 'World name (server list)'), nm);
+                const ds = el('textarea', 'pm-in pm-desc'); ds.maxLength = 120; ds.rows = 2; ds.value = window.mpRoomDesc || '';
+                ds.addEventListener('change', function () { const v = ds.value.trim().slice(0, 120); window.mpRoomDesc = v; if (ref) ref.update({ desc: v }); });
+                A(['paper'], tr('pm_world_desc', 'Description (server list)'), ds);
+                const cur = Math.max(2, Math.min(MAX, Number(window.multiplayerPlayerLimit) || 2));
+                A(['compass'], tr('pm_max_players', 'Players at the same time (max 6)'), select([2, 3, 4, 5, 6].map(function (n) { return [n, String(n)]; }), cur, function (v) {
+                    const n = Math.max(2, Math.min(MAX, Number(v) || 2));
+                    let done = false;
+                    try { if (window.mbwServerWizard && window.mbwServerWizard.setPlayers) { window.mbwServerWizard.setPlayers(n); done = true; } } catch (e) { done = false; }
+                    if (!done) { window.multiplayerPlayerLimit = n; if (ref) ref.update({ maxPlayers: n }); }
+                }), tr('pm_max_players_tip', 'Only how many can be connected at once. Everyone who ever played still shows in the Players list.'));
+                A(['ob'], tr('pm_access', 'Who can join'), select([['public', tr('pm_access_public', 'Everyone')], ['friends_only', tr('pm_access_friends', 'Friends only')], ['private', tr('pm_access_private', 'Only with an invitation')]], window.multiplayerAccess || 'public', function (v) {
+                    let done = false;
+                    try { if (window.mbwServerWizard && window.mbwServerWizard.setAccess) { window.mbwServerWizard.setAccess(v); done = true; } } catch (e) { done = false; }
+                    if (!done) { window.multiplayerAccess = v; if (ref) ref.update({ access: v }); }
+                }));
+                // 💾 guardar el servidor en línea para que se pueda volver a abrir cuando ya no quede nadie (scripts/mp-saved.js)
+                const sr = window.mbwSavedServers && window.mbwSavedServers.checkboxRow('ss-official pm-ss');
+                if (sr) { const r = el('div', 'pm-row pm-orow pm-ssrow'); r.appendChild(ico('clock')); r.appendChild(sr); body.appendChild(r); }
+            } else if (srvTab === 'people') {
+                body.appendChild(peopleBox());
+            } else {
+                // 🎮 con qué modo de juego entran los jugadores NUEVOS (nunca el del anfitrión)
+                if (M() && M().setNewGm) A(['IronPickaxe'], tr('pm_new_gm', 'Game mode for new players'), select([['0', tr('gm_survival', 'Survival')], ['1', tr('gm_creative', 'Creative')], ['2', tr('gm_adventure', 'Adventure')], ['3', tr('gm_spectator', 'Spectator')]], String(M().newGm()), function (v) { M().setNewGm(v); }), tr('pm_new_gm_tip', 'The first time someone joins, they start with an empty inventory, full health and this game mode.'));
+                A(['ebook'], tr('pm_guest_cmds', 'Guests can use commands'), check(M() && M().allowCmds ? M().allowCmds() : false, function (on) { if (M() && M().setAllowCmds) M().setAllowCmds(on); }), tr('pm_guest_cmds_tip', 'By default only the host can use commands (gamemode, tp, give...)'));
+            }
+        };
+        fill();
+        wrap.appendChild(tabs);
+        wrap.appendChild(body);
+        return wrap;
     }
     function peopleBox() {
         const box = el('div', 'pm-people');

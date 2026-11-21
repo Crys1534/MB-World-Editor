@@ -201,6 +201,7 @@
     }
     setInterval(function () { try { rosterTick(); } catch (e) { /* nada */ } }, 5000);
     function rosterNow() {
+        watch();                                                     // (la lista guardada en línea, aunque no se haya abierto la pestaña Multiplayer)
         const k = mySlot() || (window.mpRoomCfg && window.mpRoomCfg.slot) || null;
         if (!okSlot(k)) return {};
         return Object.assign({}, (saved && saved[k] && saved[k].roster) || {}, k === mySlot() ? rosterLocal : {});

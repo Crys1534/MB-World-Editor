@@ -2515,7 +2515,13 @@
         else if (bd(id, 'placeable') == 1 && id !== 'air') m = 'place';
         if (m && m !== S.touchMode) { S.touchMode = m; hud.dirty = true; }
     }
-    function smartOn() { return document.documentElement.classList.contains('is-app') && S.touchHeld === true && SMART_TOOL.test(selType()) && S.touchMode !== 'place'; }
+    // ⛏🎯 el cursor inteligente: en la app con herramienta y, en PC con "Old Style", siempre que minas (⛏) con el clic izquierdo:
+    //    se rompe el bloque MÁS CERCANO hacia donde apunta el mouse (como en el celular), no el que está justo bajo el cursor
+    function smartOn() {
+        if (S.touchMode === 'place') return false;
+        if (oldStyle() && S.mouse.left) return true;
+        return document.documentElement.classList.contains('is-app') && S.touchHeld === true && SMART_TOOL.test(selType());
+    }
     function smartTarget(w, mw) {
         const px = Number(w.worldX), py = -Number(w.worldY) + 1.2;            // (desde el pecho del Player)
         const dx = mw.x - px, dy = mw.y - py, len = Math.hypot(dx, dy);
