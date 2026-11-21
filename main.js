@@ -1802,6 +1802,7 @@ function mainLoop(ts) {
     if (window.mbwExtras) { try { window.mbwExtras.afterMobs(); } catch (e) { if (!window.mbwExtrasErr) { window.mbwExtrasErr = true; console.error('world-extras:', e); } } }
     drawPlayer();
     if (window.mbwDarkness) window.mbwDarkness.draw(ctx);   // 🌑 oscuridad bajo tierra + auras de luz + 🗺️ franja de biomas (scripts/darkness.js)
+    if (window.mbwPlay && window.mbwPlay.overDark) { try { window.mbwPlay.overDark(ctx); } catch (e) { /* nada */ } }   // 💥🔍 (mods: números de daño y escáner de minerales, encima de la oscuridad)
     if (window.mbwPlayerPick) { try { window.mbwPlayerPick.drawGhost(); } catch (e) { /* nada */ } }   // 📍 Player fantasma al elegir su posición (scripts/player-pick.js)
 
     const liveTimeToggle = document.getElementById('live-time-toggle');

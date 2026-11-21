@@ -253,7 +253,7 @@
     function myData() {
         const w = mbwom.world || {};
         return { x: Number(w.worldX), y: Number(w.worldY), s: curScene(), inv: JSON.parse(JSON.stringify(w.inventoryList || [])), armors: JSON.parse(JSON.stringify(w.armors || [])),
-            health: Number(w.health), food: Number(w.food), xp: Number(w.experience) || 0, sel: w.selectedInventoryItem | 0, gm: Number(w.gamemode) || 0,
+            health: Number(w.health), food: Number(w.food), th: isFinite(Number(w.mbweThirst)) ? Number(w.mbweThirst) : 1000, xp: Number(w.experience) || 0, sel: w.selectedInventoryItem | 0, gm: Number(w.gamemode) || 0,
             marks: (function () { try { return ((window.mbwBookmarks && window.mbwBookmarks.list()) || []).slice(0, 10).map(function (b) { return { id: String(b.id), name: String(b.name || '').slice(0, 40), x: Number(b.x), y: Number(b.y), dim: Number(b.dim) || 1 }; }); } catch (e) { return []; } })() };   // ⭐ (el anfitrión los puede ver)
     }
     M.lastSaveSent = 0; M.lastPing = 0; M.ping = 0;
@@ -312,6 +312,7 @@
         const P = window.mbwPlay && window.mbwPlay.state;
         const modal = document.getElementById('inventory-modal');
         if (P && P.openBoxAt && modal && modal.style.display === 'block') M.dirty.add(curScene() + '|' + P.openBoxAt.x + '|' + P.openBoxAt.y);
+        if (P && P.openBoxAt2 && modal && modal.style.display === 'block') M.dirty.add(curScene() + '|' + P.openBoxAt2.x + '|' + P.openBoxAt2.y);   // (📦 el otro cofre del cofre doble)
         if (!M.dirty.size) return;
         const by = {};
         M.dirty.forEach(function (k) {

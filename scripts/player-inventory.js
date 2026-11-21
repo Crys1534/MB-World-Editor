@@ -178,7 +178,20 @@
  function brewGet(f, i) { return i === 0 ? f.input : i === 1 ? f.fuel : f.output[i - 2]; }
  function brewPut(f, i, v) { if (i === 0) f.input = v; else if (i === 1) f.fuel = v; else f.output[i - 2] = v; }
  // cuántos espacios tiene lo que está abierto: cofre 27; dispenser / dropper 9 (cuadro de 3×3, como en el juego)
- const boxSlots = () => (st.chest && st.chest.kind === 'disp') ? 9 : CHEST_SLOTS;
+ const boxSlots = () => (st.chest && st.chest.kind === 'disp') ? 9 : (st.chest && st.chest.pair) ? CHEST_SLOTS * 2 : CHEST_SLOTS;
+ // 📦 (mod Double Chests) cofre doble: las casillas 0-26 son del cofre de la izquierda y las 27-53 del de la derecha
+ function chestListKey(key) {
+  let d = mbwom.chests;
+  if (!isObj(d)) { d = {}; mbwom.chests = d; if (mbwom.world && mbwom.currentScene !== undefined) mbwom.world['chests' + mbwom.currentScene] = d; }
+  if (!Array.isArray(d[key])) d[key] = [];
+  const list = d[key];
+  while (list.length < CHEST_SLOTS) list.push(['air', 0, 0, {}]);
+  return list;
+ }
+ function chestCell(i) {                                         // [lista, índice] de la casilla i de lo que está abierto
+  if (st.chest && st.chest.pair && i >= CHEST_SLOTS) return [chestListKey(st.chest.pair.key), i - CHEST_SLOTS];
+  const l = chestList(); return l ? [l, i] : null;
+ }
  function chestList() {
   if (!st.chest || typeof mbwom === 'undefined' || !mbwom) return null;
   if (st.chest.kind === 'disp') {                               // dispenser / dropper: sus cosas van en states["blockX..Y.._2"]
@@ -210,7 +223,7 @@
   return list;
  }
  function slotArr(a) {
-  if (a.k === 'c') { const l = chestList(); return l ? l[a.i] : null; }
+  if (a.k === 'c') { const c = chestCell(a.i); return c ? c[0][c[1]] : null; }
   if (a.k === 'f' && isBrew()) { const f = brewData(true); return f ? brewGet(f, a.i) : null; }
   if (a.k === 'f') { const f = furnaceData(true); return f ? f[F_KEYS[a.i]] : null; }
   const w = world(); if (!w) return null; return ((a.k === 'a' ? w.armors : w.inventoryList) || [])[a.i];
@@ -232,8 +245,8 @@
   if (a.k === 'k') { if (st.craft) st.craft.grid[a.i] = it ? copy(it, it.qty) : null; return; }
   if (a.k === 'o') return;
   if (a.k === 'c') {
-   const l = chestList();
-   if (l) l[a.i] = itemToArr(it, false, l[a.i]);
+   const c = chestCell(a.i);
+   if (c) c[0][c[1]] = itemToArr(it, false, c[0][c[1]]);
    if (st.chest && st.chest.kind === 'ender') enderChanged();
    return;
   }
@@ -1305,6 +1318,7 @@
   if (hb) hb.style.display = 'none';
   document.body.classList.toggle('pinv-furnace-open', !!st.furnace);
   document.body.classList.toggle('pinv-chest-open', !!st.chest);
+  document.body.classList.toggle('pinv-dbl', !!(st.chest && st.chest.pair));
   document.body.classList.add('pinv-open');
   const panel = $('player-inv-panel');
   if (panel) panel.style.display = 'block';
@@ -1340,13 +1354,14 @@
   else if (title && st.anvil) title.innerText = tr('pinv_anvil_title', 'Anvil - Repair & Rename');
   else if (title && st.ench) title.innerText = tr('play_enchant_title', 'Enchantment Table');
   else if (title && st.craft && st.craft.table) title.innerText = tr('pinv_craft_table', 'Crafting Table');
-  else if (title) title.innerText = st.chest ? (boxTitle() + '  (X: ' + st.chest.x + ', Y: ' + st.chest.y + ')') : tr('pinv_title', 'Player Inventory');
+  else if (title) title.innerText = st.chest ? (boxTitle() + '  (X: ' + st.chest.x + (st.chest.pair ? '-' + st.chest.pair.x : '') + ', Y: ' + st.chest.y + ')') : tr('pinv_title', 'Player Inventory');
   const lbl = $('pinv-chest-label');
   if (lbl) { lbl.textContent = st.chest && st.chest.kind === 'ender' ? tr('pinv_ender_label', 'Ender Chest (the same for everyone)') : !st.chest || st.chest.kind !== 'disp' ? tr('pinv_chest_label', 'Chest contents') : st.chest.type === 'dropper' ? tr('pinv_dropper_label', 'Dropper contents') : tr('pinv_dispenser_label', 'Dispenser contents'); lbl.title = tr('pinv_chest_delete_hint', 'Tip: press Delete to discard the item on the cursor'); }
  }
  // el título: "Chest" / "Dispenser" / "Dropper" (o el nombre que le pusieron al dispenser / dropper, como en el juego)
  function boxTitle() {
   if (st.chest && st.chest.kind === 'ender') return tr('pinv_ender_title', 'Ender Chest');
+  if (st.chest && st.chest.pair) return tr('pinv_dblchest_title', 'Large Chest');
   if (!st.chest || st.chest.kind !== 'disp') return tr('pinv_chest_title', 'Chest');
   let nm = '';
   try { nm = mbwom.states && typeof mbwom.states[st.chest.key + '_3'] === 'string' ? mbwom.states[st.chest.key + '_3'] : ''; } catch (e) { nm = ''; }
@@ -1361,7 +1376,7 @@
   if (content) content.style.height = '';
   if (left) left.style.display = '';
   if (wrap) { wrap.style.height = ''; wrap.style.flex = ''; wrap.style.minHeight = ''; }
-  document.body.classList.remove('pinv-furnace-open', 'pinv-chest-open', 'pinv-open', 'pinv-craft-open', 'pinv-book-open');
+  document.body.classList.remove('pinv-furnace-open', 'pinv-chest-open', 'pinv-open', 'pinv-craft-open', 'pinv-book-open', 'pinv-dbl');
   m.classList.remove('pinv-game', 'pinv-mb', 'pinv-mb-plain', 'pinv-exp', 'pinv-table');
   const bk = $('pinv-book'); if (bk) { bk.style.display = 'none'; const q = bk.querySelector('.pinv-book-q'); if (q) q.value = ''; }
   const ccb = $('pinv-craft-box'); if (ccb) ccb.style.display = 'none';
@@ -1408,7 +1423,11 @@
  function commitChest() {
   const c = st.chest;
   st.chest = null;
+  if (c && c.pair) commitOne({ x: c.pair.x, y: c.pair.y, before: c.pair.before });   // 📦 (el otro cofre del cofre doble)
   if (c && c.kind === 'ender') { enderSend(true); if (typeof worldDirty !== 'undefined') worldDirty = true; return; }
+  commitOne(c);
+ }
+ function commitOne(c) {
   if (!c || typeof mbwom === 'undefined' || !mbwom.scene) return;
   let after = null;
   try { after = mbwom.getBlockState(c.x, c.y); } catch (e) { after = null; }
@@ -1497,7 +1516,7 @@
  };
 
  // Abre el editor del cofre que hay en (x, y) de la dimensión actual. Devuelve true si lo abrió.
- window.openChestEditor = function (x, y) {
+ window.openChestEditor = function (x, y, x2) {
   const m = $('inventory-modal');
   if (!m || typeof toggleInventory !== 'function') return false;
   if (typeof mbwom === 'undefined' || !mbwom || !mbwom.scene) return false;
@@ -1509,9 +1528,14 @@
   if (!world()) return false;
   if (m.style.display === 'block') toggleInventory();            // cierra lo que esté abierto (guarda lo del cofre anterior si lo había)
   st.furnace = null; st.craft = null; st.anvil = null; st.ench = null;
+  // 📦 (mod Double Chests) con el otro cofre de al lado: uno grande, el de la izquierda arriba
+  let b2 = null;
+  if (x2 != null && Number.isFinite(Number(x2)) && Math.floor(Number(x2)) !== x) { try { b2 = mbwom.getBlockState(Math.floor(Number(x2)), y); } catch (e) { b2 = null; } if (!b2 || b2.type !== 'chest') b2 = null; }
+  if (b2) { x2 = Math.floor(Number(x2)); if (x2 < x) { const t = x; x = x2; x2 = t; } }
   st.chest = { x: x, y: y, key: 'blockX' + x + 'Y' + y, before: null };
   chestList();                                                    // completa los 27 espacios si faltaban
   st.chest.before = JSON.parse(JSON.stringify(mbwom.getBlockState(x, y)));
+  if (b2) { const k2 = 'blockX' + x2 + 'Y' + y; chestListKey(k2); st.chest.pair = { x: x2, y: y, key: k2, before: JSON.parse(JSON.stringify(mbwom.getBlockState(x2, y))) }; }
   st.open = true;
   st.expanded = false;
   heldItem = null;

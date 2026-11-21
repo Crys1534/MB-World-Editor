@@ -897,12 +897,13 @@
         if (P.rightSprinting > 0) P.rightSprinting++;
         if (P.leftSprinting >= 15 * FPS) P.leftSprinting = 0;
         if (P.rightSprinting >= 15 * FPS) P.rightSprinting = 0;
-        if (w.food <= 300) P.leftSprinting = P.rightSprinting = 0;
+        if (w.food <= 300 || thirstLow()) P.leftSprinting = P.rightSprinting = 0;
     }
 
     // 🍗 ¿se puede comer? (Game.canEatFood: con hambre (≤ 900), o si cura y falta vida, o si tiene efectos)
     function canEat(id) {
         const f = bd(id, 'food'), w = W(); if (!f) return false;
+        if (THIRST_OF[id] && thirstOn() && thirstVal() < 1000) return true;   // 🥤 (mod Thirst) con sed, lo que se bebe sí se toma
         return w.food <= 900 || (f.health != null && w.health < 20) || f.effects != null;
     }
     // ✨ efectos en el Player (Game.addEffect / manageEffects): regeneración, hambre, veneno
@@ -973,8 +974,9 @@
         const w = W(), P = S.p, t = S.tick;
         if (!(w.dead > 0)) tickEffects();
         if (t % (300 * FPS / 25 | 0) === 0) { if (w.food / 100 < 1 && w.health > 5 && w.difficulty !== 'peaceful') ouch(1, 1, 'hunger'); }
-        if (t % (156 * FPS / 25 | 0) === (45 * FPS / 25 | 0)) { w.food -= 3; if (w.food / 100 >= 6 && w.food / 100 <= 9) w.health += 1; hud.dirty = true; }
-        if (t % (63 * FPS / 25 | 0) === (33 * FPS / 25 | 0)) { if (w.food / 100 > 9 || w.difficulty === 'peaceful') { w.health += 1; hud.dirty = true; } }
+        const dry = thirstOn() && thirstVal() < 100;                    // 🥤 (mod Thirst) muerto de sed: no se cura solo
+        if (t % (156 * FPS / 25 | 0) === (45 * FPS / 25 | 0)) { w.food -= 3; if (w.food / 100 >= 6 && w.food / 100 <= 9 && !dry) w.health += 1; hud.dirty = true; }
+        if (t % (63 * FPS / 25 | 0) === (33 * FPS / 25 | 0)) { if ((w.food / 100 > 9 && !dry) || w.difficulty === 'peaceful') { w.health += 1; hud.dirty = true; } }
         if (t % (27 * FPS / 25 | 0) === (FPS / 25 | 0)) {
             if (P.blockY < -5) ouch(1, 4, 'void');
             if (w.gamemode == 1 && P.blockY < -40 && !(w.dead > 0)) w.dead = 1;
@@ -1061,7 +1063,7 @@
         if (w.dead <= 30 || !S.respawnReq) return;                       // ☠ pantalla de muerte: espera a "Respawn"
         if (!S.dropped) { S.dropped = true; dropAll(); }
         S.respawnReq = false; deathUi.hide();
-        w.xSpeed = 0; w.ySpeed = 0; w.health = 20; w.food = 1000; w.dead = 0;
+        w.xSpeed = 0; w.ySpeed = 0; w.health = 20; w.food = 1000; w.mbweThirst = 1000; w.dead = 0;
         if ((mbwom.currentScene || 1) !== 1 && dimReady(1)) { stopSpect(true); changeDim(1, 'respawn'); }    // (como el juego: se revive en el Overworld)
         const sp = spawnPoint();
         w.worldX = sp.x; w.worldY = sp.y;
@@ -1088,7 +1090,7 @@
             arrow: mob ? tr('death_shot_by', 'You were shot by {mob}') : tr('death_shot', 'You were shot'),
             fall: tr('death_fall', 'You fell from a high place'), lava: tr('death_lava', 'You tried to swim in lava'), acid: tr('death_acid', 'You fell into acid'),
             fire: tr('death_fire', 'You went up in flames'), burning: tr('death_fire', 'You went up in flames'), water: tr('death_drown', 'You drowned'),
-            explosion: tr('death_boom', 'You blew up'), hunger: tr('death_starve', 'You starved to death'), cactus: tr('death_cactus', 'You were pricked to death'),
+            explosion: tr('death_boom', 'You blew up'), hunger: tr('death_starve', 'You starved to death'), thirst: tr('death_thirst', 'You died of thirst'), cactus: tr('death_cactus', 'You were pricked to death'),
             suffocate: tr('death_suffocate', 'You suffocated in a wall'), void: tr('death_void', 'You fell out of the world'), poison: tr('death_poison', 'You were poisoned'),
             lightning: tr('death_lightning', 'You were struck by lightning'), anvil: tr('death_anvil', 'You were squashed by a falling anvil')
         };
@@ -2130,6 +2132,7 @@
         const s1 = st(x, y);
         const chestItems = (t === 'chest' && mbwom.chests && Array.isArray(mbwom.chests[key(x, y)])) ? mbwom.chests[key(x, y)] : null;
         const cropN = CROPS[t] ? cropStage(x, y) : 0;
+        const below0 = fg(x, y - 1), nd0 = S.drops.length;             // (🌱 mod Replant)
         const brewData = (t === 'brew' && mbwom.toBrew && mbwom.toBrew[key(x, y)]) ? JSON.parse(JSON.stringify(mbwom.toBrew[key(x, y)])) : null;
         if (!byCmd) blockSnd(t, 'break', x, y);
         if (!byCmd) { if (t === 'wd1' || t === 'wd') ach(0); else if (t === 'ob') ach(27); else if (t === 'gd') ach(28); else if (t === 'dmore') ach(29); }
@@ -2158,6 +2161,7 @@
         if (drop) addDrop(drop, x + .5, -y - .5, 1, 0, ex);
         if (chestItems) chestItems.forEach(function (it) { if (!isEmpty(it)) addDrop(it[0], x + .5, -y - .5, it[1], it[2], it[3]); });
         if (CROPS[t]) cropDrops(t, cropN, x, y);                       // 🌾 el cultivo grande suelta su cosecha
+        if (CROPS[t] && cropN === 7 && !byCmd) replantStart(x, y, t, below0, nd0);   // 🌱 (mod Replant) se vuelve a plantar sola
         if (brewData) [brewData.input, brewData.fuel].concat(brewData.output || []).forEach(function (it) { if (!isEmpty(it)) addDrop(it[0], x + .5, -y - .5, it[1], it[2], it[3]); });
         if (brewData && mbwom.toBrew) delete mbwom.toBrew[key(x, y)];
     }
@@ -2166,7 +2170,7 @@
         const w = W();
         const bx = Math.floor(mw.x), by = Math.floor(mw.y);
         const it = selItem();
-        if (!it) return false;
+        if (!it) { if (modOn('thirst')) sipWater(bx, by); return false; }   // 🥤 (mod Thirst) un sorbo de agua con la mano vacía
         const zr = zoneItemSize(it);                                    // 🛡 bloque de My Zone: se pone en su capa aparte (nunca una barrera de verdad)
         if (zr) return modOn('myzone') ? placeZone(bx, by, zr) : false;
         let id = String(it[0]);
@@ -2424,6 +2428,7 @@
                 const po = potionOf(selItem());
                 snd('drink' + ((Math.random() * 2 | 0) + 1));
                 applyPotion(po, PLAYER_ID);
+                thirstAdd(po.type === 'water' ? 300 : 150);                 // 🥤 (mod Thirst)
                 if (w.gamemode != 1) { reduceSelected(1); if (addToInventory('potion', 1, 0, { type: 'empty' }) > 0) addDrop('potion', w.worldX, w.worldY, 1, 0, { type: 'empty' }); }
                 S.useTimer = -1; hud.dirty = true;
             }
@@ -2433,6 +2438,7 @@
                 if (bd(selType(), 'drink') != null || selType() === 'potion') snd('drink' + ((Math.random() * 2 | 0) + 1)); else snd('eat' + ((Math.random() * 4 | 0) + 1));
                 const ate = selType();
                 if (fd && fd.hunger != null) w.food = Math.min(1000, w.food + fd.hunger);
+                thirstAdd(THIRST_OF[ate] || 0);                              // 🥤 (mod Thirst)
                 ach(25);
                 if (fd && fd.health != null) w.health = Math.min(20, w.health + fd.health);
                 // efectos (como el juego: la manzana dorada regenera, la carne cruda da hambre, la papa venenosa envenena...)
@@ -2623,7 +2629,7 @@
         if (from === n) return true;
         if (!dimReady(n)) { const m = tr('play_dim_missing', 'The {dim} is not generated in this world (open it once in the game first).').replace('{dim}', dimName(n)); flashMsg(m); say('[INFO] ' + m); return false; }
         const w = W();
-        closeModals(); S.openBoxAt = null; S.mine = null; S.useTimer = -1;
+        closeModals(); S.openBoxAt = null; S.openBoxAt2 = null; S.mine = null; S.useTimer = -1;
         if (from === 1) w.portalCoords = [Number(w.worldX), Number(w.worldY)];        // (para volver del Nether a donde estaba)
         // lo que estaba suelto en esta dimensión se queda aquí (al volver sigue)
         S.dimStash = S.dimStash || {};
@@ -3003,7 +3009,10 @@
         const lk = lockAt(x, y);
         if (lk && !lockMine(lk) && !lockBoss()) { lockDenied(t, lk); return false; }   // 🔒 protegido por otro jugador
         if (t === 'cauldron' || t === 'cmp') return lockPop(x, y, t);
-        if (t === 'chest' && typeof window.openChestEditor === 'function') ok = window.openChestEditor(x, y);
+        const px = t === 'chest' ? chestPartner(x, y) : null;          // 📦 (mod Double Chests) el cofre de al lado
+        if (px != null) { const lk2 = lockAt(px, y); if (lk2 && !lockMine(lk2) && !lockBoss()) { lockDenied(t, lk2); return false; } }
+        S.openBoxAt2 = null;
+        if (t === 'chest' && typeof window.openChestEditor === 'function') { ok = window.openChestEditor(x, y, px); if (ok && px != null) S.openBoxAt2 = { x: px, y: y }; }
         else if (t === 'oven' && typeof window.openFurnaceEditor === 'function') ok = window.openFurnaceEditor(x, y);
         else if ((t === 'dispense' || t === 'dropper') && typeof window.openDispenserEditor === 'function') ok = window.openDispenserEditor(x, y);
         else if (t === 'enchant') ok = typeof window.openEnchantTable === 'function' ? window.openEnchantTable(x, y) : openEnchant(x, y);   // ✨ (como el juego: dentro del inventario)
@@ -3204,7 +3213,7 @@
         const m = document.getElementById('inventory-modal');
         if (m && m.style.display === 'block' && shown(m)) return true;
         if (S.ench) return true;
-        if (S.zshop) return true;
+        if (S.zshop || S.scanPick) return true;
         const cb = document.getElementById('command-book-modal');
         return !!(cb && cb.style.display && cb.style.display !== 'none' && shown(cb));
     }
@@ -3965,6 +3974,7 @@
         const w = W();
         w.effects = {};
         snd('drink' + ((Math.random() * 2 | 0) + 1));
+        thirstAdd(THIRST_OF.mbk);                                         // 🥤 (mod Thirst)
         if (w.gamemode != 1) inv()[selIndex()] = ['bk', 1, 0, {}];
         hud.dirty = true;
     }
@@ -4173,8 +4183,13 @@
         { id: 'privchest', icon: ['chest'], name: ['mod_privchest', 'Privated Chest'], desc: ['mod_privchest_d', 'Protect chests, furnaces, crafting tables and more with a sign: only you can open them.'] },
         { id: 'myzone', icon: ['b'], name: ['mod_myzone', 'My Zone'], desc: ['mod_myzone_d', 'A shop to buy protection blocks with XP levels (5x5, 10x10, 20x20). Nobody else can break or place blocks in your zone.'] },
         { id: 'orange', icon: ['or'], name: ['mod_orange', 'Annoying Orangen\'t'], desc: ['mod_orange_d', 'Your health and hunger bars show exactly how much the food in your hand restores.'] },
-        { id: 'swim', icon: ['potion', { type: 'water' }], name: ['mod_swim', 'Let\'s Swimm'], desc: ['mod_swim_d', 'Swim lying face down and faster in the water. Your air runs out twice as fast.'] },
-        { id: 'morefuel', icon: ['cl'], name: ['mod_morefuel', 'More Fuel'], desc: ['mod_morefuel_d', 'Everything made only of wood, sticks or bamboo burns in the furnace.'] }
+        { id: 'swim', icon: ['fi'], name: ['mod_swim', 'Let\'s Swimm'], desc: ['mod_swim_d', 'Swim lying face down and faster in the water. Your air runs out twice as fast.'] },
+        { id: 'morefuel', icon: ['cl'], name: ['mod_morefuel', 'More Fuel'], desc: ['mod_morefuel_d', 'Everything made only of wood, sticks or bamboo burns in the furnace.'] },
+        { id: 'dmgnum', icon: ['IronSword'], name: ['mod_dmgnum', 'Damage Numbers'], desc: ['mod_dmgnum_d', 'Every hit shows a floating number with the damage it did, over mobs and players.'] },
+        { id: 'dblchest', icon: ['chest'], name: ['mod_dblchest', 'Double Chests'], desc: ['mod_dblchest_d', 'Two chests side by side become one large chest with 54 slots.'] },
+        { id: 'thirst', icon: ['potion', { type: 'water' }], name: ['mod_thirst', 'Thirst'], desc: ['mod_thirst_d', 'A thirst bar: drink water bottles, juices, milk or soup, or click water with an empty hand. If it runs out you get hurt.'] },
+        { id: 'replant', icon: ['seed'], name: ['mod_replant', 'Replant'], desc: ['mod_replant_d', 'When you harvest a ripe crop, a second later one of the seeds it dropped plants itself again.'] },
+        { id: 'orescan', icon: ['compass'], name: ['mod_orescan', 'Ore Scanner'], desc: ['mod_orescan_d', 'Choose the ore you are looking for and the ones near you glow, even through walls and in the dark.'] }
     ];
     const MOD_IDS = {}; MODS.forEach(function (m) { MOD_IDS[m.id] = 1; });
     function cleanMods(m) { const o = {}; if (m && typeof m === 'object') Object.keys(m).forEach(function (k) { if (MOD_IDS[k] && m[k]) o[k] = true; }); return o; }
@@ -4194,6 +4209,8 @@
         if (!modOn('privchest')) { lockBtnHide(); lockPopClose(); }
         if (!modOn('myzone')) zoneShopClose();
         if (!modOn('swim')) S.swimming = false;
+        if (!modOn('orescan')) { S.scan = null; S.scanHits = null; scanPickClose(); }
+        if (!modOn('replant')) S.replant = null;
         if (typeof worldDirty !== 'undefined') worldDirty = true;
     }
     function setMod(id, on) {
@@ -4437,10 +4454,241 @@
         if (was !== S.swimming) hud.dirty = true;
     }
 
+    // ------------------------------------------------------------------ 💥 Damage Numbers
+    //  Cada vez que a un mob o a un jugador (yo o los demás) le baja la vida, sale un número flotante con cuánto le quitaron.
+    //  (Se mira la vida de todos en cada paso: así también se ven los golpes que da otro jugador o los que pasan en el anfitrión.)
+    const DN = { hp: {}, list: [] };
+    function dnReset() { DN.hp = {}; DN.list.length = 0; }
+    function tickDmgNums() {
+        if (!modOn('dmgnum')) { if (DN.list.length || Object.keys(DN.hp).length) dnReset(); return; }
+        const w = W(), seen = {};
+        const chk = function (k, hp, b) {
+            if (!isFinite(hp)) return;
+            seen[k] = 1;
+            const p = DN.hp[k]; DN.hp[k] = { v: hp, t: S.tick };
+            if (p && hp < p.v && S.tick - p.t >= 0 && S.tick - p.t <= 3 && b) {
+                if (DN.list.length >= 60) DN.list.shift();
+                DN.list.push({ x: (b.l + b.r) / 2 + (Math.random() - .5) * .35, y: b.t - .15, n: Math.round((p.v - hp) * 10) / 10, t: 0, vx: (Math.random() - .5) * .015 });
+            }
+        };
+        const ms = mbwom.mobs || {};
+        for (const id in ms) { const m = ms[id]; if (!m || !m.type || Math.abs(Number(m.x) - w.worldX) > 40) continue; chk('m' + id, Number(m.health), mobBounds(id)); }
+        if (w.gamemode != 1 && w.gamemode != 3) chk('me', w.dead > 0 ? 0 : Number(w.health), plBounds(PLAYER_ID));
+        if (S.mp && window.mbwMpPlay) { const R = window.mbwMpPlay.remotes || {}; for (const k in R) { const r = R[k]; if (!r || r.gm == 1 || r.gm == 3) continue; chk('r' + k, Number(r.hp), plBounds(RP + k)); } }
+        for (const k in DN.hp) if (!seen[k]) delete DN.hp[k];
+        const life = FPS * 1.1;
+        for (let i = DN.list.length - 1; i >= 0; i--) { const d = DN.list[i]; d.t++; d.x += d.vx; d.y -= .028 * Math.max(.15, 1 - d.t / life); if (d.t > life) DN.list.splice(i, 1); }
+    }
+    function drawDmgNums(c2) {
+        if (!DN.list.length) return;
+        const life = FPS * 1.1;
+        c2.save();
+        c2.textAlign = 'center'; c2.textBaseline = 'bottom'; c2.lineJoin = 'round';
+        DN.list.forEach(function (d) {
+            const k = d.t / life, big = d.n >= 8, fs = Math.max(16, Math.round(tileSize * (big ? 1.05 : .85) * (k < .12 ? 1 + (.12 - k) * 4 : 1)));
+            const p = toScreen(d.x, d.y), txt = '-' + d.n;
+            c2.globalAlpha = k > .6 ? Math.max(0, (1 - k) / .4) : 1;
+            c2.font = fs + 'px Pixeltype, monospace';
+            c2.lineWidth = Math.max(3, fs / 5); c2.strokeStyle = 'rgba(40,0,0,.9)'; c2.strokeText(txt, p.x, p.y);
+            c2.fillStyle = big ? '#ffd23a' : '#ff4a3a'; c2.fillText(txt, p.x, p.y);
+        });
+        c2.restore();
+    }
+
+    // ------------------------------------------------------------------ 🥤 Thirst
+    //  Una barra de sed (0 a 1000, como el hambre) arriba de la del hambre. Baja con el tiempo y más si caminas o corres (y en el
+    //  Nether). Se llena tomando agua (botella), jugos, leche, sopas, sandía... o picándole al agua con la mano vacía (un sorbo).
+    //  Con poca sed no se puede correr; sin nada, te hace daño cada rato.
+    const THIRST_OF = { lade: 400, orade: 400, apade: 400, mbk: 300, soup: 200, beetsoup: 200, rabbitsoup: 200, mels: 150, gmels: 150, icec: 120, or: 80, ap: 50, lemon: 60, ccane: 20 };
+    const thirstOn = () => { const w = W(); return modOn('thirst') && w && w.gamemode != 1 && w.gamemode != 3; };
+    function thirstVal() { const w = W(); if (!isFinite(Number(w.mbweThirst))) w.mbweThirst = 1000; return Number(w.mbweThirst); }
+    function thirstAdd(n) { if (!thirstOn() || !(n > 0)) return; const w = W(); w.mbweThirst = Math.min(1000, thirstVal() + n); hud.dirty = true; }
+    const thirstLow = () => thirstOn() && thirstVal() <= 300;
+    function thirstFor(it) {                                          // (cuánto quita la sed lo que traes en la mano)
+        if (!it || isEmpty(it)) return 0;
+        const id = String(it[0]);
+        if (id === 'potion') { const po = potionOf(it); return po.type === 'empty' ? 0 : po.type === 'water' ? 300 : 150; }
+        return THIRST_OF[id] || 0;
+    }
+    function tickThirst() {
+        const w = W(), P = S.p, t = S.tick;
+        if (!modOn('thirst')) return;
+        if (w.gamemode == 1 || w.gamemode == 3) { if (w.mbweThirst !== 1000) { w.mbweThirst = 1000; hud.dirty = true; } return; }
+        if (w.dead > 0) return;
+        let v = thirstVal(), was = Math.floor(v / 50);
+        if (t % (156 * FPS / 25 | 0) === (60 * FPS / 25 | 0)) v -= ((mbwom.currentScene || 1) == 2 ? 7 : 4);
+        if (t % (27 * FPS / 25 | 0) === (9 * FPS / 25 | 0)) { if (P.keysX) v -= 4; if (P.leftSprinting > 0 || P.rightSprinting > 0) v -= 6; }
+        if (t % (300 * FPS / 25 | 0) === (150 * FPS / 25 | 0) && v < 100 && w.health > 1 && w.difficulty !== 'peaceful') ouch(1, 1, 'thirst');
+        w.mbweThirst = Math.max(0, Math.min(1000, Math.floor(v)));
+        if (Math.floor(w.mbweThirst / 50) !== was) hud.dirty = true;
+        if (thirstLow() && P) P.leftSprinting = P.rightSprinting = 0;
+    }
+    // un sorbo directo del agua (con la mano vacía, picándole a un bloque de agua cerca)
+    function sipWater(bx, by) {
+        if (!thirstOn() || !S.rightFresh || !isWaterT(fg(bx, by)) || fg(bx, by) === 'sw' || blockDist(bx, by) > REACH) return false;
+        if (thirstVal() >= 1000) return false;
+        thirstAdd(60);
+        snd('drink' + ((Math.random() * 2 | 0) + 1));
+        for (let i = 0; i < 5; i++) addPart({ x: bx + Math.random(), y: by + 1, vx: (Math.random() - .5) * .04, vy: .04 + Math.random() * .04, g: .006, life: 16, size: .08, col: Math.random() < .5 ? '#5aa9ff' : '#9fd3ff' });
+        S.swing = 15;
+        return true;
+    }
+
+    // ------------------------------------------------------------------ 🌱 Replant
+    //  Al cosechar un cultivo maduro (trigo, zanahoria, papa, betabel, verruga del Nether), un segundo después una de las semillas
+    //  que soltó se vuelve a plantar sola en el mismo lugar (la toma del suelo: tienes una semilla menos para recoger).
+    const REPLANT = { seed: 1, carrot: 1, potato: 1, bseed: 1, nw: 1 };
+    function replantStart(x, y, t, below, nd0) {
+        if (!modOn('replant') || !REPLANT[t]) return;
+        const k = x + ',' + y;
+        for (let i = nd0; i < S.drops.length; i++) { const d = S.drops[i]; if (d && d.id === t) { d.rp = k; d.pd = Math.max(PICKUP_DELAY, Math.round(FPS * 1.25)); } }   // (que no las recojas antes de tiempo)
+        S.replant = S.replant || [];
+        S.replant.push({ x: x, y: y, t: t, below: below, k: k, at: S.tick + FPS });
+    }
+    function tickReplant() {
+        const L = S.replant; if (!L || !L.length) return;
+        for (let i = L.length - 1; i >= 0; i--) {
+            const R = L[i]; if (S.tick < R.at) continue;
+            L.splice(i, 1);
+            if (fg(R.x, R.y) !== 'air' || fg(R.x, R.y - 1) !== R.below) continue;   // (ya pusieron otra cosa o quitaron la tierra)
+            const cx = R.x + .5, cy = -(R.y + .5);
+            let j = S.drops.findIndex(function (d) { return d.rp === R.k && d.id === R.t; });
+            if (j < 0) j = S.drops.findIndex(function (d) { return d.id === R.t && Math.abs(d.x - cx) < 2 && Math.abs(d.y - cy) < 2.5 && !(d.ex && Object.keys(d.ex).length); });
+            if (j < 0) continue;                                          // (ya no hay semillas en el suelo)
+            const d = S.drops[j];
+            d.n = (d.n | 0) - 1;
+            if (d.n <= 0) S.drops.splice(j, 1);
+            if (S.mp && d.nid) mpSend({ tipo: 'juego_tomado', nid: d.nid, n: Math.max(0, d.n) });
+            setBlock(R.x, R.y, R.t);
+            setCrop(R.x, R.y, 1);
+            blockSnd(R.t, 'place', R.x, R.y);
+            growParts(R.x, R.y);
+        }
+    }
+
+    // ------------------------------------------------------------------ 🔍 Ore Scanner
+    //  Botón 🔍 arriba a la derecha: eliges el mineral que buscas y los que hay cerca (24 bloques a la redonda) brillan,
+    //  aunque estén detrás de otros bloques o a oscuras. Arriba dice cuántos hay y a qué distancia está el más cercano
+    //  (y si está fuera de la pantalla, una flecha apunta hacia él). Cada jugador elige el suyo.
+    const ORES = ['clore', 'in', 'gd', 'rs', 'lap', 'dmore', 'to', 'os', 'egem'];
+    const ORE_COL = { clore: '#e8e8e8', in: '#f0b98c', gd: '#ffd84a', rs: '#ff3b30', lap: '#4a7bff', dmore: '#5ff3ff', to: '#ffae42', os: '#d08cff', egem: '#59ffa0' };
+    const SCAN_R = 24;
+    function tickScan() {
+        if (!S.scan || !modOn('orescan')) { S.scanHits = null; return; }
+        if (S.scanHits && S.tick % 8) return;
+        const w = W(), cx = Math.floor(w.worldX), cy = Math.floor(-w.worldY) + 1, out = [];
+        for (let y = cy - SCAN_R; y <= cy + SCAN_R; y++) for (let x = cx - SCAN_R; x <= cx + SCAN_R; x++) {
+            const dx = x - cx, dy = y - cy; if (dx * dx + dy * dy > SCAN_R * SCAN_R) continue;
+            if (fg(x, y) === S.scan) out.push([x, y, Math.sqrt(dx * dx + dy * dy)]);
+        }
+        out.sort(function (a, b) { return a[2] - b[2]; });
+        S.scanHits = out;
+    }
+    function drawScan(c2) {
+        const H = S.scanHits; if (!S.scan || !H) return;
+        const ts = tileSize, col = ORE_COL[S.scan] || '#fff', pulse = .55 + .45 * Math.sin(S.tick / 6), ic = iconFor(S.scan, {});
+        c2.save();
+        c2.imageSmoothingEnabled = false;
+        H.forEach(function (h) {
+            const a = toScreen(h[0], -(h[1] + 1));
+            if (a.x > canvas.width || a.y > canvas.height || a.x + ts < 0 || a.y + ts < 0) return;
+            c2.globalAlpha = .85; c2.drawImage(ic, a.x, a.y, ts, ts);
+            c2.globalAlpha = .25 * pulse; c2.fillStyle = col; c2.fillRect(a.x, a.y, ts, ts);
+            c2.globalAlpha = .5 + .5 * pulse; c2.strokeStyle = col; c2.lineWidth = Math.max(2, ts * .1);
+            c2.shadowColor = col; c2.shadowBlur = ts * .5; c2.strokeRect(a.x + 1, a.y + 1, ts - 2, ts - 2); c2.shadowBlur = 0;
+        });
+        c2.globalAlpha = 1;
+        // ➜ el más cercano, si no se ve en la pantalla
+        const n = H[0];
+        if (n) {
+            const a = toScreen(n[0] + .5, -(n[1] + .5)), m = ts * .9;
+            let V = { x: 0, y: 0, w: canvas.width, h: canvas.height };     // (lo que se ve: sin las barras negras de Aspect)
+            try { const A = window.mbwAspect; if (A && A.active && A.screen) V = A.screen().f || V; } catch (e) { /* nada */ }   // (en el lienzo, antes de estirarlo)
+            const vx0 = V.x + ts * .3, vy0 = V.y + ts * .3, vx1 = V.x + V.w - ts * .3, vy1 = V.y + V.h - ts * .3;
+            if (a.x < vx0 || a.y < vy0 || a.x > vx1 || a.y > vy1) {
+                const w = W(), me = toScreen(w.worldX, w.worldY - 1), ang = Math.atan2(a.y - me.y, a.x - me.x);
+                const ex = Math.max(V.x + m, Math.min(V.x + V.w - m, me.x + Math.cos(ang) * 4000)), ey = Math.max(V.y + m, Math.min(V.y + V.h - m, me.y + Math.sin(ang) * 4000));
+                const k = Math.min(Math.abs((ex - me.x) / (Math.cos(ang) || 1e-6)), Math.abs((ey - me.y) / (Math.sin(ang) || 1e-6)));
+                const px = me.x + Math.cos(ang) * k, py = me.y + Math.sin(ang) * k, r = ts * .45;
+                c2.translate(px, py); c2.rotate(ang);
+                c2.beginPath(); c2.moveTo(r, 0); c2.lineTo(-r * .7, -r * .7); c2.lineTo(-r * .35, 0); c2.lineTo(-r * .7, r * .7); c2.closePath();
+                c2.fillStyle = col; c2.strokeStyle = 'rgba(0,0,0,.8)'; c2.lineWidth = 2; c2.globalAlpha = .6 + .4 * pulse; c2.fill(); c2.stroke();
+            }
+        }
+        c2.restore();
+    }
+    function scanLabel() {
+        if (!S.scan || !modOn('orescan')) return '';
+        const H = S.scanHits || [], name = oreName(S.scan);
+        if (!H.length) return '🔍 ' + tr('scan_none', 'No {ore} nearby').replace('{ore}', name);
+        return '🔍 ' + tr('scan_found', '{ore}: {n} nearby · the closest is {d} blocks away').replace('{ore}', name).replace('{n}', H.length).replace('{d}', Math.round(H[0][2]));
+    }
+    function oreName(id) { try { return itemDisplayName([id, 1, 0, {}]) || id; } catch (e) { return id; } }
+    function scanPickOpen() {
+        if (!S.playing || !modOn('orescan')) return false;
+        closeModals();
+        S.scanPick = true;
+        let el = document.getElementById('play-scan-pick');
+        if (!el) {
+            el = document.createElement('div'); el.id = 'play-scan-pick'; el.className = 'pe-overlay pz-overlay';
+            el.addEventListener('pointerdown', function (e) { e.stopPropagation(); if (e.target === el) scanPickClose(); });
+            el.addEventListener('click', function (e) { e.stopPropagation(); });
+            document.body.appendChild(el);
+        }
+        el.style.display = 'flex';
+        const mk = function (tag, cls, txt) { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+        el.textContent = '';
+        const box = mk('div', 'pe-box pz-box ps-box'); el.appendChild(box);
+        const head = mk('div', 'pe-head'); head.appendChild(mk('span', 'pe-title', '🔍 ' + tr('scan_title', 'Ore Scanner')));
+        const x = mk('button', 'pe-x', '✕'); x.type = 'button'; x.addEventListener('click', scanPickClose); head.appendChild(x);
+        box.appendChild(head);
+        box.appendChild(mk('p', 'pz-note', tr('scan_note', 'Choose the ore you are looking for: the ones within 24 blocks of you will glow.')));
+        const grid = mk('div', 'ps-grid'); box.appendChild(grid);
+        ORES.forEach(function (id) {
+            const b = mk('button', 'ps-ore' + (S.scan === id ? ' on' : '')); b.type = 'button';
+            const cv = mk('canvas'); cv.width = 16; cv.height = 16; const g = cv.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(iconFor(id, {}), 0, 0, 16, 16);
+            b.appendChild(cv); b.appendChild(mk('span', null, oreName(id)));
+            b.style.setProperty('--oc', ORE_COL[id]);
+            b.addEventListener('click', function () { scanSet(id); scanPickClose(); });
+            grid.appendChild(b);
+        });
+        const off = mk('button', 'pz-buy ps-off' + (S.scan ? '' : ' no'), tr('scan_off', 'Turn off the scanner')); off.type = 'button'; off.disabled = !S.scan;
+        off.addEventListener('click', function () { scanSet(null); scanPickClose(); });
+        box.appendChild(off);
+        return true;
+    }
+    function scanPickClose() { S.scanPick = false; const el = document.getElementById('play-scan-pick'); if (el) el.style.display = 'none'; hud.dirty = true; }
+    function scanSet(id) {
+        S.scan = id && ORES.indexOf(id) >= 0 ? id : null; S.scanHits = null;
+        snd('click'); hud.dirty = true;
+        if (S.scan) tickScan();
+    }
+
+    // ------------------------------------------------------------------ 📦 Double Chests
+    //  Dos cofres juntos (uno al lado del otro) se abren como UN cofre grande de 54 espacios: arriba el de la izquierda y abajo
+    //  el de la derecha. Cada uno sigue guardando sus cosas (si rompes uno, suelta solo lo suyo). Con 3 o más en fila, se
+    //  juntan de 2 en 2 empezando por la izquierda.
+    function chestPartner(x, y) {
+        if (!modOn('dblchest') || fg(x, y) !== 'chest') return null;
+        let s = x; while (s > x - 64 && fg(s - 1, y) === 'chest') s--;
+        const p = (x - s) % 2 === 0 ? x + 1 : x - 1;
+        return fg(p, y) === 'chest' ? p : null;
+    }
+
+    // (lo de encima de la oscuridad: números de daño y el escáner de minerales)
+    window.mbwPlay.overDark = function (c2) {
+        if (!S.playing || !c2) return;
+        try { drawScan(c2); } catch (e) { /* nada */ }
+        try { drawDmgNums(c2); } catch (e) { /* nada */ }
+    };
+
     window.mbwPlay.mods = {
         list: function () { return MODS.map(function (m) { return { id: m.id, icon: m.icon, name: tr(m.name[0], m.name[1]), desc: tr(m.desc[0], m.desc[1]), on: modOn(m.id) }; }); },
         on: modOn, set: setMod, canEdit: modBoss,
-        zoneShop: zoneShopOpen, zones: function () { return JSON.parse(JSON.stringify(zoneTable())); }, fuelOf: fuelOf
+        zoneShop: zoneShopOpen, zones: function () { return JSON.parse(JSON.stringify(zoneTable())); }, fuelOf: fuelOf,
+        scanPick: scanPickOpen, scan: function (id) { if (id !== undefined) scanSet(id); return { ore: S.scan, hits: (S.scanHits || []).map(function (h) { return [h[0], h[1]]; }) }; },
+        thirst: function (v) { if (v != null) { W().mbweThirst = Number(v); hud.dirty = true; } return thirstVal(); }, dmgNums: function () { return DN.list.map(function (d) { return d.n; }); },
+        partner: chestPartner, replantTick: function () { S.replant && S.replant.forEach(function (r) { r.at = 0; }); tickReplant(); }
     };
     window.mbwPlay.extraFuel = function (id) { return !!(S.playing && modOn('morefuel') && !bd(String(id), 'fuel') && moreFuelTable()[String(id)]); };
 
@@ -4454,6 +4702,10 @@
         if (modalOpen()) { S.keys = {}; S.mouse.left = S.mouse.right = S.mouse.leftEdge = S.mouse.rightEdge = false; S.mine = null; }
         if (!(w.dead > 0)) { mineAndPlace(); if (!S.ride && !S.sleep) doPlayerLogic(); }
         if (S.treecap) tickTreecap();                                 // 🪓 (mod Tree Capitator)
+        if (S.replant) tickReplant();                                 // 🌱 (mod Replant)
+        tickThirst();                                                 // 🥤 (mod Thirst)
+        tickScan();                                                   // 🔍 (mod Ore Scanner)
+        tickDmgNums();                                                // 💥 (mod Damage Numbers)
         tickLife();
         if (S.spect) spectFollow();
         if (S.ench && (fg(S.ench.x, S.ench.y) !== 'enchant' || Math.pow(S.ench.x + .5 - w.worldX, 2) + Math.pow(-S.ench.y - .5 - w.worldY, 2) > 36)) closeEnchant();   // (lejos o la rompieron)
@@ -5032,7 +5284,14 @@
         if (!NAMES.__built) {
             const I = (window.MB_GAME && window.MB_GAME.identifiers) || {};
             Object.keys(I).forEach(function (k) { const v = I[k]; if (Array.isArray(v) && v[0] != null && !(v[0] in NAMES)) NAMES[v[0]] = v[1] || k; });
+            if (!NAMES.in) NAMES.in = 'Iron Ore';                          // (no viene en la lista del juego)
             NAMES.__built = true;
+        }
+        if (id === 'potion') {                                          // 🧪 (la botella con agua no es una "Empty Bottle")
+            const pt = String(ex.type || 'empty'), PN = { healing: 'Healing', harming: 'Harming', swiftness: 'Swiftness', slowness: 'Slowness', poison: 'Poison', regeneration: 'Regeneration', strength: 'Strength', weakness: 'Weakness', fireresistance: 'Fire Resistance', waterbreathing: 'Water Breathing', leaping: 'Leaping', invisibility: 'Invisibility', nightvision: 'Night Vision' };
+            if (pt === 'water') return 'Water Bottle';
+            if (PN[pt]) return (ex.category === 'splash' ? 'Splash Potion of ' : 'Potion of ') + PN[pt];
+            if (pt !== 'empty') return 'Potion';
         }
         if (NAMES[id]) return NAMES[id];
         return id.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, function (c) { return c.toUpperCase(); });
@@ -5490,10 +5749,10 @@
             el.innerHTML =
                 // (lo de la cámara: viñeta, ⏸ y 💬, coordenadas, efectos y el morado del portal van DENTRO del recuadro de la cámara)
                 '<div class="ph-area"><div class="ph-vig"></div><div class="ph-portal"></div>' +
-                '<div class="ph-top"><div class="ph-topbtns"><button type="button" class="ph-zone-btn" aria-label="My Zone" style="display:none"><canvas width="16" height="16"></canvas></button><button type="button" class="ph-marks-btn" aria-label="Markers">⭐</button><button type="button" class="ph-gear" aria-label="Menu">⚙</button></div><div class="ph-msg"></div></div>' +
+                '<div class="ph-top"><div class="ph-topbtns"><button type="button" class="ph-scan-btn" aria-label="Ore Scanner" style="display:none"><canvas width="16" height="16"></canvas></button><button type="button" class="ph-zone-btn" aria-label="My Zone" style="display:none"><canvas width="16" height="16"></canvas></button><button type="button" class="ph-marks-btn" aria-label="Markers">⭐</button><button type="button" class="ph-gear" aria-label="Menu">⚙</button></div><div class="ph-msg"></div><div class="ph-scan-lbl" style="display:none"></div></div>' +
                 '<div class="ph-marks" style="display:none"></div><div class="ph-ptab" style="display:none"></div>' +
                 '<button type="button" class="ph-chat-btn"><img src="assets/chat.png" alt=""></button><div class="ph-coords"></div><div class="ph-fps"></div><div class="ph-effects"></div></div>' +
-                '<div class="ph-bars"><div class="ph-left"><div class="ph-armor"></div><div class="ph-hearts"></div></div><div class="ph-right"><div class="ph-air"></div><div class="ph-food"></div></div></div>' +
+                '<div class="ph-bars"><div class="ph-left"><div class="ph-armor"></div><div class="ph-hearts"></div></div><div class="ph-right"><div class="ph-air"></div><div class="ph-thirst"></div><div class="ph-food"></div></div></div>' +
                 '<div class="ph-xp"><div class="ph-xp-fill"></div><b class="ph-xp-lv"></b></div>' +
                 '<div class="ph-iname"></div>' +
                 '<div class="ph-hotbar"></div>' +
@@ -5513,6 +5772,7 @@
             el.querySelector('.ph-gear').addEventListener('click', function (e) { e.stopPropagation(); openPause(); });
             el.querySelector('.ph-marks-btn').addEventListener('click', function (e) { e.stopPropagation(); marks.toggle(); });
             el.querySelector('.ph-zone-btn').addEventListener('click', function (e) { e.stopPropagation(); zoneShopOpen(); });   // 🛡 tienda de My Zone
+            el.querySelector('.ph-scan-btn').addEventListener('click', function (e) { e.stopPropagation(); scanPickOpen(); });   // 🔍 Ore Scanner
             ['pointerdown', 'mousedown', 'touchstart', 'click', 'wheel'].forEach(function (n) { el.querySelector('.ph-marks').addEventListener(n, function (e) { e.stopPropagation(); }); });
             joystick(el.querySelector('.ph-joy'));
             el.querySelectorAll('[data-k]').forEach(function (b) {
@@ -5566,6 +5826,11 @@
             co.style.display = OPTS.coords ? 'block' : 'none';
             const zb = ar.querySelector('.ph-zone-btn'), zon = modOn('myzone');   // 🛡 (mod My Zone) el botón de la tienda
             if (zb && (zb.style.display !== 'none') !== zon) { zb.style.display = zon ? '' : 'none'; if (zon) { const g = zb.querySelector('canvas').getContext('2d'); g.imageSmoothingEnabled = false; g.clearRect(0, 0, 16, 16); g.drawImage(iconFor('b', {}), 0, 0, 16, 16); } zb.title = tr('zone_shop', 'My Zone · Shop'); }
+            const sb = ar.querySelector('.ph-scan-btn'), son = modOn('orescan');   // 🔍 (mod Ore Scanner) el botón y lo que encontró
+            if (sb && (sb.style.display !== 'none') !== son) { sb.style.display = son ? '' : 'none'; if (son) { const g = sb.querySelector('canvas').getContext('2d'); g.imageSmoothingEnabled = false; g.clearRect(0, 0, 16, 16); g.drawImage(iconFor('compass', {}), 0, 0, 16, 16); } sb.title = tr('scan_title', 'Ore Scanner'); }
+            if (sb) sb.classList.toggle('on', !!S.scan);
+            const sl = ar.querySelector('.ph-scan-lbl');
+            if (sl) { const lt = S.tick % 8 === 0 || !sl.textContent ? scanLabel() : sl.textContent; const show = !!(son && S.scan); if ((sl.style.display !== 'none') !== show) sl.style.display = show ? '' : 'none'; if (show && sl.textContent !== lt) sl.textContent = lt; if (S.scan) sl.style.setProperty('--oc', ORE_COL[S.scan] || '#fff'); }
             if (OPTS.coords) { const t = 'X: ' + Math.floor(Number(w.worldX)) + '   Y: ' + Math.floor(-Number(w.worldY)); if (co.textContent !== t) co.textContent = t; }
             // efectos que tengo puestos (pociones, comida...) con el tiempo que les queda
             const ef = ar.querySelector('.ph-effects'), E = w.effects || {};
@@ -5645,6 +5910,9 @@
             let fd = '';
             if (surv) { const f = Math.max(0, (w.food | 0) / 50), f2 = pv && pv.f ? Math.min(20, f + pv.f) : f; for (let i = 0; i < 10; i++) fd += icon2(st3(f, i), st3(f2, i)); }
             this.el.querySelector('.ph-food').innerHTML = fd;
+            let tq = '';                                                // 🥤 (mod Thirst) la barra de sed, arriba de la del hambre
+            if (surv && modOn('thirst')) { const tv = Math.max(0, thirstVal() / 50), tp = modOn('orange') ? thirstFor(selItem()) / 50 : 0, tv2 = Math.min(20, tv + tp); for (let i = 0; i < 10; i++) tq += icon2(st3(tv, i), st3(tv2, i)); }
+            const tqe = this.el.querySelector('.ph-thirst'); if (tqe) tqe.innerHTML = tq;
             let ai = '';
             if (surv && w.air < 11) for (let i = 0; i < 10; i++) ai += '<i class="' + (w.air > i ? 'f' : 'e') + '">●</i>';
             this.el.querySelector('.ph-air').innerHTML = ai;
@@ -6056,7 +6324,7 @@
             const run = Math.abs(nx) > 0.88 ? (nx > 0 ? 1 : -1) : 0;
             if (run !== edge) {                                           // llegar a la orilla = empezar a correr (como el doble toque)
                 const w = W();
-                if (run && S.p && w.food > 300 && !S.keys.down) { if (run > 0) S.p.rightSprinting = 1; else S.p.leftSprinting = 1; }
+                if (run && S.p && w.food > 300 && !thirstLow() && !S.keys.down) { if (run > 0) S.p.rightSprinting = 1; else S.p.leftSprinting = 1; }
                 edge = run;
             }
             base.classList.toggle('run', !!run && !!S.p && (S.p.leftSprinting > 0 || S.p.rightSprinting > 0));
@@ -6098,8 +6366,8 @@
                 const now = performance.now();
                 const lastT = S.dbl[k] || 0;
                 if (now - lastT < 300) {                                // doble toque: correr / volar (creativo)
-                    if (k === 'left' && w.food > 300) S.p.leftSprinting = 1;
-                    if (k === 'right' && w.food > 300) S.p.rightSprinting = 1;
+                    if (k === 'left' && w.food > 300 && !thirstLow()) S.p.leftSprinting = 1;
+                    if (k === 'right' && w.food > 300 && !thirstLow()) S.p.rightSprinting = 1;
                     if (k === 'up' && w.gamemode == 1) w.fly = !w.fly;
                 }
                 S.dbl[k] = now;
@@ -6254,7 +6522,7 @@
         // arena y grava cerca: se revisan para que caigan si no tienen nada abajo
         const x0 = Math.max(0, Math.floor(px) - 60), x1 = Math.floor(px) + 60;
         for (let x = x0; x <= x1; x++) { const col = mbwom.scene[x]; if (!col) continue; for (let y = 0; y < col.length; y++) if (col[y] === 'sd' || col[y] === 'gv') S.sandCheck.set(x + ',' + y, 2); }
-        S.playing = true; S.mp = mpMode; S.openBoxAt = null; S.ride = null; try { if (window.mbwAch) window.mbwAch.start(); } catch (e) { /* nada */ }
+        S.playing = true; S.mp = mpMode; S.openBoxAt = null; S.openBoxAt2 = null; S.replant = null; S.scanHits = null; dnReset(); S.ride = null; try { if (window.mbwAch) window.mbwAch.start(); } catch (e) { /* nada */ }
         S.ride = null; S.bob = null; S.sleep = null; S.fires = new Set();
         window.mbwPlaying = true;
         document.body.classList.add('mbw-playing');
@@ -6299,6 +6567,7 @@
     function closeModals() {
         if (S.ench) closeEnchant();
         if (S.zshop) zoneShopClose();
+        if (S.scanPick) scanPickClose();
         const m = document.getElementById('inventory-modal');
         if (m && m.style.display === 'block' && typeof toggleInventory === 'function') { try { toggleInventory(); } catch (e) { m.style.display = 'none'; } }
         ['sign-editor-modal', 'command-book-modal'].forEach(function (id) { const e = document.getElementById(id); if (e) e.style.display = 'none'; });
@@ -6364,7 +6633,7 @@
         closeModals();                                              // (con el juego todavía activo: lo del cofre no entra al historial)
         const wasMp = S.mp;
         if (wasMp && window.mbwMpPlay) { try { window.mbwMpPlay.beforeStop(); } catch (e) { console.error('mp-play stop', e); } }
-        S.mp = false; S.openBoxAt = null;
+        S.mp = false; S.openBoxAt = null; S.openBoxAt2 = null;
         S.playing = false;
         cancelAnimationFrame(S.raf);
         try { if (bgClock) bgClock.postMessage('stop'); } catch (e) { /* nada */ }
@@ -6728,6 +6997,7 @@
             // 💾 (invitado) mis datos guardados en el mundo del anfitrión; la primera vez: aparezco en el /home o el spawn
             loadMine: function (data, spawn, gm0) {
                 const w = W(); if (!S.playing) return;
+                dnReset();                                              // (💥 que el cambio de vida al cargar no salga como golpe)
                 // 🧍 la PRIMERA vez que entro (no hay nada guardado mío): un jugador NUEVO — nada del anfitrión (su inventario,
                 //    armadura, vida, experiencia, modo de juego, efectos...) se queda conmigo. El modo de juego es el que el servidor
                 //    da a los nuevos (Pausa > Servidor; si no dice nada: supervivencia).
@@ -6736,7 +7006,7 @@
                 if (!(data && typeof data === 'object')) {
                     w.inventoryList = []; for (let i = 0; i < 45; i++) w.inventoryList.push(empty());
                     w.armors = []; for (let i = 0; i < 4; i++) w.armors.push(['air', 0, {}]);
-                    w.health = 20; w.food = 1000; w.experience = 0; w.selectedInventoryItem = 0; w.dead = 0;   // (🍗 hambre llena: va de 0 a 1000)
+                    w.health = 20; w.food = 1000; w.mbweThirst = 1000; w.experience = 0; w.selectedInventoryItem = 0; w.dead = 0;   // (🍗 hambre llena: va de 0 a 1000)
                     setGm(g0);
                     w.effects = {};                                         // (sin las pociones del anfitrión)
                 } else if (data.gm == null || data.gm === '' || !isFinite(Number(data.gm))) setGm(g0);   // (datos viejos sin modo: el de los nuevos)
@@ -6746,6 +7016,7 @@
                     if (Array.isArray(data.armors)) w.armors = JSON.parse(JSON.stringify(data.armors));
                     if (isFinite(Number(data.health)) && Number(data.health) > 0) w.health = Number(data.health);
                     if (isFinite(Number(data.food))) w.food = Number(data.food);
+                    w.mbweThirst = isFinite(Number(data.th)) ? Number(data.th) : 1000;   // (🥤 la sed de cada quien)
                     if (isFinite(Number(data.xp))) w.experience = Number(data.xp);
                     if (isFinite(Number(data.sel))) w.selectedInventoryItem = Number(data.sel) | 0;
                     if (data.gm != null && data.gm !== '' && isFinite(Number(data.gm))) {   // (su modo de juego: cada quien el suyo)
