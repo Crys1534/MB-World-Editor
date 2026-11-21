@@ -37,10 +37,79 @@
     function admins() { return ADMINS.concat(Array.isArray(window.MBW_SAVED_ADMINS) ? window.MBW_SAVED_ADMINS : []); }
     function isAdmin() { return admins().indexOf(myUid()) >= 0; }
     function isAdminUid(u) { return !!u && admins().indexOf(String(u)) >= 0; }
-    // 👑 ¿puedo ABRIRLO (ser el anfitrión)? Solo su creador. (Las cuentas de Crystal cuentan como una sola persona: si lo creó
-    //    una cuenta de Crystal, cualquier otra de sus cuentas también.) Los demás solo entran cuando su creador lo tiene abierto.
-    //    Así nadie más juega con el Player del mundo (el inventario y la posición del creador).
-    function canOpen(s) { const me = myUid(); return !!s && (s.ownerUid === me || (isAdminUid(s.ownerUid) && isAdmin())); }
+    // 👑 ¿soy su CREADOR? (Las cuentas de Crystal cuentan como una sola persona: si lo creó una cuenta de Crystal, cualquier otra
+    //    de sus cuentas también.) Cualquiera que lo vea lo puede ABRIR y jugar, pero solo su creador es "el anfitrión" (comandos,
+    //    expulsar, ver el mundo en el editor, abrir cofres protegidos...) y solo él juega con el Player del mundo: los demás usan
+    //    SU propio jugador (inventario, posición, vida...), guardado en el mundo como los de los invitados (mbwePlayers).
+    function isOwner(s) { const me = myUid(); return !!s && (s.ownerUid === me || (isAdminUid(s.ownerUid) && isAdmin())); }
+    function canOpen(s) { return !!s && canSee(s); }
+    // 👑 ¿tengo los poderes de anfitrión? Fuera de un servidor permanente: el anfitrión de la sala. En uno: solo su creador.
+    window.mbwIsBoss = function () {
+        if (!inMp()) return true;
+        if (!amHost()) return false;
+        const o = window.mpSlotOwner;
+        if (!mySlot() || !o || !o.uid) return true;
+        return isOwner({ ownerUid: o.uid });
+    };
+
+    // ------------------------------------------------------------------ 🧍 jugar con MI jugador en el servidor de otro
+    //  Al abrirlo alguien que no es su creador: el Player del mundo (el del creador) se guarda en mbwePlayers[creador] y se pone
+    //  el MÍO (o uno nuevo en el /home, con el inventario vacío). Al subir el mundo se hace al revés solo en lo que se sube:
+    //  el Player del archivo sigue siendo siempre el del creador y el mío queda en mbwePlayers[yo].
+    const clone = (v) => JSON.parse(JSON.stringify(v == null ? null : v));
+    function playerOf(w) {
+        return { x: Number(w.worldX), y: Number(w.worldY), s: (typeof mbwom !== 'undefined' && mbwom.currentScene) || 1, inv: clone(w.inventoryList || []), armors: clone(w.armors || []),
+            health: Number(w.health), food: Number(w.food), xp: Number(w.experience) || 0, sel: w.selectedInventoryItem | 0, gm: Number(w.gamemode) || 0 };
+    }
+    function spawnOf(w) {
+        const sp = typeof mbwom !== 'undefined' ? mbwom.spawnPoint : null;
+        if (Array.isArray(sp) && isFinite(Number(sp[0])) && isFinite(Number(sp[1]))) return { x: Number(sp[0]), y: Number(sp[1]) };
+        if (sp && isFinite(Number(sp.x)) && isFinite(Number(sp.y))) return { x: Number(sp.x), y: Number(sp.y) };
+        return { x: Number(w.worldX), y: Number(w.worldY) };
+    }
+    function putPlayer(w, d) {
+        const sc = (typeof mbwom !== 'undefined' && mbwom.currentScene) || 1;
+        const here = d && isFinite(Number(d.x)) && isFinite(Number(d.y)) && (d.s == null || Number(d.s) === sc);
+        const pos = here ? { x: Number(d.x), y: Number(d.y) } : spawnOf(w);
+        w.worldX = pos.x; w.worldY = pos.y;
+        w.inventoryList = d && Array.isArray(d.inv) ? clone(d.inv) : [];
+        while (w.inventoryList.length < 45) w.inventoryList.push(['air', 0, 0, {}]);
+        w.armors = d && Array.isArray(d.armors) ? clone(d.armors) : [];
+        while (w.armors.length < 4) w.armors.push(['air', 0, {}]);
+        w.health = d && Number(d.health) > 0 ? Number(d.health) : 20;
+        w.food = d && isFinite(Number(d.food)) ? Number(d.food) : 20;
+        w.experience = d && isFinite(Number(d.xp)) ? Number(d.xp) : 0;
+        w.selectedInventoryItem = d && isFinite(Number(d.sel)) ? Number(d.sel) | 0 : 0;
+        if (d && d.gm != null && isFinite(Number(d.gm))) w.gamemode = Number(d.gm) | 0;
+        w.fly = Number(w.gamemode) === 3;
+        w.xSpeed = 0; w.ySpeed = 0;
+    }
+    const asGuest = { owner: null, ownerName: '' };                  // (abierto por alguien que no es el creador)
+    function swapInMine(w, ownerUid, ownerName) {
+        const me = myUid();
+        const P = w.mbwePlayers = (w.mbwePlayers && typeof w.mbwePlayers === 'object') ? w.mbwePlayers : {};
+        const prev = P[ownerUid] || {};
+        P[ownerUid] = Object.assign(prev, playerOf(w), { name: String(ownerName || prev.name || 'Player'), last: prev.last || Date.now() });
+        const mine = P[me];
+        putPlayer(w, mine && Array.isArray(mine.inv) ? mine : null);
+        P[me] = Object.assign(mine || {}, { name: myName(), last: Date.now() });
+        asGuest.owner = ownerUid; asGuest.ownerName = ownerName;
+    }
+    // (al subirlo) por un momento el Player del mundo vuelve a ser el del creador; lo mío va a mbwePlayers[yo]
+    function withOwnerPlayer(w, fn) {
+        if (!asGuest.owner || !w) return fn();
+        const me = myUid();
+        const P = w.mbwePlayers = (w.mbwePlayers && typeof w.mbwePlayers === 'object') ? w.mbwePlayers : {};
+        const live = playerOf(w), liveFly = w.fly, liveSpd = [w.xSpeed, w.ySpeed];
+        P[me] = Object.assign(P[me] || {}, live, { name: myName(), last: Date.now() });
+        const own = P[asGuest.owner];
+        putPlayer(w, own && Array.isArray(own.inv) ? own : null);
+        try { return fn(); } finally {
+            w.worldX = live.x; w.worldY = live.y; w.inventoryList = clone(live.inv); w.armors = clone(live.armors); w.health = live.health; w.food = live.food;
+            w.experience = live.xp; w.selectedInventoryItem = live.sel; w.gamemode = live.gm; w.fly = liveFly; w.xSpeed = liveSpd[0]; w.ySpeed = liveSpd[1];
+        }
+    }
+    window.mbwSavedAsGuest = function () { return asGuest.owner ? { owner: asGuest.owner, name: asGuest.ownerName } : null; };
     const okSlot = (k) => SLOTS.indexOf(String(k)) >= 0;
     const esc = (v) => String(v == null ? '' : v).replace(/[&<>"'`]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' }[c]));
     function toast(title, body) {
@@ -95,7 +164,7 @@
             const w = typeof mbwom !== 'undefined' ? mbwom.world : null;
             if (!w || w.mbweSlot !== k) return { bad: w ? 'the world has no mark of ' + k + (w.mbweSlot ? ' (it is from ' + w.mbweSlot + ')' : '') : 'no world' };
             window.__mbwSaveLive = true;
-            try { const d = F.prepareNetworkJson(); return { json: d && d.json }; } finally { window.__mbwSaveLive = false; }
+            try { return withOwnerPlayer(w, function () { const d = F.prepareNetworkJson(); return { json: d && d.json }; }); } finally { window.__mbwSaveLive = false; }
         });
         if (!r) return refuse(k, 'the server tab is closed');
         if (r.bad) return refuse(k, r.bad);
@@ -194,7 +263,7 @@
     if (typeof origDisc === 'function') {
         window.disconnectFromMultiplayer = function () {
             try { if (canSave()) saveNow('leave'); } catch (e) { /* nada */ }
-            st.started = 0; st.lastAt = 0; st.last = null;
+            st.started = 0; st.lastAt = 0; st.last = null; asGuest.owner = null; asGuest.ownerName = "";
             window.mpSlot = null; window.mpSlotOwner = null;
             return origDisc.apply(this, arguments);
         };
@@ -246,20 +315,24 @@
             const raw = String(s.mapThumb || '');
             const thumb = /^(assets\/[\w\- .\/]+\.(png|jpg|jpeg|gif|webp)|data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+\/=]+)$/i.test(raw) ? raw : 'assets/Superflat World.png';
             const desc = s.desc ? `<span class="srv-desc">${esc(String(s.desc).slice(0, 120))}</span>` : '';
-            const mb = (Number(s.bytes) || 0) / 1048576;
             count++;
+            const tools = (isAdmin() ? `<button type="button" class="srv-icon ss-adm ss-dl" data-ss="${k}" title="${esc(tr('ss_dl_tip', 'Download the world of this server (.mbw)'))}">⬇</button><button type="button" class="srv-icon ss-adm ss-rep" data-ss="${k}" title="${esc(tr('ss_rep_tip', 'Replace the world of this server with a .mbw file (only Crystal)'))}">📤</button>` : '')
+                + (canRemove(s) ? `<button type="button" class="srv-icon ss-del" data-ss="${k}" title="${esc(tr('ss_delete', 'Remove'))}">🗑</button>` : '');
+            // 🃏 tarjeta cuadrada (como My Worlds): foto arriba (con los jugadores y los botones de admin), nombre, creador y ABRIR
             out += `
                 <div class="srv-card srv-perm ss-row">
-                    <div class="srv-thumb" style="background-image: url(&quot;${esc(thumb)}&quot;);"></div>
+                    <div class="srv-thumb" style="background-image: url(&quot;${esc(thumb)}&quot;);">
+                        <span class="srv-count">👥 0/${Number(s.max) | 0}</span>
+                        <span class="srv-badge srv-badge-perm">💾 ${esc(tr('ss_badge', 'PERMANENT'))}</span>
+                        ${tools ? `<div class="srv-tools">${tools}</div>` : ''}
+                    </div>
                     <div class="srv-info">
-                        <strong class="srv-name">${esc(s.mapName || 'World')}</strong>
+                        <strong class="srv-name" title="${esc(s.mapName || 'World')}">${esc(s.mapName || 'World')}</strong>
                         <span class="srv-sub">${esc(tr('ss_by', 'by {name}', { name: s.ownerName || 'Player' }))}</span>
-                        <span class="srv-sub srv-when">${esc(tr('ss_saved_ago', 'saved {when}', { when: ago(s.savedAt) }) + (mb >= .05 ? ' · ' + mb.toFixed(1) + ' MB' : ''))}</span>
                         ${desc}
                     </div>
                     <div class="srv-actions">
-                        <span class="srv-count">👥 0/${Number(s.max) | 0}</span>
-                        ${isAdmin() ? `<button type="button" class="srv-icon ss-adm ss-dl" data-ss="${k}" title="${esc(tr('ss_dl_tip', 'Download the world of this server (.mbw)'))}">⬇</button><button type="button" class="srv-icon ss-adm ss-rep" data-ss="${k}" title="${esc(tr('ss_rep_tip', 'Replace the world of this server with a .mbw file (only Crystal)'))}">📤</button>` : ''}${canRemove(s) ? `<button type="button" class="srv-icon ss-del" data-ss="${k}" title="${esc(tr('ss_delete', 'Remove'))}">🗑</button>` : ''}${canOpen(s) ? `<button type="button" class="srv-go srv-go-open ss-open" data-ss="${k}">${esc(tr('ss_open', 'OPEN'))}</button>` : `<button type="button" class="srv-go srv-go-closed ss-closed" data-ss="${k}" disabled title="${esc(tr('ss_owner_only_tip', 'Only its creator can open it'))}">${esc(tr('ss_closed', 'CLOSED'))}</button>`}
+                        <button type="button" class="srv-go srv-go-open ss-open" data-ss="${k}">${esc(tr('ss_open', 'OPEN'))}</button>
                     </div>
                 </div>`;
         });
@@ -382,7 +455,6 @@
         const act = window.__mbwLastServers || {};
         const liveId = Object.keys(act).find(id => act[id] && act[id].slot === k);
         if (liveId) { if (typeof joinMultiplayerSession === 'function') joinMultiplayerSession(liveId); return true; }
-        if (!canOpen(s)) { alert(tr('ss_owner_only', 'This server is closed. Only {name} (its creator) can open it; you can join when they are playing.', { name: s.ownerName || 'its creator' })); return false; }
         if (inMp()) {
             if (!confirm(tr('ss_leave_confirm', 'You are in a server. Leave it to open this one?'))) return false;
             try { window.disconnectFromMultiplayer(true); } catch (e) { /* nada */ }
@@ -412,6 +484,8 @@
             await window.loadWorldFromJson(json, fname, { fromServer: true });
             await new Promise(r => setTimeout(r, 300));
             try { mbwom.world.mbweServerMap = true; mbwom.world.mbweSlot = k; } catch (e) { /* nada */ }   // (un mapa de servidor: solo Play y Test · 🛡 la marca de su lugar)
+            asGuest.owner = null; asGuest.ownerName = '';
+            if (!isOwner(meta) && meta.ownerUid) { try { swapInMine(mbwom.world, meta.ownerUid, meta.ownerName); } catch (e) { console.warn('💾 my player', e); } }   // 🧍 juego con MI jugador
             window.mpSelectedMapName = meta.mapName || 'World';
             window.mpSelectedMapThumb = meta.mapThumb || null;
             window.mpSelectedMapData = null;
@@ -424,7 +498,7 @@
             const t0 = Date.now();
             const iv = setInterval(() => { if ((window.currentRoomId && amHost()) || Date.now() - t0 > 20000) { clearInterval(iv); lockRef.remove().catch(() => {}); } }, 500);
             if (window.mbwServerMap && window.mbwServerMap.startPlaying) window.mbwServerMap.startPlaying();
-            toast('💾 ' + tr('ss_opened', 'Server open'), tr('ss_opened_body', 'You are the host of {name}.', { name: meta.mapName || 'World' }));
+            toast('💾 ' + tr('ss_opened', 'Server open'), isOwner(meta) ? tr('ss_opened_body', 'You are the host of {name}.', { name: meta.mapName || 'World' }) : tr('ss_opened_guest', 'You opened {name}. You play with your own player; {owner} is still its host.', { name: meta.mapName || 'World', owner: meta.ownerName || 'Player' }));
             return true;
         } catch (e) {
             console.warn('💾 open saved server', e);

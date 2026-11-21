@@ -25,7 +25,7 @@
     const myUid = () => { try { return localStorage.getItem('mbw_uid') || ''; } catch (e) { return ''; } };
     function admin() { try { return !!(window.mbwSavedServers && window.mbwSavedServers.isAdmin && window.mbwSavedServers.isAdmin()); } catch (e) { return false; } }
     function adminUid(u) { try { return !!(window.mbwSavedServers && window.mbwSavedServers.isAdminUid && window.mbwSavedServers.isAdminUid(u)); } catch (e) { return false; } }
-    function canUse() { const m = M(); return isLeader() || !!(m && m.on && admin()); }
+    function canUse() { const m = M(); return (isLeader() && (typeof window.mbwIsBoss !== 'function' || window.mbwIsBoss())) || !!(m && m.on && admin()); }   // (👑 servidor permanente: solo su creador)
     // (¿me puede pedir/cambiar el inventario? el que lleva la partida o Crystal)
     function trusted(d) { const m = M(); return !!(d.peerId && ((m.role === 'guest' && d.peerId === m.leaderPeer) || (m.roomHostPeer && d.peerId === m.roomHostPeer()) || adminUid(d.uid))); }
     function myInv() { try { return mbwom.world.inventoryList; } catch (e) { return null; } }

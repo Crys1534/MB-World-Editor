@@ -4178,3 +4178,60 @@ body.is-touch .sg-window .sg-fav { opacity: 1; }
 body.is-phone .sg-window.sg-lay-wall .sg-layout { flex-direction: column; }
 body.is-phone .sg-window.sg-lay-wall .sg-preview { flex: none; border-left: 0; border-top: 2px solid #555; }
 body.is-phone .sg-window.sg-lay-wall .sg-pv-stage { height: 70px; }
+
+/* ===== 🃏 Lista de servidores en TARJETAS cuadradas (como My Worlds) ===== */
+#mp-view-join { max-width: 960px !important; }
+#public-servers-list { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)); grid-auto-rows: max-content; align-content: start; gap: 12px !important;
+    height: auto !important; min-height: 250px; max-height: calc(100vh - 300px); padding: 12px !important; }
+#public-servers-list > p, #public-servers-list > .ss-head, #public-servers-list > .sg-sec-note { grid-column: 1 / -1; }
+#public-servers-list > .ss-head { margin: 6px 0 0; }
+#public-servers-list .srv-card { display: flex; flex-direction: column; align-items: stretch; text-align: left; gap: 0; padding: 0; overflow: hidden; border-radius: 8px; min-width: 0;
+    background: #22313f; border: 2px solid #3d566e; box-shadow: 0 4px 10px rgba(0,0,0,.3); transition: transform .15s, border-color .15s, box-shadow .15s; }
+#public-servers-list .srv-card:hover { transform: translateY(-3px); border-color: #4DA6FF; box-shadow: 0 8px 18px rgba(0,0,0,.45); }
+#public-servers-list .srv-card.srv-perm { border-style: solid; border-color: #6b5a2a; }
+#public-servers-list .srv-card.srv-perm:hover { border-color: #f1c40f; }
+#public-servers-list .srv-thumb { position: relative; width: 100%; height: 132px; aspect-ratio: auto; border: 0; border-bottom: 2px solid #3d566e; border-radius: 0;
+    background-size: cover; background-position: center; image-rendering: pixelated; flex: none; }
+#public-servers-list .srv-thumb .srv-count { position: absolute; left: 8px; bottom: 8px; margin: 0; padding: 2px 8px; border-radius: 6px; font-size: 18px;
+    background: rgba(0,0,0,.72); color: #2ecc71; }
+#public-servers-list .srv-perm .srv-thumb .srv-count { color: #d0d7de; }
+#public-servers-list .srv-thumb .srv-count.is-full { color: #ff6b5b; }
+#public-servers-list .srv-badge { position: absolute; left: 8px; top: 8px; padding: 2px 7px; border-radius: 5px; font-size: 15px; line-height: 1.1; color: #fff; }
+.srv-badge-live { background: rgba(39, 174, 96, .92); }
+.srv-badge-perm { background: rgba(156, 112, 0, .92); }
+#public-servers-list .srv-tools { position: absolute; right: 6px; top: 6px; display: flex; gap: 4px; opacity: 0; transition: opacity .15s; }
+#public-servers-list .srv-card:hover .srv-tools, #public-servers-list .srv-card:focus-within .srv-tools, body.is-touch #public-servers-list .srv-tools { opacity: 1; }
+#public-servers-list .srv-tools .srv-icon { width: 32px; height: 30px; box-shadow: 0 2px 4px rgba(0,0,0,.5); }
+#public-servers-list .srv-info { padding: 10px 12px 4px; gap: 3px; flex: 1 1 auto; }
+#public-servers-list .srv-name { font-size: 24px; }
+#public-servers-list .srv-desc { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+#public-servers-list .srv-actions { padding: 8px 10px 10px; border-top: 0; justify-content: flex-end; flex-wrap: nowrap; gap: 6px; }
+#public-servers-list .srv-actions .srv-go { flex: 1 1 auto; min-width: 0; text-align: center !important; justify-content: center; }
+body.mp-compact #public-servers-list { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); max-height: none; }
+body.mp-compact #public-servers-list .srv-name { font-size: 21px; }
+body.mp-compact #public-servers-list .srv-thumb { height: 104px; }
+body.is-phone #public-servers-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px !important; padding: 8px !important; }
+body.is-phone #public-servers-list .srv-badge { font-size: 13px; }
+body.is-phone #public-servers-list .srv-thumb .srv-count { font-size: 15px; }
+#mp-view-join > .sw-create-btn, #mp-view-join > #mp-nettest-btn { max-width: 500px; margin-left: auto; margin-right: auto; }
+#mp-view-join > #mp-nettest-btn { display: block; }
+body.mp-compact #mp-view-join > .sw-create-btn, body.mp-compact #mp-view-join > #mp-nettest-btn { max-width: none; margin: 0; }
+
+/* ===== 🔒 Proteger cofres / hornos / mesas (solo jugando) ===== */
+.pl-lock-btn { font-family: 'Pixeltype', sans-serif; font-size: 20px; line-height: 1; padding: 5px 12px; white-space: nowrap; cursor: pointer;
+    color: #fff; background: #6b4a1f; border: 2px solid #3d2a0f; border-radius: 4px; box-shadow: inset 0 2px 0 rgba(255,255,255,.18); }
+.pl-lock-btn:hover { background: #845b26; }
+.pl-lock-btn.is-locked { background: #2e6b3a; border-color: #1b4022; }
+.pl-lock-btn.is-locked:hover { background: #378046; }
+.pl-lock-btn.is-other, .pl-lock-btn:disabled { background: #555; border-color: #333; cursor: default; opacity: .9; }
+.pl-lock-btn.need-sign { animation: plLockShake .35s; box-shadow: 0 0 0 2px #e74c3c; }
+@keyframes plLockShake { 0%, 100% { transform: none; } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+#pl-lock-btn[hidden] { display: none; }
+.inv-search-container #pl-lock-btn { margin-right: 6px; }
+.pl-lock-pop { position: fixed; left: 50%; bottom: 170px; transform: translateX(-50%); z-index: 9000; min-width: 260px; max-width: calc(100vw - 32px);
+    background: #c6c6c6; border: 3px solid #fff; border-right-color: #555; border-bottom-color: #555; box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; font-family: 'Pixeltype', sans-serif; color: #222; }
+.pl-lock-pop-t { display: flex; align-items: center; gap: 10px; font-size: 22px; }
+.pl-lock-pop-x { margin-left: auto; background: none; border: 0; font-size: 20px; cursor: pointer; color: #333; }
+.pl-lock-pop-n { font-size: 17px; color: #444; }
+.pl-lock-pop .pl-lock-btn { font-size: 24px; padding: 8px 12px; }

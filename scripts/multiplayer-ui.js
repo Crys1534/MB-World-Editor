@@ -170,14 +170,16 @@ window.loadPublicServers = function() {
             // 🃏 tarjeta (style.css .srv-card): foto · nombre y mapa · jugadores y botón. En pantallas angostas los botones bajan a su fila.
             htmlBuilder += `
                 <div class="srv-card srv-live">
-                    <div class="srv-thumb" style="background-image: url(&quot;${esc(thumbUrl)}&quot;);"></div>
+                    <div class="srv-thumb" style="background-image: url(&quot;${esc(thumbUrl)}&quot;);">
+                        <span class="srv-count${(isFull && !isAlreadyJoined) ? ' is-full' : ''}">👥 ${Number(s.currentPlayers) | 0}/${Number(s.maxPlayers) | 0}</span>
+                        <span class="srv-badge srv-badge-live">● ${esc(tt('srv_live', 'LIVE'))}</span>
+                    </div>
                     <div class="srv-info">
-                        <strong class="srv-name">${esc(s.hostName)}'s Room</strong>
+                        <strong class="srv-name" title="${esc(s.hostName)}'s Room">${esc(s.hostName)}'s Room</strong>
                         <span class="srv-sub">${esc(tt('srv_map', 'Map') + ': ' + (s.mapName || ''))}</span>
                         ${desc}
                     </div>
                     <div class="srv-actions">
-                        <span class="srv-count${(isFull && !isAlreadyJoined) ? ' is-full' : ''}">👥 ${Number(s.currentPlayers) | 0}/${Number(s.maxPlayers) | 0}</span>
                         ${buttonConfig}
                     </div>
                 </div>

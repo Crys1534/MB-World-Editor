@@ -21,7 +21,7 @@
     const P = function () { return window.mbwPlay || null; };
     const inRoom = function () { try { return typeof isMultiplayer !== 'undefined' && !!isMultiplayer; } catch (e) { return false; } };
     const amHost = function () { try { return typeof isHost !== 'undefined' && !!isHost; } catch (e) { return false; } };
-    const hostOfRoom = function () { return inRoom() && amHost(); };
+    const hostOfRoom = function () { return inRoom() && amHost() && (typeof window.mbwIsBoss !== 'function' || window.mbwIsBoss()); };   // (👑 en un servidor permanente: solo su creador)
 
     // ------------------------------------------------------------------ barras de conexión
     function bars(ping, online) {
@@ -97,7 +97,7 @@
             const srv = !test && typeof isMultiplayer !== 'undefined' && isMultiplayer && !!window.mpServerKind;   // 🚪 en un servidor: se sale por completo
             const perm = srv && !!(window.mbwIsPermServerWorld && typeof mbwom !== 'undefined' && window.mbwIsPermServerWorld(mbwom.world));
             // 🗺 (solo el anfitrión) salir a mirar el mundo en el editor (con zoom, sin editar) sin salir del servidor; Play para volver
-            if (srv && typeof isHost !== 'undefined' && isHost) left.appendChild(btn('🗺 ' + tr('pm_view_editor', 'View the world in the editor'), 'pm-view-ed', function () { closeNow(); if (typeof window.mbwStopPlay === 'function') window.mbwStopPlay({ keep: true }); }));
+            if (srv && hostOfRoom()) left.appendChild(btn('🗺 ' + tr('pm_view_editor', 'View the world in the editor'), 'pm-view-ed', function () { closeNow(); if (typeof window.mbwStopPlay === 'function') window.mbwStopPlay({ keep: true }); }));
             left.appendChild(btn(test ? '🧪 ' + tr('pm_quit_test', 'Quit test (nothing is saved)') : srv ? tr('pm_quit_server', 'Save and leave the server') : guest ? tr('pm_quit_guest', 'Save and Quit (leave the game)') : tr('pm_quit', 'Save and Quit'), 'pm-quit', function () { closeNow(); if (P() && P().saveAndQuit) P().saveAndQuit(); }));
             if (srv) left.appendChild(el('p', 'pm-hint', perm ? tr('pm_quit_server_perm_hint', 'You leave the server completely and its tab closes. This permanent server is saved online only (never in My Worlds). The others keep playing.') : tr('pm_quit_server_hint', 'You leave the server completely and its tab closes. Your copy of the world is saved in My Worlds. The others keep playing.')));
             else

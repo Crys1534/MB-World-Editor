@@ -411,10 +411,12 @@
         if (!M.on) return;                                            // (lo de abajo solo sirve jugando)
         if (t === 'juego_jugador') { onPlayer(d); return; }
         if (t === 'juego_inv_pedir' || t === 'juego_inv' || t === 'juego_inv_poner') { if (window.mbwMpInv) window.mbwMpInv.onNet(d); return; }   // 🎒
+        if (t === 'juego_candado') { if (d.peerId !== myPeer() && window.mbwPlay.net && window.mbwPlay.net.lock) window.mbwPlay.net.lock(d); return; }   // 🔒
+        if (t === 'juego_candados') { if (window.mbwPlay.net && window.mbwPlay.net.locks) window.mbwPlay.net.locks(d.t); return; }
         if (t === 'juego_tiro') { if (d.peerId !== myPeer() && window.mbwPlay && window.mbwPlay.net && window.mbwPlay.net.shot) window.mbwPlay.net.shot(d); return; }   // 🏹 lo que tiró otro (solo se ve)
         if (t === 'juego_emote') { const r = M.remotes[d.peerId]; if (r && window.customEmotes && window.customEmotes[d.e]) { r.emote = { e: String(d.e), t: Date.now() }; if (typeof worldDirty !== 'undefined') worldDirty = true; } return; }   // 😀
         if (t === 'juego_bloques' || t === 'juego_cambios') { applyBlocks(Number(d.s) || 1, d.c); return; }
-        if (t === 'juego_pedir' && M.role === 'host') { if (window.mbwAch) { window.mbwAch.apply(d.uid, d.autor, null); sendTo(d.peerId, { tipo: 'juego_logros', t: window.mbwAch.table() }); } sendChangesTo(d.peerId); sendMobListTo(d.peerId); sendDropsTo(d.peerId); sendPlayerTo(d.peerId, d.uid, d.autor); return; }
+        if (t === 'juego_pedir' && M.role === 'host') { if (window.mbwAch) { window.mbwAch.apply(d.uid, d.autor, null); sendTo(d.peerId, { tipo: 'juego_logros', t: window.mbwAch.table() }); } sendChangesTo(d.peerId); try { if (window.mbwPlay.net && window.mbwPlay.net.lockTable) sendTo(d.peerId, { tipo: 'juego_candados', t: window.mbwPlay.net.lockTable() }); } catch (e) { /* nada */ } sendMobListTo(d.peerId); sendDropsTo(d.peerId); sendPlayerTo(d.peerId, d.uid, d.autor); return; }
         if (t === 'juego_tuyo') { if (M.skipMine) M.skipMine = false; else if (M.role === 'guest' && !M.roomHostAtStart && window.mbwPlay.net && window.mbwPlay.net.loadMine) window.mbwPlay.net.loadMine(d.data, d.spawn); M.guestCmds = !!d.cmds; return; }
         if (t === 'juego_logro') { if (window.mbwAch) window.mbwAch.apply(d.uid, d.n, d.i, d.t); return; }                       // 🏆 otro jugador ganó un logro
         if (t === 'juego_logro_dar') { if (d.a === myPeer() && window.mbwAch) window.mbwAch.unlock(Number(d.i)); return; }         // 🏆 maté un mob del anfitrión

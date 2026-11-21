@@ -102,7 +102,7 @@
     const mpAuth = () => mpHost() || mpLead();                       // (lo muevo yo, y también por los demás jugadores de aquí)
     // 👑 Crystal (los admins de scripts/mp-saved.js): comandos sin restricciones, como el anfitrión
     // 🏠 el anfitrión de la SALA (comandos sin límite). Ojo: la partida la puede llevar otro jugador (el que empezó a jugar): eso es mpHost()
-    const roomHost = () => !!(S.mp && typeof isHost !== 'undefined' && isHost);
+    const roomHost = () => !!(S.mp && typeof isHost !== 'undefined' && isHost && (typeof window.mbwIsBoss !== 'function' || window.mbwIsBoss()));   // (👑 servidor permanente: solo su creador)
     const isAdminMe = () => { try { return !!(window.mbwSavedServers && window.mbwSavedServers.isAdmin && window.mbwSavedServers.isAdmin()); } catch (e) { return false; } };
     const isAdminUid = (u) => { try { return !!(window.mbwSavedServers && window.mbwSavedServers.isAdminUid && window.mbwSavedServers.isAdminUid(u)); } catch (e) { return false; } };
     const myUidNet = () => { try { return localStorage.getItem('mbw_uid') || ''; } catch (e) { return ''; } };
@@ -2106,6 +2106,7 @@
         const w = W();
         const t = fg(x, y);
         if (t === 'air' || (t === 'br' && w.gamemode != 1)) return;
+        if (LOCKABLE[t]) { const lk = lockAt(x, y); if (lk) { if (lockMine(lk) && w.gamemode != 1) addDrop('sign', x + .5, -(y + .5), 1, 0, {}); lockSet(x, y, null); } }   // 🔒 se rompió: el cartel sale (si era tuyo)
         const s1 = st(x, y);
         const chestItems = (t === 'chest' && mbwom.chests && Array.isArray(mbwom.chests[key(x, y)])) ? mbwom.chests[key(x, y)] : null;
         const cropN = CROPS[t] ? cropStage(x, y) : 0;
@@ -2460,6 +2461,11 @@
     // ⛏ picar el bloque (bx, by) un paso (sirve para el dedo / mouse y para el trazo de abajo). true = se rompió
     function mineTick(w, bx, by) {
         const t = fg(bx, by);
+        const lk = LOCKABLE[t] ? lockAt(bx, by) : null;
+        if (lk && !lockMine(lk) && !lockBoss()) {                    // 🔒 no se puede romper lo que protegió otro
+            if (!S.lockWarnAt || S.tick - S.lockWarnAt > 90) { S.lockWarnAt = S.tick; lockDenied(t, lk); }
+            S.mine = null; return false;
+        }
         if (t === 'air' || bd(t, 'liquid') == 1 || (t === 'br' && w.gamemode != 1) || blockDist(bx, by) > REACH + 1) { S.mine = null; return false; }
         if (!S.mine || S.mine.x !== bx || S.mine.y !== by || S.mine.t !== t) {
             const n = w.gamemode == 1 ? 0 : miningTime(t);
@@ -2940,16 +2946,20 @@
     window.mbwPlay.useCommandBook = useCommandBook;
 
     // ------------------------------------------------------------------ cofres y hornos (abrir)
-    const BOX = { chest: 1, oven: 1, dispense: 1, dropper: 1, enchant: 1, craft: 1, brew: 1, anvil: 1, echest: 1 };
+    const BOX = { chest: 1, oven: 1, dispense: 1, dropper: 1, enchant: 1, craft: 1, brew: 1, anvil: 1, echest: 1, cauldron: 1, cmp: 1 };   // (caldero y compostador: solo para protegerlos 🔒)
     // el aviso de abajo: "Doble clic para abrir el cofre" (en el celular, "Toca dos veces..."), según el bloque bajo el cursor
     function boxLabel(t) {
         const touch = document.body.classList.contains('is-touch');
+        if (t === 'cauldron' || t === 'cmp') return (touch ? tr('play_dbl_tap_lock', 'Double-tap to protect {what}') : tr('play_dbl_click_lock', 'Double-click to protect {what}')).replace('{what}', lockWhat(t));
         const what = t === 'craft' ? tr('play_box_craft', 'the crafting table') : t === 'brew' ? tr('play_box_brew', 'the brewing stand') : t === 'anvil' ? tr('play_box_anvil', 'the anvil') : t === 'echest' ? tr('play_box_echest', 'the ender chest') : t === 'enchant' ? tr('play_box_enchant', 'the enchantment table') : t === 'oven' ? tr('play_box_furnace', 'the furnace') : t === 'dispense' ? tr('play_box_dispenser', 'the dispenser') : t === 'dropper' ? tr('play_box_dropper', 'the dropper') : tr('play_box_chest', 'the chest');
         return (touch ? tr('play_dbl_tap_open', 'Double-tap to open {what}') : tr('play_dbl_click_open', 'Double-click to open {what}')).replace('{what}', what);
     }
     function openBox(x, y) {
         const t = fg(x, y);
         let ok = false;
+        const lk = lockAt(x, y);
+        if (lk && !lockMine(lk) && !lockBoss()) { lockDenied(t, lk); return false; }   // 🔒 protegido por otro jugador
+        if (t === 'cauldron' || t === 'cmp') return lockPop(x, y, t);
         if (t === 'chest' && typeof window.openChestEditor === 'function') ok = window.openChestEditor(x, y);
         else if (t === 'oven' && typeof window.openFurnaceEditor === 'function') ok = window.openFurnaceEditor(x, y);
         else if ((t === 'dispense' || t === 'dropper') && typeof window.openDispenserEditor === 'function') ok = window.openDispenserEditor(x, y);
@@ -2967,9 +2977,168 @@
             const off = function () { names.forEach(function (n) { window.removeEventListener(n, eat, true); }); };
             names.forEach(function (n) { window.addEventListener(n, eat, true); });
             setTimeout(off, 500);
+            if (LOCKABLE[t]) lockBtnShow(x, y, t); else lockBtnHide();
         }
         return ok;
     }
+
+    // ------------------------------------------------------------------ 🔒 COFRES PROTEGIDOS (solo jugando)
+    //  Al abrir un cofre, horno, mesa de crafteo, compostador, mesa de encantamientos, yunque, dispensador, soltador o caldero sale
+    //  el botón 🔒 Protect. Hace falta tener un cartel (Sign) en el inventario: en supervivencia se gasta (y vuelve al quitarlo).
+    //  Protegido: encima del bloque sale un cartelito "[PRIVATE]" con el nombre del dueño (no es un bloque: no se edita, no
+    //  estorba para abrirlo). Solo su dueño lo abre, lo rompe o le quita el cartel; el anfitrión (y Crystal) también lo abren.
+    //  Se guarda en el mundo (mbweLocks: "dimensión|x|y" → { u: uid, n: nombre, t: bloque }) y en multijugador lo ven todos.
+    const LOCKABLE = { chest: 1, oven: 1, craft: 1, cmp: 1, enchant: 1, anvil: 1, dispense: 1, dropper: 1, cauldron: 1 };
+    function lockWhat(t) {
+        const N = { chest: ['lock_n_chest', 'the chest'], oven: ['play_box_furnace', 'the furnace'], craft: ['play_box_craft', 'the crafting table'], cmp: ['lock_n_cmp', 'the composter'],
+            enchant: ['play_box_enchant', 'the enchantment table'], anvil: ['play_box_anvil', 'the anvil'], dispense: ['lock_n_dispense', 'the dispenser'], dropper: ['lock_n_dropper', 'the dropper'], cauldron: ['lock_n_cauldron', 'the cauldron'] };
+        const n = N[t] || N.chest;
+        return tr(n[0], n[1]);
+    }
+    const lockKey = (x, y, s) => (s || mbwom.currentScene || 1) + '|' + x + '|' + y;
+    function lockTable() { const w = W(); if (!w.mbweLocks || typeof w.mbweLocks !== 'object') w.mbweLocks = {}; return w.mbweLocks; }
+    function lockAt(x, y) {
+        const L = W() && W().mbweLocks;
+        if (!L) return null;
+        const k = lockKey(x, y), v = L[k];
+        if (!v) return null;
+        const t = fg(x, y);
+        if (!LOCKABLE[t] || (v.t && v.t !== t)) { delete L[k]; return null; }     // (el bloque ya no está: se olvida)
+        return v;
+    }
+    const lockMeUid = () => myUidNet() || 'local';
+    function lockMine(v) { return !!v && (v.u === lockMeUid() || (isAdminUid(v.u) && isAdminMe())); }
+    function lockBoss() { return !S.mp || roomHost() || isAdminMe(); }             // (👑 el anfitrión abre todo)
+    function lockDenied(t, v) {
+        const m = tr('lock_denied', '{what} is protected by {name}. Only its owner can use it.').replace('{what}', lockWhat(t)).replace('{name}', String(v.n || 'Player'));
+        flashMsg('🔒 ' + m.charAt(0).toUpperCase() + m.slice(1));
+        snd('click');
+    }
+    function lockSet(x, y, v, s, net) {
+        const L = lockTable(), k = lockKey(x, y, s);
+        if (v) L[k] = { u: String(v.u || ''), n: String(v.n || 'Player').slice(0, 24), t: String(v.t || '') }; else delete L[k];
+        if (net !== false && S.mp) mpSend({ tipo: 'juego_candado', s: s || mbwom.currentScene || 1, x: x, y: y, v: v ? L[k] : null });
+        if (typeof worldDirty !== 'undefined') worldDirty = true;
+        lockUiRefresh();
+    }
+    function signCount() { let n = 0; inv().forEach(function (it) { if (!isEmpty(it) && it[0] === 'sign') n += Number(it[1]) || 0; }); return n; }
+    function takeSign() {
+        const L = inv();
+        for (let i = 0; i < 45; i++) { const it = L[i]; if (!isEmpty(it) && it[0] === 'sign') { it[1] -= 1; if (it[1] <= 0) L[i] = empty(); hud.dirty = true; return true; } }
+        return false;
+    }
+    function giveSign(x, y) { const left = addToInventory('sign', 1, 0, {}); if (left > 0) addDrop('sign', x + .5, -(y + .5), left, 0, {}); }
+    function invRedraw() { if (typeof window.playerInvRefresh === 'function') { try { window.playerInvRefresh(); } catch (e) { /* nada */ } } }
+    function lockToggle(x, y) {
+        const t = fg(x, y);
+        if (!LOCKABLE[t]) return false;
+        const v = lockAt(x, y);
+        if (v) {
+            if (!lockMine(v)) { flashMsg('🔒 ' + tr('lock_only_owner', 'Only {name} can remove this protection.').replace('{name}', String(v.n || 'Player'))); return false; }
+            lockSet(x, y, null);
+            if (W().gamemode != 1) giveSign(x, y);
+            invRedraw();
+            flashMsg('🔓 ' + tr('lock_removed', 'Protection removed. The sign is back in your inventory.'));
+            snd('click');
+            return true;
+        }
+        if (signCount() < 1) { flashMsg('🪧 ' + tr('lock_need_sign', 'You need a sign in your inventory to protect {what}.').replace('{what}', lockWhat(t))); lockUiRefresh(true); return false; }
+        if (W().gamemode != 1) takeSign();
+        lockSet(x, y, { u: lockMeUid(), n: myNameNet(), t: t });
+        invRedraw();
+        flashMsg('🔒 ' + tr('lock_done', '{what} is now protected: only you can use it.').replace('{what}', lockWhat(t)).replace(/^./, (c) => c.toUpperCase()));
+        snd('click');
+        return true;
+    }
+    // el botón (en la ventana del cofre / horno / mesa...) y la ventanita del caldero y el compostador
+    let lockOpen = null;                                             // { x, y, t } lo que está abierto
+    function lockBtnLabel(btn, needSign) {
+        const o = lockOpen; if (!o || !btn) return;
+        const v = lockAt(o.x, o.y);
+        btn.classList.toggle('is-locked', !!v);
+        btn.classList.toggle('is-other', !!v && !lockMine(v));
+        btn.disabled = !!v && !lockMine(v);
+        if (v && lockMine(v)) { btn.textContent = '🔓 ' + tr('lock_remove', 'Remove protection'); btn.title = tr('lock_remove_tip', 'Take the [PRIVATE] sign off: anyone will be able to use it again.'); }
+        else if (v) { btn.textContent = '🔒 ' + tr('lock_by', 'Protected by {name}').replace('{name}', String(v.n || 'Player')); btn.title = ''; }
+        else { btn.textContent = '🔒 ' + tr('lock_protect', 'Protect'); btn.title = tr('lock_need_sign_tip', 'Needs a sign in your inventory. Only you will be able to use it.'); }
+        btn.classList.toggle('need-sign', !!needSign);
+    }
+    function lockBtnShow(x, y, t) {
+        lockOpen = { x: x, y: y, t: t };
+        const host = document.querySelector('#inventory-modal .inv-search-container');
+        if (!host) return;
+        let b = document.getElementById('pl-lock-btn');
+        if (!b) {
+            b = document.createElement('button'); b.type = 'button'; b.id = 'pl-lock-btn'; b.className = 'pl-lock-btn';
+            b.addEventListener('click', function (e) { e.stopPropagation(); if (lockOpen) lockToggle(lockOpen.x, lockOpen.y); });
+        }
+        const cb = document.getElementById('pinv-creative-btn');
+        if (b.parentNode !== host) host.insertBefore(b, cb && cb.parentNode === host ? cb : host.firstChild);
+        b.hidden = false;
+        lockBtnLabel(b);
+    }
+    function lockBtnHide() { const b = document.getElementById('pl-lock-btn'); if (b) b.hidden = true; if (!document.getElementById('pl-lock-pop')) lockOpen = null; }
+    function lockPop(x, y, t) {
+        lockPopClose();
+        lockOpen = { x: x, y: y, t: t };
+        const d = document.createElement('div'); d.id = 'pl-lock-pop'; d.className = 'pl-lock-pop';
+        const h = document.createElement('div'); h.className = 'pl-lock-pop-t'; h.textContent = lockWhat(t).replace(/^./, (c) => c.toUpperCase()) + ' (X: ' + x + ', Y: ' + y + ')';
+        const x0 = document.createElement('button'); x0.type = 'button'; x0.className = 'pl-lock-pop-x'; x0.textContent = '✕'; x0.onclick = lockPopClose;
+        h.appendChild(x0);
+        const b = document.createElement('button'); b.type = 'button'; b.id = 'pl-lock-pop-btn'; b.className = 'pl-lock-btn';
+        b.addEventListener('click', function (e) { e.stopPropagation(); if (lockOpen) lockToggle(lockOpen.x, lockOpen.y); });
+        const n = document.createElement('div'); n.className = 'pl-lock-pop-n'; n.textContent = tr('lock_need_sign_tip', 'Needs a sign in your inventory. Only you will be able to use it.');
+        d.appendChild(h); d.appendChild(b); d.appendChild(n);
+        document.body.appendChild(d);
+        lockBtnLabel(b);
+        S.lockPopT = setInterval(function () {                       // (se cierra solo al alejarte o si el bloque ya no está)
+            if (!S.playing || !lockOpen || fg(lockOpen.x, lockOpen.y) !== lockOpen.t || blockDist(lockOpen.x, lockOpen.y) > REACH + 2) lockPopClose();
+        }, 300);
+        return true;
+    }
+    function lockPopClose() {
+        const d = document.getElementById('pl-lock-pop'); if (d) d.remove();
+        if (S.lockPopT) { clearInterval(S.lockPopT); S.lockPopT = null; }
+        const b = document.getElementById('pl-lock-btn'); if (!b || b.hidden) lockOpen = null;
+    }
+    function lockUiRefresh(needSign) {
+        const b = document.getElementById('pl-lock-btn'); if (b && !b.hidden) lockBtnLabel(b, needSign);
+        const p = document.getElementById('pl-lock-pop-btn'); if (p) lockBtnLabel(p, needSign);
+    }
+    (function () {                                                   // (al cerrar la ventana del cofre, el botón se esconde)
+        const prev = window.playerInvClosed;
+        if (typeof prev === 'function' && !prev.__lock) { const f = function () { lockBtnHide(); return prev.apply(this, arguments); }; f.__lock = true; window.playerInvClosed = f; }
+    })();
+    // 🪧 el cartelito [PRIVATE] encima de cada bloque protegido de esta dimensión
+    function drawLocks(c2) {
+        const L = W() && W().mbweLocks;
+        if (!L) return;
+        const sc = String(mbwom.currentScene || 1) + '|', ts = tileSize;
+        const fs = Math.max(7, Math.round(ts * .27));
+        for (const k in L) {
+            if (k.indexOf(sc) !== 0) continue;
+            const p0 = k.split('|'), x = Number(p0[1]), y = Number(p0[2]);
+            const v = lockAt(x, y); if (!v) continue;
+            const p = toScreen(x, -y - 1);
+            if (p.x < -ts * 2 || p.x > canvas.width + ts * 2 || p.y < -ts * 2 || p.y > canvas.height + ts) continue;
+            const name = String(v.n || 'Player').slice(0, 14);
+            c2.font = 'bold ' + fs + 'px Pixeltype, monospace';
+            const tw = Math.max(c2.measureText('[PRIVATE]').width, c2.measureText(name).width);
+            const bw = Math.max(ts * 1.1, tw + fs * .9), bh = fs * 2.35;
+            const bx = Math.round(p.x + ts / 2 - bw / 2), by = Math.round(p.y - bh - ts * .12);
+            c2.fillStyle = '#5a3e1b'; c2.fillRect(Math.round(p.x + ts / 2 - ts * .05), by + bh, Math.max(2, Math.round(ts * .1)), Math.round(ts * .2));   // (el palito)
+            c2.fillStyle = '#4a3216'; c2.fillRect(bx - 1, by - 1, Math.round(bw) + 2, Math.round(bh) + 2);
+            c2.fillStyle = '#b48a4f'; c2.fillRect(bx, by, Math.round(bw), Math.round(bh));
+            c2.fillStyle = '#c99d5e'; c2.fillRect(bx, by, Math.round(bw), Math.max(1, Math.round(fs * .18)));
+            c2.textAlign = 'center'; c2.textBaseline = 'middle';
+            c2.fillStyle = '#1a1206';
+            c2.fillText('[PRIVATE]', bx + bw / 2, by + bh * .3);
+            c2.fillText(name, bx + bw / 2, by + bh * .72);
+        }
+        c2.textAlign = 'start'; c2.textBaseline = 'alphabetic';
+    }
+    window.mbwPlay.locks = { at: function (x, y) { return lockAt(x, y); }, toggle: lockToggle, table: function () { return lockTable(); } };
+    window.mbwPlay.mineTick = function (w, x, y) { return mineTick(w, x, y); };   // (lo usan las pruebas)
     function findBox() {                                             // el cofre / horno bajo el mouse (si está al alcance) o el más cercano
         const w = W();
         if (S.mouse.inside) { const mw = mouseWorld(); const bx = Math.floor(mw.x), by = Math.floor(mw.y); if (BOX[fg(bx, by)] && blockDist(bx, by) <= REACH + 1) return { x: bx, y: by, t: fg(bx, by) }; }
@@ -4693,6 +4862,7 @@
             c2.fillStyle = 'rgba(255,255,170,' + pulse + ')'; c2.beginPath(); c2.arc(p.x - r * .3, p.y - r * 1.3, r * .35, 0, Math.PI * 2); c2.fill();
         });
         S.arrows.forEach(function (r) { const p = toScreen(r.x, r.y); const a = Math.atan2(r.vy, r.vx); c2.beginPath(); c2.moveTo(p.x, p.y); c2.lineTo(p.x - Math.cos(a) * tileSize * .6, p.y - Math.sin(a) * tileSize * .6); c2.stroke(); });
+        drawLocks(c2);
         drawParticles(c2);
         drawBalloons(c2);
         if (S.sleep) {                                                    // 💤
@@ -6046,6 +6216,10 @@
         floatButton();
         // 🎮 Etapa 2 (scripts/mp-play.js)
         window.mbwPlay.net = {
+            // 🔒 otro jugador protegió / desprotegió algo, o (al entrar tarde) la lista entera
+            lock: function (d) { if (!d) return; const x = Math.floor(Number(d.x)), y = Math.floor(Number(d.y)); if (!isFinite(x) || !isFinite(y)) return; lockSet(x, y, d.v || null, Number(d.s) || 1, false); },
+            locks: function (tb) { if (tb && typeof tb === 'object') { W().mbweLocks = JSON.parse(JSON.stringify(tb)); lockUiRefresh(); } },
+            lockTable: function () { return (W() && W().mbweLocks) || {}; },
             // 👑 el anfitrión (o Crystal) usó un comando sobre mí
             cmd: function (d) {
                 const M = window.mbwMpPlay;

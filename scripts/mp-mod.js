@@ -15,6 +15,7 @@
     function tr(k, fb, vars) { return typeof window.tmsg === 'function' ? window.tmsg(k, fb, vars) : String(fb).replace(/\{(\w+)\}/g, (m, v) => (vars && vars[v] !== undefined ? vars[v] : m)); }
     function inMp() { return typeof isMultiplayer !== 'undefined' && !!isMultiplayer; }
     function amHost() { return typeof isHost !== 'undefined' && !!isHost; }
+    function boss() { return amHost() && (typeof window.mbwIsBoss !== 'function' || window.mbwIsBoss()); }   // (👑 en un servidor permanente: solo su creador)
     function myUid() { return localStorage.getItem('mbw_uid'); }
     function players() { return Array.isArray(window.roomPlayers) ? window.roomPlayers : []; }
     function clients() { return (typeof misClientes !== 'undefined' && Array.isArray(misClientes)) ? misClientes : []; }
@@ -52,14 +53,14 @@
         return true;
     }
     window.mpKick = function (uid, name) {
-        if (!amHost() || !uid || uid === myUid()) return false;
+        if (!boss() || !uid || uid === myUid()) return false;
         if (!kick(uid, false)) return false;
         chatNote('🥾 ' + tr('mp_kicked_note', '{name} was kicked.', { name: name || 'Player' }));
         return true;
     };
     // ---------------------------------------------------------------- 🚫 banear / desbanear
     window.mpBan = function (uid, name) {
-        if (!amHost() || !uid || uid === myUid()) return false;
+        if (!boss() || !uid || uid === myUid()) return false;
         const p = players().find(q => q.uid === uid);
         bans()[uid] = String(name || (p && p.name) || 'Player').slice(0, 40);
         unsaved();
@@ -69,7 +70,7 @@
         return true;
     };
     window.mpUnban = function (uid) {
-        if (!amHost() || !bans()[uid]) return false;
+        if (!boss() || !bans()[uid]) return false;
         const n = bans()[uid];
         delete bans()[uid];
         unsaved(); syncAll(); refreshLists();
@@ -78,7 +79,7 @@
     };
     // ---------------------------------------------------------------- 🔇 silenciar
     window.mpMute = function (uid, name, on) {
-        if (!amHost() || !uid || uid === myUid()) return false;
+        if (!boss() || !uid || uid === myUid()) return false;
         const p = players().find(q => q.uid === uid);
         const nm = String(name || (p && p.name) || 'Player').slice(0, 40);
         if (on === undefined) on = !mutes()[uid];
@@ -95,7 +96,7 @@
     window.MP_MOD_CMDS = ['kick', 'ban', 'unban', 'banlist', 'mute', 'unmute'];
     window.mpModCommand = function (cmd, arg) {
         if (!inMp()) return tr('mp_mod_solo', 'This only works in a multiplayer world.');
-        if (!amHost()) return tr('mp_mod_host', 'Only the host can do that.');
+        if (!boss()) return tr('mp_mod_host', 'Only the host can do that.');
         const who = String(arg || '').trim().replace(/^@/, '');
         if (cmd === 'banlist') {
             const l = window.mpBanList();
