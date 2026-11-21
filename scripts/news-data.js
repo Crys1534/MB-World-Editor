@@ -64,7 +64,16 @@ gallery: https://i.imgur.com/BBBBBBB.png
 
 
 
-
+===== NOTA
+title: v4 - Multiplayer Update
+date: Nov 6, 2026
+image: https://i.imgur.com/TNr01px.png
+excerpt: Multiplayer!
+gallery: https://i.imgur.com/TNr01px.png
+---
+# Changelog:
+- Play Mode - Multiplayer!
+- 
 
 ===== NOTA
 title: v3 - QoL Update - November 2026
