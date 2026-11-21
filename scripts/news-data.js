@@ -66,7 +66,7 @@ gallery: https://i.imgur.com/BBBBBBB.png
 
 ===== NOTA
 title: v4 - Multiplayer Update
-date: Nov 21, 2026
+date: Nov 21, 2026 
 image: https://i.imgur.com/TNr01px.png
 excerpt: Multiplayer!
 gallery: https://i.imgur.com/TNr01px.png
