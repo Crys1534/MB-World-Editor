@@ -4235,3 +4235,20 @@ body.mp-compact #mp-view-join > .sw-create-btn, body.mp-compact #mp-view-join > 
 .pl-lock-pop-x { margin-left: auto; background: none; border: 0; font-size: 20px; cursor: pointer; color: #333; }
 .pl-lock-pop-n { font-size: 17px; color: #444; }
 .pl-lock-pop .pl-lock-btn { font-size: 24px; padding: 8px 12px; }
+
+/* 💬 sin el botón de chat de arriba a la izquierda (ya está el de la hotbar): coordenadas y efectos suben */
+#mbw-play-hud .ph-area .ph-chat-btn { display: none !important; }
+#mbw-play-hud .ph-coords { top: 12px; }
+
+/* ===== 🗑🔒 Botones flotantes junto a la ventana del inventario (papelera y proteger) ===== */
+#pinv-float { position: fixed; z-index: 10; display: flex; flex-direction: column; align-items: center; gap: 10px; pointer-events: none; }
+#pinv-float > * { pointer-events: auto; }
+#pinv-float:empty { display: none; }
+#pinv-float #pinv-trash { margin: 0; padding: 6px; background: #c6c6c6; border: 3px solid #fff; border-right-color: #555; border-bottom-color: #555;
+    box-shadow: 0 6px 16px rgba(0,0,0,.55); border-radius: 2px; }
+#pinv-float #pinv-trash .pinv-slot { margin: 0; }
+#pinv-float .pl-lock-btn { width: max-content; max-width: 124px; white-space: normal; text-align: center; padding: 8px 10px; font-size: 20px; line-height: 1.05;
+    box-shadow: 0 6px 16px rgba(0,0,0,.55); }
+#pinv-float.pinv-float-over { opacity: .96; }
+#pinv-float #pinv-trash .pinv-slot { width: var(--s, 52px); height: var(--s, 52px); }
+#pinv-float .pinv-trash-icon { font-size: calc(var(--s, 52px) * .5); }

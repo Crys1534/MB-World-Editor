@@ -601,22 +601,60 @@
  }
  window.addEventListener('resize', function () { if (st.open) { setViewVars(); fitCreative(); fitBook(); } });
  if (window.visualViewport) window.visualViewport.addEventListener('resize', function () { if (st.open) { setViewVars(); fitCreative(); fitBook(); } });
- // 🗑 la papelera: a la derecha de la skin, a la altura de las botas. En cofres, hornos, mesa y yunque (no hay skin): junto a la hotbar.
- function placeTrash() {
-  const trashEl = $('pinv-trash'), top = document.querySelector('#inventory-modal .pinv-top'), hotEl = $('pinv-hotbar');
-  if (!trashEl || !hotEl) return;
-  const skin = $('pinv-skin');
-  const side = !!(top && top.style.display !== 'none' && skin && skin.style.display !== 'none' && skin.parentNode === top);
-  if (side) {
-   trashEl.classList.add('pinv-trash-side'); trashEl.classList.remove('pinv-trash-hot');
-   if (skin.nextSibling !== trashEl) top.insertBefore(trashEl, skin.nextSibling);
-  } else {
-   let row = hotEl.parentNode;
-   if (!row.classList.contains('pinv-hot-row')) { row = document.createElement('div'); row.className = 'pinv-hot-row'; hotEl.parentNode.insertBefore(row, hotEl); row.appendChild(hotEl); }
-   trashEl.classList.add('pinv-trash-hot'); trashEl.classList.remove('pinv-trash-side');
-   if (trashEl.parentNode !== row) row.appendChild(trashEl);
-  }
+ // 🗑 la papelera (y, jugando, el botón 🔒 de proteger el cofre) ya NO van dentro de la ventana: son botones FLOTANTES
+ //    pegados por fuera de la ventana del inventario (a la derecha; si no cabe, a la izquierda; si tampoco, sobre la esquina).
+ function floatBox() {
+  const m = $('inventory-modal'); if (!m) return null;
+  let f = $('pinv-float');
+  if (!f) { f = document.createElement('div'); f.id = 'pinv-float'; f.className = 'pinv-float'; }
+  if (f.parentNode !== m) m.appendChild(f);
+  return f;
  }
+ function placeFloat() {
+  const m = $('inventory-modal'), f = $('pinv-float'), win = $('inventory-modal-content');
+  if (!m || !f || !win || m.style.display !== 'block') return;
+  const r = win.getBoundingClientRect();
+  if (!r.width) return;
+  const sz = getComputedStyle(win).getPropertyValue('--s');           // (las casillas, del mismo tamaño que las de la ventana)
+  if (sz) f.style.setProperty('--s', sz.trim()); else f.style.removeProperty('--s');
+  const fw = f.offsetWidth || 70, fh = f.offsetHeight || 70, vw = window.innerWidth, vh = window.innerHeight, gap = 10;
+  let x;
+  if (r.right + gap + fw <= vw - 4) x = r.right + gap;
+  else if (r.left - gap - fw >= 4) x = r.left - gap - fw;
+  else x = Math.max(4, r.right - fw - 8);                           // (no cabe a los lados: encima de la esquina de abajo)
+  const y = Math.max(4, Math.min(vh - fh - 4, r.bottom - fh));
+  f.style.left = Math.round(x) + 'px'; f.style.top = Math.round(y) + 'px';
+  f.classList.toggle('pinv-float-over', x > r.left && x < r.right);
+ }
+ window.playerInvPlaceFloat = placeFloat;
+ function placeTrash() {
+  const trashEl = $('pinv-trash');
+  if (!trashEl) return;
+  const f = floatBox(); if (!f) return;
+  trashEl.classList.remove('pinv-trash-side', 'pinv-trash-hot'); trashEl.classList.add('pinv-trash-float');
+  if (trashEl.parentNode !== f) f.appendChild(trashEl);
+  const lock = $('pl-lock-btn'); if (lock && lock.parentNode !== f) f.insertBefore(lock, trashEl);
+  placeFloat();
+  floatWatch();
+ }
+ // (mientras la ventana está abierta, si se mueve —se centra, se anima, cambia de tamaño— los botones la siguen)
+ let floatLoop = 0, floatLast = '';
+ function floatWatch() {
+  if (floatLoop) return;
+  const tick = function () {
+   const m = $('inventory-modal'), win = $('inventory-modal-content'), f = $('pinv-float');
+   if (!m || m.style.display !== 'block' || !win || !f) { floatLoop = 0; floatLast = ''; return; }
+   const r = win.getBoundingClientRect(), k = Math.round(r.left) + ',' + Math.round(r.top) + ',' + Math.round(r.width) + ',' + Math.round(r.height) + ',' + f.offsetWidth + ',' + f.offsetHeight + ',' + window.innerWidth + ',' + window.innerHeight;
+   if (k !== floatLast) { floatLast = k; placeFloat(); }
+   floatLoop = requestAnimationFrame(tick);
+  };
+  floatLoop = requestAnimationFrame(tick);
+ }
+ (function () {                                                     // (se reacomoda si la ventana cambia de tamaño)
+  const win = document.getElementById('inventory-modal-content');
+  if (win && typeof ResizeObserver === 'function') new ResizeObserver(function () { placeFloat(); }).observe(win);
+  window.addEventListener('resize', function () { placeFloat(); });
+ })();
  // 🧰 el inventario creativo (al lado) mide lo mismo de alto que el inventario del jugador
  function fitCreative() {
   const m = $('inventory-modal'), panel = $('player-inv-panel');

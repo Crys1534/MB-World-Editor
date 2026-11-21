@@ -3065,7 +3065,7 @@
     }
     function lockBtnShow(x, y, t) {
         lockOpen = { x: x, y: y, t: t };
-        const host = document.querySelector('#inventory-modal .inv-search-container');
+        const host = document.getElementById('pinv-float') || document.querySelector('#inventory-modal .inv-search-container');   // (🔒 botón flotante, junto a la papelera)
         if (!host) return;
         let b = document.getElementById('pl-lock-btn');
         if (!b) {
@@ -3076,6 +3076,7 @@
         if (b.parentNode !== host) host.insertBefore(b, cb && cb.parentNode === host ? cb : host.firstChild);
         b.hidden = false;
         lockBtnLabel(b);
+        if (typeof window.playerInvPlaceFloat === 'function') window.playerInvPlaceFloat();
     }
     function lockBtnHide() { const b = document.getElementById('pl-lock-btn'); if (b) b.hidden = true; if (!document.getElementById('pl-lock-pop')) lockOpen = null; }
     function lockPop(x, y, t) {
@@ -4500,8 +4501,11 @@
         const old = S.platesVis || new Set();
         S.platesVis = now;
         const redo = function (k) { const c = k.split(','); if (typeof window.renderBlock === 'function') window.renderBlock(+c[0], +c[1]); };
-        now.forEach(function (k) { if (!old.has(k)) redo(k); });
-        old.forEach(function (k) { if (!now.has(k)) redo(k); });
+        // 🔊 como el juego (Block_PressurePlate): "on" al pisarla, "off" al bajarse
+        const click = function (k, name) { const c = k.split(','); sndAt(name, +c[0] + .5, -(+c[1] + .5)); };
+        now.forEach(function (k) { if (!old.has(k)) { redo(k); if (S.platesSnd) click(k, 'on'); } });
+        old.forEach(function (k) { if (!now.has(k)) { redo(k); click(k, 'off'); } });
+        S.platesSnd = true;                                           // (al empezar a jugar no suena lo que ya estaba pisado)
     }
     window.mbwPlatePressed = function (x, y) { return !!(S.playing && S.platesVis && S.platesVis.has(rsKey(x, y))); };
     function rsSource(x, y, t) {
@@ -5184,7 +5188,7 @@
                 if (EFFECT_ICONS[k]) { const im = document.createElement('img'); im.src = 'assets/UI/' + EFFECT_ICONS[k] + '.png'; im.alt = ''; sp.appendChild(im); }   // 🧪 su dibujo
                 sp.appendChild(document.createTextNode(q.slice(q.indexOf('~') + 1))); ef.appendChild(sp);
             }); }
-            ef.style.top = OPTS.coords ? '90px' : '68px';
+            ef.style.top = OPTS.coords ? '36px' : '12px';   // (ya no está el botón 💬 de arriba a la izquierda)
             // 🌀 parado en un portal: la pantalla se pone morada poco a poco (4 segundos)
             const pt = ar.querySelector('.ph-portal'), pk = Math.min(1, (S.portalT || 0) / (4 * FPS));
             const po = (pk * (S.portalKind === 2 ? .7 : .55)).toFixed(2);
@@ -5839,7 +5843,7 @@
         inv();
         for (const id in mbwom.mobs) { const m = mbwom.mobs[id]; if (m && typeof m === 'object') { m.target = null; m.focus = null; m.speedX = Number(m.speedX) || 0; m.speedY = Number(m.speedY) || 0; } }
         S.dropsRestored = false;
-        S.p = newPlayer(); S.tmp = new Map(); S.drops = []; S.falling = []; S.arrows = []; S.shots = []; S.fballs = []; S.eyes = []; S.draw = null; S.orbs = []; S.liqFresh = new Set(); S.sandCheck = new Map(); S.leafQ = new Map(); S.dropSeq = 0; S.dropBase = Date.now().toString(36); S.lastPvp = null; S.parts = []; S.wetWas = {}; S.spawnT = new Map(); S.spawnOn = new Set(); S.selShow = null; S.selPrev = null; S.rsOn = new Map(); S.rsReady = false; S.btn = new Map(); S.plates = new Set(); S.portalLock = true; S.portalGo = 0; S.dimStash = {}; S.spect = null; S.tick = 0; S.acc = 0; S.last = 0; S.mine = null; S.useTimer = -1; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mobErr = false;
+        S.p = newPlayer(); S.tmp = new Map(); S.drops = []; S.falling = []; S.arrows = []; S.shots = []; S.fballs = []; S.eyes = []; S.draw = null; S.orbs = []; S.liqFresh = new Set(); S.sandCheck = new Map(); S.leafQ = new Map(); S.dropSeq = 0; S.dropBase = Date.now().toString(36); S.lastPvp = null; S.parts = []; S.wetWas = {}; S.spawnT = new Map(); S.spawnOn = new Set(); S.selShow = null; S.selPrev = null; S.rsOn = new Map(); S.rsReady = false; S.btn = new Map(); S.plates = new Set(); S.platesVis = null; S.platesSnd = false; S.portalLock = true; S.portalGo = 0; S.dimStash = {}; S.spect = null; S.tick = 0; S.acc = 0; S.last = 0; S.mine = null; S.useTimer = -1; S.keys = {}; S.mouse.left = S.mouse.right = false; S.mobErr = false;
         // arena y grava cerca: se revisan para que caigan si no tienen nada abajo
         const x0 = Math.max(0, Math.floor(px) - 60), x1 = Math.floor(px) + 60;
         for (let x = x0; x <= x1; x++) { const col = mbwom.scene[x]; if (!col) continue; for (let y = 0; y < col.length; y++) if (col[y] === 'sd' || col[y] === 'gv') S.sandCheck.set(x + ',' + y, 2); }

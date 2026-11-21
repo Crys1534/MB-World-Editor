@@ -172,7 +172,7 @@ window.loadPublicServers = function() {
                 <div class="srv-card srv-live">
                     <div class="srv-thumb" style="background-image: url(&quot;${esc(thumbUrl)}&quot;);">
                         <span class="srv-count${(isFull && !isAlreadyJoined) ? ' is-full' : ''}">👥 ${Number(s.currentPlayers) | 0}/${Number(s.maxPlayers) | 0}</span>
-                        <span class="srv-badge srv-badge-live">● ${esc(tt('srv_live', 'LIVE'))}</span>
+                        <span class="srv-badge srv-badge-live">● ${esc(tt('srv_live', 'ONLINE'))}</span>
                     </div>
                     <div class="srv-info">
                         <strong class="srv-name" title="${esc(s.hostName)}'s Room">${esc(s.hostName)}'s Room</strong>
