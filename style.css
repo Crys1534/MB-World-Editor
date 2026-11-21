@@ -4286,15 +4286,6 @@ body.mbw-oldstyle:not(.is-touch) #mbw-play-hud .ph-mode-pc.ph-side { display: fl
 .mk-of-empty { font-size: 19px; color: #444; padding: 8px 2px; }
 #play-menu .pm-mini.pm-mk { margin-left: 4px; }
 
-/* ===== ⚙ Opciones del modo jugar en pestañas (General · Rendimiento) ===== */
-.pm-opt { display: flex; flex-direction: column; gap: 0; }
-.pm-opt-tabs { display: flex; gap: 4px; }
-#play-menu .pm-opt-tab { flex: 1; padding: 9px 10px; font-size: 17px; border-radius: 6px 6px 0 0; margin: 0; background: rgba(0,0,0,.35); color: #bbb;
-    border: 2px solid rgba(255,255,255,.15); border-bottom: 0; box-shadow: none; }
-#play-menu .pm-opt-tab:hover { color: #fff; background: rgba(0,0,0,.5); }
-#play-menu .pm-opt-tab.on { background: rgba(0,0,0,.45); color: #fff; border-color: rgba(255,255,255,.2); }
-.pm-opt > .pm-form { border-top-left-radius: 0; border-top-right-radius: 0; min-height: 240px; }
-
 /* ===== 🎮 Botones táctiles rediseñados (íconos centrados, estilo "vidrio" oscuro) ===== */
 body.is-touch #mbw-play-hud .ph-pad2 { gap: 12px; right: 16px; bottom: 16px; }
 #mbw-play-hud .ph-pad2 button.ph-tb {
@@ -4352,4 +4343,30 @@ body.mbw-no-glint .enchanted-slot { box-shadow: none !important; }
 body.mbw-fps-on #mbw-play-hud .ph-fps { display: block; }
 body.is-touch.mbw-fps-on #mbw-play-hud .ph-fps { left: auto; right: 12px; top: 64px; bottom: auto; }
 /* (Rendimiento: más opciones → la caja se puede desplazar) */
-.pm-opt > .pm-form { max-height: min(60vh, 520px); overflow-y: auto; }
+
+/* ===== ⚙ Opciones del modo jugar: como las ventanas de inventario del juego (gris claro con relieve) ===== */
+.pm-opt.mb-win { display: flex; flex-direction: column; gap: 0; font-family: 'Pixeltype', sans-serif; }
+.pm-opt-tabs { display: flex; gap: 4px; padding-left: 6px; position: relative; z-index: 1; margin-bottom: -3px; }
+#play-menu .pm-opt-tab { flex: 0 1 auto; display: flex; align-items: center; gap: 8px; margin: 0; padding: 6px 14px 8px; min-height: 0;
+    font-family: 'Pixeltype', sans-serif; font-size: 25px; line-height: 1; color: #3f3f3f; text-shadow: none; border-radius: 0;
+    background: #8b8b8b; border: 3px solid; border-color: #c6c6c6 #555 transparent #c6c6c6; box-shadow: none; filter: brightness(.92); }
+#play-menu .pm-opt-tab:hover { filter: none; }
+#play-menu .pm-opt-tab.on { background: #c6c6c6; border-color: #fff #555 #c6c6c6 #fff; filter: none; color: #222; }
+#play-menu .pm-opt-tab .pm-ico { width: 24px; height: 24px; }
+.pm-form.pm-oform { gap: 4px; padding: 10px 12px; border-radius: 0; background: #c6c6c6; color: #3f3f3f;
+    border: 3px solid; border-color: #fff #555 #555 #fff; box-shadow: 0 0 0 2px #000, 0 10px 26px rgba(0,0,0,.5);
+    max-height: min(62vh, 540px); overflow-y: auto; min-height: 240px; }
+.pm-oform .pm-row { color: #3f3f3f; font-size: 25px; font-family: 'Pixeltype', sans-serif; padding: 4px 6px; gap: 10px; border-radius: 0; }
+.pm-oform .pm-row:hover { background: rgba(255,255,255,.35); }
+.pm-ico { flex: 0 0 auto; width: 28px; height: 28px; image-rendering: pixelated; display: block; }
+.pm-ico-none { display: inline-block; }
+/* los controles, como casillas del inventario */
+.pm-oform .pm-sel { flex: 0 1 230px; font-family: 'Pixeltype', sans-serif; font-size: 22px; color: #fff; background: #8b8b8b; padding: 4px 8px; border-radius: 0;
+    border: 2px solid; border-color: #373737 #fff #fff #373737; text-shadow: 1px 1px 0 #3f3f3f; }
+.pm-oform .pm-sel option { background: #c6c6c6; color: #222; }
+.pm-oform input[type=checkbox] { -webkit-appearance: none; appearance: none; width: 28px; height: 28px; margin: 0; cursor: pointer; position: relative;
+    background: #8b8b8b; border: 2px solid; border-color: #373737 #fff #fff #373737; border-radius: 0; }
+.pm-oform input[type=checkbox]:checked::after { content: ''; position: absolute; left: 7px; top: 2px; width: 7px; height: 13px;
+    border: solid #6fdc3f; border-width: 0 4px 4px 0; transform: rotate(40deg); filter: drop-shadow(1px 1px 0 #2a5a10); }
+.pm-oform .pm-range { accent-color: #6aa84f; }
+@media (max-width: 640px), (max-height: 480px) { .pm-oform .pm-row { font-size: 18px; } #play-menu .pm-opt-tab { font-size: 18px; } .pm-ico { width: 24px; height: 24px; } }

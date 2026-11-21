@@ -1238,9 +1238,24 @@ window.getMobTemplate = function (type) {
 // ya lo traen, pero los que se pusieron con versiones viejas del editor (o con otras herramientas) no. Esta función les completa
 // "fuse" (-1 = mecha apagada) y "charged" SOLO si faltan: nunca cambia un valor que ya existe. Devuelve true si cambió algo.
 // ==============================================================
+// 🐮 Nombres de casilla del Mob Browser que NO son un tipo del juego: en el juego la cowctus y la mooshroom son una "cow" con
+//    variant, el perro es un "wolf" domado, etc. Un mob guardado con el nombre de la casilla (pasaba con los mobs PERSONALIZADOS
+//    hechos sobre la cowctus, la mooshroom o el perro) no se movía en el Modo Jugar y al matarlo se quedaba congelado.
+window.MOB_TYPE_FIX = { cowctus: ['cow', { variant: 'cowctus' }], mushroom: ['cow', { variant: 'mooshroom' }], mooshroom: ['cow', { variant: 'mooshroom' }],
+    'cowctus cow': ['cow', { variant: 'cowctus' }], 'mushroom cow': ['cow', { variant: 'mooshroom' }],
+    dog: ['wolf', { tamed: true }], bunny: ['rabbit', {}], pigman: ['zombiepigman', {}], netherwalker: ['nethereye', {}], octopus: ['squid', {}] };
+window.mbwFixMobType = function (mob) {
+    if (!mob || typeof mob.type !== 'string') return false;
+    const f = window.MOB_TYPE_FIX[mob.type];
+    if (!f) return false;
+    mob.type = f[0];
+    Object.keys(f[1]).forEach(function (k) { if (mob[k] === undefined || mob[k] === '' || mob[k] === null || k === 'variant') mob[k] = f[1][k]; });
+    return true;
+};
 window.mbwFixMob = function (mob) {
-    if (!mob || mob.type !== 'creeper') return false;
-    let changed = false;
+    const typeFixed = window.mbwFixMobType(mob);
+    if (!mob || mob.type !== 'creeper') return typeFixed;
+    let changed = typeFixed;
     if (typeof mob.fuse !== 'number' || !isFinite(mob.fuse)) { mob.fuse = -1; changed = true; }
     if (mob.charged === undefined || mob.charged === null) { mob.charged = false; changed = true; }
     return changed;

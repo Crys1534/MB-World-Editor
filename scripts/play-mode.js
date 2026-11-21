@@ -1764,8 +1764,9 @@
         el.querySelector('.ph-boss-fill').style.width = Math.max(0, Math.min(100, (Number(best.health) || 0) / DRG_HP * 100)) + '%';
     }
     function mobTick(id, c) {
-        const a = D.mobs[c.type];
-        if (!a) return;
+        let a = D.mobs[c.type];
+        if (!a && typeof window.mbwFixMobType === 'function' && window.mbwFixMobType(c)) a = D.mobs[c.type];   // 🐮 (cowctus, mooshroom, perro... guardados con el nombre de la casilla)
+        if (!a) { if (c.dead > 0 || !(Number(c.health) > 0)) { delete mbwom.mobs[id]; S.tmp.delete(id); } return; }   // (un mob desconocido que "muere" no se queda congelado)
         const w = W(), d = tmpOf(id);
         if (c.type === 'enderdragon') { dragonTick(id, c, a, d); return; }   // 🐉
         if (c.dead > 0) { c.dead++; c.speedX = 0; if (c.dead > 40) { delete mbwom.mobs[id]; S.tmp.delete(id); } return; }
@@ -2336,6 +2337,7 @@
     }
     window.mbwPlay.useBlock = function (x, y) { return useBlock(x, y); };
     window.mbwPlay.hurtMob = function (id, n) { hurtMob(id, n, 'attack', PLAYER_ID); };     // (lo usan las pruebas)
+    window.mbwPlay.spawnMob = function (t, x, y, ex) { return spawnMob(t, x, y, ex); };     // (lo usan las pruebas)
     window.mbwPlay.explode = function (x, y, r) { explode(x, y, r || 3, PLAYER_ID); };
     window.mbwPlay.runCommand = function (t) { runCommand(t); };                              // (lo usan las pruebas)
     window.mbwPlay.addDrop = function (id, x, y, n) { addDrop(id, x, y, n || 1, 0, {}); };

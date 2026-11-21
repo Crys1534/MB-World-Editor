@@ -208,14 +208,27 @@
         r.addEventListener('input', function () { if (typeof window.updateAudioChannel === 'function') window.updateAudioChannel(ch, r.value); });
         return r;
     }
-    // ⚙ Opciones en PESTAÑAS: General (cómo se juega, sonido) y Rendimiento (todo lo que hace que vaya más rápido)
+    // ⚙ Opciones en PESTAÑAS: General (cómo se juega, sonido) y Rendimiento (todo lo que hace que vaya más rápido).
+    //    Se ve como las ventanas de inventario del juego (gris claro con relieve) y cada opción lleva un dibujo del juego.
     let optTab = 'general';
+    function ico(id, ex) {                                           // (el dibujo de un objeto / bloque del juego, en pixel art)
+        const c = el('canvas', 'pm-ico'); c.width = 16; c.height = 16;
+        try { const im = P() && P().iconFor ? P().iconFor(id, ex || {}) : null; if (im) { const g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(im, 0, 0, 16, 16); } } catch (e) { /* nada */ }
+        return c;
+    }
+    function orow(icon, label, input, hint) {
+        const r = row(label, input, hint);
+        r.classList.add('pm-orow');
+        if (icon) r.insertBefore(icon, r.firstChild); else r.insertBefore(el('span', 'pm-ico pm-ico-none'), r.firstChild);
+        return r;
+    }
     function optionsForm() {
-        const wrap = el('div', 'pm-opt');
+        const wrap = el('div', 'pm-opt mb-win');
         const tabs = el('div', 'pm-opt-tabs');
-        const body = el('div', 'pm-form');
-        [['general', '⚙ ' + tr('pm_tab_general', 'General')], ['perf', '⚡ ' + tr('pm_tab_perf', 'Performance')]].forEach(function (t) {
-            const b = btn(t[1], 'pm-opt-tab' + (optTab === t[0] ? ' on' : ''), function () { optTab = t[0]; tabs.querySelectorAll('.pm-opt-tab').forEach(function (x) { x.classList.toggle('on', x === b); }); fill(); });
+        const body = el('div', 'pm-form pm-oform');
+        [['general', 'pm_tab_general', 'General', 'IronPickaxe'], ['perf', 'pm_tab_perf', 'Performance', 'clock']].forEach(function (t) {
+            const b = btn('', 'pm-opt-tab' + (optTab === t[0] ? ' on' : ''), function () { optTab = t[0]; tabs.querySelectorAll('.pm-opt-tab').forEach(function (x) { x.classList.toggle('on', x === b); }); fill(); });
+            b.appendChild(ico(t[3])); b.appendChild(el('span', null, tr(t[1], t[2])));
             b.dataset.tab = t[0];
             tabs.appendChild(b);
         });
@@ -224,33 +237,34 @@
             const o = (P() && P().opts) ? P().opts() : {};
             const set = function (k) { return function (v) { if (P() && P().setOpt) P().setOpt(k, v); }; };
             const touch = document.body.classList.contains('is-touch');
+            const A = function (icon, label, input, hint) { body.appendChild(orow(icon ? ico(icon[0], icon[1]) : null, label, input, hint)); };
             if (optTab === 'general') {
-                body.appendChild(row(tr('pm_autojump', 'Auto-jump (1 block)'), check(o.autoJump, set('autoJump')), tr('pm_autojump_tip', 'Walking into a 1-block step jumps by itself, like in Minecraft')));
-                body.appendChild(row(tr('pm_coords', 'Show coordinates'), check(o.coords, set('coords'))));
-                if (!touch) body.appendChild(row('⛏ ' + tr('pm_oldstyle', 'Old Style mining'), check(o.oldStyle === true, set('oldStyle')), tr('pm_oldstyle_tip', 'Like on phones: left click breaks OR builds, you choose with the ⛏ / 🧱 button next to the hotbar (or the R key). Right click still places / uses.')));
-                if (touch) body.appendChild(row('🔍 ' + tr('pm_loupe', 'Magnifier when you touch the map'), check(o.loupe !== false, set('loupe')), tr('pm_loupe_tip', 'Shows in big what is under your finger, so you can see which block you touch')));
-                body.appendChild(row(tr('config_vol_weather', 'Rain and storm'), range('weather')));
-                body.appendChild(row(tr('config_vol_music', 'Music'), range('music')));
+                A(['feather'], tr('pm_autojump', 'Auto-jump (1 block)'), check(o.autoJump, set('autoJump')), tr('pm_autojump_tip', 'Walking into a 1-block step jumps by itself, like in Minecraft'));
+                A(['compass'], tr('pm_coords', 'Show coordinates'), check(o.coords, set('coords')));
+                if (!touch) A(['IronPickaxe'], tr('pm_oldstyle', 'Old Style mining'), check(o.oldStyle === true, set('oldStyle')), tr('pm_oldstyle_tip', 'Like on phones: left click breaks OR builds, you choose with the ⛏ / 🧱 button next to the hotbar (or the R key). Right click still places / uses.'));
+                if (touch) A(['gss'], tr('pm_loupe', 'Magnifier when you touch the map'), check(o.loupe !== false, set('loupe')), tr('pm_loupe_tip', 'Shows in big what is under your finger, so you can see which block you touch'));
+                A(['wr'], tr('config_vol_weather', 'Rain and storm'), range('weather'));
+                A(['jl'], tr('config_vol_music', 'Music'), range('music'));
             } else {
-                body.appendChild(row('🎞 ' + tr('pm_fps', 'Frames per second'), select([['25', '25 fps'], ['30', '30 fps'], ['50', '50 fps (' + tr('pm_fps_game', 'like the game') + ')'], ['60', '60 fps']], String(o.fps || 50), set('fps')), tr('pm_fps_tip', 'How many times per second the screen is drawn. The game itself always runs at 50 steps per second: fewer fps = less work for your device.')));
-                body.appendChild(row(tr('pm_res', 'Screen size (blocks you see)'), select([['default', tr('pm_res_default', 'Game (18 × 14)')], ['4:3', '4:3 (20 × 15)'], ['16:9', '16:9 (27 × 15)']], o.res || 'default', set('res'))));
-                body.appendChild(row(tr('pm_particles', 'Particles'), select([['all', tr('pm_all', 'All')], ['some', tr('pm_some', 'Some')], ['none', tr('pm_none', 'None')]], o.particles || 'all', set('particles'))));
-                body.appendChild(row(tr('pm_anims', 'Block animations'), check(o.anims !== false, set('anims'))));
                 const cl = o.clouds === false || o.clouds === 'off' ? 'off' : o.clouds === 'fast' ? 'fast' : 'fancy';
-                body.appendChild(row('📈 ' + tr('pm_fps_show', 'Show FPS on screen'), check(o.fpsShow === true, set('fpsShow'))));
-                body.appendChild(row('🌑 ' + tr('pm_shadows', 'Shadows (underground darkness)'), select([['soft', tr('pm_sh_soft', 'Soft')], ['simple', tr('pm_sh_simple', 'Simple (no light circles)')], ['off', tr('pm_off', 'Off')]], o.shadows || 'soft', set('shadows')), tr('pm_shadows_tip', 'Simple: the darkness stays, but torches do not light circles around them. Off: no darkness underground (night still gets darker).')));
-                body.appendChild(row('🔆 ' + tr('pm_lighting', 'Lighting'), select([['smooth', tr('pm_light_smooth', 'Smooth gradients')], ['blocky', tr('pm_light_blocky', 'By whole blocks')]], o.lighting || 'smooth', set('lighting'))));
-                body.appendChild(row('🔥 ' + tr('pm_lightq', 'Torch light quality'), select([['high', tr('pm_q_high', 'High')], ['medium', tr('pm_q_medium', 'Medium')], ['low', tr('pm_q_low', 'Low')]], o.lightQ || 'high', set('lightQ')), tr('pm_lightq_tip', 'High: every light. Medium: the 24 closest. Low: the 10 closest and no colored glow (lava, glowstone...).')));
-                body.appendChild(row('☁ ' + tr('pm_clouds', 'Clouds'), select([['fancy', tr('pm_clouds_fancy', 'Fancy (moving)')], ['fast', tr('pm_clouds_fast', 'Fast (still)')], ['off', tr('pm_off', 'Off')]], cl, function (v) { set('clouds')(v === 'fancy' ? true : v === 'off' ? false : 'fast'); })));
-                body.appendChild(row('🌧 ' + tr('pm_rain', 'Rain'), select([['many', tr('pm_rain_many', 'Many drops')], ['few', tr('pm_rain_few', 'Few drops')]], o.rain || 'many', set('rain'))));
-                body.appendChild(row('💧 ' + tr('pm_liq_anim', 'Water and lava animation'), check(o.liqAnim !== false, set('liqAnim'))));
-                body.appendChild(row('🔥 ' + tr('pm_fire_anim', 'Fire animation'), check(o.fireAnim !== false, set('fireAnim'))));
-                body.appendChild(row('🍃 ' + tr('pm_fast_leaves', 'Fast leaves (opaque)'), check(o.fastLeaves === true, set('fastLeaves')), tr('pm_fast_leaves_tip', 'Tree leaves are drawn solid instead of see-through, like "Fast" graphics in Minecraft.')));
-                body.appendChild(row('🫧 ' + tr('pm_bubbles', 'Bubbles under water'), check(o.bubbles !== false, set('bubbles'))));
-                body.appendChild(row('✨ ' + tr('pm_glint2', 'Enchantment glint (armor and items)'), check(o.glint !== false, set('glint'))));
-                body.appendChild(row('🌲 ' + tr('pm_bgmove', 'Moving background trees'), check(o.bgMove !== false, set('bgMove'))));
-                body.appendChild(row(tr('pm_effects', 'Screen effects (damage flash, lightning)'), check(o.effects !== false, set('effects'))));
-                body.appendChild(row(tr('pm_transitions', 'Menu transitions'), check(o.transitions !== false, set('transitions'))));
+                A(['clock'], tr('pm_fps', 'Frames per second'), select([['25', '25 fps'], ['30', '30 fps'], ['50', '50 fps (' + tr('pm_fps_game', 'like the game') + ')'], ['60', '60 fps']], String(o.fps || 50), set('fps')), tr('pm_fps_tip', 'How many times per second the screen is drawn. The game itself always runs at 50 steps per second: fewer fps = less work for your device.'));
+                A(['paper'], tr('pm_fps_show', 'Show FPS on screen'), check(o.fpsShow === true, set('fpsShow')));
+                A(['compass'], tr('pm_res', 'Screen size (blocks you see)'), select([['default', tr('pm_res_default', 'Game (18 × 14)')], ['4:3', '4:3 (20 × 15)'], ['16:9', '16:9 (27 × 15)']], o.res || 'default', set('res')));
+                A(['ob'], tr('pm_shadows', 'Shadows (underground darkness)'), select([['soft', tr('pm_sh_soft', 'Soft')], ['simple', tr('pm_sh_simple', 'Simple (no light circles)')], ['off', tr('pm_off', 'Off')]], o.shadows || 'soft', set('shadows')), tr('pm_shadows_tip', 'Simple: the darkness stays, but torches do not light circles around them. Off: no darkness underground (night still gets darker).'));
+                A(['light'], tr('pm_lighting', 'Lighting'), select([['smooth', tr('pm_light_smooth', 'Smooth gradients')], ['blocky', tr('pm_light_blocky', 'By whole blocks')]], o.lighting || 'smooth', set('lighting')));
+                A(['glow'], tr('pm_lightq', 'Torch light quality'), select([['high', tr('pm_q_high', 'High')], ['medium', tr('pm_q_medium', 'Medium')], ['low', tr('pm_q_low', 'Low')]], o.lightQ || 'high', set('lightQ')), tr('pm_lightq_tip', 'High: every light. Medium: the 24 closest. Low: the 10 closest and no colored glow (lava, glowstone...).'));
+                A(['dye_white'], tr('pm_particles', 'Particles'), select([['all', tr('pm_all', 'All')], ['some', tr('pm_some', 'Some')], ['none', tr('pm_none', 'None')]], o.particles || 'all', set('particles')));
+                A(['magma'], tr('pm_anims', 'Block animations'), check(o.anims !== false, set('anims')));
+                A(['la'], tr('pm_liq_anim', 'Water and lava animation'), check(o.liqAnim !== false, set('liqAnim')));
+                A(['fire'], tr('pm_fire_anim', 'Fire animation'), check(o.fireAnim !== false, set('fireAnim')));
+                A(['lv'], tr('pm_fast_leaves', 'Fast leaves (opaque)'), check(o.fastLeaves === true, set('fastLeaves')), tr('pm_fast_leaves_tip', 'Tree leaves are drawn solid instead of see-through, like "Fast" graphics in Minecraft.'));
+                A(['web'], tr('pm_clouds', 'Clouds'), select([['fancy', tr('pm_clouds_fancy', 'Fancy (moving)')], ['fast', tr('pm_clouds_fast', 'Fast (still)')], ['off', tr('pm_off', 'Off')]], cl, function (v) { set('clouds')(v === 'fancy' ? true : v === 'off' ? false : 'fast'); }));
+                A(['wr'], tr('pm_rain', 'Rain'), select([['many', tr('pm_rain_many', 'Many drops')], ['few', tr('pm_rain_few', 'Few drops')]], o.rain || 'many', set('rain')));
+                A(['potion', { type: 'water' }], tr('pm_bubbles', 'Bubbles under water'), check(o.bubbles !== false, set('bubbles')));
+                A(['ebook'], tr('pm_glint2', 'Enchantment glint (armor and items)'), check(o.glint !== false, set('glint')));
+                A(['sl'], tr('pm_bgmove', 'Moving background trees'), check(o.bgMove !== false, set('bgMove')));
+                A(['TNT'], tr('pm_effects', 'Screen effects (damage flash, lightning)'), check(o.effects !== false, set('effects')));
+                A(['sign'], tr('pm_transitions', 'Menu transitions'), check(o.transitions !== false, set('transitions')));
             }
         };
         fill();

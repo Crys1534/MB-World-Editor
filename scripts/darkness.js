@@ -36,15 +36,16 @@
 
     // Las luces (radio en cuadros). "dark" = en vez de quitar oscuridad, la pone (odd torch). "color" = brillo de color.
     const LIGHTS = {
-        torch: { r: 6.5 },
-        redstone: { r: 3.5 },
-        lamp: { r: 6.5 },
-        jack: { r: 6.5 },
+        // 🔥 color = un brillo cálido que se SUMA (se ve también sobre el cielo negro de la noche y en el fondo de las cuevas)
+        torch: { r: 6.5, color: [255, 170, 80], glow: 0.32 },
+        redstone: { r: 3.5, color: [255, 60, 40], glow: 0.25 },
+        lamp: { r: 6.5, color: [255, 200, 120], glow: 0.3 },
+        jack: { r: 6.5, color: [255, 170, 70], glow: 0.3 },
         coral: { r: 6, color: [255, 70, 225], glow: 0.6 },
-        glowstone: { r: 6.5 },                 // glowstone, lava y ácido: la misma luz que la antorcha
-        fire: { r: 6.5 },                      // el fuego también: como una antorcha
-        lava: { r: 6.5, group: 3 },            // group: en lagos grandes, una luz por cada cuadro de 3 x 3 (rápido)
-        acid: { r: 6.5, group: 3 },
+        glowstone: { r: 6.5, color: [255, 220, 140], glow: 0.3 },   // glowstone, lava y ácido: la misma luz que la antorcha
+        fire: { r: 6.5, color: [255, 140, 50], glow: 0.35 },        // el fuego también: como una antorcha
+        lava: { r: 6.5, group: 3, color: [255, 110, 30], glow: 0.3 },   // group: en lagos grandes, una luz por cada cuadro de 3 x 3 (rápido)
+        acid: { r: 6.5, group: 3, color: [120, 255, 60], glow: 0.3 },
         odd: { r: 4.5, dark: 0.75 },
         player: { r: 3.5 }
     };
