@@ -473,8 +473,16 @@ function drawBlock(texture, values, targetCtx = ctx) {
 
 // Pinta el color de fondo y el fondo de la dimensión (Overworld / Nether / End) sobre un lienzo de tw x th.
 // (Antes vivía dentro de renderWorldToBuffer; se separó para que el desplazamiento fluido pueda pintarlo aparte.)
+// 🎮 (jugando) opciones de la partida: Pausa > Opciones (scripts/play-mode.js OPTS)
+function mbwPlayOpt(k) { const o = window.mbwPlaying && window.mbwPlayOpts; return o ? o[k] : undefined; }
 function paintWorldBackground(tctx, tw, th) {
-    tctx.fillStyle = "#7385B9"; 
+    // 🌙 jugando, de noche el cielo pasa de celeste a negro (como el juego)
+    let sky = "#7385B9";
+    if (window.mbwPlaying && window.mbwPlay && typeof window.mbwPlay.nightAlpha === 'function') {
+        const k = Math.max(0, Math.min(1, window.mbwPlay.nightAlpha() / .62));
+        if (k > 0) sky = 'rgb(' + Math.round(0x73 * (1 - k)) + ',' + Math.round(0x85 * (1 - k)) + ',' + Math.round(0xB9 * (1 - k)) + ')';
+    }
+    tctx.fillStyle = sky;
     tctx.fillRect(0, 0, tw, th);
 
     let cS = 1;
@@ -504,8 +512,12 @@ function paintWorldBackground(tctx, tw, th) {
             const renderH = Math.ceil(drawHeight) + 0.8;
             
             if (drawWidth > 0) {
+                // 🌲 jugando, los árboles del fondo se mueven al caminar (más despacio que el mundo) y se repiten sin fin hacia
+                //    los lados, como Mine Blocks (GameScreen.updateTrees: una vuelta entera de la imagen cada 50 bloques)
+                let x0 = 0;
+                if (window.mbwPlaying && mbwPlayOpt('bgMove') !== false) x0 = -((((Number(camera.x) || 0) / 50) * drawWidth) % drawWidth + drawWidth) % drawWidth;
                 // Avanzamos matemáticamente con el decimal, pero pintamos redondeando
-                for (let bgX = 0; bgX < tw; bgX += drawWidth) {
+                for (let bgX = x0; bgX < tw; bgX += drawWidth) {
                     tctx.drawImage(bgImg, Math.floor(bgX), Math.floor(bgY), renderW, renderH);
                 }
             }
@@ -815,7 +827,7 @@ function drawWorld() {
     ctx.drawImage(offscreenCanvas, 0, 0);
 }
 // ☁ las nubes van ENTRE el fondo y los bloques (pasan por detrás de los bloques y de los mobs)
-function drawCloudsBehind() { if (window.mbwClouds) { try { window.mbwClouds.draw(ctx); } catch (e) { /* las nubes nunca rompen el dibujo */ } } }
+function drawCloudsBehind() { if (mbwPlayOpt('clouds') === false) return; if (window.mbwClouds) { try { window.mbwClouds.draw(ctx); } catch (e) { /* las nubes nunca rompen el dibujo */ } } }
 
 function getBlockCache(x, y) {
     if (worldCache[x]) return worldCache[x][y];
@@ -1062,7 +1074,7 @@ function drawMobArmorOverlay(c, mob, x, y, w, h, lift) {
         }
         const ly = (lift && /(Cap|Shirt)$/.test(p.id)) ? y - lift * h / f.h : y;   // (🪖 casco y peto un pixel más arriba)
         c.drawImage(src, sx, sy, sw, sh, x, ly, w, h);
-        if (mobArmorIsEnchanted(p.extras)) {
+        if (mobArmorIsEnchanted(p.extras) && mbwPlayOpt('glint') !== false) {   // (✨ se apaga en Pausa > Opciones > Rendimiento)
             const phase = Math.floor(Date.now() / MOB_GLINT_MS) % MOB_GLINT_STEPS;
             c.drawImage(getMobArmorGlint(tag, src, sw, sh, phase), 0, 0, sw, sh, x, ly, w, h);   // (el brillo se recorta con la misma pieza)
         }

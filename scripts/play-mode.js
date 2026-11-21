@@ -650,8 +650,9 @@
     const key2 = (n) => !!S.keys[n];
     // ⚙ Opciones del Modo Jugar (menú de pausa > Options; se recuerdan en este navegador). scripts/play-menu.js las cambia.
     const OPT_KEY = 'mbw_play_opts';
-    const OPT_DEF = { autoJump: true, res: 'default', particles: 'all', anims: true, effects: true, transitions: true, coords: false, loupe: true, oldStyle: false };   // (oldStyle: minar como en el celular, en PC)
+    const OPT_DEF = { autoJump: true, res: 'default', particles: 'all', anims: true, effects: true, transitions: true, coords: false, loupe: true, oldStyle: false, fps: 50, glint: true, clouds: true, bgMove: true };   // (oldStyle: minar como en el celular, en PC · fps: cuántas veces por segundo se dibuja)
     const OPTS = (function () { let o = {}; try { o = JSON.parse(localStorage.getItem(OPT_KEY) || '{}') || {}; } catch (e) { o = {}; } return Object.assign({}, OPT_DEF, o); })();
+    window.mbwPlayOpts = OPTS;                                         // (main.js las lee: nubes, brillo, fondo que se mueve)
     const RES = { default: null, '4:3': { w: 20, h: 15 }, '16:9': { w: 27, h: 15 } };   // cuántos bloques se ven (ancho x alto)
     // ⛏ "Old Style" (PC): el clic izquierdo rompe O construye según el botón ⛏ / 🧱 (o la tecla R), como en el celular
     function oldStyle() { return OPTS.oldStyle === true && !document.body.classList.contains('is-touch'); }
@@ -4748,8 +4749,14 @@
     function frame(ts) {
         if (!S.playing) return;
         S.raf = requestAnimationFrame(frame);
-        const n = runSteps(performance.now(), true);
-        if (!n && !S.forceDraw) return;                               // (sin paso nuevo: no se vuelve a dibujar)
+        const now = performance.now(), n = runSteps(now, true);
+        // 🎞 cuántas veces por segundo se DIBUJA (Pausa > Opciones > Rendimiento). El juego siempre corre a 50 pasos por segundo;
+        //    a 25 / 30 se dibuja menos (menos trabajo), a 60 se dibuja en cada cuadro de la pantalla (lo que se anima solo va más suave).
+        const fps = Number(OPTS.fps) || 50;
+        if (fps < 60 && !n && !S.forceDraw) return;                   // (sin paso nuevo: no se vuelve a dibujar)
+        const iv = 1000 / fps;
+        if (fps < 50 && !S.forceDraw && now - (S.lastDraw || 0) < iv - 4) return;
+        S.lastDraw = fps < 50 ? Math.max((S.lastDraw || 0) + iv, now - iv) : now;   // (en promedio, justo los fps elegidos)
         S.forceDraw = false;
         camFollow(1);
         if (typeof worldDirty !== 'undefined') worldDirty = true;
@@ -5163,7 +5170,12 @@
                 '<button type="button" class="ph-mode-pc ph-side">⛏</button>' +
                 '<div class="ph-open" style="display:none"></div>' +
                 '<div class="ph-joy"><div class="ph-knob"></div></div>' +
-                '<div class="ph-pad2"><button type="button" data-k="down" class="ph-sneak">⇩</button><button type="button" data-k="up" class="ph-jump">⇧</button><button type="button" class="ph-mode">⛏</button></div>';
+                '<div class="ph-pad2">' +
+                    // 🎮 botones táctiles: íconos dibujados (SVG) y centrados; el de minar / construir usa los dibujos del juego
+                    '<button type="button" data-k="down" class="ph-sneak ph-tb"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.6 8.6 12 15l6.4-6.4" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 19.5h12" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></button>' +
+                    '<button type="button" data-k="up" class="ph-jump ph-tb"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.6 15.4 12 9l6.4 6.4" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 4.5h12" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></button>' +
+                    '<button type="button" class="ph-mode ph-tb"><canvas class="ph-ic ph-ic-mine" width="16" height="16"></canvas><canvas class="ph-ic ph-ic-place" width="16" height="16"></canvas><span class="ph-mode-sw"></span></button>' +
+                '</div>';
             document.body.appendChild(el);
             el.querySelector('.ph-gear').addEventListener('click', function (e) { e.stopPropagation(); openPause(); });
             el.querySelector('.ph-marks-btn').addEventListener('click', function (e) { e.stopPropagation(); marks.toggle(); });
@@ -5321,12 +5333,18 @@
             if (S.box) ob.textContent = boxLabel(S.box.t);
             this.el.querySelector('.ph-inv').title = tr('play_inv', 'Inventory (E)');
             this.el.querySelector('.ph-cmds').title = tr('play_chat_tip', 'Chat / commands (T)');
-            this.el.querySelector('.ph-mode').textContent = S.touchMode === 'mine' ? '⛏' : '🧱';
+            const mbt = this.el.querySelector('.ph-mode');
+            mbt.classList.toggle('is-place', S.touchMode !== 'mine');
+            if (!this.modeIc) {                                          // (⛏ / 🧱 con los dibujos del juego: pico de hierro y tierra)
+                let ok = 0;
+                [['.ph-ic-mine', 'IronPickaxe'], ['.ph-ic-place', 'dt']].forEach(function (q) { try { const cv = mbt.querySelector(q[0]), ic = iconFor(q[1], {}); if (cv && ic && (ic.width || ic.naturalWidth)) { const x = cv.getContext('2d'); x.imageSmoothingEnabled = false; x.clearRect(0, 0, 16, 16); x.drawImage(ic, 0, 0, 16, 16); ok++; } } catch (er) { /* nada */ } });
+                this.modeIc = ok === 2;
+            }
             this.el.querySelector('.ph-mode').title = S.touchMode === 'mine' ? tr('play_mode_mine', 'Tap = break / hit') : tr('play_mode_place', 'Tap = place / use');
             const mpc = this.el.querySelector('.ph-mode-pc');
             if (mpc) { mpc.textContent = S.touchMode === 'mine' ? '⛏' : '🧱'; mpc.title = (S.touchMode === 'mine' ? tr('play_mode_mine_pc', 'Click = break / hit') : tr('play_mode_place_pc', 'Click = place / use')) + ' (R)'; }
         },
-        destroy: function () { if (chat.open) chat.close(); chat.el = null; chat.input = null; chat.qc = null; emo.el = null; emo.picking = false; if (this.el) this.el.remove(); this.el = null; }
+        destroy: function () { this.modeIc = false; if (chat.open) chat.close(); chat.el = null; chat.input = null; chat.qc = null; emo.el = null; emo.picking = false; if (this.el) this.el.remove(); this.el = null; }
     };
     function flashMsg(t) { S.msg = t; S.msgT = 2 * FPS; }
     // 💬 Chat / consola de comandos del mundo (T, Enter o / para abrirlo; en el celular, el botón 💬).

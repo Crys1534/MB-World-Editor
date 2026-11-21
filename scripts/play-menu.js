@@ -208,22 +208,45 @@
         r.addEventListener('input', function () { if (typeof window.updateAudioChannel === 'function') window.updateAudioChannel(ch, r.value); });
         return r;
     }
+    // ⚙ Opciones en PESTAÑAS: General (cómo se juega, sonido) y Rendimiento (todo lo que hace que vaya más rápido)
+    let optTab = 'general';
     function optionsForm() {
-        const f = el('div', 'pm-form');
-        const o = (P() && P().opts) ? P().opts() : {};
-        const set = function (k) { return function (v) { if (P() && P().setOpt) P().setOpt(k, v); }; };
-        f.appendChild(row(tr('pm_autojump', 'Auto-jump (1 block)'), check(o.autoJump, set('autoJump')), tr('pm_autojump_tip', 'Walking into a 1-block step jumps by itself, like in Minecraft')));
-        f.appendChild(row(tr('pm_coords', 'Show coordinates'), check(o.coords, set('coords'))));
-        if (!document.body.classList.contains('is-touch')) f.appendChild(row('⛏ ' + tr('pm_oldstyle', 'Old Style mining'), check(o.oldStyle === true, set('oldStyle')), tr('pm_oldstyle_tip', 'Like on phones: left click breaks OR builds, you choose with the ⛏ / 🧱 button next to the hotbar (or the R key). Right click still places / uses.')));
-        if (document.body.classList.contains('is-touch')) f.appendChild(row('🔍 ' + tr('pm_loupe', 'Magnifier when you touch the map'), check(o.loupe !== false, set('loupe')), tr('pm_loupe_tip', 'Shows in big what is under your finger, so you can see which block you mine, place or hit')));
-        f.appendChild(row(tr('pm_res', 'Screen size (blocks you see)'), select([['default', tr('pm_res_default', 'Game (18 × 14)')], ['4:3', '4:3 (20 × 15)'], ['16:9', '16:9 (27 × 15)']], o.res || 'default', set('res'))));
-        f.appendChild(row(tr('pm_particles', 'Particles'), select([['all', tr('pm_all', 'All')], ['some', tr('pm_some', 'Some')], ['none', tr('pm_none', 'None')]], o.particles || 'all', set('particles'))));
-        f.appendChild(row(tr('pm_anims', 'Block animations'), check(o.anims !== false, set('anims'))));
-        f.appendChild(row(tr('pm_effects', 'Screen effects (damage flash, lightning)'), check(o.effects !== false, set('effects'))));
-        f.appendChild(row(tr('pm_transitions', 'Menu transitions'), check(o.transitions !== false, set('transitions'))));
-        f.appendChild(row(tr('config_vol_weather', 'Rain and storm'), range('weather')));
-        f.appendChild(row(tr('config_vol_music', 'Music'), range('music')));
-        return f;
+        const wrap = el('div', 'pm-opt');
+        const tabs = el('div', 'pm-opt-tabs');
+        const body = el('div', 'pm-form');
+        [['general', '⚙ ' + tr('pm_tab_general', 'General')], ['perf', '⚡ ' + tr('pm_tab_perf', 'Performance')]].forEach(function (t) {
+            const b = btn(t[1], 'pm-opt-tab' + (optTab === t[0] ? ' on' : ''), function () { optTab = t[0]; tabs.querySelectorAll('.pm-opt-tab').forEach(function (x) { x.classList.toggle('on', x === b); }); fill(); });
+            b.dataset.tab = t[0];
+            tabs.appendChild(b);
+        });
+        const fill = function () {
+            body.textContent = '';
+            const o = (P() && P().opts) ? P().opts() : {};
+            const set = function (k) { return function (v) { if (P() && P().setOpt) P().setOpt(k, v); }; };
+            const touch = document.body.classList.contains('is-touch');
+            if (optTab === 'general') {
+                body.appendChild(row(tr('pm_autojump', 'Auto-jump (1 block)'), check(o.autoJump, set('autoJump')), tr('pm_autojump_tip', 'Walking into a 1-block step jumps by itself, like in Minecraft')));
+                body.appendChild(row(tr('pm_coords', 'Show coordinates'), check(o.coords, set('coords'))));
+                if (!touch) body.appendChild(row('⛏ ' + tr('pm_oldstyle', 'Old Style mining'), check(o.oldStyle === true, set('oldStyle')), tr('pm_oldstyle_tip', 'Like on phones: left click breaks OR builds, you choose with the ⛏ / 🧱 button next to the hotbar (or the R key). Right click still places / uses.')));
+                if (touch) body.appendChild(row('🔍 ' + tr('pm_loupe', 'Magnifier when you touch the map'), check(o.loupe !== false, set('loupe')), tr('pm_loupe_tip', 'Shows in big what is under your finger, so you can see which block you touch')));
+                body.appendChild(row(tr('config_vol_weather', 'Rain and storm'), range('weather')));
+                body.appendChild(row(tr('config_vol_music', 'Music'), range('music')));
+            } else {
+                body.appendChild(row('🎞 ' + tr('pm_fps', 'Frames per second'), select([['25', '25 fps'], ['30', '30 fps'], ['50', '50 fps (' + tr('pm_fps_game', 'like the game') + ')'], ['60', '60 fps']], String(o.fps || 50), set('fps')), tr('pm_fps_tip', 'How many times per second the screen is drawn. The game itself always runs at 50 steps per second: fewer fps = less work for your device.')));
+                body.appendChild(row(tr('pm_res', 'Screen size (blocks you see)'), select([['default', tr('pm_res_default', 'Game (18 × 14)')], ['4:3', '4:3 (20 × 15)'], ['16:9', '16:9 (27 × 15)']], o.res || 'default', set('res'))));
+                body.appendChild(row(tr('pm_particles', 'Particles'), select([['all', tr('pm_all', 'All')], ['some', tr('pm_some', 'Some')], ['none', tr('pm_none', 'None')]], o.particles || 'all', set('particles'))));
+                body.appendChild(row(tr('pm_anims', 'Block animations'), check(o.anims !== false, set('anims'))));
+                body.appendChild(row('✨ ' + tr('pm_glint', 'Enchantment glint on armor'), check(o.glint !== false, set('glint'))));
+                body.appendChild(row('☁ ' + tr('pm_clouds', 'Clouds'), check(o.clouds !== false, set('clouds'))));
+                body.appendChild(row('🌲 ' + tr('pm_bgmove', 'Moving background trees'), check(o.bgMove !== false, set('bgMove'))));
+                body.appendChild(row(tr('pm_effects', 'Screen effects (damage flash, lightning)'), check(o.effects !== false, set('effects'))));
+                body.appendChild(row(tr('pm_transitions', 'Menu transitions'), check(o.transitions !== false, set('transitions'))));
+            }
+        };
+        fill();
+        wrap.appendChild(tabs);
+        wrap.appendChild(body);
+        return wrap;
     }
     function serverForm() {
         const f = el('div', 'pm-form');
