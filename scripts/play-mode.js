@@ -5282,7 +5282,7 @@
                 sp.appendChild(document.createTextNode(q.slice(q.indexOf('~') + 1))); ef.appendChild(sp);
             }); }
             // arriba a la izquierda, uno debajo del otro: coordenadas (más grandes) → FPS → efectos
-            const fpsOn = OPTS.fpsShow === true, topC = 10, hC = 34, hF = 30;
+            const co0 = ar.querySelector('.ph-coords'), fpsOn = OPTS.fpsShow === true, topC = 10, hC = (co0 && co0.offsetHeight) ? co0.offsetHeight + 2 : 34, hF = 30;   // (lo alto de las coordenadas: cambia con la pantalla)
             const fe = this.el.querySelector('.ph-fps');
             if (fe) fe.style.top = (topC + (OPTS.coords ? hC : 0)) + 'px';
             ef.style.top = (topC + (OPTS.coords ? hC : 0) + (fpsOn ? hF : 0) + 2) + 'px';
