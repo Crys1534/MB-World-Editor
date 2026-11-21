@@ -440,6 +440,7 @@
         if (t === 'juego_logros') { if (window.mbwAch) window.mbwAch.merge(d.t); return; }                                        // 🏆 la tabla entera (al entrar)
         if (t === 'juego_domar') { if (iMove(d) && mbwom.mobs && mbwom.mobs[d.id]) { mbwom.mobs[d.id].tamed = true; mbwom.mobs[d.id].tamedBy = 'player'; mbwom.mobs[d.id].target = null; } return; }
         if (t === 'juego_tiempo') { try { if (d.tim != null) mbwom.world.tim = Number(d.tim) || 0; } catch (e) { /* nada */ } return; }   // 🛏 alguien durmió: ya es de día
+        if (t === 'juego_vill') { if (sceneOk(d) && d.peerId !== myPeer() && window.mbwPlay && window.mbwPlay.villNet) window.mbwPlay.villNet(d); return; }   // 🧑‍🌾 (mod Villagers) tradeos y curas
         if (t === 'juego_cria') { if (iMove(d) && window.mbwPlay && window.mbwPlay.feedMob) window.mbwPlay.feedMob(String(d.id), String(d.it)); return; }   // 🐄 un invitado le dio de comer a un mob
         if (t === 'juego_ping') { if (M.role === 'host') sendTo(d.peerId, { tipo: 'juego_pong', t: d.t }); return; }
         if (t === 'juego_pong') { if (M.role === 'guest' && d.t) M.ping = Math.max(0, Date.now() - Number(d.t)); return; }

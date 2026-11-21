@@ -941,6 +941,7 @@
                     const per = (e[0] === 'instanthealth' ? 2 : -3) * (und ? -1 : 1), amt = per * 2 * Math.pow(2, Math.max(0, e[2] - 1));
                     if (amt < 0) hurtMob(who, -amt, 'potion', PLAYER_ID); else m.health = Math.min(maxHealth(m), (Number(m.health) || 0) + amt);
                 } else if (e[0] === 'poison' && !und) hurtMob(who, Math.min(Math.max(0, (Number(m.health) || 0) - 1), 2 * e[2]), 'potion', PLAYER_ID);
+                else if (e[0] === 'weakness' && isZVill(m) && villOn()) { if (mpFollow()) mpSend({ tipo: 'juego_vill', op: 'weak', id: who, s: mbwom.currentScene || 1 }); else m.mbweZV.wk = Date.now() + VWEAK_MS; }   // 🧟‍♂️ (para curarlo)
             }
         });
     }
@@ -1295,6 +1296,7 @@
     const KILL_ACH = { pig: 12, cow: 13, sheep: 14, zombie: 15, skeleton: 16, spider: 17, nethereye: 18, blaze: 19, enderman: 20, creeper: 21, enderdragon: 36, slime: 37, magmacube: 38, zombiepigman: 41 };
     function killMob(id, m) {
         const a = D.mobs[m.type] || {};
+        if (isVill(m) && villOn() && m.lastDamageID && mbwom.mobs[m.lastDamageID] && mbwom.mobs[m.lastDamageID].type === 'zombie') zvMake(m);   // 🧟‍♂️ (mod Villagers)
         const d = tmpOf(id);
         m.dead = 1;
         // 🏆 logro de matar (al que lo mató; si fue otro jugador, se le manda a él)
@@ -1792,6 +1794,7 @@
             else if (!(c.type === 'wolf' && c.tamed) && !(c.type === 'cow' && c.variant === 'cowctus') && a.cactusDamage !== false && a.cactusDamage !== 0 && (fg(f, g) === 'ct' || fg(f, g + 1) === 'ct')) hurtMob(id, 1, 'cactus');
         } else c.hitCooldown--;
         if (!d.far || (S.tick + (d.salt || (d.salt = 1 + (Math.random() * 3 | 0)))) % 4 === 0) calcTarget(id, c, a, d);   // ⚡ lejos (más de 24 bloques): piensa 1 de cada 4 pasos
+        if ((c.type === 'spawnskin' || c.type === 'zombie') && villOn()) villMobHook(id, c, d);   // 🧑‍🌾 (mod Villagers) a dónde va el aldeano / tras quién va el zombie
         if (a.teleports && Math.random() < (a.teleportRandomChance || 0)) teleportMob(c);
         const K = d.keys, fr = d.isFrightened, hops = a.hops == 1;
         const flying = a.special && a.special.indexOf('specialGravityFunction') >= 0;
@@ -2182,7 +2185,7 @@
         if (here === 'TNT' && id === 'fas') { igniteTNT(bx, by); damageTool(); return true; }
         if (id === 'mbk') { if (S.useTimer < 0) S.useTimer = ((bd(id, 'timerToUse') || 50) / 25 * FPS) | 0; return false; }   // 🥛 leche
         if (id === 'potion' && drinkable(it)) {                        // 🧪 pociones: arrojadiza = se lanza; normal = se toma (como comer)
-            if (potionOf(it).splash) { splashPotion(it); return true; }
+            if (potionOf(it).splash) { splashPotion(it); S.zoneAt = S.tick; return true; }   // (tirar una poción no es "poner un bloque")
             if (S.useTimer < 0) S.useTimer = ((bd(id, 'timerToUse') || 50) / 25 * FPS) | 0;
             return false;
         }
@@ -2921,6 +2924,13 @@
                 info(copy.length + ' block' + (copy.length === 1 ? '' : 's') + ' cloned'); return;
             }
             case 'summon': {
+                if ((d[1] === 'villager' || d[1] === 'zombie_villager') && villOn()) {   // 🧑‍🌾 (mod Villagers)
+                    let q = 1; if (d[2] != null) { q = parseInt(d[2], 10); if (!(q >= 1 && q <= 20)) { say('[INFO] Quantity must a number from 1-20.'); return; } }
+                    let x = w.worldX, y = w.worldY;
+                    if (d.length >= 5) { const a = coord(d[3], 'x'), b = coord(d[4], 'y'); if (isNaN(a) || isNaN(b)) { say('[INFO] Invalid location.'); return; } x = a; y = -b; }
+                    for (let i = 0; i < q; i++) { if (d[1] === 'villager') spawnMob('spawnskin', x, y, { skin: VSKIN.none, aggro: 'passive', mbweVillager: vNew('none') }); else spawnMob('zombie', x, y, { mbweZV: { v: vNew('none'), skin: VSKIN.none } }); }
+                    info('Summoned ' + q + ' ' + d[1] + (q === 1 ? '' : 's') + '.'); return;
+                }
                 const t0 = d[1] || ''; const t = MOB_ALIAS[t0] || t0;
                 if (!D.mobs[t] || t === 'player') { say('[INFO] "' + t0 + '" is not a mob.'); return; }
                 let q = 1; if (d[2] != null) { q = parseInt(d[2], 10); if (!(q >= 1 && q <= 20)) { say('[INFO] Quantity must a number from 1-20.'); return; } }
@@ -3213,7 +3223,7 @@
         const m = document.getElementById('inventory-modal');
         if (m && m.style.display === 'block' && shown(m)) return true;
         if (S.ench) return true;
-        if (S.zshop || S.scanPick) return true;
+        if (S.zshop || S.scanPick || S.vWin) return true;
         const cb = document.getElementById('command-book-modal');
         return !!(cb && cb.style.display && cb.style.display !== 'none' && shown(cb));
     }
@@ -3795,6 +3805,7 @@
     function useOnMob(mw) {
         const mid = mobUnderMouse(mw); if (!mid) return false;
         const m = mbwom.mobs[mid], id = selType(), w = W();
+        if (villOn() && villUse(mid, m, id)) return true;              // 🧑‍🌾 (mod Villagers) tradear / curar al aldeano zombie
         if (id === 'bk' && m.type === 'cow' && !(Number(m.babyTimer) > 0)) {          // 🥛 ordeñar
             if (w.gamemode != 1) { const it = selItem(); if (it[1] > 1) { it[1]--; const left = addToInventory('mbk', 1, 0, {}); if (left > 0) addDrop('mbk', w.worldX, w.worldY - 1, 1); } else inv()[selIndex()] = ['mbk', 1, 0, {}]; }
             sndAt('cow' + ((Math.random() * 4 | 0) + 1), m.x, m.y - 1);
@@ -4189,7 +4200,8 @@
         { id: 'dblchest', icon: ['chest'], name: ['mod_dblchest', 'Double Chests'], desc: ['mod_dblchest_d', 'Two chests side by side become one large chest with 54 slots.'] },
         { id: 'thirst', icon: ['potion', { type: 'water' }], name: ['mod_thirst', 'Thirst'], desc: ['mod_thirst_d', 'A thirst bar: drink water bottles, juices, milk or soup, or click water with an empty hand. If it runs out you get hurt.'] },
         { id: 'replant', icon: ['seed'], name: ['mod_replant', 'Replant'], desc: ['mod_replant_d', 'When you harvest a ripe crop, a second later one of the seeds it dropped plants itself again.'] },
-        { id: 'orescan', icon: ['compass'], name: ['mod_orescan', 'Ore Scanner'], desc: ['mod_orescan_d', 'Choose the ore you are looking for and the ones near you glow, even through walls and in the dark.'] }
+        { id: 'orescan', icon: ['compass'], name: ['mod_orescan', 'Ore Scanner'], desc: ['mod_orescan_d', 'Choose the ore you are looking for and the ones near you glow, even through walls and in the dark.'] },
+        { id: 'villagers', icon: ['topaz'], name: ['mod_villagers', 'Villagers'], desc: ['mod_villagers_d', 'Villagers that get a job from a nearby job block and trade with you for topaz. They level up, have babies if there are beds, and zombies can infect them.'] }
     ];
     const MOD_IDS = {}; MODS.forEach(function (m) { MOD_IDS[m.id] = 1; });
     function cleanMods(m) { const o = {}; if (m && typeof m === 'object') Object.keys(m).forEach(function (k) { if (MOD_IDS[k] && m[k]) o[k] = true; }); return o; }
@@ -4211,6 +4223,7 @@
         if (!modOn('swim')) S.swimming = false;
         if (!modOn('orescan')) { S.scan = null; S.scanHits = null; scanPickClose(); }
         if (!modOn('replant')) S.replant = null;
+        if (!modOn('villagers')) vWinClose();
         if (typeof worldDirty !== 'undefined') worldDirty = true;
     }
     function setMod(id, on) {
@@ -4682,14 +4695,432 @@
         try { drawDmgNums(c2); } catch (e) { /* nada */ }
     };
 
+    // ------------------------------------------------------------------ 🧑‍🌾 Villagers (aldeanos)
+    //  Son spawnskins (así el mundo sigue abriendo en Mine Blocks) con sus datos en mbweVillager:
+    //    { p: profesión, lv: nivel 1-5, xp, t: [tradeos], job: [x, y] su bloque de trabajo, tr: ya tradeó (profesión fija),
+    //      rsAt: cuándo se reabasteció, bt: cuándo puede volver a tener un bebé, bb: hasta cuándo es bebé, cured: { uid: 1 } }
+    //  • El aldeano sin trabajo (skin 75842) toma un bloque de trabajo libre que tenga cerca y cambia de profesión (y de skin).
+    //  • Tradeos con TOPAZ (en vez de esmeraldas), 5 niveles; cada nivel desbloquea 2 tradeos. Se agotan y se reabastecen
+    //    trabajando en su bloque (de día, cada ~6 minutos como mucho). Si algo se agota mucho, sube de precio.
+    //  • El tonto (68202) nunca trabaja. Con más camas que aldeanos cerca, de vez en cuando tienen un bebé.
+    //  • Los zombies los persiguen; si un zombie mata a uno puede volverlo aldeano zombie. Se cura con una poción arrojadiza de
+    //    debilidad + una manzana dorada: el que lo curó tiene descuento para siempre con ese aldeano.
+    const VSKIN = { none: '75842', nitwit: '68202', fisher: '71366', fletcher: '71368' };
+    const VPROF = {
+        fisher: { job: 'cauldron', name: ['vill_fisher', 'Fisherman'] },
+        fletcher: { job: 'craft', name: ['vill_fletcher', 'Fletcher'] },
+        farmer: { job: 'cmp', name: ['vill_farmer', 'Farmer'] },
+        cleric: { job: 'brew', name: ['vill_cleric', 'Cleric'] },
+        librarian: { job: 'enchant', name: ['vill_librarian', 'Librarian'] },
+        smith: { job: 'anvil', name: ['vill_smith', 'Blacksmith'] }
+    };
+    const VJOB = {}; Object.keys(VPROF).forEach(function (p) { VJOB[VPROF[p].job] = p; });
+    const VLV_XP = [0, 10, 70, 150, 250];
+    const VLV_NAME = [['vill_lv1', 'Novice'], ['vill_lv2', 'Apprentice'], ['vill_lv3', 'Journeyman'], ['vill_lv4', 'Expert'], ['vill_lv5', 'Master']];
+    // "lo que pide[,lo que pide 2]>lo que da|usos|experiencia del aldeano|multiplicador de precio"  (un * = encantado al azar)
+    const VTRADES = {
+        fisher: [['fiber:20>topaz:1|16|2', 'cl:10>topaz:1|16|2', 'fi:6,topaz:1>cfi:6|16|1'], ['fi:15>topaz:1|16|10', 'topaz:3>fr:1|12|5'],
+            ['salmon:13>topaz:1|16|20', 'salmon:6,topaz:1>csalmon:6|16|5'], ['clown:6>topaz:1|12|30', 'topaz:6>fr*:1|3|15|.2'], ['puff:4>topaz:1|12|30', 'topaz:1>raft:1|12|30']],
+        fletcher: [['st:32>topaz:1|16|2', 'topaz:1>arrow:16|12|1', 'gv:10,topaz:1>flint:10|12|1'], ['flint:26>topaz:1|12|10', 'topaz:2>bow:1|12|5'],
+            ['fiber:14>topaz:1|16|20', 'topaz:3>arrow:32|12|10'], ['feather:24>topaz:1|16|30', 'topaz:7>bow*:1|3|15|.2'], ['topaz:3>spear:1|12|30', 'topaz:2>bshur:8|12|30']],
+        farmer: [['wheat:20>topaz:1|16|2', 'potato:26>topaz:1|16|2', 'carrot:22>topaz:1|16|2', 'beet:15>topaz:1|16|2'], ['topaz:1>bread:6|16|5', 'pk:6>topaz:1|12|10', 'topaz:1>pkp:4|12|5'],
+            ['mel:4>topaz:1|12|20', 'topaz:1>ap:4|16|5', 'topaz:3>cookie:18|12|10'], ['topaz:1>cake:1|12|15', 'topaz:1>sugar:8|12|15'], ['topaz:3>gcarrot:3|12|30', 'topaz:4>gmels:3|12|30']],
+        cleric: [['rf:32>topaz:1|16|2', 'topaz:1>rsd:2|12|1'], ['gi:3>topaz:1|12|10', 'topaz:1>ll:1|12|5'],
+            ['rfoot:2>topaz:1|12|20', 'topaz:4>glow:1|12|10'], ['se:6>topaz:1|12|30', 'topaz:5>ep:1|12|15'], ['nw:22>topaz:1|12|30', 'topaz:3>boe:1|12|30']],
+        librarian: [['paper:24>topaz:1|16|2', 'topaz:9,book:1>ebook*:1|12|1|.2', 'topaz:9>books:1|12|1'], ['book:4>topaz:1|12|10', 'topaz:1>lant:1|12|5', 'topaz:9,book:1>ebook*:1|12|5|.2'],
+            ['ink:5>topaz:1|12|20', 'topaz:1>gs:4|12|10', 'topaz:9,book:1>ebook*:1|12|10|.2'], ['topaz:5>compass:1|12|15', 'topaz:4>clock:1|12|15', 'topaz:9,book:1>ebook*:1|12|15|.2'], ['topaz:20>tag:1|12|30']],
+        smith: [['cl:15>topaz:1|16|2', 'topaz:3>IronAxe:1|12|1|.2', 'topaz:7>IronCap:1|12|1|.2', 'topaz:1>StonePickaxe:1|12|1|.2'], ['ii:4>topaz:1|12|10', 'topaz:4>IronShoes:1|12|5|.2', 'topaz:9>IronShirt:1|12|5|.2'],
+            ['flint:24>topaz:1|12|20', 'dm:1>topaz:1|12|20', 'topaz:13>IronSword*:1|3|10|.2'], ['topaz:17>DiamondPickaxe*:1|3|15|.2', 'topaz:14>DiamondCap:1|3|15|.2'], ['topaz:13>DiamondSword*:1|3|30|.2', 'topaz:16>DiamondShirt*:1|3|30|.2']]
+    };
+    const VRESTOCK_MS = 6 * 60 * 1000, VBABY_MS = 10 * 60 * 1000, VBREED_MS = 5 * 60 * 1000, VCURE_MS = 30 * 1000, VWEAK_MS = 90 * 1000;
+    const villOn = () => modOn('villagers');
+    const isVill = (m) => !!(m && m.type === 'spawnskin' && m.mbweVillager && typeof m.mbweVillager === 'object');
+    const isZVill = (m) => !!(m && m.type === 'zombie' && m.mbweZV && typeof m.mbweZV === 'object');
+    function vSkinOf(p) { return VSKIN[p] || VSKIN.none; }
+    function randEnch(id) {                                             // ✨ un encantamiento al azar que le quede a ese objeto
+        try {
+            const fams = (typeof window.mbwEnchFamiliesFor === 'function' ? window.mbwEnchFamiliesFor(id) : []) || [];
+            if (!fams.length) return {};
+            const f = fams[Math.random() * fams.length | 0], lv = 1 + (Math.random() * (f.max || 1) | 0), o = {};
+            o[typeof window.mbwEnchKey === 'function' ? window.mbwEnchKey(f.id, lv) : f.id + lv] = 'enchant';
+            return o;
+        } catch (e) { return {}; }
+    }
+    function vParse(s) {
+        const q = s.split('|'), io = q[0].split('>'), ins = io[0].split(','), out = io[1].split(':');
+        const it = (x) => { const p = x.split(':'); return [p[0], Number(p[1]) || 1]; };
+        const ench = out[0].slice(-1) === '*', oid = ench ? out[0].slice(0, -1) : out[0];
+        return { a: it(ins[0]), b: ins[1] ? it(ins[1]) : null, o: [oid, Number(out[1]) || 1, 0, ench ? randEnch(oid === 'ebook' ? 'ebook' : oid) : {}], max: Number(q[1]) || 12, u: 0, x: Number(q[2]) || 1, pm: Number(q[3]) || .05, d: 0 };
+    }
+    function vAddLevel(V) {                                             // 2 tradeos nuevos del nivel (al azar si hay más)
+        const L = (VTRADES[V.p] || [])[V.lv - 1]; if (!L) return;
+        const pool = L.slice(); const pick = [];
+        while (pool.length && pick.length < 2) pick.push(pool.splice(Math.random() * pool.length | 0, 1)[0]);
+        pick.forEach(function (s) { V.t.push(vParse(s)); });
+    }
+    function vSetProf(m, p, job) {
+        const V = m.mbweVillager;
+        V.p = p; V.lv = 1; V.xp = 0; V.t = []; V.tr = 0; V.job = job || null; V.rsAt = Date.now();
+        if (VPROF[p]) vAddLevel(V);
+        m.skin = vSkinOf(p);
+        if (typeof worldDirty !== 'undefined') worldDirty = true;
+    }
+    function vNew(p) { return { p: p || 'none', lv: 1, xp: 0, t: [], tr: 0, job: null }; }
+    function vAdopt(m) {                                                // (una spawnskin con la skin de aldeano: se vuelve aldeano)
+        let p = null; for (const k in VSKIN) if (String(m.skin) === VSKIN[k]) p = k;
+        if (!p) return false;
+        m.mbweVillager = vNew('none');
+        if (p !== 'none') vSetProf(m, p, null);
+        m.aggro = 'passive';
+        return true;
+    }
+    function vName(m) {
+        const V = m.mbweVillager || {};
+        if (V.p === 'nitwit') return tr('vill_nitwit', 'Nitwit');
+        if (VPROF[V.p]) return tr(VPROF[V.p].name[0], VPROF[V.p].name[1]);
+        return tr('vill_villager', 'Villager');
+    }
+    function vPrice(V, t, uid) {                                        // (sube con la demanda; el que lo curó paga la mitad)
+        let n = t.a[1] + Math.floor(t.a[1] * (t.pm || .05) * (t.d || 0));
+        if (V.cured && V.cured[uid]) n -= Math.max(1, Math.floor(n / 2));
+        return Math.max(1, Math.min(64, n));
+    }
+    function invCount(id) { let n = 0; inv().forEach(function (it) { if (!isEmpty(it) && it[0] === id) n += it[1] | 0; }); return n; }
+    function invTake(id, n) {
+        const L = inv();
+        for (let i = 0; i < 45 && n > 0; i++) { const it = L[i]; if (isEmpty(it) || it[0] !== id) continue; const k = Math.min(n, it[1] | 0); it[1] -= k; n -= k; if (it[1] <= 0) L[i] = empty(); }
+        hud.dirty = true;
+    }
+    // ¿qué falta para hacer este tradeo? (null = se puede)
+    function vNeed(V, t, uid) {
+        if ((t.u | 0) >= (t.max | 0)) return 'out';
+        if (invCount(t.a[0]) < vPrice(V, t, uid)) return 'items';
+        if (t.b && invCount(t.b[0]) < t.b[1]) return 'items';
+        return null;
+    }
+    // (el que manda en los mobs) el tradeo se hace: se gasta un uso, el aldeano gana experiencia y quizás sube de nivel
+    function vTradeOn(id, k) {
+        const m = mbwom.mobs[id]; if (!isVill(m) || m.dead > 0) return null;
+        const V = m.mbweVillager, t = V.t && V.t[k]; if (!t || (t.u | 0) >= (t.max | 0)) return null;
+        t.u = (t.u | 0) + 1; V.xp = (V.xp | 0) + (t.x | 0); V.tr = 1;
+        let up = false;
+        while (V.lv < 5 && V.xp >= VLV_XP[V.lv]) { V.lv++; vAddLevel(V); up = true; }
+        if (up) { for (let i = 0; i < 10; i++) addPart({ x: m.x + (Math.random() - .5), y: -m.y + Math.random() * 2, vy: .02, life: 30, size: .12, col: '#c86bff', glow: true }); m.health = maxHealth(m); }
+        for (let i = 0; i < 5; i++) addPart({ x: m.x + (Math.random() - .5) * .8, y: -m.y + 1.6 + Math.random() * .4, vy: .02, life: 25, size: .12, col: '#59ff7a', glow: true });
+        if (typeof worldDirty !== 'undefined') worldDirty = true;
+        return { up: up };
+    }
+    // (yo) mis cosas: quitar lo que pidió y darme lo que da (más experiencia)
+    function vPay(V, t, up) {
+        const w = W(), uid = lockMeUid();
+        invTake(t.a[0], vPrice(V, t, uid)); if (t.b) invTake(t.b[0], t.b[1]);
+        const left = addToInventory(t.o[0], t.o[1], t.o[2] || 0, t.o[3] || {}); if (left > 0) addDrop(t.o[0], w.worldX, w.worldY, left, t.o[2] || 0, t.o[3] || {});
+        w.experience = (Number(w.experience) || 0) + 6 + (Math.random() * 7 | 0) + (up ? 10 : 0);
+        snd('orb1'); hud.dirty = true; invRedraw();
+    }
+    function vTrade(id, k) {
+        const m = mbwom.mobs[id]; if (!isVill(m)) return false;
+        const V = m.mbweVillager, t = V.t[k]; if (!t || vNeed(V, t, lockMeUid())) return false;
+        if (mpFollow()) {                                               // 🎮 invitado: se lo pido a quien lleva los mobs
+            if (S.vPend) return false;
+            S.vPend = { id: id, k: k, at: Date.now() };
+            mpSend({ tipo: 'juego_vill', op: 'trade', id: id, k: k, uid: lockMeUid(), s: mbwom.currentScene || 1 });
+            setTimeout(function () { if (S.vPend && Date.now() - S.vPend.at >= 4000) { S.vPend = null; vWinDraw(); } }, 4100);
+            vWinDraw();
+            return true;
+        }
+        const r = vTradeOn(id, k); if (!r) return false;
+        vPay(V, t, r.up);
+        vWinDraw();
+        return true;
+    }
+    // 🎮 los mensajes de los aldeanos entre jugadores
+    function vNet(d) {
+        if (!S.playing || !d) return;
+        const me = window.mbwMpPlay && window.mbwMpPlay.myId ? window.mbwMpPlay.myId() : null;
+        if (d.op === 'trade') {                                         // (yo llevo los mobs) un invitado quiere tradear
+            if (mpFollow()) return;
+            const m = mbwom.mobs[d.id], V = isVill(m) ? m.mbweVillager : null, t = V && V.t[d.k];
+            const snap = t ? JSON.parse(JSON.stringify(t)) : null, price = V && t ? vPrice(V, t, String(d.uid || '')) : 0;
+            const r = vTradeOn(String(d.id), d.k | 0);
+            mpSend({ tipo: 'juego_vill', op: 'tok', a: d.peerId, id: d.id, k: d.k, ok: !!r, up: !!(r && r.up), t: snap, n: price });
+            return;
+        }
+        if (d.op === 'tok') {                                           // (invitado) la respuesta a mi tradeo
+            if (d.a !== me || !S.vPend || S.vPend.id !== d.id) return;
+            S.vPend = null;
+            if (d.ok && d.t) {
+                const t = d.t;
+                if (invCount(t.a[0]) >= Number(d.n || t.a[1]) && (!t.b || invCount(t.b[0]) >= t.b[1])) {
+                    invTake(t.a[0], Number(d.n || t.a[1])); if (t.b) invTake(t.b[0], t.b[1]);
+                    const w = W(), left = addToInventory(t.o[0], t.o[1], t.o[2] || 0, t.o[3] || {}); if (left > 0) addDrop(t.o[0], w.worldX, w.worldY, left, t.o[2] || 0, t.o[3] || {});
+                    w.experience = (Number(w.experience) || 0) + 6 + (Math.random() * 7 | 0) + (d.up ? 10 : 0);
+                    snd('orb1'); hud.dirty = true; invRedraw();
+                }
+            } else flashMsg(tr('vill_trade_fail', 'The villager could not make that trade.'));
+            vWinDraw();
+            return;
+        }
+        if (mpFollow()) return;
+        const m = mbwom.mobs[d.id];
+        if (d.op === 'weak' && isZVill(m)) m.mbweZV.wk = Date.now() + VWEAK_MS;
+        if (d.op === 'cure' && isZVill(m)) zvCureStart(m, String(d.uid || ''));
+    }
+
+    // ---- la ventana para tradear
+    function vWinOpen(id) {
+        const m = mbwom.mobs[id]; if (!isVill(m)) return false;
+        const V = m.mbweVillager;
+        if (V.bb > Date.now() || V.p === 'none' || V.p === 'nitwit' || !(V.t && V.t.length)) {   // 🙅 no tradea: niega con la cabeza
+            S.vShake = { id: id, until: S.tick + Math.round(FPS * .8) };
+            flashMsg(V.p === 'nitwit' ? tr('vill_nitwit_no', 'The nitwit only shakes his head.') : V.bb > Date.now() ? tr('vill_baby_no', 'Baby villagers do not trade.') : tr('vill_none_no', 'This villager has no job yet: place a job block near him.'));
+            return true;
+        }
+        closeModals();
+        S.vWin = id;
+        let el = document.getElementById('play-vill-win');
+        if (!el) {
+            el = document.createElement('div'); el.id = 'play-vill-win'; el.className = 'pe-overlay pz-overlay';
+            el.addEventListener('pointerdown', function (e) { e.stopPropagation(); if (e.target === el) vWinClose(); });
+            el.addEventListener('click', function (e) { e.stopPropagation(); });
+            document.body.appendChild(el);
+        }
+        el.style.display = 'flex';
+        S.vWinSig = '';
+        vWinDraw();
+        return true;
+    }
+    function vWinClose() { S.vWin = null; const el = document.getElementById('play-vill-win'); if (el) el.style.display = 'none'; hud.dirty = true; }
+    function vIcon(id, ex) { const cv = document.createElement('canvas'); cv.width = 16; cv.height = 16; const g = cv.getContext('2d'); g.imageSmoothingEnabled = false; try { g.drawImage(iconFor(id, ex || {}), 0, 0, 16, 16); } catch (e) { /* nada */ } return cv; }
+    function vWinDraw() {
+        const el = document.getElementById('play-vill-win'); if (!el || !S.vWin) return;
+        const m = mbwom.mobs[S.vWin];
+        if (!isVill(m) || m.dead > 0) { vWinClose(); return; }
+        const V = m.mbweVillager, uid = lockMeUid();
+        S.vWinSig = JSON.stringify([V.lv, V.xp, V.t, V.cured, invCount('topaz'), inv().map(function (q) { return q && q[0] + q[1]; }).join(), !!S.vPend]);
+        const mk = function (tag, cls, txt) { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+        el.textContent = '';
+        const box = mk('div', 'pe-box pz-box pv-box'); el.appendChild(box);
+        const head = mk('div', 'pe-head'); head.appendChild(mk('span', 'pe-title', vName(m) + ' · ' + tr(VLV_NAME[V.lv - 1][0], VLV_NAME[V.lv - 1][1])));
+        const x = mk('button', 'pe-x', '✕'); x.type = 'button'; x.addEventListener('click', vWinClose); head.appendChild(x);
+        box.appendChild(head);
+        // barra de experiencia del aldeano (hasta el siguiente nivel)
+        const xb = mk('div', 'pv-xp'), lo = VLV_XP[V.lv - 1], hi = VLV_XP[V.lv] || lo;
+        const fill = mk('i'); fill.style.width = (V.lv >= 5 ? 100 : Math.max(0, Math.min(100, ((V.xp - lo) / Math.max(1, hi - lo)) * 100))).toFixed(1) + '%'; xb.appendChild(fill);
+        xb.title = V.lv >= 5 ? tr('vill_max', 'Max level') : (V.xp + ' / ' + hi);
+        box.appendChild(xb);
+        const own = mk('div', 'pv-own'); own.appendChild(vIcon('topaz')); own.appendChild(mk('span', null, tr('vill_you_have', 'You have {n} topaz').replace('{n}', invCount('topaz'))));
+        if (V.cured && V.cured[uid]) own.appendChild(mk('b', 'pv-disc', tr('vill_discount', 'Discount: you cured him!')));
+        box.appendChild(own);
+        const list = mk('div', 'pv-list'); box.appendChild(list);
+        V.t.forEach(function (t, k) {
+            const row = mk('div', 'pv-row'), need = vNeed(V, t, uid), price = vPrice(V, t, uid);
+            const cell = function (id, n, ex, strike) { const c = mk('span', 'pv-it'); c.appendChild(vIcon(id, ex)); if (n > 1 || strike) { const b = mk('b', null, String(n)); c.appendChild(b); } c.title = itemDisplayName([id, n, 0, ex || {}]); if (strike) { const s = mk('s', null, String(strike)); c.appendChild(s); } return c; };
+            row.appendChild(cell(t.a[0], price, null, price !== t.a[1] ? t.a[1] : 0));
+            if (t.b) { row.appendChild(mk('span', 'pv-plus', '+')); row.appendChild(cell(t.b[0], t.b[1])); } else row.appendChild(mk('span', 'pv-plus pv-gap', ''));
+            row.appendChild(mk('span', 'pv-arrow', '→'));
+            row.appendChild(cell(t.o[0], t.o[1], t.o[3]));
+            const nm = mk('span', 'pv-nm', itemDisplayName([t.o[0], t.o[1], 0, t.o[3] || {}]) + (t.o[3] && Object.keys(t.o[3]).length ? ' ✨' : ''));
+            row.appendChild(nm);
+            if (need === 'out') { row.classList.add('out'); row.appendChild(mk('span', 'pv-out', '✕ ' + tr('vill_out', 'Out of stock'))); }
+            else {
+                const b = mk('button', 'pz-buy pv-buy' + (need || S.vPend ? ' no' : ''), S.vPend && S.vPend.k === k ? '...' : tr('vill_trade', 'Trade')); b.type = 'button'; b.disabled = !!need || !!S.vPend;
+                b.title = need ? tr('vill_need', 'You do not have enough items') : (t.max - t.u) + ' / ' + t.max;
+                b.addEventListener('click', function () { vTrade(S.vWin, k); });
+                row.appendChild(b);
+            }
+            list.appendChild(row);
+        });
+    }
+    function vWinTick() {                                               // (se vuelve a pintar si cambió algo: otro jugador tradeó, subió de nivel...)
+        if (!S.vWin || S.tick % 10) return;
+        const m = mbwom.mobs[S.vWin]; if (!isVill(m) || m.dead > 0) { vWinClose(); return; }
+        const w = W(); if (Math.hypot(m.x - w.worldX, m.y - w.worldY) > 8) { vWinClose(); return; }   // (te alejaste)
+        const V = m.mbweVillager, sig = JSON.stringify([V.lv, V.xp, V.t, V.cured, invCount('topaz'), inv().map(function (q) { return q && q[0] + q[1]; }).join(), !!S.vPend]);
+        if (sig !== S.vWinSig) vWinDraw();
+    }
+
+    // ---- lo que hacen solos (lo lleva quien mueve los mobs)
+    function vFind(x0, y0, r, ry, fn) {
+        let best = null, bd2 = 1e9;
+        for (let y = y0 - ry; y <= y0 + ry; y++) for (let x = x0 - r; x <= x0 + r; x++) { if (!fn(fg(x, y), x, y)) continue; const dd = (x - x0) * (x - x0) + (y - y0) * (y - y0); if (dd < bd2) { bd2 = dd; best = [x, y]; } }
+        return best;
+    }
+    function vClaimed() { const o = {}; for (const k in mbwom.mobs) { const m = mbwom.mobs[k]; if (isVill(m) && m.mbweVillager.job) o[m.mbweVillager.job.join(',')] = k; } return o; }
+    function vThink(id, m) {
+        const V = m.mbweVillager, now = Date.now(), bx = Math.floor(m.x), by = Math.floor(-m.y + .1);
+        if (V.bb && now >= V.bb) delete V.bb;
+        // 🧰 su bloque de trabajo
+        if (V.job) {
+            const t = fg(V.job[0], V.job[1]);
+            if (!VPROF[V.p] || t !== VPROF[V.p].job) {                    // se lo quitaron
+                if (!V.tr) { vSetProf(m, 'none', null); for (let i = 0; i < 6; i++) addPart({ x: m.x + (Math.random() - .5), y: -m.y + 1.5 + Math.random() * .5, vy: .01, life: 25, size: .12, col: '#888', glow: false }); }
+                else V.job = null;
+            }
+        }
+        if (!V.bb && (V.p === 'none' || (VPROF[V.p] && !V.job))) {     // busca uno libre cerca (el suyo, si ya tiene oficio)
+            const C = vClaimed();
+            const j = vFind(bx, by, 10, 4, function (t, x, y) { return !!VJOB[t] && !C[x + ',' + y] && (V.p === 'none' || VJOB[t] === V.p); });
+            if (j) {
+                if (V.p === 'none') vSetProf(m, VJOB[fg(j[0], j[1])], j); else V.job = j;
+                for (let i = 0; i < 10; i++) addPart({ x: m.x + (Math.random() - .5), y: -m.y + Math.random() * 2, vy: .02, life: 30, size: .12, col: '#59ff7a', glow: true });
+            }
+        }
+        // 🔄 reabastecerse trabajando en su bloque (de día)
+        if (V.job && (Number(W().tim) || 0) < 50 && Math.abs(V.job[0] + .5 - m.x) < 3 && Math.abs(V.job[1] - by) < 3 && now - (V.rsAt || 0) > VRESTOCK_MS && V.t.some(function (t) { return t.u > 0; })) {
+            V.t.forEach(function (t) { if (t.u >= t.max) t.d = (t.d | 0) + 1; else if (t.d > 0) t.d--; t.u = 0; });
+            V.rsAt = now;
+            for (let i = 0; i < 6; i++) addPart({ x: V.job[0] + Math.random(), y: V.job[1] + 1 + Math.random() * .3, vy: .02, life: 25, size: .1, col: '#59ff7a', glow: true });
+        }
+        // a dónde va: huye de los zombies; de noche, a una cama; de día, a veces a su bloque de trabajo
+        let go = null, flee = null;
+        for (const k in mbwom.mobs) { const z = mbwom.mobs[k]; if (z && z.type === 'zombie' && !(z.dead > 0) && Math.abs(z.x - m.x) < 7 && Math.abs(z.y - m.y) < 3) { flee = z; break; } }
+        if (flee) go = { x: m.x + (m.x >= flee.x ? 12 : -12), y: m.y, max: 30, min: .5 };
+        else if ((Number(W().tim) || 0) >= 50) { const b = vFind(bx, by, 16, 5, function (t) { return t === 'bed1' || t === 'bed2'; }); if (b) go = { x: b[0] + .5, y: -b[1] - .95, max: 18, min: 1 }; }
+        else if (V.job && Math.random() < .5) go = { x: V.job[0] + .5, y: -V.job[1] - .95, max: 16, min: 1.5 };
+        tmpOf(id).vgo = go;                                             // (no se guarda en el mob: no viaja por la red)
+    }
+    function vSteer(id, m, d) {                                         // (después de calcTarget: lo lleva a donde quiere ir)
+        const g = d.vgo; if (!g) return;
+        d.following = true; d.isFrightened = false; d.followPoint.x = g.x; d.followPoint.y = g.y; d.followMax = g.max; d.followMin = g.min;
+    }
+    // 🧟 los zombies van tras los aldeanos que tienen cerca (si no hay un jugador más cerca)
+    function zSteer(id, z) {
+        if (z.target != null && !isPl(z.target) && !mbwom.mobs[z.target]) { z.target = null; z.focus = null; }
+        if ((S.tick + id.length) % 15) return;
+        let best = null, bd2 = 144;
+        for (const k in mbwom.mobs) { const v = mbwom.mobs[k]; if (!isVill(v) || v.dead > 0) continue; const dd = Math.pow(v.x - z.x, 2) + Math.pow(v.y - z.y, 2) * 4; if (dd < bd2) { bd2 = dd; best = k; } }
+        if (!best) return;
+        const tp = isPl(z.target) ? plPos(z.target) : null;
+        if (z.target == null || (tp && Math.pow(tp.x - z.x, 2) + Math.pow(tp.y - z.y, 2) * 4 > bd2 + 9)) { z.target = best; z.focus = best; }
+    }
+    // 💕 bebés: con más camas que aldeanos cerca, de vez en cuando
+    function vBreedTick() {
+        if (S.tick % (FPS * 20) !== 7) return;
+        const now = Date.now(), L = [];
+        for (const k in mbwom.mobs) { const m = mbwom.mobs[k]; if (isVill(m) && !(m.dead > 0)) L.push([k, m]); }
+        if (L.length < 2 || L.length >= 60) return;
+        for (let i = 0; i < L.length; i++) {
+            const A = L[i][1], VA = A.mbweVillager; if (VA.bb > now || (VA.bt || 0) > now) continue;
+            const B = L.filter(function (q, j) { const V = q[1].mbweVillager; return j !== i && !(V.bb > now) && !((V.bt || 0) > now) && Math.abs(q[1].x - A.x) < 4 && Math.abs(q[1].y - A.y) < 2; })[0];
+            if (!B) continue;
+            const bx = Math.floor(A.x), by = Math.floor(-A.y + .1);
+            let beds = 0; for (let y = by - 6; y <= by + 6; y++) for (let x = bx - 16; x <= bx + 16; x++) if (fg(x, y) === 'bed1') beds++;
+            const pop = L.filter(function (q) { return Math.abs(q[1].x - A.x) <= 16 && Math.abs(q[1].y - A.y) <= 6; }).length;
+            if (beds <= pop) continue;
+            VA.bt = B[1].mbweVillager.bt = now + VBREED_MS;
+            if (Math.random() > .3) continue;
+            const kid = spawnMob('spawnskin', (A.x + B[1].x) / 2, A.y, { skin: VSKIN.none, aggro: 'passive', mbweVillager: Object.assign(vNew('none'), { bb: now + VBABY_MS }) });
+            hearts(A, 5); hearts(B[1], 5);
+            if (kid && typeof worldDirty !== 'undefined') worldDirty = true;
+            return;
+        }
+    }
+    // 🧟‍♂️ aldeano zombie
+    function zvMake(v) {                                                // (un zombie mató a un aldeano)
+        const df = String(W().difficulty || 'normal');
+        const ch = df === 'hard' ? 1 : df === 'normal' ? .5 : 0;
+        if (Math.random() >= ch) return null;
+        const V = JSON.parse(JSON.stringify(v.mbweVillager)); V.job = null;
+        const id = spawnMob('zombie', v.x, v.y, { mbweZV: { v: V, skin: String(v.skin || VSKIN.none) } });
+        sndAt('zombie1', v.x, v.y);
+        return id;
+    }
+    function zvCureStart(z, uid) {
+        const Z = z.mbweZV; if (!Z || !(Z.wk > Date.now()) || Z.cure) return false;
+        Z.cure = { at: Date.now() + VCURE_MS, by: uid };
+        z.target = null; z.focus = null;
+        return true;
+    }
+    function zvTick(id, z) {
+        const Z = z.mbweZV;
+        if (Z.cure) {
+            z.target = null; z.focus = null; z.aggressiveness = 0;
+            if (S.tick % 6 === 0) addPart({ x: z.x + (Math.random() - .5) * .8, y: -z.y + .5 + Math.random() * 1.5, vy: .015, life: 25, size: .11, col: Math.random() < .5 ? '#ff4d7a' : '#c86bff', glow: true });
+            if (Date.now() >= Z.cure.at) {                                // ✨ curado: vuelve a ser aldeano (con su oficio y sus tradeos)
+                const V = Z.v || vNew('none'); V.cured = V.cured || {}; if (Z.cure.by) V.cured[Z.cure.by] = 1;
+                const vid = spawnMob('spawnskin', z.x, z.y, { skin: Z.skin || vSkinOf(V.p), aggro: 'passive', mbweVillager: V });
+                delete mbwom.mobs[id]; S.tmp.delete(id);
+                for (let i = 0; i < 14; i++) addPart({ x: z.x + (Math.random() - .5), y: -z.y + Math.random() * 2, vy: .02, life: 35, size: .13, col: '#ffd84a', glow: true });
+                if (Z.cure.by === lockMeUid()) flashMsg('✨ ' + tr('vill_cured', 'You cured the villager! He will give you a discount.'));
+                return vid;
+            }
+        }
+        return null;
+    }
+    // (cada paso) — lo de los aldeanos que no va mob por mob
+    function tickVillagers() {
+        if (!villOn()) { if (S.vWin) vWinClose(); return; }
+        vWinTick();
+        if (S.vShake) { const sm = mbwom.mobs[S.vShake.id]; if (sm) sm.direction = (S.tick >> 2) & 1; if (S.tick > S.vShake.until) S.vShake = null; }
+        if (mpFollow()) return;
+        if (S.tick % 30 === 3) for (const k in mbwom.mobs) { const m = mbwom.mobs[k]; if (m && m.type === 'spawnskin' && !m.mbweVillager && m.skin != null) vAdopt(m); }
+        for (const k in mbwom.mobs) { const z = mbwom.mobs[k]; if (isZVill(z)) zvTick(k, z); }
+        vBreedTick();
+    }
+    // (lo llama el ciclo de los mobs, después de decidir a quién sigue cada uno)
+    function villMobHook(id, c, d) {
+        if (isVill(c)) {
+            if ((S.tick + (d.salt | 0) * 7) % FPS === 0 || d.vgo === undefined) vThink(id, c);
+            vSteer(id, c, d);
+        } else if (c.type === 'zombie') zSteer(id, c);
+    }
+    // 🍎 clic derecho sobre un aldeano / un aldeano zombie
+    function villUse(mid, m, id) {
+        if (isVill(m)) return vWinOpen(mid);
+        if (isZVill(m) && id === 'gap') {
+            const Z = m.mbweZV;
+            if (!(Z.wk > Date.now()) || Z.cure) { if (!Z.cure) flashMsg(tr('vill_zv_hint', 'First throw a splash potion of weakness at him, then give him a golden apple.')); return !!Z.cure; }
+            if (W().gamemode != 1) reduceSelected(1);
+            if (mpFollow()) mpSend({ tipo: 'juego_vill', op: 'cure', id: mid, uid: lockMeUid(), s: mbwom.currentScene || 1 });
+            else zvCureStart(m, lockMeUid());
+            flashMsg('✨ ' + tr('vill_curing', 'The zombie villager is being cured... wait a moment.'));
+            return true;
+        }
+        return false;
+    }
+    // (main.js) el nombre que se ve arriba de los mobs
+    window.mbwMobLabel = function (m) {
+        if (!m) return null;
+        const on = (function () { try { return !!modTable().villagers; } catch (e) { return false; } })();
+        if (isVill(m) && on) return vName(m).toUpperCase();
+        if (on && m.type === 'spawnskin' && !m.mbweVillager) { for (const k in VSKIN) if (String(m.skin) === VSKIN[k]) return (k === 'nitwit' ? tr('vill_nitwit', 'Nitwit') : VPROF[k] ? tr(VPROF[k].name[0], VPROF[k].name[1]) : tr('vill_villager', 'Villager')).toUpperCase(); }
+        if (isZVill(m)) return tr('vill_zombie', 'Zombie Villager').toUpperCase();
+        return null;
+    };
+    // (main.js) el aldeano bebé se ve más chico; el aldeano zombie, con la skin de aldeano en verde
+    const ZVIMG = {};
+    window.mbwVillDraw = function (m) {
+        if (isVill(m) && m.mbweVillager.bb > Date.now()) return { scale: .6 };
+        if (isZVill(m)) {
+            const sk = String(m.mbweZV.skin || VSKIN.none), c = ZVIMG[sk];
+            if (c) return c.img ? { img: c.img } : null;
+            const im = typeof window.getSpawnskinImage === 'function' ? window.getSpawnskinImage(sk) : null;
+            if (!im || !im.naturalWidth || im.hasFailed) return null;
+            if (im.__tainted) { ZVIMG[sk] = { img: null }; return null; }
+            try {
+                const cv = document.createElement('canvas'); cv.width = im.naturalWidth; cv.height = im.naturalHeight;
+                const g = cv.getContext('2d'); g.drawImage(im, 0, 0);
+                const D2 = g.getImageData(0, 0, cv.width, cv.height), p = D2.data;
+                for (let i = 0; i < p.length; i += 4) { const r = p[i], gg = p[i + 1], b = p[i + 2]; p[i] = r * .45; p[i + 1] = Math.min(255, gg * .75 + 60); p[i + 2] = b * .4; }
+                g.putImageData(D2, 0, 0);
+                const out = new Image(); ZVIMG[sk] = { img: null }; out.onload = function () { ZVIMG[sk].img = out; }; out.src = cv.toDataURL('image/png');
+            } catch (e) { ZVIMG[sk] = { img: null }; }
+            return null;
+        }
+        return null;
+    };
+    window.mbwVillagersOn = function () { try { return !!(mbwom && mbwom.world && mbwom.world.mbweMods && mbwom.world.mbweMods.villagers); } catch (e) { return false; } };
+
     window.mbwPlay.mods = {
         list: function () { return MODS.map(function (m) { return { id: m.id, icon: m.icon, name: tr(m.name[0], m.name[1]), desc: tr(m.desc[0], m.desc[1]), on: modOn(m.id) }; }); },
         on: modOn, set: setMod, canEdit: modBoss,
         zoneShop: zoneShopOpen, zones: function () { return JSON.parse(JSON.stringify(zoneTable())); }, fuelOf: fuelOf,
         scanPick: scanPickOpen, scan: function (id) { if (id !== undefined) scanSet(id); return { ore: S.scan, hits: (S.scanHits || []).map(function (h) { return [h[0], h[1]]; }) }; },
         thirst: function (v) { if (v != null) { W().mbweThirst = Number(v); hud.dirty = true; } return thirstVal(); }, dmgNums: function () { return DN.list.map(function (d) { return d.n; }); },
-        partner: chestPartner, replantTick: function () { S.replant && S.replant.forEach(function (r) { r.at = 0; }); tickReplant(); }
+        partner: chestPartner, villTrade: vTrade, villOpen: vWinOpen, villThink: function (id) { const m = mbwom.mobs[id]; if (isVill(m)) vThink(id, m); }, villBreed: function () { const t = S.tick; S.tick = FPS * 20 + 7 - (FPS * 20) * 0; try { vBreedTick(); } finally { S.tick = t; } }, replantTick: function () { S.replant && S.replant.forEach(function (r) { r.at = 0; }); tickReplant(); }
     };
+    window.mbwPlay.villNet = vNet;                                    // 🎮 (scripts/mp-play.js: juego_vill)
     window.mbwPlay.extraFuel = function (id) { return !!(S.playing && modOn('morefuel') && !bd(String(id), 'fuel') && moreFuelTable()[String(id)]); };
 
     // ------------------------------------------------------------------ paso del juego
@@ -4706,6 +5137,7 @@
         tickThirst();                                                 // 🥤 (mod Thirst)
         tickScan();                                                   // 🔍 (mod Ore Scanner)
         tickDmgNums();                                                // 💥 (mod Damage Numbers)
+        tickVillagers();                                              // 🧑‍🌾 (mod Villagers)
         tickLife();
         if (S.spect) spectFollow();
         if (S.ench && (fg(S.ench.x, S.ench.y) !== 'enchant' || Math.pow(S.ench.x + .5 - w.worldX, 2) + Math.pow(-S.ench.y - .5 - w.worldY, 2) > 36)) closeEnchant();   // (lejos o la rompieron)
@@ -5036,7 +5468,7 @@
                 const sx = x + Math.round((Math.random() * 2 - 1) * 4), sy = y + Math.round(Math.random() * 2 - 1);
                 if (sx === x && sy === y) continue;
                 if (!standable(sx, sy)) continue;
-                spawnMob(type, sx + .5, -sy, { mbweSp: 1 });                    // (marcado: puede desaparecer si queda lejos)
+                spawnMob(type, sx + .5, -sy, (type === 'zombie' && villOn() && Math.random() < .05) ? { mbweSp: 1, mbweZV: { v: vNew('none'), skin: VSKIN.none } } : { mbweSp: 1 });   // (marcado: puede desaparecer si queda lejos; 🧟‍♂️ a veces aldeano zombie)
                 for (let j = 0; j < 6; j++) addPart({ x: sx + Math.random(), y: sy + Math.random() * 1.6, vy: .02, drag: .96, life: 30, size: .14, col: 'rgba(90,90,90,.8)' });
                 break;
             }
@@ -6568,6 +7000,7 @@
         if (S.ench) closeEnchant();
         if (S.zshop) zoneShopClose();
         if (S.scanPick) scanPickClose();
+        if (S.vWin) vWinClose();
         const m = document.getElementById('inventory-modal');
         if (m && m.style.display === 'block' && typeof toggleInventory === 'function') { try { toggleInventory(); } catch (e) { m.style.display = 'none'; } }
         ['sign-editor-modal', 'command-book-modal'].forEach(function (id) { const e = document.getElementById(id); if (e) e.style.display = 'none'; });

@@ -46,6 +46,7 @@
     function defOf(m) {
         const d = m && DEF[m.type];
         if (!d || (d.skip && d.skip(m))) return null;
+        if (m.mbweZV && window.mbwVillDraw && window.mbwVillDraw(m)) return null;   // 🧟‍♂️ (aldeano zombie: su propia skin)
         return d;
     }
     window.mbwMobAnimSize = function (m) {                                  // [ancho, alto] en cuadros (o null: el dibujo de siempre)

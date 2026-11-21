@@ -4467,3 +4467,23 @@ body.pinv-dbl #inventory-modal.pinv-mb .inv-modal-window { --s: clamp(18px, min(
 .pm-mod-prog span { position: relative; display: block; text-align: center; font: 400 18px/26px 'Pixeltype', sans-serif; color: #fff; text-shadow: 1px 1px 0 #000; white-space: nowrap; }
 @keyframes pmProg { from { background-position: 0 0; } to { background-position: 28px 0; } }
 @media (max-width: 640px), (max-height: 480px) { .pm-mod-prog { width: 118px; } .pm-mod-prog span { font-size: 15px; } }
+/* 🧑‍🌾 Villagers: la ventana para tradear */
+.pv-box { width: min(560px, calc(100vw - 24px)); max-height: calc(var(--vh, 100vh) - 24px); display: flex; flex-direction: column; }
+.pv-xp { position: relative; height: 10px; margin: 2px 0 8px; background: #373737; border: 2px solid; border-color: #1f1f1f #8b8b8b #8b8b8b #1f1f1f; }
+.pv-xp i { position: absolute; left: 0; top: 0; bottom: 0; background: #7cdc3a; }
+.pv-own { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font: 400 21px/1 'Pixeltype', sans-serif; color: #3f3f3f; flex-wrap: wrap; }
+.pv-own canvas { width: 24px; height: 24px; image-rendering: pixelated; }
+.pv-disc { color: #2f7d1a; font-weight: 400; }
+.pv-list { overflow-y: auto; min-height: 0; flex: 1 1 auto; padding-right: 2px; }
+.pv-row { display: flex; align-items: center; gap: 6px; padding: 5px 8px; margin-top: 5px; background: #8b8b8b; border: 2px solid; border-color: #373737 #fff #fff #373737; color: #fff; text-shadow: 1px 1px 0 #3f3f3f; }
+.pv-row.out { opacity: .7; }
+.pv-it { position: relative; flex: 0 0 auto; width: 36px; height: 36px; }
+.pv-it canvas { width: 36px; height: 36px; image-rendering: pixelated; }
+.pv-it b { position: absolute; right: -2px; bottom: -4px; font: 400 20px/1 'Pixeltype', sans-serif; color: #fff; text-shadow: 2px 2px 0 #3f3f3f; }
+.pv-it s { position: absolute; left: -4px; top: -6px; font: 400 16px/1 'Pixeltype', sans-serif; color: #ffb0a8; }
+.pv-plus, .pv-arrow { flex: 0 0 auto; font: 400 24px/1 'Pixeltype', sans-serif; width: 14px; text-align: center; }
+.pv-gap { width: 50px; }
+.pv-nm { flex: 1 1 auto; min-width: 0; font: 400 19px/1.05 'Pixeltype', sans-serif; overflow: hidden; text-overflow: ellipsis; }
+.pv-buy { flex: 0 0 auto; }
+.pv-out { flex: 0 0 auto; font: 400 19px/1 'Pixeltype', sans-serif; color: #ff6a5a; }
+@media (max-width: 520px), (max-height: 480px) { .pv-it, .pv-it canvas { width: 28px; height: 28px; } .pv-nm { font-size: 16px; } .pv-gap { width: 40px; } }

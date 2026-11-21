@@ -1920,6 +1920,23 @@
     if (!firstTarget) firstTarget = [id, null];
     if (sel && !sel.preset && sel.base === id) keepOk = true;
    });
+   // 🧑‍🌾 (mod Villagers instalado en este mundo) el aldeano: una spawnskin con la skin de aldeano sin trabajo
+   if (dimension === 'Overworld' && typeof window.mbwVillagersOn === 'function' && window.mbwVillagersOn()) {
+    const VSK = '75842';
+    const d = mk('div', 'mob-item selectable mob-villager');
+    d.dataset.mob = 'spawnskin'; d.dataset.vill = '1';
+    const nm = (typeof tr === 'function' ? tr('vill_villager', 'Villager') : 'Villager');
+    d.title = nm;
+    const im = document.createElement('img'); paintSkinImg(im, VSK);
+    d.appendChild(im);
+    d.appendChild(mk('span', 'mob-name', nm));
+    d.onclick = function () {
+     window.previewMob('spawnskin');
+     if (S.spec) { S.spec.extra.skin = VSK; if ('aggro' in S.spec.extra) S.spec.extra.aggro = 'passive'; renderAll(); }
+     grid.querySelectorAll('.mob-item').forEach(function (n) { n.classList.toggle('selected', n === d); });
+    };
+    grid.appendChild(d);
+   }
   }
 
   if (keep && keepOk) {

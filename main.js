@@ -925,6 +925,9 @@ function getMobDrawInfo(mob, noFetch) {
         img = window.images[spriteKey];
     }
     if (isCustomSkin && img && img.hasFailed) img = window.images['spawnskin'];
+    const VD = window.mbwVillDraw ? window.mbwVillDraw(mob) : null;   // 🧑‍🌾 (mod Villagers) aldeano bebé más chico; aldeano zombie con su skin en verde
+    if (VD && VD.img) { img = VD.img; isCustomSkin = true; w = 1.4; h = 2; }
+    if (VD && VD.scale) { w *= VD.scale; h *= VD.scale; }
     if (Number(mob.babyTimer) > 0) { w *= 0.7; h *= 0.7; }   // 🐣 las crías se ven más chicas (como el juego: escala 0.7)
     return { w, h, img, isCustomSkin };
 }
@@ -1232,7 +1235,7 @@ function drawMobs() {
                 ctx.font = "bold 12px Arial";
                 ctx.textAlign = "center";
                 ctx.shadowColor = "black"; ctx.shadowBlur = 4;
-                let displayName = mob.name ? String(mob.name) : String(mob.type).toUpperCase();
+                let displayName = mob.name ? String(mob.name) : ((window.mbwMobLabel && window.mbwMobLabel(mob)) || String(mob.type).toUpperCase());   // (🧑‍🌾 aldeanos: su oficio)
                 ctx.fillText(displayName, screenX, screenY - mobHeight - 8);
                 ctx.shadowBlur = 0; 
                 
