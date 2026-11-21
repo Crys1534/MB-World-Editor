@@ -1008,7 +1008,12 @@
             if (l.smeltTimer == null) l.smeltTimer = 0;
             const before = JSON.stringify(l);
             const inId = String(l.input[0]);
-            if (l.fuelTimer == 0 && !emptyIt(l.fuel) && !emptyIt(l.input)) {
+            // ¿lo de arriba se puede fundir y cabe en la salida? Si no (una espada, tierra...), el combustible NO se prende ni se gasta
+            const into = bd(inId, 'smeltsInto');
+            const out = l.output;
+            const same = () => Array.isArray(into) ? (out[0] === into[0] && out[3] && out[3].type === into[1]) : out[0] === into;
+            const canSmelt = into != null && !emptyIt(l.input) && Number(out[1]) < 64 && (emptyIt(out) || same());
+            if (l.fuelTimer == 0 && !emptyIt(l.fuel) && canSmelt) {
                 const fv = bd(String(l.fuel[0]), 'fuel');
                 if (fv) {
                     l.fuelTimerTotal = fv; l.fuelTimer = fv;
@@ -1018,10 +1023,7 @@
             }
             if (l.fuelTimer > 0) {
                 l.fuelTimer--;
-                const into = bd(inId, 'smeltsInto');
-                const out = l.output;
-                const same = () => Array.isArray(into) ? (out[0] === into[0] && out[3] && out[3].type === into[1]) : out[0] === into;
-                if (into != null && !emptyIt(l.input) && Number(out[1]) != 64 && (emptyIt(out) || same())) {
+                if (canSmelt) {
                     l.smeltTimer += 1;
                     if (l.smeltTimer >= 10) {
                         l.smeltTimer = 0;
@@ -2179,6 +2181,12 @@
         }
         const food = bd(id, 'food');
         if (food && bd(id, 'placeable') != 1) { if (canEat(id) && S.useTimer < 0) S.useTimer = ((bd(id, 'timerToUse') || 50) / 25 * FPS) | 0; return false; }
+        // 🥔🥕 la papa y la zanahoria también se plantan: solo si apuntas a un hueco encima de tierra arada; si no, se comen (como en el juego)
+        if (food && S.useTimer < 0) {
+            const po = bd(id, 'placeOn'), below = fg(bx, by - 1);
+            const plant = blockDist(bx, by) <= REACH && (here === 'air' || bd(here, 'replaceable') != null) && Array.isArray(po) && po[0] && typeof po[0] === 'object' && !!po[0][below];
+            if (!plant) { if (canEat(id)) S.useTimer = ((bd(id, 'timerToUse') || 50) / 25 * FPS) | 0; return false; }
+        } else if (food && S.useTimer >= 0) return false;
         if (id === 'megg' && it[3] && it[3].type) { if (blockDist(bx, by) <= REACH) { spawnMob(String(it[3].type), bx + .5, -by - .01); reduceSelected(1); return true; } return false; }
         // 🪣 cubetas: la vacía recoge una fuente de agua / lava / ácido; la llena la pone
         const BUCKET = { wbk: 'wr', lbk: 'la', abk: 'ad' }, FILL = { wr: 'wbk', la: 'lbk', ad: 'abk' };
@@ -2761,6 +2769,7 @@
         // (con nombres: "Teleporting Ana to Crystal" en vez de "/tp 120 -40 → Ana")
         if (others.length && d[0] === 'tp' && dn) say('[INFO] 👑 ' + tr('play_tp_sent_player', 'Teleporting {names} to {target}... in 3 seconds!').replace('{names}', others.join(', ')).replace('{target}', dn));
         else if (others.length && d[0] === 'tp' && /^\/tp -?[\d.]+ -?[\d.]+$/.test(cmd)) say('[INFO] 👑 ' + tr('play_tp_sent_xy', 'Teleported {names} to {x}, {y}').replace('{names}', others.join(', ')).replace('{x}', cmd.split(' ')[1]).replace('{y}', cmd.split(' ')[2]));
+        else if (others.length && d[0] === 'give' && ident(raw[2])) say('[INFO] 👑 ' + tr('play_give_sent', 'Gave {n} "{item}" to {names}').replace('{n}', String(parseInt(raw[3], 10) >= 1 ? parseInt(raw[3], 10) : 1)).replace('{item}', String(raw[2])).replace('{names}', others.join(', ')));
         else if (others.length) say('[INFO] 👑 ' + tr('play_cmd_sent', '{cmd} → {names}').replace('{cmd}', cmd).replace('{names}', others.join(', ')));
         return true;
     }
