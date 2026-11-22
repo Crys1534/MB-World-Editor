@@ -5071,7 +5071,11 @@
         vWinTick();
         if (S.vShake) { const sm = mbwom.mobs[S.vShake.id]; if (sm) sm.direction = (S.tick >> 2) & 1; if (S.tick > S.vShake.until) S.vShake = null; }
         if (mpFollow()) return;
-        if (S.tick % 30 === 3) for (const k in mbwom.mobs) { const m = mbwom.mobs[k]; if (m && m.type === 'spawnskin' && !m.mbweVillager && m.skin != null) vAdopt(m); }
+        if (S.tick % 30 === 3) for (const k in mbwom.mobs) {
+            const m = mbwom.mobs[k];
+            if (m && m.type === 'spawnskin' && !m.mbweVillager && m.skin != null) vAdopt(m);
+            else if (isVill(m) && VPROF[m.mbweVillager.p] && !(Array.isArray(m.mbweVillager.t) && m.mbweVillager.t.length)) vSetProf(m, m.mbweVillager.p, null);   // (puesto con oficio desde el Mob Browser)
+        }
         for (const k in mbwom.mobs) { const z = mbwom.mobs[k]; if (isZVill(z)) zvTick(k, z); }
         vBreedTick();
     }

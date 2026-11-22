@@ -335,6 +335,7 @@
   ['defaultDrops', 'baby'].forEach(function (k) { if (typeof raw[k] === 'boolean') d[k] = raw[k]; });
   if (VARIANTS.indexOf(raw.variant) >= 0) d.variant = raw.variant;
   d.tags = cleanTags(raw.tags);
+  if (base === 'spawnskin' && typeof raw.vill === 'string' && /^(nitwit|fisher|fletcher|farmer|cleric|librarian|smith)$/.test(raw.vill)) d.vill = raw.vill;   // 🧑‍🌾 (mod Villagers) el oficio
   if (raw.hand && typeof raw.hand.id === 'string' && raw.hand.id) d.hand = Object.assign(cleanItem(raw.hand), { drop: clampNum(raw.hand.drop, 0, 100, d.hand.drop) });
   if (Array.isArray(raw.armor)) {
    d.armor = d.armor.map(function (a, i) {
@@ -434,6 +435,8 @@
    if (f.omit !== undefined && spec.extra[f.key] === f.omit) delete mob[f.key];     // el valor por defecto (aggro passive) no se escribe
    else mob[f.key] = spec.extra[f.key];
   });
+  // 🧑‍🌾 (mod Villagers) un aldeano con oficio desde el Mob Browser: sus tradeos se arman cuando empieza a jugar
+  if (rawSpec && rawSpec.vill && mob.type === 'spawnskin') mob.mbweVillager = { p: String(rawSpec.vill), lv: 1, xp: 0, t: [], tr: 0, job: null };
   return mob;
  };
 
@@ -1920,22 +1923,25 @@
     if (!firstTarget) firstTarget = [id, null];
     if (sel && !sel.preset && sel.base === id) keepOk = true;
    });
-   // 🧑‍🌾 (mod Villagers instalado en este mundo) el aldeano: una spawnskin con la skin de aldeano sin trabajo
+   // 🧑‍🌾 (mod Villagers instalado en este mundo) los aldeanos: spawnskins con la skin de cada oficio
    if (dimension === 'Overworld' && typeof window.mbwVillagersOn === 'function' && window.mbwVillagersOn()) {
-    const VSK = '75842';
-    const d = mk('div', 'mob-item selectable mob-villager');
-    d.dataset.mob = 'spawnskin'; d.dataset.vill = '1';
-    const nm = (typeof tr === 'function' ? tr('vill_villager', 'Villager') : 'Villager');
-    d.title = nm;
-    const im = document.createElement('img'); paintSkinImg(im, VSK);
-    d.appendChild(im);
-    d.appendChild(mk('span', 'mob-name', nm));
-    d.onclick = function () {
-     window.previewMob('spawnskin');
-     if (S.spec) { S.spec.extra.skin = VSK; if ('aggro' in S.spec.extra) S.spec.extra.aggro = 'passive'; renderAll(); }
-     grid.querySelectorAll('.mob-item').forEach(function (n) { n.classList.toggle('selected', n === d); });
-    };
-    grid.appendChild(d);
+    const T = (k, d) => (typeof tr === 'function' ? tr(k, d) : d);
+    [['', '75842', 'vill_villager', 'Villager'], ['nitwit', '68202', 'vill_nitwit', 'Nitwit'], ['fisher', '71366', 'vill_fisher', 'Fisherman'], ['fletcher', '71368', 'vill_fletcher', 'Fletcher'],
+     ['farmer', '75842', 'vill_farmer', 'Farmer'], ['cleric', '75842', 'vill_cleric', 'Cleric'], ['librarian', '75842', 'vill_librarian', 'Librarian'], ['smith', '75842', 'vill_smith', 'Blacksmith']].forEach(function (V) {
+     const d = mk('div', 'mob-item selectable mob-villager');
+     d.dataset.mob = 'spawnskin'; d.dataset.vill = V[0] || 'none';
+     const nm = T(V[2], V[3]);
+     d.title = nm;
+     const im = document.createElement('img'); paintSkinImg(im, V[1]);
+     d.appendChild(im);
+     d.appendChild(mk('span', 'mob-name', nm));
+     d.onclick = function () {
+      window.previewMob('spawnskin');
+      if (S.spec) { S.spec.extra.skin = V[1]; if ('aggro' in S.spec.extra) S.spec.extra.aggro = 'passive'; S.spec.vill = V[0] || null; renderAll(); }   // (vill: con qué oficio sale)
+      grid.querySelectorAll('.mob-item').forEach(function (n) { n.classList.toggle('selected', n === d); });
+     };
+     grid.appendChild(d);
+    });
    }
   }
 

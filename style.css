@@ -4526,3 +4526,10 @@ body.mbw-bp-browse #structures-modal .btn-edit-action, body.mbw-bp-browse #struc
 body.is-touch #mbw-play-hud .ph-bp { left: 10px; transform: none; max-width: min(380px, 52%); }
 #mbw-play-hud .ph-bp .ph-bp-ok { background: #3d7a24; }
 #mbw-play-hud .ph-bp .ph-bp-ok:disabled { opacity: .45; }
+/* 🧩 menú de Mods abierto: la barra de arriba queda encima de la hotbar flotante y de los botones del mapa; la lista no pasa del borde de abajo */
+body.mods-menu-open #ribbon { z-index: 400; }
+.mods-menu-content { max-height: calc(var(--vh, 100vh) - 150px); overscroll-behavior: contain; }
+.mods-ed-head { position: sticky; top: 0; z-index: 1; }
+body.mods-menu-open #top-toggle { display: none !important; }
+#ribbon:has(.addons-menu-content.show) { z-index: 400; }
+body:has(#ribbon .addons-menu-content.show) #top-toggle { display: none !important; }

@@ -2032,11 +2032,12 @@ window.toggleModsMenu = function() {
     const btn = container.querySelector('.tab-btn');
     menu.classList.toggle('show');
     btn.classList.toggle('active', menu.classList.contains('show'));
+    document.body.classList.toggle('mods-menu-open', menu.classList.contains('show'));   // (la barra de arriba pasa encima de todo mientras está abierto)
     if (menu.classList.contains('show') && typeof window.mbwEditorMods === 'function') window.mbwEditorMods(menu);
 };
 window.addEventListener('click', function(e) {
     const c = document.getElementById('mods-dropdown-container'), m = document.getElementById('mods-dropdown');
-    if (c && m && m.classList.contains('show') && !c.contains(e.target)) { m.classList.remove('show'); const b = c.querySelector('.tab-btn'); if (b) b.classList.remove('active'); }
+    if (c && m && m.classList.contains('show') && !c.contains(e.target)) { m.classList.remove('show'); document.body.classList.remove('mods-menu-open'); const b = c.querySelector('.tab-btn'); if (b) b.classList.remove('active'); }
 });
 
 window.toggleAddonsMenu = function() {
