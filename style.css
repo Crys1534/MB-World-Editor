@@ -4487,3 +4487,42 @@ body.pinv-dbl #inventory-modal.pinv-mb .inv-modal-window { --s: clamp(18px, min(
 .pv-buy { flex: 0 0 auto; }
 .pv-out { flex: 0 0 auto; font: 400 19px/1 'Pixeltype', sans-serif; color: #ff6a5a; }
 @media (max-width: 520px), (max-height: 480px) { .pv-it, .pv-it canvas { width: 28px; height: 28px; } .pv-nm { font-size: 16px; } .pv-gap { width: 40px; } }
+/* 🏗 Build This: botón, cuadrito de materiales / colocar, y el Structures Browser encima del juego */
+#mbw-play-hud .ph-area .ph-bp-btn { width: 56px; height: 56px; border: none; border-radius: 12px; background: rgba(0,0,0,.35); cursor: pointer; pointer-events: auto; opacity: .6; transition: opacity .15s; display: flex; align-items: center; justify-content: center; }
+#mbw-play-hud .ph-area .ph-bp-btn:hover { opacity: 1; }
+#mbw-play-hud .ph-area .ph-bp-btn canvas { width: 32px; height: 32px; image-rendering: pixelated; }
+body.is-touch #mbw-play-hud .ph-area .ph-bp-btn { width: 48px; height: 48px; }
+#mbw-play-hud .ph-bp { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); max-width: min(560px, 62%); padding: 6px 10px 8px; background: rgba(0,0,0,.62); border: 2px solid rgba(255,255,255,.25); border-radius: 8px; color: #fff; font: 400 20px/1.05 'Pixeltype', sans-serif; text-shadow: 1px 1px 0 #000; pointer-events: auto; box-sizing: border-box; }
+#mbw-play-hud .ph-bp-t { font-size: 22px; margin-bottom: 4px; }
+#mbw-play-hud .ph-bp-list { display: flex; flex-wrap: wrap; gap: 4px 8px; max-height: 98px; overflow-y: auto; }
+#mbw-play-hud .ph-bp-it { position: relative; display: inline-flex; align-items: flex-end; gap: 2px; padding: 2px 4px; border-radius: 4px; opacity: .55; }
+#mbw-play-hud .ph-bp-it.have { opacity: 1; }
+#mbw-play-hud .ph-bp-it.on { background: rgba(124,240,255,.25); box-shadow: inset 0 0 0 2px #7cf0ff; opacity: 1; }
+#mbw-play-hud .ph-bp-it canvas { width: 24px; height: 24px; image-rendering: pixelated; }
+#mbw-play-hud .ph-bp-warn { color: #ff8a80; margin-top: 4px; font-size: 18px; }
+#mbw-play-hud .ph-bp-hint { color: #cfd8dc; margin-top: 4px; font-size: 17px; }
+#mbw-play-hud .ph-bp-btns { display: flex; gap: 6px; margin-top: 4px; }
+#mbw-play-hud .ph-bp button, #mbw-play-hud .ph-bp-x { pointer-events: auto; cursor: pointer; background: #6b6b6b; color: #fff; border: 2px solid; border-color: #9d9d9d #373737 #373737 #9d9d9d; padding: 3px 10px; font: 400 18px/1 'Pixeltype', sans-serif; text-shadow: 1px 1px 0 #000; }
+#mbw-play-hud .ph-bp-x { margin-top: 6px; background: #8a3a32; }
+body.is-touch #mbw-play-hud .ph-bp { font-size: 17px; max-width: 70%; top: 4px; }
+body.is-touch #mbw-play-hud .ph-bp-list { max-height: 64px; }
+body.mbw-bp-browse #structures-modal { z-index: 9850; }
+body.mbw-bp-browse #structures-modal .btn-edit-action, body.mbw-bp-browse #structures-modal .btn-delete-action, body.mbw-bp-browse #structures-modal .btn-import, body.mbw-bp-browse #structures-modal .btn-export, body.mbw-bp-browse #structures-modal .btn-reset, body.mbw-bp-browse #structures-modal .btn-multi, body.mbw-bp-browse #structures-modal #btn-generate-chest { display: none !important; }
+/* 🧩 menú de Mods del editor (al lado de Addons) */
+.mods-menu-content { width: min(440px, calc(100vw - 20px)); max-height: min(72vh, 620px); overflow-y: auto; }
+.mods-ed-head { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; background: var(--bg-panel); border-bottom: 1px solid var(--bg-hover); }
+.mods-ed-head b { color: #fff; font-size: 14px; }
+.mods-ed-head span { color: var(--text-muted); font-size: 11px; line-height: 1.25; }
+.mods-ed-list { gap: 0; }
+.mods-ed-item { padding: 6px 8px; }
+.mods-ed-ic { background: #8b8b8b; }
+.mods-ed-ic canvas { width: 24px; height: 24px; image-rendering: pixelated; }
+.mods-ed-item .addon-title { white-space: normal; }
+.mods-ed-btn { flex: 0 0 auto; min-width: 84px; }
+.mods-ed-btn.on { background: #2E7D32; border-color: #1B5E20; }
+.mods-ed-st { flex: 0 0 auto; font-size: 12px; color: var(--text-muted); }
+.mods-ed-st.on { color: #7cdc3a; }
+.mods-ed-item .pm-mod-prog { width: 130px; }
+body.is-touch #mbw-play-hud .ph-bp { left: 10px; transform: none; max-width: min(380px, 52%); }
+#mbw-play-hud .ph-bp .ph-bp-ok { background: #3d7a24; }
+#mbw-play-hud .ph-bp .ph-bp-ok:disabled { opacity: .45; }

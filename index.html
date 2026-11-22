@@ -462,6 +462,15 @@
     </div>
 </div>
 
+<!-- 🧩 Mods (scripts/play-menu.js): instalar / desinstalar los mods de este mapa mientras se edita -->
+<div class="dropdown-container" id="mods-dropdown-container" style="position: relative; display: flex; align-items: flex-end;">
+    <button class="tab-btn" type="button" onclick="toggleModsMenu()" style="color: #7cdc3a; display: flex; flex-direction: row; align-items: center; gap: 4px; padding-bottom: 8px; white-space: nowrap;">
+        <span style="font-size: 13px;">🧩</span><span style="font-size: 12px;" data-i18n="mods_tab_btn">Mods</span>
+        <span style="font-size: 10px;">▼</span>
+    </button>
+    <div id="mods-dropdown" class="addons-menu-content mods-menu-content"></div>
+</div>
+
     <!-- ▶️ Modo Jugar (scripts/play-mode.js): probar el mapa; al parar, todo vuelve a como estaba -->
     <button type="button" id="btn-play-mode" class="btn-play-mode" onclick="mbwTogglePlay()" data-i18n-title="play_btn_tip" title="Play the map to test it. When you stop, the blocks, mobs and Player go back to where they were."><b class="pb-ic">▶</b> <span data-i18n="play_btn">Play</span></button>
     <div class="dropdown-container" id="export-dropdown-container" style="margin-left: 6px; margin-bottom: 4px; align-self: flex-end; display: flex;">
@@ -1843,7 +1852,7 @@
             
             <div style="position: absolute; bottom: 10px; left: 15px; font-size: 11px; color: gray; font-family: monospace;">
                 <span data-i18n="about_last_update">Last Update:</span> Nov 10, 2026<br>
-                v4.1 - Snapshot 4
+                v4.1 - Snapshot 5
             </div>
             <div style="position: absolute; bottom: 10px; right: 15px; font-size: 12px; color: gray; font-weight: bold;">
                 2026

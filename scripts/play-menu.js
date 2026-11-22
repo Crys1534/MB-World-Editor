@@ -358,9 +358,43 @@
             delete MODJOB[id];
             const MD = P() && P().mods; if (MD) MD.set(id, j.on);
             if (document.querySelector('#play-menu .pm-mods')) show(page);
+            if (edMenu && edMenu.classList.contains('show')) window.mbwEditorMods();   // (el menú de Mods del editor)
+            if (typeof worldDirty !== 'undefined') worldDirty = true;
         });
         if (any) requestAnimationFrame(modJobTick);
     }
+    // 🧩 (editor) el menú desplegable de Mods al lado de Addons: lo mismo que la pestaña Mods, pero mientras editas el mapa
+    let edMenu = null;
+    window.mbwEditorMods = function (menu) {
+        edMenu = menu || edMenu; if (!edMenu) return;
+        const MD = P() && P().mods; edMenu.textContent = '';
+        if (!MD) return;
+        const guest = (typeof isMultiplayer !== 'undefined' && isMultiplayer) && (typeof isHost !== 'undefined' && !isHost);
+        const can = !guest && !(P().isPlaying && P().isPlaying());
+        const head = el('div', 'mods-ed-head');
+        head.appendChild(el('b', null, '🧩 ' + tr('pm_tab_mods', 'Mods')));
+        head.appendChild(el('span', null, guest ? tr('mods_ed_guest', 'Only the host of this map can install mods.') : tr('mods_ed_note', 'Mods installed here are saved in this map and work when you (or anyone) play it.')));
+        edMenu.appendChild(head);
+        const list = el('div', 'addons-list mods-ed-list');
+        MD.list().forEach(function (m) {
+            const r = el('div', 'addon-item mods-ed-item' + (m.on ? ' on' : '')); r.dataset.mod = m.id;
+            const ic = el('div', 'addon-icon mods-ed-ic'); ic.appendChild(ico(m.icon[0], m.icon[1])); r.appendChild(ic);
+            const tx = el('div', 'addon-info'); tx.appendChild(el('div', 'addon-title', m.name)); tx.appendChild(el('div', 'addon-desc', m.desc)); r.appendChild(tx);
+            if (MODJOB[m.id]) {
+                const j = MODJOB[m.id], pc = modJobPct(j), pg = el('div', 'pm-mod-prog' + (j.on ? '' : ' un')); pg.dataset.job = m.id;
+                const fill = el('i'); fill.style.width = pc + '%'; pg.appendChild(fill);
+                pg.appendChild(el('span', null, (j.on ? tr('mods_installing', 'Installing...') : tr('mods_uninstalling', 'Uninstalling...')) + ' ' + pc + '%'));
+                r.appendChild(pg);
+            } else if (can) {
+                const b = el('button', 'addon-action-btn mods-ed-btn' + (m.on ? ' on' : ''), m.on ? '✓ ' + tr('mods_installed', 'Installed') : tr('mods_install', 'Install'));
+                b.type = 'button'; if (m.on) b.title = tr('mods_uninstall_tip', 'Click to uninstall');
+                b.addEventListener('click', function (e) { e.stopPropagation(); modJobStart(m.id, !m.on); window.mbwEditorMods(); });
+                r.appendChild(b);
+            } else r.appendChild(el('span', 'mods-ed-st' + (m.on ? ' on' : ''), m.on ? '✓ ' + tr('mods_installed', 'Installed') : tr('mods_off', 'Not installed')));
+            list.appendChild(r);
+        });
+        edMenu.appendChild(list);
+    };
     function modsBox() {
         const box = el('div', 'pm-mods');
         const MD = P() && P().mods;

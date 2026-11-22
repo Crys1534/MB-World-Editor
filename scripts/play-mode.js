@@ -2460,6 +2460,7 @@
         // un clic rapidísimo (se suelta antes del siguiente paso) cuenta igual una vez
         const right = S.mouse.right || S.mouse.rightEdge, left = S.mouse.left || S.mouse.leftEdge, rightFresh = S.mouse.rightEdge, leftFresh = S.mouse.leftEdge;
         S.mouse.rightEdge = false; S.mouse.leftEdge = false;
+        if (S.bpPlace) { if (leftFresh || rightFresh) { if (document.body.classList.contains('is-touch')) { S.bpPlace.o = bpOrigin(mw); hud.dirty = true; } else bpPlaceAt(mw); } S.mine = null; return; }   // (📱 tocar = mover el plano; ✓ = ponerlo)   // 🏗 (mod Build This) eligiendo dónde va el plano
         if (tickDraw(right, rightFresh, mw)) { S.mine = null; return; }    // 🏹 tensando / soltando el arco
         if (right) {
             if (selType() === 'cbook') { if (rightFresh) useCommandBook(); S.mine = null; return; }
@@ -2474,6 +2475,7 @@
             if (rightFresh && useItemLife(mw, bx, by)) { S.mine = null; S.swing = 15; return; }        // 🔥 mechero, 🎣 caña, azadón, harina de hueso, balsa, vagoneta
             if (rightFresh && !S.p.sneaking && blockDist(bx, by) <= REACH + 1 && useBlock(bx, by)) { S.mine = null; S.swing = 15; return; }   // puertas, trampillas, bloque musical, camas
             if (SHOT[selType()]) { startDraw(rightFresh); S.mine = null; return; }      // 🏹 arco, ❄ bola de nieve, shuriken de hueso, lanza
+            if (S.placeDelay >= 6 && bpBuildTry(mw)) { S.placeDelay = 0; S.swing = 15; S.mine = null; return; }   // 🏗 (mod Build This) construir el plano
             S.rightFresh = rightFresh;
             if (S.placeDelay >= 6 && placeBlock(mw)) { S.placeDelay = 0; S.swing = 15; if (S.zoneAt !== S.tick) ach(1); const px2 = Math.floor(mw.x), py2 = Math.floor(mw.y); golemCheck(px2, py2); if (CROPS[fg(px2, py2)] && !cropStage(px2, py2)) setCrop(px2, py2, 1); }
             S.rightFresh = false;
@@ -2860,7 +2862,10 @@
                 info('Gave ' + q + ' "' + d[1] + '".'); return;
             }
             case 'clear': {
+                // 🧹 /clear solo: quita TODOS los objetos tirados en TODO el mundo (las 3 dimensiones, para todos los jugadores)
+                if (!d[1]) { const n0 = clearDrops(false); info(n0 ? 'Removed ' + n0 + ' dropped item' + (n0 === 1 ? '' : 's') + ' from the whole world.' : 'There were no dropped items in the world.'); return; }
                 const list = inv(); let n = 0;
+                if (d[1] === 'inventory') { for (let i = 0; i < 45; i++) if (!isEmpty(list[i])) { n += list[i][1]; list[i] = empty(); } hud.dirty = true; info(n ? 'Cleared ' + n + ' item' + (n === 1 ? '' : 's') + '.' : 'No items were found.'); return; }
                 if (d[1]) {
                     const id = ident(d[1]); if (!id) { say('[INFO] "' + d[1] + '" is not a proper item ID.'); return; }
                     let max = d[2] != null && parseInt(d[2], 10) >= 0 ? parseInt(d[2], 10) : Infinity;
@@ -3223,7 +3228,7 @@
         const m = document.getElementById('inventory-modal');
         if (m && m.style.display === 'block' && shown(m)) return true;
         if (S.ench) return true;
-        if (S.zshop || S.scanPick || S.vWin) return true;
+        if (S.zshop || S.scanPick || S.vWin || bpBrowsing()) return true;
         const cb = document.getElementById('command-book-modal');
         return !!(cb && cb.style.display && cb.style.display !== 'none' && shown(cb));
     }
@@ -4201,6 +4206,7 @@
         { id: 'thirst', icon: ['potion', { type: 'water' }], name: ['mod_thirst', 'Thirst'], desc: ['mod_thirst_d', 'A thirst bar: drink water bottles, juices, milk or soup, or click water with an empty hand. If it runs out you get hurt.'] },
         { id: 'replant', icon: ['seed'], name: ['mod_replant', 'Replant'], desc: ['mod_replant_d', 'When you harvest a ripe crop, a second later one of the seeds it dropped plants itself again.'] },
         { id: 'orescan', icon: ['compass'], name: ['mod_orescan', 'Ore Scanner'], desc: ['mod_orescan_d', 'Choose the ore you are looking for and the ones near you glow, even through walls and in the dark.'] },
+        { id: 'buildthis', icon: ['craft'], name: ['mod_buildthis', 'Build This'], desc: ['mod_buildthis_d', 'Choose a structure in the Structures Browser and place it as a gray ghost blueprint. Stand inside it and right-click with the materials to build it block by block.'] },
         { id: 'villagers', icon: ['topaz'], name: ['mod_villagers', 'Villagers'], desc: ['mod_villagers_d', 'Villagers that get a job from a nearby job block and trade with you for topaz. They level up, have babies if there are beds, and zombies can infect them.'] }
     ];
     const MOD_IDS = {}; MODS.forEach(function (m) { MOD_IDS[m.id] = 1; });
@@ -4224,6 +4230,7 @@
         if (!modOn('orescan')) { S.scan = null; S.scanHits = null; scanPickClose(); }
         if (!modOn('replant')) S.replant = null;
         if (!modOn('villagers')) vWinClose();
+        if (!modOn('buildthis')) { bpPlaceCancel(); if (bpBrowsing() && typeof window.closeModal === 'function') window.closeModal('structures-modal'); }
         if (typeof worldDirty !== 'undefined') worldDirty = true;
     }
     function setMod(id, on) {
@@ -4688,6 +4695,16 @@
         return fg(p, y) === 'chest' ? p : null;
     }
 
+    // 🧹 /clear: quitar todos los objetos tirados en todo el mundo (esta dimensión y las otras). fromNet = lo pidió otro jugador
+    function clearDrops(fromNet) {
+        let n = 0;
+        S.drops.forEach(function (d) { n += Math.max(1, d.n | 0); }); S.drops = [];
+        Object.keys(S.dimStash || {}).forEach(function (k) { const b = S.dimStash[k]; if (b && b.drops) { b.drops.forEach(function (d) { n += Math.max(1, d.n | 0); }); b.drops = []; } });
+        if (S.mp && !fromNet) mpSend({ tipo: 'juego_clear' });
+        return n;
+    }
+    window.mbwPlay.clearDrops = function (fromNet) { return S.playing ? clearDrops(!!fromNet) : 0; };
+
     // (lo de encima de la oscuridad: números de daño y el escáner de minerales)
     window.mbwPlay.overDark = function (c2) {
         if (!S.playing || !c2) return;
@@ -5111,6 +5128,270 @@
         return null;
     };
     window.mbwVillagersOn = function () { try { return !!(mbwom && mbwom.world && mbwom.world.mbweMods && mbwom.world.mbweMods.villagers); } catch (e) { return false; } };
+
+    // ------------------------------------------------------------------ 🏗 Build This (como The Forest)
+    //  Cualquier jugador abre el Structures Browser (botón 🏗), elige una estructura (guardada, vanilla o de la comunidad) y la
+    //  coloca en el mundo como un PLANO FANTASMA en gris. Parado dentro del plano, con clic derecho y el material en la mano, se va
+    //  construyendo bloque por bloque (de abajo hacia arriba), gastando tus objetos. En creativo no gasta nada.
+    //  Los planos se guardan en el mundo (mbweBuilds) y todos los jugadores los ven y pueden ayudar a construirlos.
+    //  Un bloque que ya está ocupado por otra cosa sale en rojo: hay que quitarlo para que se pueda construir ahí.
+    const BP_KEEP = { type: 1, states1: 1, states2: 1, text: 1, color: 1, rotation: 1 };   // (no se copian cofres llenos ni cosas así)
+    const BP_DOOR_ITEM = { dr: 'dr', bdr: 'bbdr', idr: 'idr' };
+    const BP_SUB = { gr: 'd', farm: 'd', mgr: 'd', snowgr: 'd' };     // (pasto y tierra arada se construyen con tierra)
+    function bpTable() { const w = W(); if (!w.mbweBuilds || typeof w.mbweBuilds !== 'object') w.mbweBuilds = {}; return w.mbweBuilds; }
+    function bpCellItem(st) {                                           // qué objeto hace falta para este bloque ('' = sale solo; null = no se construye)
+        const t = st && st.type; if (!t || t === 'air') return null;
+        if (isWaterT(t) || t === 'lava' || bd(t, 'liquid') != null || t === 'lgr' || t === 'portal' || t === 'br') return null;
+        if (t === 'bed2') return '';
+        if (t === 'bed1') return 'bed';
+        const dm = /^(dr|bdr|idr)([1-4])$/.exec(t); if (dm) return (dm[2] === '2' || dm[2] === '4') ? '' : BP_DOOR_ITEM[dm[1]];
+        return BP_SUB[t] || t;
+    }
+    function bpClean(st) { const o = {}; Object.keys(st || {}).forEach(function (k) { if (BP_KEEP[k] && st[k] != null) o[k] = st[k]; }); return o; }
+    function bpFromStruct(struct) {                                     // [[dx, dy, estado]] desde 0,0 (abajo a la izquierda)
+        const D0 = (struct && (struct.data || [])) || [];
+        const L = D0.filter(function (b) { return b && b.state && b.state.type && b.state.type !== 'air' && bpCellItem(b.state) !== null; });
+        if (!L.length) return null;
+        const mx = Math.min.apply(null, L.map(function (b) { return b.dx; })), my = Math.min.apply(null, L.map(function (b) { return b.dy; }));
+        const c = L.map(function (b) { return [b.dx - mx, b.dy - my, bpClean(b.state)]; });
+        return { c: c, w: Math.max.apply(null, c.map(function (q) { return q[0]; })) + 1, h: Math.max.apply(null, c.map(function (q) { return q[1]; })) + 1 };
+    }
+    const bpCells = (b) => b.c.map(function (q) { return { x: b.x + q[0], y: b.y + q[1], st: q[2], it: bpCellItem(q[2]) }; }).filter(function (c) { return c.it !== null; });
+    const bpDone = (c) => fg(c.x, c.y) === c.st.type;
+    const bpFree = (c) => { const t = fg(c.x, c.y); return t === 'air' || isWaterT(t) || bd(t, 'replaceable') != null || t === 'lgr'; };
+    function bpHereList() { const T = bpTable(), sc = mbwom.currentScene || 1; return Object.keys(T).filter(function (k) { return T[k] && (T[k].s || 1) === sc; }).map(function (k) { return [k, T[k]]; }); }
+    function bpAtMe() {                                                // el plano donde estoy parado (con 1 bloque de margen)
+        const w = W(), px = Number(w.worldX), py = -Number(w.worldY) + .5;
+        return bpHereList().filter(function (e) { const b = e[1]; return px >= b.x - 1 && px <= b.x + b.w + 1 && py >= b.y - 1 && py <= b.y + b.h + 1; })[0] || null;
+    }
+    function bpNeeds(b) {                                               // { objeto: cuántos faltan } y cuántos están tapados
+        const o = {}; let blocked = 0, left = 0;
+        bpCells(b).forEach(function (c) { if (bpDone(c)) return; left++; if (!bpFree(c)) blocked++; if (c.it) o[c.it] = (o[c.it] || 0) + 1; });
+        return { items: o, blocked: blocked, left: left };
+    }
+    function bpPut(c) {
+        const s = Object.assign({}, c.st);
+        setBlock(c.x, c.y, s.type, s.states1);
+        if (Object.keys(s).some(function (k) { return k !== 'type' && k !== 'states1'; })) { mbwom.setBlockState(c.x, c.y, s); if (typeof window.renderBlock === 'function') window.renderBlock(c.x, c.y); }
+        for (let i = 0; i < 4; i++) addPart({ x: c.x + Math.random(), y: c.y + Math.random(), vx: (Math.random() - .5) * .03, vy: .02, life: 18, size: .1, col: '#ffffff', glow: true });
+    }
+    // ⚒ clic derecho dentro de un plano: pone el siguiente bloque que va con lo que traes en la mano
+    function bpBuildTry(mw) {
+        if (!modOn('buildthis')) return false;
+        const e = bpAtMe(); if (!e) return false;
+        const b = e[1], w = W(), creative = w.gamemode == 1, it = selItem(), id = it && !isEmpty(it) ? it[0] : null;
+        const pend = bpCells(b).filter(function (c) { return !bpDone(c) && bpFree(c) && c.it; });
+        if (!pend.length) return false;
+        const fits = (c) => creative ? (!id || c.it === id) : c.it === id;
+        const bx = Math.floor(mw.x), by = Math.floor(mw.y);
+        let c = pend.filter(function (q) { return q.x === bx && q.y === by && fits(q); })[0];
+        if (!c) c = pend.filter(fits).sort(function (p, q) { return p.y - q.y || p.x - q.x; })[0];
+        if (!c && creative && id) c = pend.sort(function (p, q) { return p.y - q.y || p.x - q.x; })[0];   // (creativo: cualquiera)
+        if (!c) return false;
+        if (zoneBlocks(c.x, c.y) && zoneDeny(c.x, c.y)) return true;
+        bpPut(c);
+        blockSnd(c.st.type, 'place', c.x, c.y);
+        if (!creative) reduceSelected(1);
+        // lo que sale solo: la otra mitad de la cama, la parte de arriba de la puerta
+        bpCells(b).forEach(function (q) {
+            if (q.it !== '' || bpDone(q) || !bpFree(q)) return;
+            if (q.st.type === 'bed2' && fg(q.x - 1, q.y) === 'bed1') bpPut(q);
+            else if (/^(dr|bdr|idr)[24]$/.test(q.st.type) && /^(dr|bdr|idr)[13]$/.test(fg(q.x, q.y - 1))) bpPut(q);
+        });
+        S.zoneAt = S.tick;                                              // (no cuenta como "poner un bloque")
+        hud.dirty = true;
+        bpCheckDone(e[0]);
+        return true;
+    }
+    function bpCheckDone(id) {
+        const b = bpTable()[id]; if (!b) return;
+        if (bpNeeds(b).left > 0) return;
+        delete bpTable()[id];
+        if (S.mp) mpSend({ tipo: 'juego_build', op: 'del', id: id });
+        snd('levelup');
+        for (let i = 0; i < 30; i++) addPart({ x: b.x + Math.random() * b.w, y: b.y + Math.random() * b.h, vy: .03, life: 40, size: .14, col: Math.random() < .5 ? '#ffd84a' : '#ffffff', glow: true });
+        flashMsg('🏗 ' + tr('bp_done', '{name} is finished!').replace('{name}', b.n || '?'));
+        if (typeof worldDirty !== 'undefined') worldDirty = true;
+        hud.dirty = true;
+    }
+    function bpCanCancel(b) { return b && (b.o === lockMeUid() || modBoss()); }
+    function bpCancel(id) {
+        const b = bpTable()[id]; if (!b || !bpCanCancel(b)) return false;
+        delete bpTable()[id];
+        if (S.mp) mpSend({ tipo: 'juego_build', op: 'del', id: id });
+        flashMsg('🏗 ' + tr('bp_cancelled', 'Blueprint removed.'));
+        if (typeof worldDirty !== 'undefined') worldDirty = true;
+        hud.dirty = true;
+        return true;
+    }
+    // 📐 elegir dónde va: el plano sigue al mouse; clic = ponerlo aquí; R = voltearlo
+    function bpPick(struct) {
+        if (!S.playing || !modOn('buildthis')) return false;
+        const P0 = bpFromStruct(struct);
+        if (!P0) { flashMsg(tr('bp_empty', 'That structure has nothing that can be built.')); return true; }
+        if (P0.c.length > 4000) { flashMsg(tr('bp_too_big', 'That structure is too big to build (4000 blocks max).')); return true; }
+        S.bpPlace = { n: String(struct.title || 'Structure').slice(0, 40), c: P0.c, w: P0.w, h: P0.h };
+        hud.dirty = true;
+        return true;
+    }
+    function bpOrigin(mw) { const p = S.bpPlace; return { x: Math.floor(mw.x) - Math.floor((p.w - 1) / 2), y: Math.floor(mw.y) }; }
+    function bpPlaceAt(mw) {
+        const p = S.bpPlace; if (!p) return false;
+        const o = mw ? bpOrigin(mw) : p.o; if (!o) return false;
+        if (o.x < 0 || o.y < 0) return false;
+        const over = bpHereList().some(function (e) { const b = e[1]; return o.x < b.x + b.w && o.x + p.w > b.x && o.y < b.y + b.h && o.y + p.h > b.y; });
+        if (over) { flashMsg(tr('bp_overlap', 'There is already another blueprint there.')); return false; }
+        for (let i = 0; i < p.c.length; i++) { const x = o.x + p.c[i][0], y = o.y + p.c[i][1]; if (zoneBlocks(x, y) && zoneDeny(x, y)) return false; }
+        const id = 'bp' + Date.now().toString(36) + (Math.random() * 1e4 | 0).toString(36);
+        const b = { o: lockMeUid(), on: myNameNet(), n: p.n, s: mbwom.currentScene || 1, x: o.x, y: o.y, w: p.w, h: p.h, c: p.c };
+        bpTable()[id] = b;
+        if (S.mp) mpSend({ tipo: 'juego_build', op: 'add', id: id, b: b });
+        S.bpPlace = null;
+        snd('click'); hud.dirty = true;
+        flashMsg('🏗 ' + tr('bp_placed', 'Blueprint placed: stand inside it and right-click with the materials to build it.'));
+        if (typeof worldDirty !== 'undefined') worldDirty = true;
+        return true;
+    }
+    function bpPlaceCancel() { if (!S.bpPlace) return; S.bpPlace = null; hud.dirty = true; }
+    function bpMirror() {
+        const p = S.bpPlace; if (!p) return;
+        p.c.forEach(function (q) { q[0] = p.w - 1 - q[0]; if (typeof window.flipBlockVariant === 'function') { try { window.flipBlockVariant(q[2], 'h'); } catch (e) { /* nada */ } } });
+        // (las camas: bed1 tiene que quedar a la izquierda de bed2)
+        p.c.forEach(function (q) { if (q[2].type === 'bed1') { const r = p.c.filter(function (z) { return z[2].type === 'bed2' && z[1] === q[1] && z[0] === q[0] - 1; })[0]; if (r) { const t = q[0]; q[0] = r[0]; r[0] = t; } } });
+    }
+    // 🎨 dibujo: cada bloque del plano en gris y transparente (se guarda el dibujo gris de cada tipo de bloque)
+    const BP_GRAY = new Map();
+    function bpGray(st) {
+        const k = st.type + '|' + (st.states1 == null ? '' : st.states1);
+        let c = BP_GRAY.get(k); if (c !== undefined) return c;
+        c = null;
+        try {
+            if (typeof getBlockObject === 'function' && typeof drawBlock === 'function') {
+                const cv = document.createElement('canvas'); cv.width = 16; cv.height = 16; const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
+                drawBlock(getBlockObject(Object.assign({}, st)), { x: 0, y: 0, width: 16, height: 16 }, g);
+                const D2 = g.getImageData(0, 0, 16, 16), p = D2.data; let any = false;
+                for (let i = 0; i < p.length; i += 4) { const v = p[i] * .3 + p[i + 1] * .59 + p[i + 2] * .11; p[i] = p[i + 1] = p[i + 2] = Math.min(255, v * .85 + 40); if (p[i + 3]) any = true; }
+                g.putImageData(D2, 0, 0);
+                c = any ? cv : null;
+                if (!any) { BP_GRAY.set(k, undefined); return null; }   // (la imagen todavía no cargaba: se intenta otra vez)
+            }
+        } catch (e) { c = null; }
+        BP_GRAY.set(k, c);
+        return c;
+    }
+    function bpDrawCells(c2, cells, alpha, place) {
+        const ts = tileSize;
+        cells.forEach(function (c) {
+            const a = toScreen(c.x, -(c.y + 1));
+            if (a.x > canvas.width || a.y > canvas.height || a.x + ts < 0 || a.y + ts < 0) return;
+            const blocked = !bpFree(c);
+            const im = bpGray(c.st);
+            c2.globalAlpha = alpha;
+            if (im) c2.drawImage(im, a.x, a.y, ts, ts); else { c2.fillStyle = '#bbb'; c2.fillRect(a.x, a.y, ts, ts); }
+            if (blocked) { c2.globalAlpha = place ? .45 : .35; c2.fillStyle = '#ff2a2a'; c2.fillRect(a.x, a.y, ts, ts); }
+        });
+        c2.globalAlpha = 1;
+    }
+    function drawBuilds(c2) {
+        if (!modOn('buildthis')) return;
+        const ts = tileSize, fs = Math.max(11, Math.round(ts * .38));
+        c2.save(); c2.imageSmoothingEnabled = false;
+        bpHereList().forEach(function (e) {
+            const b = e[1];
+            const a = toScreen(b.x, -(b.y + b.h)), wpx = b.w * ts, hpx = b.h * ts;
+            if (a.x > canvas.width || a.y > canvas.height || a.x + wpx < 0 || a.y + hpx < 0) return;
+            bpDrawCells(c2, bpCells(b).filter(function (c) { return !bpDone(c); }), .5, false);
+            c2.setLineDash([6, 4]); c2.strokeStyle = 'rgba(255,255,255,.75)'; c2.lineWidth = 2; c2.strokeRect(a.x, a.y, wpx, hpx); c2.setLineDash([]);
+            const n = bpNeeds(b), done = b.c.length ? Math.round((1 - n.left / Math.max(1, bpCells(b).length)) * 100) : 0;
+            c2.font = fs + 'px Pixeltype, monospace'; c2.textBaseline = 'bottom'; c2.lineWidth = 3; c2.strokeStyle = 'rgba(0,0,0,.85)'; c2.fillStyle = '#fff';
+            const t = '🏗 ' + (b.n || '') + ' · ' + done + '%';
+            c2.strokeText(t, a.x + 2, a.y - 3); c2.fillText(t, a.x + 2, a.y - 3);
+        });
+        if (S.bpPlace) {                                                // (eligiendo dónde va: sigue al mouse)
+            const p = S.bpPlace, touch = document.body.classList.contains('is-touch'), o = touch ? p.o : bpOrigin(mouseWorld());
+            if (!o) { c2.restore(); return; }
+            bpDrawCells(c2, p.c.map(function (q) { return { x: o.x + q[0], y: o.y + q[1], st: q[2] }; }), .65, true);
+            const a = toScreen(o.x, -(o.y + p.h));
+            c2.setLineDash([6, 4]); c2.strokeStyle = '#7cf0ff'; c2.lineWidth = 2; c2.strokeRect(a.x, a.y, p.w * ts, p.h * ts); c2.setLineDash([]);
+        }
+        c2.restore();
+    }
+    // 🧾 el cuadrito de abajo: qué materiales faltan (cuando estás dentro de un plano) / cómo colocarlo
+    function bpPanel() {
+        const ar = document.querySelector('#mbw-play-hud .ph-bp'); if (!ar) return;
+        let html = '', sig = '';
+        if (S.playing && modOn('buildthis') && S.bpPlace) {
+            const touch = document.body.classList.contains('is-touch');
+            sig = 'place|' + S.bpPlace.n + '|' + touch + '|' + !!S.bpPlace.o;
+            if (ar.dataset.sig !== sig) {
+                ar.dataset.sig = sig; ar.textContent = '';
+                const t = document.createElement('div'); t.className = 'ph-bp-t'; t.textContent = '📐 ' + S.bpPlace.n + ' — ' + (touch ? tr('bp_place_hint_touch', 'Tap where you want to build it, then press ✓') : tr('bp_place_hint', 'Click where you want to build it')); ar.appendChild(t);
+                const row = document.createElement('div'); row.className = 'ph-bp-btns';
+                if (touch) { const ok = document.createElement('button'); ok.type = 'button'; ok.className = 'ph-bp-ok'; ok.disabled = !S.bpPlace.o; ok.textContent = '✓ ' + tr('bp_here', 'Build here'); ok.addEventListener('click', function (ev) { ev.stopPropagation(); bpPlaceAt(null); }); row.appendChild(ok); }
+                const mb = document.createElement('button'); mb.type = 'button'; mb.textContent = '⇋ ' + tr('bp_mirror', 'Mirror') + ' (R)'; mb.addEventListener('click', function (ev) { ev.stopPropagation(); bpMirror(); });
+                const cb = document.createElement('button'); cb.type = 'button'; cb.textContent = '✕ ' + tr('bp_cancel_place', 'Cancel'); cb.addEventListener('click', function (ev) { ev.stopPropagation(); bpPlaceCancel(); });
+                row.appendChild(mb); row.appendChild(cb); ar.appendChild(row);
+            }
+            ar.style.display = '';
+            return;
+        }
+        const e = S.playing && modOn('buildthis') ? bpAtMe() : null;
+        if (!e) { if (ar.style.display !== 'none') { ar.style.display = 'none'; ar.dataset.sig = ''; } return; }
+        const b = e[1], n = bpNeeds(b), held = selType();
+        sig = e[0] + '|' + JSON.stringify(n) + '|' + held + '|' + inv().map(function (q) { return q && q[0] + q[1]; }).join();
+        ar.style.display = '';
+        if (ar.dataset.sig === sig) return;
+        ar.dataset.sig = sig; ar.textContent = '';
+        const t = document.createElement('div'); t.className = 'ph-bp-t'; t.textContent = '🏗 ' + (b.n || '') + ' — ' + tr('bp_left', '{n} blocks left').replace('{n}', n.left); ar.appendChild(t);
+        const list = document.createElement('div'); list.className = 'ph-bp-list';
+        Object.keys(n.items).sort(function (p, q) { return n.items[q] - n.items[p]; }).forEach(function (id) {
+            const s = document.createElement('span'); s.className = 'ph-bp-it' + (id === held ? ' on' : '');
+            const cv = document.createElement('canvas'); cv.width = 16; cv.height = 16; const g = cv.getContext('2d'); g.imageSmoothingEnabled = false; try { g.drawImage(iconFor(id, {}), 0, 0, 16, 16); } catch (er) { /* nada */ }
+            s.appendChild(cv);
+            const have = (function () { let k = 0; inv().forEach(function (q) { if (!isEmpty(q) && q[0] === id) k += q[1] | 0; }); return k; })();
+            const lb = document.createElement('b'); lb.textContent = 'x' + n.items[id]; s.appendChild(lb);
+            s.title = itemDisplayName([id, 1, 0, {}]) + ' — ' + tr('bp_have', 'you have {n}').replace('{n}', have);
+            if (have > 0) s.classList.add('have');
+            list.appendChild(s);
+        });
+        ar.appendChild(list);
+        if (n.blocked) { const w2 = document.createElement('div'); w2.className = 'ph-bp-warn'; w2.textContent = '⛔ ' + tr('bp_blocked', '{n} spots are taken by other blocks (red): break them first.').replace('{n}', n.blocked); ar.appendChild(w2); }
+        const hint = document.createElement('div'); hint.className = 'ph-bp-hint'; hint.textContent = tr('bp_build_hint', 'Right-click with a material in your hand to build.'); ar.appendChild(hint);
+        if (bpCanCancel(b)) {
+            const cb = document.createElement('button'); cb.type = 'button'; cb.className = 'ph-bp-x'; cb.textContent = '✕ ' + tr('bp_remove', 'Remove blueprint'); cb.title = tr('bp_remove', 'Remove blueprint');
+            cb.addEventListener('click', function (ev) { ev.stopPropagation(); bpCancel(e[0]); });
+            ar.appendChild(cb);
+        }
+    }
+    // 📚 abrir el Structures Browser jugando (para elegir qué construir)
+    function bpBrowse() {
+        if (!S.playing || !modOn('buildthis') || typeof window.openStructuresModal !== 'function') return false;
+        closeModals();
+        document.body.classList.add('mbw-bp-browse');
+        const lb = document.querySelector('#structures-modal .btn-load-struct');
+        if (lb) { if (!lb.dataset.orig) lb.dataset.orig = lb.textContent; lb.textContent = '🏗 ' + tr('bp_build_this', 'Build This'); }
+        window.openStructuresModal();
+        try { if (typeof structureDB !== 'undefined' && !structureDB.some(function (q) { return q.category === 'saved'; }) && typeof filterStructures === 'function') filterStructures('vanilla'); } catch (e) { /* nada */ }   // (sin guardadas: las vanilla)
+        return true;
+    }
+    function bpBrowseClosed() {
+        document.body.classList.remove('mbw-bp-browse');
+        const lb = document.querySelector('#structures-modal .btn-load-struct');
+        if (lb && lb.dataset.orig) lb.textContent = lb.dataset.orig;
+    }
+    const bpBrowsing = () => { const m = document.getElementById('structures-modal'); return !!(m && m.style.display === 'flex' && document.body.classList.contains('mbw-bp-browse')); };
+    // 🎮 los planos entre jugadores
+    function bpNet(d) {
+        if (!d) return;
+        const T = bpTable();
+        if (d.op === 'add' && d.id && d.b && typeof d.b === 'object') T[d.id] = d.b;
+        else if (d.op === 'del' && d.id) delete T[d.id];
+        else if (d.op === 'all' && d.t && typeof d.t === 'object') { Object.keys(T).forEach(function (k) { delete T[k]; }); Object.keys(d.t).forEach(function (k) { T[k] = d.t[k]; }); }
+        hud.dirty = true;
+    }
+    window.mbwPlay.buildPick = function (struct) { if (!bpPick(struct)) return false; if (typeof window.closeModal === 'function') window.closeModal('structures-modal'); bpBrowseClosed(); return true; };
+    window.mbwPlay.buildNet = bpNet;
+    window.mbwPlay.buildBrowseClosed = bpBrowseClosed;
 
     window.mbwPlay.mods = {
         list: function () { return MODS.map(function (m) { return { id: m.id, icon: m.icon, name: tr(m.name[0], m.name[1]), desc: tr(m.desc[0], m.desc[1]), on: modOn(m.id) }; }); },
@@ -5902,6 +6183,7 @@
         S.arrows.forEach(function (r) { const p = toScreen(r.x, r.y); const a = Math.atan2(r.vy, r.vx); c2.beginPath(); c2.moveTo(p.x, p.y); c2.lineTo(p.x - Math.cos(a) * tileSize * .6, p.y - Math.sin(a) * tileSize * .6); c2.stroke(); });
         drawLocks(c2);
         drawZones(c2);                                                 // 🛡 (mod My Zone, solo con el bloque en la mano)
+        drawBuilds(c2);                                                // 🏗 (mod Build This) los planos fantasma
         drawParticles(c2);
         drawBalloons(c2);
         if (S.sleep) {                                                    // 💤
@@ -6180,8 +6462,8 @@
             ptab.key = null; marks.open = false;
             el.innerHTML =
                 // (lo de la cámara: viñeta, ⏸ y 💬, coordenadas, efectos y el morado del portal van DENTRO del recuadro de la cámara)
-                '<div class="ph-area"><div class="ph-vig"></div><div class="ph-portal"></div>' +
-                '<div class="ph-top"><div class="ph-topbtns"><button type="button" class="ph-scan-btn" aria-label="Ore Scanner" style="display:none"><canvas width="16" height="16"></canvas></button><button type="button" class="ph-zone-btn" aria-label="My Zone" style="display:none"><canvas width="16" height="16"></canvas></button><button type="button" class="ph-marks-btn" aria-label="Markers">⭐</button><button type="button" class="ph-gear" aria-label="Menu">⚙</button></div><div class="ph-msg"></div><div class="ph-scan-lbl" style="display:none"></div></div>' +
+                '<div class="ph-area"><div class="ph-vig"></div><div class="ph-portal"></div><div class="ph-bp" style="display:none"></div>' +
+                '<div class="ph-top"><div class="ph-topbtns"><button type="button" class="ph-bp-btn" aria-label="Build This" style="display:none"><canvas width="16" height="16"></canvas></button><button type="button" class="ph-scan-btn" aria-label="Ore Scanner" style="display:none"><canvas width="16" height="16"></canvas></button><button type="button" class="ph-zone-btn" aria-label="My Zone" style="display:none"><canvas width="16" height="16"></canvas></button><button type="button" class="ph-marks-btn" aria-label="Markers">⭐</button><button type="button" class="ph-gear" aria-label="Menu">⚙</button></div><div class="ph-msg"></div><div class="ph-scan-lbl" style="display:none"></div></div>' +
                 '<div class="ph-marks" style="display:none"></div><div class="ph-ptab" style="display:none"></div>' +
                 '<button type="button" class="ph-chat-btn"><img src="assets/chat.png" alt=""></button><div class="ph-coords"></div><div class="ph-fps"></div><div class="ph-effects"></div></div>' +
                 '<div class="ph-bars"><div class="ph-left"><div class="ph-armor"></div><div class="ph-hearts"></div></div><div class="ph-right"><div class="ph-air"></div><div class="ph-thirst"></div><div class="ph-food"></div></div></div>' +
@@ -6205,6 +6487,7 @@
             el.querySelector('.ph-marks-btn').addEventListener('click', function (e) { e.stopPropagation(); marks.toggle(); });
             el.querySelector('.ph-zone-btn').addEventListener('click', function (e) { e.stopPropagation(); zoneShopOpen(); });   // 🛡 tienda de My Zone
             el.querySelector('.ph-scan-btn').addEventListener('click', function (e) { e.stopPropagation(); scanPickOpen(); });   // 🔍 Ore Scanner
+            el.querySelector('.ph-bp-btn').addEventListener('click', function (e) { e.stopPropagation(); bpBrowse(); });   // 🏗 Build This
             ['pointerdown', 'mousedown', 'touchstart', 'click', 'wheel'].forEach(function (n) { el.querySelector('.ph-marks').addEventListener(n, function (e) { e.stopPropagation(); }); });
             joystick(el.querySelector('.ph-joy'));
             el.querySelectorAll('[data-k]').forEach(function (b) {
@@ -6258,6 +6541,9 @@
             co.style.display = OPTS.coords ? 'block' : 'none';
             const zb = ar.querySelector('.ph-zone-btn'), zon = modOn('myzone');   // 🛡 (mod My Zone) el botón de la tienda
             if (zb && (zb.style.display !== 'none') !== zon) { zb.style.display = zon ? '' : 'none'; if (zon) { const g = zb.querySelector('canvas').getContext('2d'); g.imageSmoothingEnabled = false; g.clearRect(0, 0, 16, 16); g.drawImage(iconFor('b', {}), 0, 0, 16, 16); } zb.title = tr('zone_shop', 'My Zone · Shop'); }
+            const bb = ar.querySelector('.ph-bp-btn'), bon = modOn('buildthis');   // 🏗 (mod Build This) el botón y el cuadrito de materiales
+            if (bb && (bb.style.display !== 'none') !== bon) { bb.style.display = bon ? '' : 'none'; if (bon) { const g = bb.querySelector('canvas').getContext('2d'); g.imageSmoothingEnabled = false; g.clearRect(0, 0, 16, 16); g.drawImage(iconFor('craft', {}), 0, 0, 16, 16); } bb.title = tr('bp_btn_tip', 'Build This: choose a structure to build'); }
+            if (S.tick % 6 === 0 || !bon) bpPanel();
             const sb = ar.querySelector('.ph-scan-btn'), son = modOn('orescan');   // 🔍 (mod Ore Scanner) el botón y lo que encontró
             if (sb && (sb.style.display !== 'none') !== son) { sb.style.display = son ? '' : 'none'; if (son) { const g = sb.querySelector('canvas').getContext('2d'); g.imageSmoothingEnabled = false; g.clearRect(0, 0, 16, 16); g.drawImage(iconFor('compass', {}), 0, 0, 16, 16); } sb.title = tr('scan_title', 'Ore Scanner'); }
             if (sb) sb.classList.toggle('on', !!S.scan);
@@ -6397,7 +6683,7 @@
     // ⌨ Autocompletar: mientras se escribe salen sugerencias (el comando y lo que va en cada parte); Tab completa (otra vez Tab = la
     // siguiente); en el celular se toca la sugerencia.
     const CMDS = {
-        tp: ['[~]x [~]y | @player | dimension overworld|nether|end', 'Teleport'], spectate: ['@player', 'Follow another player'], give: ['item [amount] [damage]', 'Give an item'], clear: ['[item] [max]', 'Clear the inventory'],
+        tp: ['[~]x [~]y | @player | dimension overworld|nether|end', 'Teleport'], spectate: ['@player', 'Follow another player'], give: ['item [amount] [damage]', 'Give an item'], clear: ['[inventory | item [max]]', 'Remove ALL dropped items in the world (inventory: empty yours)'],
         setblock: ['block [~]x [~]y [replace|keep|destroy]', 'Place a block'], fill: ['block [~]x [~]y width height', 'Fill an area'],
         clone: ['[~]x1 [~]y1 width height [~]xDest [~]yDest [move]', 'Copy an area'], summon: ['mob [quantity] [~]x [~]y', 'Spawn a mob'],
         kill: ['', 'Die'], heal: ['', 'Full health'], gamemode: ['survival|creative|adventure|spectator', 'Change game mode'],
@@ -6414,7 +6700,8 @@
         const blocks = () => Object.keys(I).filter(function (k) { const id = I[k][0]; return bd(id, 'placeable') == 1; }).map(function (k) { return k.trim(); });
         const mobs = () => Object.keys(D.mobs).filter(function (k) { return k !== 'player'; }).concat(Object.keys(MOB_ALIAS));
         switch (cmd) {
-            case 'give': case 'clear': return i === 1 ? items() : null;
+            case 'give': return i === 1 ? items() : null;
+            case 'clear': return i === 1 ? ['inventory'].concat(items()) : null;
             case 'setblock': return i === 1 ? ['air'].concat(blocks()) : i === 4 ? ['replace', 'keep', 'destroy'] : (i === 2 || i === 3) ? ['~'] : null;
             case 'fill': return i === 1 ? ['air'].concat(blocks()) : (i === 2 || i === 3) ? ['~'] : null;
             case 'summon': return i === 1 ? mobs() : (i === 3 || i === 4) ? ['~'] : null;
@@ -6788,6 +7075,7 @@
             if (e.code === 'KeyE' || e.code === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); closeModals(); hud.dirty = true; }
             return;
         }
+        if (S.bpPlace && (e.code === 'Escape' || e.code === 'KeyR')) { e.preventDefault(); e.stopImmediatePropagation(); if (e.code === 'KeyR') bpMirror(); else bpPlaceCancel(); return; }   // 🏗 (eligiendo dónde va el plano)
         if (e.code === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); openPause(); return; }   // ⏸ Esc abre el menú de pausa (como el juego)
         if (e.code === 'KeyE') { e.preventDefault(); e.stopImmediatePropagation(); toggleInv(); return; }
         if (e.code === 'KeyT' || e.code === 'Enter' || e.code === 'NumpadEnter' || e.key === '/') { e.preventDefault(); e.stopImmediatePropagation(); chat.show(e.key === '/' ? '/' : ''); return; }
@@ -7001,6 +7289,7 @@
         if (S.zshop) zoneShopClose();
         if (S.scanPick) scanPickClose();
         if (S.vWin) vWinClose();
+        if (bpBrowsing() && typeof window.closeModal === 'function') window.closeModal('structures-modal');
         const m = document.getElementById('inventory-modal');
         if (m && m.style.display === 'block' && typeof toggleInventory === 'function') { try { toggleInventory(); } catch (e) { m.style.display = 'none'; } }
         ['sign-editor-modal', 'command-book-modal'].forEach(function (id) { const e = document.getElementById(id); if (e) e.style.display = 'none'; });

@@ -393,6 +393,7 @@ function openStructuresModal() {
 
 const originalCloseModal = window.closeModal;
 window.closeModal = function(modalId) {
+    if (modalId === 'structures-modal' && window.mbwPlay && typeof window.mbwPlay.buildBrowseClosed === 'function') window.mbwPlay.buildBrowseClosed();   // 🏗
     if (modalId === 'structures-modal' || modalId === 'save-structure-modal' || modalId === 'edit-info-modal' || modalId === 'custom-confirm-modal') {
         if ((modalId === 'edit-info-modal' || modalId === 'custom-confirm-modal') && 
             document.getElementById('structures-modal').style.display === 'flex') {
@@ -983,6 +984,8 @@ function renderOvenContents(struct) {
 // --- CARGAR / BORRAR / EDITAR ---
 function loadStructureToClipboard() {
     if (!selectedStructure) return;
+    // 🏗 (modo jugar, mod Build This) no se pega: se elige dónde va el plano fantasma
+    if (document.body.classList.contains('mbw-bp-browse') && window.mbwPlay && typeof window.mbwPlay.buildPick === 'function') { window.mbwPlay.buildPick(selectedStructure); return; }
     loadSpecificStructure(selectedStructure);
     closeModal('structures-modal'); 
 }

@@ -2024,6 +2024,21 @@ if (canvasElement) {
     }, { passive: false });
 }
 
+// 🧩 el menú de Mods (al lado de Addons): lo pinta scripts/play-menu.js (window.mbwEditorMods)
+window.toggleModsMenu = function() {
+    const menu = document.getElementById('mods-dropdown');
+    const container = document.getElementById('mods-dropdown-container');
+    if (!menu || !container) return;
+    const btn = container.querySelector('.tab-btn');
+    menu.classList.toggle('show');
+    btn.classList.toggle('active', menu.classList.contains('show'));
+    if (menu.classList.contains('show') && typeof window.mbwEditorMods === 'function') window.mbwEditorMods(menu);
+};
+window.addEventListener('click', function(e) {
+    const c = document.getElementById('mods-dropdown-container'), m = document.getElementById('mods-dropdown');
+    if (c && m && m.classList.contains('show') && !c.contains(e.target)) { m.classList.remove('show'); const b = c.querySelector('.tab-btn'); if (b) b.classList.remove('active'); }
+});
+
 window.toggleAddonsMenu = function() {
     const menu = document.getElementById('addons-dropdown');
     const container = document.getElementById('addons-dropdown-container');
